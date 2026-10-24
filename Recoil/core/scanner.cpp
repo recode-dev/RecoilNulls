@@ -1169,7 +1169,7 @@ namespace
 
     static void projectile_listener_iface_init(gpointer g_iface, gpointer);
 
-    static void projectile_listener_init(ProjectileListener *)
+    static void projectile_listener_init(ProjectileListener *self)
     {
         self->mode = HOOK_MODE_CTOR;
     }
@@ -1178,7 +1178,7 @@ namespace
     {
     }
 
-    static void projectile_listener_on_enter(GumInvocationListener *, GumInvocationContext *context)
+    static void projectile_listener_on_enter(GumInvocationListener *listener, GumInvocationContext *context)
     {
         ProjectileListener *self = reinterpret_cast<ProjectileListener *>(listener);
 
@@ -1195,7 +1195,7 @@ namespace
         scanner::removeProjectile((uintptr_t)gum_invocation_context_get_nth_argument(context, 0));
     }
 
-    static void projectile_listener_on_leave(GumInvocationListener *, GumInvocationContext *context)
+    static void projectile_listener_on_leave(GumInvocationListener *listener, GumInvocationContext *context)
     {
         ProjectileListener *self = reinterpret_cast<ProjectileListener *>(listener);
         if (self->mode != HOOK_MODE_CTOR) return;
