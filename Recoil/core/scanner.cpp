@@ -908,7 +908,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
         if (functions::LogicCharacterData_getCollisionRadius != nullptr)
         {
             const uint32_t radius = functions::LogicCharacterData_getCollisionRadius(ownData);
-            if (radius != 0) g_data.myRadius = (int32_t)radius;
+            g_data.myRadius = radius != 0 ? (int32_t)radius : 60;
         }
         if (functions::LogicCharacterData_getSpeed != nullptr)
         {
