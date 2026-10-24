@@ -1,15 +1,46 @@
 #include <cstdint>
 #include <cstddef>
+#include <type_traits>
+#include <mach/mach.h>
 #include "offsets.cpp"
 
 namespace
 {
     uintptr_t g_base = 0;
 
+    bool readBytes(uintptr_t address, void *out, size_t size)
+    {
+        if (address == 0 || out == nullptr || size == 0) return false;
+        vm_size_t copied = 0;
+        kern_return_t result = vm_read_overwrite(mach_task_self(),
+                                                (vm_address_t)address,
+                                                (vm_size_t)size,
+                                                (vm_address_t)out,
+                                                &copied);
+        return result == KERN_SUCCESS && copied == (vm_size_t)size;
+    }
+
     template <typename T>
     T resolve(uintptr_t offset)
     {
-        return g_base == 0 ? nullptr : reinterpret_cast<T>(g_base + offset);
+        if (g_base == 0 || offset == 0) return nullptr;
+        const uintptr_t target = g_base + offset;
+        uint32_t probe = 0;
+        if (!readBytes(target, &probe, sizeof(probe))) return nullptr;
+        return reinterpret_cast<T>(target);
+    }
+
+    template <uintptr_t Offset, typename R, typename... Args>
+    R invoke(Args... args)
+    {
+        static R (*fn)(Args...) = nullptr;
+        if (fn == nullptr) fn = resolve<R (*)(Args...)>(Offset);
+        if (fn == nullptr)
+        {
+            if constexpr (std::is_void_v<R>) return;
+            else return R{};
+        }
+        return fn(args...);
     }
 }
 
@@ -32,175 +63,146 @@ namespace functions
 
     uintptr_t BattleMode_getInstance()
     {
-        static uintptr_t (*fn)() = resolve<uintptr_t (*)()>(offsets::BattleMode_getInstance);
-        return fn != nullptr ? fn() : 0;
-    }
-
-    uintptr_t LogicBattleModeClient_getOwnCharacter(uintptr_t battleMode)
-    {
-        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicBattleModeClient_getOwnCharacter);
-        return fn != nullptr ? fn(battleMode) : 0;
-    }
-
-    uint32_t LogicBattleModeClient_getOwnPlayerTeam(uintptr_t battleMode)
-    {
-        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicBattleModeClient_getOwnPlayerTeam);
-        return fn != nullptr ? fn(battleMode) : 0;
-    }
-
-    int32_t LogicBattleModeClient__getOwnPlayerIndex(uintptr_t battleMode)
-    {
-        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicBattleModeClient__getOwnPlayerIndex);
-        return fn != nullptr ? fn(battleMode) : -1;
-    }
-
-    uintptr_t LogicBattleModeClient__getTileMap(uintptr_t battleMode)
-    {
-        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicBattleModeClient__getTileMap);
-        return fn != nullptr ? fn(battleMode) : 0;
-    }
-
-    void LogicBattleModeClient_setClientPredictionMoveTo(uintptr_t battleMode, int32_t x, int32_t y, int32_t flags)
-    {
-        static void (*fn)(uintptr_t, int32_t, int32_t, int32_t) = resolve<void (*)(uintptr_t, int32_t, int32_t, int32_t)>(offsets::LogicBattleModeClient_setClientPredictionMoveTo);
-        if (fn != nullptr) fn(battleMode, x, y, flags);
-    }
-
-    uintptr_t ClientInput_constructor_int(uintptr_t input, int32_t type)
-    {
-        static uintptr_t (*fn)(uintptr_t, int32_t) = resolve<uintptr_t (*)(uintptr_t, int32_t)>(offsets::ClientInput_constructor_int);
-        return fn != nullptr ? fn(input, type) : 0;
-    }
-
-    void ClientInputManager_addInput(uintptr_t manager, uintptr_t input)
-    {
-        static void (*fn)(uintptr_t, uintptr_t) = resolve<void (*)(uintptr_t, uintptr_t)>(offsets::ClientInputManager_addInput);
-        if (fn != nullptr) fn(manager, input);
-    }
-
-    uintptr_t operator_new(size_t size)
-    {
-        static uintptr_t (*fn)(size_t) = resolve<uintptr_t (*)(size_t)>(offsets::operator_new);
-        return fn != nullptr ? fn(size) : 0;
+        return invoke<offsets::BattleMode_getInstance, uintptr_t>();
     }
 
     int32_t LogicGameObjectClient_getX(uintptr_t object)
     {
-        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicGameObjectClient_getX);
-        return fn != nullptr ? fn(object) : 0;
+        return object != 0 ? invoke<offsets::LogicGameObjectClient_getX, int32_t>(object) : 0;
     }
 
     int32_t LogicGameObjectClient_getY(uintptr_t object)
     {
-        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicGameObjectClient_getY);
-        return fn != nullptr ? fn(object) : 0;
+        return object != 0 ? invoke<offsets::LogicGameObjectClient_getY, int32_t>(object) : 0;
     }
 
-    uintptr_t LogicGameObjectClient_getData(uintptr_t object)
+    uintptr_t LogicBattleModeClient_getOwnCharacter(uintptr_t battleMode)
     {
-        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicGameObjectClient_getData);
-        return fn != nullptr ? fn(object) : 0;
+        return battleMode != 0 ? invoke<offsets::LogicBattleModeClient_getOwnCharacter, uintptr_t>(battleMode) : 0;
+    }
+
+    void LogicBattleModeClient_setClientPredictionMoveTo(uintptr_t battleMode, int32_t x, int32_t y, int32_t flags)
+    {
+        if (battleMode != 0) invoke<offsets::LogicBattleModeClient_setClientPredictionMoveTo, void>(battleMode, x, y, flags);
+    }
+
+    uintptr_t ClientInput_constructor_int(uintptr_t input, int32_t type)
+    {
+        return input != 0 ? invoke<offsets::ClientInput_constructor_int, uintptr_t>(input, type) : 0;
+    }
+
+    void ClientInputManager_addInput(uintptr_t manager, uintptr_t input)
+    {
+        if (manager != 0 && input != 0) invoke<offsets::ClientInputManager_addInput, void>(manager, input);
     }
 
     uint32_t LogicGameObjectClient_getGlobalID(uintptr_t object)
     {
-        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicGameObjectClient_getGlobalID);
-        return fn != nullptr ? fn(object) : 0;
+        return object != 0 ? invoke<offsets::LogicGameObjectClient_getGlobalID, uint32_t>(object) : 0;
     }
 
-    int32_t LogicCharacterData_getSpeed(uintptr_t data)
+    uint32_t LogicBattleModeClient_getOwnPlayerTeam(uintptr_t battleMode)
     {
-        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicCharacterData_getSpeed);
-        return fn != nullptr ? fn(data) : 0;
+        return battleMode != 0 ? invoke<offsets::LogicBattleModeClient_getOwnPlayerTeam, uint32_t>(battleMode) : 0;
     }
 
-    uint32_t LogicCharacterData_getCollisionRadius(uintptr_t data)
+    int32_t LogicBattleModeClient_getOwnPlayerIndex(uintptr_t battleMode)
     {
-        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicCharacterData_getCollisionRadius);
-        return fn != nullptr ? fn(data) : 0;
+        return battleMode != 0 ? invoke<offsets::LogicBattleModeClient__getOwnPlayerIndex, int32_t>(battleMode) : -1;
     }
 
-    uintptr_t LogicCharacterClient__getWeaponSkill(uintptr_t character)
+    uintptr_t LogicGameObjectClient_getData(uintptr_t object)
     {
-        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicCharacterClient__getWeaponSkill);
-        return fn != nullptr ? fn(character) : 0;
-    }
-
-    uintptr_t LogicCharacterClient__getSkillAt(uintptr_t character, int32_t slot)
-    {
-        static uintptr_t (*fn)(uintptr_t, int32_t) = resolve<uintptr_t (*)(uintptr_t, int32_t)>(offsets::LogicCharacterClient__getSkillAt);
-        return fn != nullptr ? fn(character, slot) : 0;
-    }
-
-    uintptr_t LogicSkillClient__getData(uintptr_t skill, int32_t hyper)
-    {
-        static uintptr_t (*fn)(uintptr_t, int32_t) = resolve<uintptr_t (*)(uintptr_t, int32_t)>(offsets::LogicSkillClient__getData);
-        return fn != nullptr ? fn(skill, hyper) : 0;
-    }
-
-    int32_t LogicSkillData__getCastingRange(uintptr_t skillData)
-    {
-        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicSkillData__getCastingRange);
-        return fn != nullptr ? fn(skillData) : 0;
-    }
-
-    uintptr_t LogicSkillData__getProjectileData(uintptr_t skillData, int32_t index)
-    {
-        static uintptr_t (*fn)(uintptr_t, int32_t) = resolve<uintptr_t (*)(uintptr_t, int32_t)>(offsets::LogicSkillData__getProjectileData);
-        return fn != nullptr ? fn(skillData, index) : 0;
+        return object != 0 ? invoke<offsets::LogicGameObjectClient_getData, uintptr_t>(object) : 0;
     }
 
     uint32_t LogicProjectileData_getSpeed(uintptr_t data)
     {
-        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicProjectileData_getSpeed);
-        return fn != nullptr ? fn(data) : 0;
+        return data != 0 ? invoke<offsets::LogicProjectileData_getSpeed, uint32_t>(data) : 0;
     }
 
     uint32_t LogicProjectileData_getRadius(uintptr_t data)
     {
-        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicProjectileData_getRadius);
-        return fn != nullptr ? fn(data) : 0;
+        return data != 0 ? invoke<offsets::LogicProjectileData_getRadius, uint32_t>(data) : 0;
     }
 
-    int32_t LogicProjectileData_getRendering(uintptr_t data)
+    uintptr_t LogicProjectileData_getSpawnAreaEffect(uintptr_t data)
     {
-        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicProjectileData_getRendering);
-        return fn != nullptr ? fn(data) : 0;
-    }
-
-    uintptr_t LogicProjectileData__getSpawnAreaEffect(uintptr_t data)
-    {
-        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicProjectileData__getSpawnAreaEffect);
-        return fn != nullptr ? fn(data) : 0;
+        return data != 0 ? invoke<offsets::LogicProjectileData__getSpawnAreaEffect, uintptr_t>(data) : 0;
     }
 
     uint32_t LogicProjectileData_getNumEarlyTicks(uintptr_t data)
     {
-        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicProjectileData_getNumEarlyTicks);
-        return fn != nullptr ? fn(data) : 0;
+        return data != 0 ? invoke<offsets::LogicProjectileData_getNumEarlyTicks, uint32_t>(data) : 0;
     }
 
     uint32_t LogicProjectileData_isBeam(uintptr_t data)
     {
-        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicProjectileData_isBeam);
-        return fn != nullptr ? fn(data) : 0;
+        return data != 0 ? invoke<offsets::LogicProjectileData_isBeam, uint32_t>(data) : 0;
     }
 
-    int32_t AreaEffectData__getRadius(uintptr_t data)
+    int32_t AreaEffectData_getRadius(uintptr_t data)
     {
-        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::AreaEffectData__getRadius);
-        return fn != nullptr ? fn(data) : 0;
+        return data != 0 ? invoke<offsets::AreaEffectData__getRadius, int32_t>(data) : 0;
     }
 
-    int32_t AreaEffectData__getActiveTimeMs(uintptr_t data)
+    int32_t AreaEffectData_getActiveTimeMs(uintptr_t data)
     {
-        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::AreaEffectData__getActiveTimeMs);
-        return fn != nullptr ? fn(data) : 0;
+        return data != 0 ? invoke<offsets::AreaEffectData__getActiveTimeMs, int32_t>(data) : 0;
+    }
+
+    int32_t LogicProjectileData_getRendering(uintptr_t data)
+    {
+        return data != 0 ? invoke<offsets::LogicProjectileData_getRendering, int32_t>(data) : 0;
+    }
+
+    int32_t LogicCharacterData_getSpeed(uintptr_t data)
+    {
+        return data != 0 ? invoke<offsets::LogicCharacterData_getSpeed, int32_t>(data) : 0;
+    }
+
+    uint32_t LogicCharacterData_getCollisionRadius(uintptr_t data)
+    {
+        return data != 0 ? invoke<offsets::LogicCharacterData_getCollisionRadius, uint32_t>(data) : 0;
+    }
+
+    uintptr_t LogicBattleModeClient_getTileMap(uintptr_t battleMode)
+    {
+        return battleMode != 0 ? invoke<offsets::LogicBattleModeClient__getTileMap, uintptr_t>(battleMode) : 0;
+    }
+
+    uintptr_t LogicCharacterClient_getWeaponSkill(uintptr_t character)
+    {
+        return character != 0 ? invoke<offsets::LogicCharacterClient__getWeaponSkill, uintptr_t>(character) : 0;
+    }
+
+    int32_t LogicSkillData_getCastingRange(uintptr_t skillData)
+    {
+        return skillData != 0 ? invoke<offsets::LogicSkillData__getCastingRange, int32_t>(skillData) : 0;
+    }
+
+    uintptr_t LogicSkillData_getProjectileData(uintptr_t skillData, int32_t index)
+    {
+        return skillData != 0 ? invoke<offsets::LogicSkillData__getProjectileData, uintptr_t>(skillData, index) : 0;
+    }
+
+    uintptr_t LogicSkillClient_getData(uintptr_t skill, int32_t hyper)
+    {
+        return skill != 0 ? invoke<offsets::LogicSkillClient__getData, uintptr_t>(skill, hyper) : 0;
     }
 
     uintptr_t LogicData_getName(uintptr_t data)
     {
-        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicData_getName);
-        return fn != nullptr ? fn(data) : 0;
+        return data != 0 ? invoke<offsets::LogicData_getName, uintptr_t>(data) : 0;
+    }
+
+    uintptr_t LogicCharacterClient_getSkillAt(uintptr_t character, int32_t slot)
+    {
+        return character != 0 ? invoke<offsets::LogicCharacterClient__getSkillAt, uintptr_t>(character, slot) : 0;
+    }
+
+    uintptr_t operator_new(size_t size)
+    {
+        return size != 0 ? invoke<offsets::operator_new, uintptr_t>(size) : 0;
     }
 }
