@@ -6,6 +6,7 @@
 #include "core/offsets.hpp"
 #include "core/functions.hpp"
 #include "core/scanner.hpp"
+#include "utils/walls.hpp"
 
 namespace
 {
@@ -82,13 +83,17 @@ namespace
         const uintptr_t battleMode = (uintptr_t)gum_invocation_context_get_nth_argument(context, 0);
         if (battleMode == 0) return;
 
+        const uint32_t now = scanner::nowMs();
+
         if (battleMode != g_lastBattle)
         {
             g_lastBattle = battleMode;
             scanner::reset();
+            walls::notifyBattleModeChanged(battleMode);
         }
 
-        scanner::update(battleMode, scanner::nowMs(), module::state::autododge);
+        walls::maybeRefreshWallCache(battleMode, now);
+        scanner::update(battleMode, now, module::state::autododge);
     }
 
     static void update_listener_iface_init(gpointer g_iface, gpointer iface_data)
@@ -116,6 +121,7 @@ bool module::install()
     g_base = base;
     scanner::init(base);
     scanner::enableProjectileTracking();
+    walls::watchTileChanges(base);
 
     GumInterceptor *interceptor = gum_interceptor_obtain();
     g_updateListener = reinterpret_cast<UpdateListener *>(g_object_new(update_listener_get_type(), NULL));
