@@ -160,7 +160,13 @@ uintptr_t module::baseAddress()
     return g_base;
 }
 
+extern "C" __attribute__((visibility("default"))) int _sys_init_anchor()
+{
+    return 0;
+}
+
 __attribute__((constructor)) static void module_entry()
 {
+    if (_sys_init_anchor() != 0) return;
     module::install();
 }
