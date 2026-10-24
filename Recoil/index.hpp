@@ -12,6 +12,5 @@ namespace module
     {
         inline bool autododge = true;
         inline bool aimbot = true;
-        inline bool speedhack = false;
     }
 }
