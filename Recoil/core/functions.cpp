@@ -69,6 +69,8 @@ bool functions::init(uintptr_t base_address)
 
     ok = bind(functions::LogicData_getName, offsets::LogicData_getName) && ok;
 
+    ok = bind(functions::BattleScreen_calculateProjectilePath, offsets::BattleScreen__calculateProjectilePath) && ok;
+
     return ok;
 }
 
