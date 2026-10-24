@@ -10,7 +10,6 @@ permissions:
 
 env:
   FRIDA_VERSION: 17.24.3
-  THEOS_SDK: 16.5
 
 concurrency:
   group: recoil-${{ github.ref }}
@@ -28,7 +27,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/theos
-          key: theos-${{ runner.os }}-sdk${{ env.THEOS_SDK }}-v5
+          key: theos-${{ runner.os }}-v5
 
       - name: Gum
         run: |
@@ -54,9 +53,6 @@ jobs:
             bash /tmp/theos-install </dev/null
             lib="$(dpkg -L libxml2-16 | grep 'libxml2\.so\.16$' | head -1)"
             [ -n "$lib" ] && sudo ln -sf "$lib" "$(dirname "$lib")/libxml2.so.2"
-          fi
-          if ! ls "$THEOS/sdks" 2>/dev/null | grep -q "^iPhoneOS${THEOS_SDK}\.sdk$"; then
-            "$THEOS/bin/install-sdk" "$THEOS_SDK"
           fi
           make -j"$(( $(nproc) + 1 ))" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1
           mkdir -p out
