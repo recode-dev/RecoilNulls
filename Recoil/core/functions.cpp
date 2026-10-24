@@ -2,7 +2,9 @@
 #include <cstddef>
 #include <type_traits>
 #include <mach/mach.h>
-#include "offsets.cpp"
+
+#include "offsets.hpp"
+#include "functions.hpp"
 
 namespace
 {
