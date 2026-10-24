@@ -104,9 +104,18 @@ jobs:
               assert len(old) == len(new), old
               data[start:start + size] = data[start:start + size].replace(old, new)
 
-          open(path, "wb").write(data)
           blob = bytes(data)
-          for needle in (b"frida", b"Frida", b"gum-", b"FRIDA_"):
+          spill = [
+              (b"__FRIDA_DATA", b"__DATA_NOSIG"),
+              (b"Recoil.dylib", b"libsys.dylib"),
+              (b"Recoil", b"libsys"),
+          ]
+          for old, new in spill:
+              assert len(old) == len(new), old
+              blob = blob.replace(old, new)
+
+          open(path, "wb").write(blob)
+          for needle in (b"frida", b"Frida", b"FRIDA", b"gum", b"Recoil", b"recoil"):
               print(needle.decode(), blob.count(needle))
           PY
 
