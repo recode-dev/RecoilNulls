@@ -142,7 +142,7 @@ bool module::install()
     const GumAttachReturn attachResult = gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(base + offsets::LogicBattleModeClient_update),
         GUM_INVOCATION_LISTENER(g_updateListener),
-        NULL);
+        NULL, GUM_ATTACH_FLAGS_NONE);
 
     if (attachResult != GUM_ATTACH_OK) return false;
 
