@@ -1,6 +1,6 @@
 #include <cstdint>
 #include <cstddef>
-#include <mach/mach.h>
+#include <frida-gum.h>
 
 #include "offsets.hpp"
 #include "functions.hpp"
@@ -12,13 +12,7 @@ namespace
     bool readBytes(uintptr_t address, void *out, size_t size)
     {
         if (address == 0 || out == nullptr || size == 0) return false;
-        vm_size_t copied = 0;
-        kern_return_t result = vm_read_overwrite(mach_task_self(),
-                                                (vm_address_t)address,
-                                                (vm_size_t)size,
-                                                (vm_address_t)out,
-                                                &copied);
-        return result == KERN_SUCCESS && copied == (vm_size_t)size;
+        return gum_memory_read((GumAddress)address, out, (gsize)size);
     }
 
     template <typename T>
