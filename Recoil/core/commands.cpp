@@ -1,7 +1,6 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <functional>
 #include <mach/mach.h>
 
 #include "offsets.hpp"
@@ -27,11 +26,6 @@ namespace
                                                 (vm_address_t)out,
                                                 &copied);
         return result == KERN_SUCCESS && copied == (vm_size_t)size;
-    }
-
-    bool readU8(uintptr_t address, uint8_t &out)
-    {
-        return readBytes(address, &out, sizeof(out));
     }
 
     bool readU32(uintptr_t address, uint32_t &out)
@@ -119,24 +113,21 @@ namespace
     {
         if (ci == 0 || battle == 0) return 0;
 
-        uint8_t enabled = 0;
-        if (!readU8(battle + offsets::BattleMode_hashEnabled, enabled)) return 0;
-        if (enabled == 0) return 0;
+        uint8_t state[MASK_SIZE + 1];
+        if (!readBytes(battle + offsets::BattleMode_hashKey, state, sizeof(state))) return 0;
+        if (state[MASK_SIZE] == 0) return 0;
         if (!loadSigningConstants()) return 0;
 
-        uint8_t key16[16];
-        if (!readBytes(battle + offsets::BattleMode_hashKey, key16, sizeof(key16))) return 0;
-
         uint8_t cmdData16[16];
-        if (!readBytes(ci + 4, cmdData16, sizeof(cmdData16))) return 0;
+        memcpy(cmdData16, (const void *)(ci + 4), sizeof(cmdData16));
 
-        const uint32_t token = computeToken(key16, cmdData16);
+        const uint32_t token = computeToken(state, cmdData16);
         memcpy((void *)(ci + CLIENT_INPUT_TOKEN), &token, sizeof(token));
         return token;
     }
 }
 
-bool sendCommand(int32_t cmdType, const std::function<void(uintptr_t, uintptr_t)> &fill)
+bool sendCommand(int32_t cmdType, void (*fill)(uintptr_t, uintptr_t, void *), void *ctx)
 {
     const uintptr_t battle = functions::BattleMode_getInstance();
     if (battle == 0) return false;
@@ -150,7 +141,7 @@ bool sendCommand(int32_t cmdType, const std::function<void(uintptr_t, uintptr_t)
 
     memset((void *)ci, 0, CMD_BUF_SIZE);
     functions::ClientInput_constructor_int(ci, cmdType);
-    if (fill) fill(ci, battle);
+    if (fill != nullptr) fill(ci, battle, ctx);
     signClientInput(ci, battle);
     functions::ClientInputManager_addInput(manager, ci);
     return true;
