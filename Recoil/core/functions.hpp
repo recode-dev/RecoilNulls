@@ -45,4 +45,6 @@ namespace functions
     inline int32_t (*AreaEffectData_getActiveTimeMs)(uintptr_t) = nullptr;
 
     inline uintptr_t (*LogicData_getName)(uintptr_t) = nullptr;
+
+    inline void (*BattleScreen_calculateProjectilePath)(void *, void *, void *, void *, int32_t, float, float, float, float, float, float) = nullptr;
 }
