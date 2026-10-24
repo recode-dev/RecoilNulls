@@ -27,7 +27,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/theos
-          key: theos-${{ runner.os }}-v5
+          key: theos-${{ runner.os }}-v6
 
       - name: Gum
         run: |
