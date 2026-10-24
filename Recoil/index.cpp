@@ -8,6 +8,7 @@
 #include "core/scanner.hpp"
 #include "utils/walls.hpp"
 #include "features/autododge.hpp"
+#include "features/aimbot.hpp"
 
 namespace
 {
@@ -90,12 +91,15 @@ namespace
         {
             g_lastBattle = battleMode;
             scanner::reset();
+            autododge::reset();
+            aimbot::resetAimbot();
             walls::notifyBattleModeChanged(battleMode);
         }
 
         walls::maybeRefreshWallCache(battleMode, now);
         scanner::update(battleMode, now, module::state::autododge);
         if (module::state::autododge) autododge::update(now);
+        aimbot::updateAimbot(module::state::aimbot);
     }
 
     static void update_listener_iface_init(gpointer g_iface, gpointer iface_data)
@@ -124,6 +128,8 @@ bool module::install()
     scanner::init(base);
     scanner::enableProjectileTracking();
     walls::watchTileChanges(base);
+    autododge::setup();
+    aimbot::setupAimbot(base);
 
     GumInterceptor *interceptor = gum_interceptor_obtain();
     g_updateListener = reinterpret_cast<UpdateListener *>(g_object_new(update_listener_get_type(), NULL));
