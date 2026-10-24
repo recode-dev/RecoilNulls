@@ -173,8 +173,18 @@ namespace
         char raw[64];
         if (readScStringInto(namePtr, raw, sizeof(raw)) == 0) return false;
 
-        const char *src = raw;
-        if (strncmp(raw, "hero_icon_", 10) == 0) src = raw + 10;
+        constexpr uint8_t PREFIX[10] = {0x32, 0x3f, 0x28, 0x35, 0x05, 0x33, 0x39, 0x35, 0x34, 0x05};
+        bool hasPrefix = true;
+        for (size_t i = 0; i < 10; i++)
+        {
+            if (raw[i] == 0 || (uint8_t)raw[i] != (uint8_t)(PREFIX[i] ^ 0x5a))
+            {
+                hasPrefix = false;
+                break;
+            }
+        }
+
+        const char *src = hasPrefix ? raw + 10 : raw;
         copyName(src, out);
         return out[0] != 0;
     }

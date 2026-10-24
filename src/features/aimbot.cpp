@@ -106,8 +106,16 @@ namespace
 
     bool isSkipped(const char *name)
     {
+        constexpr uint8_t TAG[4] = {0x18, 0x1b, 0x16, 0x16};
         if (name == nullptr || name[0] == 0) return true;
-        return strstr(name, "BALL") != nullptr;
+
+        for (const char *p = name; *p != 0; p++)
+        {
+            size_t i = 0;
+            while (p[i] != 0 && i < 4 && (uint8_t)p[i] == (uint8_t)(TAG[i] ^ 0x5a)) i++;
+            if (i == 4) return true;
+        }
+        return false;
     }
 
     int32_t roundToInt(float value)

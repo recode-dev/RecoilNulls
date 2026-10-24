@@ -1,5 +1,6 @@
 .theos/
 packages/
 out/
-Recoil/vendor/
+vendor/
+build.log
 .DS_Store

@@ -41,7 +41,6 @@ jobs:
           curl -fsSL -o /tmp/gum.tar.xz \
             "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-gum-devkit-${FRIDA_VERSION}-ios-arm64.tar.xz"
           tar -xJf /tmp/gum.tar.xz -C "$dir"
-          ls -la "$dir"
 
       - name: Build
         run: |
@@ -54,12 +53,22 @@ jobs:
             lib="$(dpkg -L libxml2-16 | grep 'libxml2\.so\.16$' | head -1)"
             [ -n "$lib" ] && sudo ln -sf "$lib" "$(dirname "$lib")/libxml2.so.2"
           fi
-          make -j"$(( $(nproc) + 1 ))" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1
+          set +e
+          make -j"$(( $(nproc) + 1 ))" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1 > build.log 2>&1
+          status=$?
+          set -e
+          cat build.log
+          if [ "$status" -ne 0 ]; then
+            grep -E "(error|fatal error|undefined):" build.log | head -40 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit "$status"
+          fi
           mkdir -p out
           dylib="$(find .theos -name Recoil.dylib ! -path '*dSYM*' | head -1)"
-          [ -n "$dylib" ] || { echo "Recoil.dylib not found"; exit 1; }
+          [ -n "$dylib" ] || { echo "::error::Recoil.dylib not found"; exit 1; }
           cp "$dylib" out/Recoil.dylib
-          strip -x out/Recoil.dylib 2>/dev/null || true
+          ls -l out/Recoil.dylib
 
       - name: Artifact
         uses: actions/upload-artifact@v7
