@@ -3,12 +3,13 @@
 #include <string>
 #include <optional>
 #include <mach/mach.h>
-#include "offsets.cpp"
+
+#include "offsets.hpp"
+#include "scstring.hpp"
 
 namespace
 {
     constexpr int32_t INLINE_MAX_LENGTH = 7;
-    constexpr size_t DEFAULT_MAX_LENGTH = 256;
 
     bool readBytes(uintptr_t address, void *out, size_t size)
     {
@@ -33,7 +34,7 @@ namespace
     }
 }
 
-std::optional<std::string> readScString(uintptr_t value, size_t maxLength = DEFAULT_MAX_LENGTH)
+std::optional<std::string> readScString(uintptr_t value, size_t maxLength)
 {
     if (value == 0) return std::nullopt;
 
