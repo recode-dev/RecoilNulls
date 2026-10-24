@@ -182,7 +182,7 @@ void walls::watchTileChanges(uintptr_t baseAddress)
     const GumAttachReturn attachResult = gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(baseAddress + offsets::LogicTile__setData),
         GUM_INVOCATION_LISTENER(listener),
-        NULL);
+        NULL, GUM_ATTACH_FLAGS_NONE);
 
     g_watchInstalled = attachResult == GUM_ATTACH_OK;
 }
