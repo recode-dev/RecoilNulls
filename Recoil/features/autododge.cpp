@@ -327,7 +327,7 @@ namespace
         return value;
     }
 
-    void writeMoveInput(uintptr_t clientInput, uintptr_t battle, void *ctx)
+    void writeMoveInput(uintptr_t clientInput, uintptr_t, void *ctx)
     {
         const MoveInput *input = static_cast<const MoveInput *>(ctx);
         *(int32_t *)(clientInput + offsets::ClientInput_x) = input->x;
