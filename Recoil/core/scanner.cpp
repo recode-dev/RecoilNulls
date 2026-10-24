@@ -104,6 +104,8 @@ namespace
     size_t g_enemyTeamCount = 0;
 
     LiveProjectile g_live[MAX_LIVE];
+    Teammate g_teammates[MAX_TEAMMATES];
+    Enemy g_enemies[MAX_ENEMIES];
 
     Destroyed g_destroyedBuf[MAX_DESTROYED];
     int32_t g_destroyedCount = 0;
@@ -952,8 +954,8 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
     if (wentDead) markDead(nowMs);
     else markAlive(nowMs);
 
-    g_data.teammateCount = 0;
-    g_data.enemyCount = 0;
+    int32_t teammateCount = 0;
+    int32_t enemyCount = 0;
 
     const uintptr_t projectileVtable = g_base + offsets::Vtable_projectileData;
 
@@ -1009,7 +1011,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
                         addFriendlyIndex(index);
                         setIndexTeam(index, team);
                     }
-                    if (index >= 0 && index != g_data.myPlayerIndex && g_data.teammateCount < MAX_TEAMMATES)
+                    if (index >= 0 && index != g_data.myPlayerIndex && teammateCount < MAX_TEAMMATES)
                     {
                         const uintptr_t teammateBody = bodyOf(object);
                         int32_t radius = 0;
@@ -1019,7 +1021,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
                         }
                         if (radius > 0 && radius <= 400)
                         {
-                            Teammate &slot = g_data.teammates[g_data.teammateCount++];
+                            Teammate &slot = g_teammates[teammateCount++];
                             slot.playerIndex = index;
                             slot.x = functions::LogicGameObjectClient_getX != nullptr
                                 ? functions::LogicGameObjectClient_getX(teammateBody) : 0;
@@ -1035,7 +1037,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
                 uint32_t objectHp = 0;
                 if (!readU32(object + offsets::GameObj_hp, objectHp) || objectHp == 0) continue;
 
-                if (g_data.enemyCount >= MAX_ENEMIES) continue;
+                if (enemyCount >= MAX_ENEMIES) continue;
 
                 const uint32_t gid = functions::LogicGameObjectClient_getGlobalID != nullptr
                     ? functions::LogicGameObjectClient_getGlobalID(object)
@@ -1082,7 +1084,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 
                 const uintptr_t body = bodyOf(object);
 
-                Enemy &enemy = g_data.enemies[g_data.enemyCount++];
+                Enemy &enemy = g_enemies[enemyCount++];
                 enemy.gid = gid;
                 enemy.ptr = object;
                 enemy.body = body;
@@ -1101,6 +1103,12 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
             }
         }
     }
+
+    g_data.teammateCount = teammateCount;
+    if (teammateCount > 0) memcpy(g_data.teammates, g_teammates, (size_t)teammateCount * sizeof(Teammate));
+
+    g_data.enemyCount = enemyCount;
+    if (enemyCount > 0) memcpy(g_data.enemies, g_enemies, (size_t)enemyCount * sizeof(Enemy));
 
     g_scanCount++;
     if ((g_scanCount & 63) == 0)
