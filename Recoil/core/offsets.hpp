@@ -73,7 +73,6 @@ namespace offsets
     inline constexpr uintptr_t ClientInputManager_addInput                      = 0x74675c;
 
     inline constexpr uintptr_t ScString_length                                  = 0x4;
-    inline constexpr uintptr_t ScString_data                                    = 0x8;
 
     inline constexpr uintptr_t LogicBattleModeClient_update                     = 0xac1ee8;
     inline constexpr uintptr_t LogicBattleModeClient_getOwnCharacter            = 0xac3934;
