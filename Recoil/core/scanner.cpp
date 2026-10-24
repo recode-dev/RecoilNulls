@@ -123,7 +123,9 @@ namespace
     bool readBytes(uintptr_t address, void *out, size_t size)
     {
         if (address == 0 || out == nullptr || size == 0) return false;
-        return gum_memory_read((GumAddress)address, out, (gsize)size);
+        if (!gum_memory_is_readable((gconstpointer)address, (gsize)size)) return false;
+        memcpy(out, (const void *)address, size);
+        return true;
     }
 
     bool readPtr(uintptr_t address, uintptr_t &out)
@@ -1165,18 +1167,18 @@ namespace
         GObjectClass parent_class;
     };
 
-    static void projectile_listener_iface_init(gpointer g_iface, gpointer iface_data);
+    static void projectile_listener_iface_init(gpointer g_iface, gpointer);
 
-    static void projectile_listener_init(ProjectileListener *self)
+    static void projectile_listener_init(ProjectileListener *)
     {
         self->mode = HOOK_MODE_CTOR;
     }
 
-    static void projectile_listener_class_init(ProjectileListenerClass *klass)
+    static void projectile_listener_class_init(ProjectileListenerClass *)
     {
     }
 
-    static void projectile_listener_on_enter(GumInvocationListener *listener, GumInvocationContext *context)
+    static void projectile_listener_on_enter(GumInvocationListener *, GumInvocationContext *context)
     {
         ProjectileListener *self = reinterpret_cast<ProjectileListener *>(listener);
 
@@ -1193,7 +1195,7 @@ namespace
         scanner::removeProjectile((uintptr_t)gum_invocation_context_get_nth_argument(context, 0));
     }
 
-    static void projectile_listener_on_leave(GumInvocationListener *listener, GumInvocationContext *context)
+    static void projectile_listener_on_leave(GumInvocationListener *, GumInvocationContext *context)
     {
         ProjectileListener *self = reinterpret_cast<ProjectileListener *>(listener);
         if (self->mode != HOOK_MODE_CTOR) return;
@@ -1205,7 +1207,7 @@ namespace
         scanner::captureProjectile(stash[0], stash[1], 0, false, scanner::nowMs());
     }
 
-    static void projectile_listener_iface_init(gpointer g_iface, gpointer iface_data)
+    static void projectile_listener_iface_init(gpointer g_iface, gpointer)
     {
         GumInvocationListenerInterface *iface = static_cast<GumInvocationListenerInterface *>(g_iface);
         iface->on_enter = projectile_listener_on_enter;
@@ -1217,8 +1219,6 @@ namespace
 
     ProjectileListener *g_ctorListener = nullptr;
     ProjectileListener *g_destructListener = nullptr;
-    GumAttachment *g_ctorAttachment = nullptr;
-    GumAttachment *g_destructAttachment = nullptr;
     bool g_hooksInstalled = false;
 }
 
@@ -1233,14 +1233,14 @@ void scanner::enableProjectileTracking()
 
     g_ctorListener = reinterpret_cast<ProjectileListener *>(g_object_new(projectile_listener_get_type(), NULL));
     g_ctorListener->mode = HOOK_MODE_CTOR;
-    g_ctorAttachment = gum_interceptor_attach(interceptor,
+    (void)gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(g_base + offsets::LogicProjectileClient_ctor),
         GUM_INVOCATION_LISTENER(g_ctorListener),
         NULL);
 
     g_destructListener = reinterpret_cast<ProjectileListener *>(g_object_new(projectile_listener_get_type(), NULL));
     g_destructListener->mode = HOOK_MODE_DESTRUCT;
-    g_destructAttachment = gum_interceptor_attach(interceptor,
+    (void)gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(g_base + offsets::LogicProjectileClient_destruct),
         GUM_INVOCATION_LISTENER(g_destructListener),
         NULL);
