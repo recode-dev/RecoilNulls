@@ -32,7 +32,7 @@ jobs:
       - name: Gum
         run: |
           set -euo pipefail
-          dir="Recoil/vendor/frida-gum"
+          dir="vendor/frida-gum"
           if [ -f "$dir/frida-gum.h" ] || [ -f "$dir/include/frida-gum.h" ]; then
             echo "using committed devkit"
             exit 0
@@ -59,6 +59,7 @@ jobs:
           dylib="$(find .theos -name Recoil.dylib ! -path '*dSYM*' | head -1)"
           [ -n "$dylib" ] || { echo "Recoil.dylib not found"; exit 1; }
           cp "$dylib" out/Recoil.dylib
+          strip -x out/Recoil.dylib 2>/dev/null || true
 
       - name: Artifact
         uses: actions/upload-artifact@v7

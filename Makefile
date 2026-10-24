@@ -1,43 +1,25 @@
 TARGET := iphone:clang:latest:15.0
 ARCHS := arm64
 
-FRIDA_VERSION ?= 17.24.3
-
-RECOIL_HOOK_DIR := Recoil/recoil_hook
-RECOIL_GUM_DIR := Recoil/vendor/frida-gum
-RECOIL_GUM_INC := $(firstword $(wildcard $(RECOIL_GUM_DIR)/include $(RECOIL_GUM_DIR)))
-RECOIL_GUM_LIB := $(firstword $(wildcard $(RECOIL_GUM_DIR)/lib $(RECOIL_GUM_DIR)))
-
-ifeq ($(strip $(RECOIL_GUM_INC)),)
-RECOIL_GUM_INC := $(RECOIL_GUM_DIR)/include
-endif
-
-ifeq ($(strip $(RECOIL_GUM_LIB)),)
-RECOIL_GUM_LIB := $(RECOIL_GUM_DIR)/lib
-endif
+SRC_DIR := src
+RECOIL_GUM_DIR := vendor/frida-gum
 
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME := Recoil
 
-Recoil_FILES := $(shell find Recoil -name "*.cpp" | sort)
-Recoil_FILES += $(shell find $(RECOIL_HOOK_DIR) -name "*.c" -o -name "*.mm" 2>/dev/null | sort)
+Recoil_FILES := $(shell find $(SRC_DIR) -name "*.cpp" | sort)
 
-RECOIL_INCLUDE_FLAGS := -IRecoil -I$(RECOIL_HOOK_DIR) -I$(RECOIL_GUM_INC)
+RECOIL_INCLUDE_FLAGS := -I$(SRC_DIR) -I$(RECOIL_GUM_DIR)/include
 RECOIL_WARNING_FLAGS := -Wall -Wextra
+RECOIL_HARDEN_FLAGS := -Os -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections -fomit-frame-pointer -fno-ident -fno-asynchronous-unwind-tables
+RECOIL_LINK_HARDEN := -Wl,-dead_strip -Wl,-x -Wl,-S
 
 Recoil_CFLAGS := $(RECOIL_WARNING_FLAGS) $(RECOIL_INCLUDE_FLAGS)
-Recoil_CCFLAGS := -std=c++17 $(RECOIL_WARNING_FLAGS) $(RECOIL_INCLUDE_FLAGS)
-Recoil_OBJCFLAGS := -fobjc-arc -std=c++17 $(RECOIL_WARNING_FLAGS) $(RECOIL_INCLUDE_FLAGS)
-Recoil_LDFLAGS := -L$(RECOIL_GUM_LIB) -lfrida-gum -Wl,-undefined,dynamic_lookup
+Recoil_CCFLAGS := -std=c++17 -fno-exceptions -fno-rtti $(RECOIL_WARNING_FLAGS) $(RECOIL_HARDEN_FLAGS) $(RECOIL_INCLUDE_FLAGS)
+Recoil_OBJCFLAGS := -fobjc-arc -std=c++17 $(RECOIL_WARNING_FLAGS) $(RECOIL_HARDEN_FLAGS) $(RECOIL_INCLUDE_FLAGS)
+Recoil_LDFLAGS := $(RECOIL_LINK_HARDEN) -L$(RECOIL_GUM_DIR)/lib -lfrida-gum -Wl,-undefined,dynamic_lookup
 
 Recoil_FRAMEWORKS := Foundation
 
 include $(THEOS_MAKE_PATH)/tweak.mk
-
-.PHONY: vendor
-vendor:
-	@mkdir -p $(RECOIL_GUM_DIR)
-	@curl -fsSL -o /tmp/frida-gum-devkit.tar.xz https://github.com/frida/frida/releases/download/$(FRIDA_VERSION)/frida-gum-devkit-$(FRIDA_VERSION)-ios-arm64.tar.xz
-	@tar -xJf /tmp/frida-gum-devkit.tar.xz -C $(RECOIL_GUM_DIR)
-	@ls -la $(RECOIL_GUM_DIR)
