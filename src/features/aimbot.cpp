@@ -106,16 +106,8 @@ namespace
 
     bool isSkipped(const char *name)
     {
-        constexpr uint8_t TAG[4] = {0x18, 0x1b, 0x16, 0x16};
         if (name == nullptr || name[0] == 0) return true;
-
-        for (const char *p = name; *p != 0; p++)
-        {
-            size_t i = 0;
-            while (p[i] != 0 && i < 4 && (uint8_t)p[i] == (uint8_t)(TAG[i] ^ 0x5a)) i++;
-            if (i == 4) return true;
-        }
-        return false;
+        return strstr(name, "BALL") != nullptr;
     }
 
     int32_t roundToInt(float value)
@@ -624,13 +616,13 @@ void aimbot::setupAimbot(uintptr_t baseAddress)
     (void)gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(baseAddress + offsets::BattleScreen_getClosestTargetForAutoshoot),
         GUM_INVOCATION_LISTENER(targetListener),
-        NULL);
+        NULL, GUM_ATTACH_FLAGS_NONE);
 
     SkillListener *skillListener = reinterpret_cast<SkillListener *>(g_object_new(skill_listener_get_type(), NULL));
     (void)gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(baseAddress + offsets::BattleScreen_activateSkill),
         GUM_INVOCATION_LISTENER(skillListener),
-        NULL);
+        NULL, GUM_ATTACH_FLAGS_NONE);
 
     g_hooks = true;
 }
