@@ -38,19 +38,20 @@ namespace
         return false;
     }
 
-    gboolean findModuleCallback(const GumModuleDetails *details, gpointer userData)
+    gboolean findModuleCallback(GumModule *module, gpointer userData)
     {
-        if (details == nullptr || details->name == nullptr || details->range == nullptr) return TRUE;
-        if (!containsNoCase(details->name, "nulls")) return TRUE;
-        *(uintptr_t *)userData = (uintptr_t)details->range->base_address;
+        if (module == nullptr) return TRUE;
+        if (!containsNoCase(gum_module_get_name(module), "nulls")) return TRUE;
+
+        const GumMemoryRange *range = gum_module_get_range(module);
+        if (range == nullptr) return TRUE;
+
+        *(uintptr_t *)userData = (uintptr_t)range->base_address;
         return FALSE;
     }
 
     uintptr_t findBase()
     {
-        const GumAddress direct = gum_module_find_base_address("Nulls Brawl");
-        if (direct != 0) return (uintptr_t)direct;
-
         uintptr_t found = 0;
         gum_process_enumerate_modules(findModuleCallback, &found);
         return found;
@@ -73,14 +74,18 @@ namespace
 
     static void update_listener_init(UpdateListener *self)
     {
+        (void)self;
     }
 
     static void update_listener_class_init(UpdateListenerClass *klass)
     {
+        (void)klass;
     }
 
     static void update_listener_on_enter(GumInvocationListener *listener, GumInvocationContext *context)
     {
+        (void)listener;
+
         const uintptr_t battleMode = (uintptr_t)gum_invocation_context_get_nth_argument(context, 0);
         if (battleMode == 0) return;
 
@@ -103,6 +108,8 @@ namespace
 
     static void update_listener_iface_init(gpointer g_iface, gpointer iface_data)
     {
+        (void)iface_data;
+
         GumInvocationListenerInterface *iface = static_cast<GumInvocationListenerInterface *>(g_iface);
         iface->on_enter = update_listener_on_enter;
     }
