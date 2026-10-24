@@ -106,6 +106,8 @@ namespace scanner
 
     void init(uintptr_t base);
     void reset();
+    void enableProjectileTracking();
+    uint32_t nowMs();
     bool update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge);
     const ScannerData &data();
     OwnStatus ownStatus(uint32_t nowMs);
