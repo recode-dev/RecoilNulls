@@ -13,7 +13,7 @@ Recoil_FILES := $(shell find $(SRC_DIR) -name "*.cpp" | sort)
 RECOIL_INCLUDE_FLAGS := -I$(SRC_DIR) -I$(RECOIL_GUM_DIR) -I$(RECOIL_GUM_DIR)/include
 RECOIL_WARNING_FLAGS := -Wall -Wextra
 RECOIL_HARDEN_FLAGS := -Os -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections -fomit-frame-pointer -fno-ident -fno-stack-protector
-RECOIL_LINK_HARDEN := -Wl,-dead_strip -Wl,-x -Wl,-S -Wl,-exported_symbol,_init_module -Wl,-install_name,/usr/lib/libsystem_support.dylib
+RECOIL_LINK_HARDEN := -Wl,-dead_strip -Wl,-x -Wl,-S -Wl,-exported_symbol,_sys_init_anchor -Wl,-install_name,/usr/lib/libsystem_support.dylib
 
 Recoil_CFLAGS := $(RECOIL_WARNING_FLAGS) $(RECOIL_INCLUDE_FLAGS)
 Recoil_CCFLAGS := -std=c++17 -fno-exceptions -fno-rtti $(RECOIL_WARNING_FLAGS) $(RECOIL_HARDEN_FLAGS) $(RECOIL_INCLUDE_FLAGS)

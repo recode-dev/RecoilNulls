@@ -164,8 +164,3 @@ __attribute__((constructor)) static void module_entry()
 {
     module::install();
 }
-
-extern "C" __attribute__((used, visibility("default"))) int _init_module()
-{
-    return 0;
-}
