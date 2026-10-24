@@ -38,7 +38,9 @@ namespace
     bool readBytes(uintptr_t address, void *out, size_t size)
     {
         if (address == 0 || out == nullptr || size == 0) return false;
-        return gum_memory_read((GumAddress)address, out, (gsize)size);
+        if (!gum_memory_is_readable((gconstpointer)address, (gsize)size)) return false;
+        memcpy(out, (const void *)address, size);
+        return true;
     }
 
     bool readU16(uintptr_t address, uint16_t &out)
@@ -145,22 +147,22 @@ namespace
         GObjectClass parent_class;
     };
 
-    static void tile_listener_iface_init(gpointer g_iface, gpointer iface_data);
+    static void tile_listener_iface_init(gpointer g_iface, gpointer);
 
-    static void tile_listener_init(TileListener *self)
+    static void tile_listener_init(TileListener *)
     {
     }
 
-    static void tile_listener_class_init(TileListenerClass *klass)
+    static void tile_listener_class_init(TileListenerClass *)
     {
     }
 
-    static void tile_listener_on_enter(GumInvocationListener *listener, GumInvocationContext *context)
+    static void tile_listener_on_enter(GumInvocationListener *, GumInvocationContext *context)
     {
         g_needsRebuild = true;
     }
 
-    static void tile_listener_iface_init(gpointer g_iface, gpointer iface_data)
+    static void tile_listener_iface_init(gpointer g_iface, gpointer)
     {
         GumInvocationListenerInterface *iface = static_cast<GumInvocationListenerInterface *>(g_iface);
         iface->on_enter = tile_listener_on_enter;
@@ -177,12 +179,12 @@ void walls::watchTileChanges(uintptr_t baseAddress)
 
     GumInterceptor *interceptor = gum_interceptor_obtain();
     TileListener *listener = reinterpret_cast<TileListener *>(g_object_new(tile_listener_get_type(), NULL));
-    GumAttachment *attachment = gum_interceptor_attach(interceptor,
+    const GumAttachReturn attachResult = gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(baseAddress + offsets::LogicTile__setData),
         GUM_INVOCATION_LISTENER(listener),
         NULL);
 
-    g_watchInstalled = attachment != nullptr;
+    g_watchInstalled = attachResult == GUM_ATTACH_OK;
 }
 
 void walls::notifyBattleModeChanged(uintptr_t battleMode)
