@@ -1,9 +1,0 @@
-Package: com.recoil.agent
-Name: Recoil
-Version: 1.0.0
-Architecture: iphoneos-arm64
-Description: recoil agent
-Maintainer: recoil
-Author: recoil
-Section: Tweaks
-Depends: mobilesubstrate
