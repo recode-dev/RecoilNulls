@@ -10,6 +10,7 @@ permissions:
 
 env:
   FRIDA_VERSION: 17.24.3
+  THEOS_SDK: 16.5
 
 concurrency:
   group: recoil-${{ github.ref }}
@@ -27,7 +28,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/theos
-          key: theos-${{ runner.os }}-v4
+          key: theos-${{ runner.os }}-sdk${{ env.THEOS_SDK }}-v5
 
       - name: Gum
         run: |
@@ -41,6 +42,7 @@ jobs:
           curl -fsSL -o /tmp/gum.tar.xz \
             "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-gum-devkit-${FRIDA_VERSION}-ios-arm64.tar.xz"
           tar -xJf /tmp/gum.tar.xz -C "$dir"
+          ls -la "$dir"
 
       - name: Build
         run: |
@@ -53,22 +55,64 @@ jobs:
             lib="$(dpkg -L libxml2-16 | grep 'libxml2\.so\.16$' | head -1)"
             [ -n "$lib" ] && sudo ln -sf "$lib" "$(dirname "$lib")/libxml2.so.2"
           fi
-          set +e
-          make -j"$(( $(nproc) + 1 ))" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1 > build.log 2>&1
-          status=$?
-          set -e
-          cat build.log
-          if [ "$status" -ne 0 ]; then
-            grep -E "(error|fatal error|undefined):" build.log | head -40 | while IFS= read -r line; do
-              echo "::error::$line"
-            done
-            exit "$status"
+          if ! ls "$THEOS/sdks" 2>/dev/null | grep -q "^iPhoneOS${THEOS_SDK}\.sdk$"; then
+            "$THEOS/bin/install-sdk" "$THEOS_SDK"
           fi
+          make -j"$(( $(nproc) + 1 ))" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1
           mkdir -p out
           dylib="$(find .theos -name Recoil.dylib ! -path '*dSYM*' | head -1)"
-          [ -n "$dylib" ] || { echo "::error::Recoil.dylib not found"; exit 1; }
+          [ -n "$dylib" ] || { echo "Recoil.dylib not found"; exit 1; }
           cp "$dylib" out/Recoil.dylib
-          ls -l out/Recoil.dylib
+          strip -x out/Recoil.dylib 2>/dev/null || true
+
+      - name: Scrub
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import struct
+
+          path = "out/Recoil.dylib"
+          data = bytearray(open(path, "rb").read())
+          ncmds = struct.unpack_from("<I", data, 16)[0]
+          off = 32
+          cstring = None
+          for _ in range(ncmds):
+              cmd, cmdsize = struct.unpack_from("<II", data, off)
+              if cmd == 0x19:
+                  nsects = struct.unpack_from("<I", data, off + 64)[0]
+                  so = off + 72
+                  for _ in range(nsects):
+                      sect = bytes(data[so:so + 16]).rstrip(b"\0")
+                      if sect == b"__cstring":
+                          size = struct.unpack_from("<Q", data, so + 40)[0]
+                          offset = struct.unpack_from("<I", data, so + 48)[0]
+                          cstring = (offset, size)
+                      elif sect == b"__FRIDA_DATA":
+                          data[so:so + 16] = b"__DATA_NOSIG\0\0\0\0"
+                      so += 80
+              off += cmdsize
+
+          if cstring is None:
+              raise SystemExit("no __cstring section")
+
+          start, size = cstring
+          pairs = [
+              (b"GumDarwinModuleResolver", b"ModDarwinModuleResolver"),
+              (b"GumDarwinModuleFlags", b"ModDarwinModuleFlags"),
+              (b"gum-error-quark", b"mod-error-quark"),
+              (b"Frida", b"Nmods"),
+              (b"frida", b"nmods"),
+              (b"gum", b"mod"),
+          ]
+          for old, new in pairs:
+              assert len(old) == len(new), old
+              data[start:start + size] = data[start:start + size].replace(old, new)
+
+          open(path, "wb").write(data)
+          blob = bytes(data)
+          for needle in (b"frida", b"Frida", b"gum-", b"FRIDA_"):
+              print(needle.decode(), blob.count(needle))
+          PY
 
       - name: Artifact
         uses: actions/upload-artifact@v7
