@@ -15,7 +15,6 @@ namespace
     bool g_installed = false;
     uintptr_t g_base = 0;
     uintptr_t g_lastBattle = 0;
-    GumAttachment *g_updateAttachment = nullptr;
 
     bool containsNoCase(const char *haystack, const char *needle)
     {
@@ -133,12 +132,12 @@ bool module::install()
 
     GumInterceptor *interceptor = gum_interceptor_obtain();
     g_updateListener = reinterpret_cast<UpdateListener *>(g_object_new(update_listener_get_type(), NULL));
-    g_updateAttachment = gum_interceptor_attach(interceptor,
+    const GumAttachReturn attachResult = gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(base + offsets::LogicBattleModeClient_update),
         GUM_INVOCATION_LISTENER(g_updateListener),
         NULL);
 
-    if (g_updateAttachment == nullptr) return false;
+    if (attachResult != GUM_ATTACH_OK) return false;
 
     g_installed = true;
     return true;
