@@ -157,7 +157,7 @@ namespace
     {
     }
 
-    static void tile_listener_on_enter(GumInvocationListener *, GumInvocationContext *context)
+    static void tile_listener_on_enter(GumInvocationListener *, GumInvocationContext *)
     {
         g_needsRebuild = true;
     }
