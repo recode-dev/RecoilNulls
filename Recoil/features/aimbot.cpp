@@ -71,7 +71,9 @@ namespace
     bool readBytes(uintptr_t address, void *out, size_t size)
     {
         if (address == 0 || out == nullptr || size == 0) return false;
-        return gum_memory_read((GumAddress)address, out, (gsize)size);
+        if (!gum_memory_is_readable((gconstpointer)address, (gsize)size)) return false;
+        memcpy(out, (const void *)address, size);
+        return true;
     }
 
     bool readU32(uintptr_t address, uint32_t &out)
@@ -530,24 +532,24 @@ namespace
         GObjectClass parent_class;
     };
 
-    static void target_listener_iface_init(gpointer g_iface, gpointer iface_data);
+    static void target_listener_iface_init(gpointer g_iface, gpointer);
 
-    static void target_listener_init(TargetListener *self)
+    static void target_listener_init(TargetListener *)
     {
     }
 
-    static void target_listener_class_init(TargetListenerClass *klass)
+    static void target_listener_class_init(TargetListenerClass *)
     {
     }
 
-    static void target_listener_on_leave(GumInvocationListener *listener, GumInvocationContext *context)
+    static void target_listener_on_leave(GumInvocationListener *, GumInvocationContext *context)
     {
         if (!g_enabled) return;
         if (g_targetPtr == 0) return;
         gum_invocation_context_replace_return_value(context, (gpointer)g_targetPtr);
     }
 
-    static void target_listener_iface_init(gpointer g_iface, gpointer iface_data)
+    static void target_listener_iface_init(gpointer g_iface, gpointer)
     {
         GumInvocationListenerInterface *iface = static_cast<GumInvocationListenerInterface *>(g_iface);
         iface->on_leave = target_listener_on_leave;
@@ -569,17 +571,17 @@ namespace
         GObjectClass parent_class;
     };
 
-    static void skill_listener_iface_init(gpointer g_iface, gpointer iface_data);
+    static void skill_listener_iface_init(gpointer g_iface, gpointer);
 
-    static void skill_listener_init(SkillListener *self)
+    static void skill_listener_init(SkillListener *)
     {
     }
 
-    static void skill_listener_class_init(SkillListenerClass *klass)
+    static void skill_listener_class_init(SkillListenerClass *)
     {
     }
 
-    static void skill_listener_on_enter(GumInvocationListener *listener, GumInvocationContext *context)
+    static void skill_listener_on_enter(GumInvocationListener *, GumInvocationContext *context)
     {
         if (!g_enabled) return;
         if (g_targetPtr == 0) return;
@@ -587,13 +589,13 @@ namespace
         Solution aim = {};
         if (!aimAt(nowMs(), aim)) return;
 
-        GumCpuContext *cpu = gum_invocation_context_get_cpu_context(context);
+        GumCpuContext *cpu = context->cpu_context;
         if (cpu == nullptr) return;
         cpu->x[1] = (guint64)aim.x;
         cpu->x[2] = (guint64)aim.y;
     }
 
-    static void skill_listener_iface_init(gpointer g_iface, gpointer iface_data)
+    static void skill_listener_iface_init(gpointer g_iface, gpointer)
     {
         GumInvocationListenerInterface *iface = static_cast<GumInvocationListenerInterface *>(g_iface);
         iface->on_enter = skill_listener_on_enter;
@@ -611,13 +613,13 @@ void aimbot::setupAimbot(uintptr_t baseAddress)
     GumInterceptor *interceptor = gum_interceptor_obtain();
 
     TargetListener *targetListener = reinterpret_cast<TargetListener *>(g_object_new(target_listener_get_type(), NULL));
-    gum_interceptor_attach(interceptor,
+    (void)gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(baseAddress + offsets::BattleScreen_getClosestTargetForAutoshoot),
         GUM_INVOCATION_LISTENER(targetListener),
         NULL);
 
     SkillListener *skillListener = reinterpret_cast<SkillListener *>(g_object_new(skill_listener_get_type(), NULL));
-    gum_interceptor_attach(interceptor,
+    (void)gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(baseAddress + offsets::BattleScreen_activateSkill),
         GUM_INVOCATION_LISTENER(skillListener),
         NULL);
