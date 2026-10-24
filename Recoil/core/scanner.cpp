@@ -955,7 +955,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
     g_data.teammateCount = 0;
     g_data.enemyCount = 0;
 
-    const uintptr_t projectileVtable = g_base + offsets::VTable_projectileData;
+    const uintptr_t projectileVtable = g_base + offsets::Vtable_projectileData;
 
     uintptr_t objectManager = 0;
     if (readPtr(battleModeClient + offsets::BattleMode_objectManagerPtr, objectManager) && objectManager != 0)
