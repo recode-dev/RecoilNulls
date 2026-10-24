@@ -16,22 +16,24 @@ namespace
     uintptr_t g_base = 0;
     uintptr_t g_lastBattle = 0;
 
-    bool containsModuleTag(const char *name)
+    bool containsNoCase(const char *haystack, const char *needle)
     {
-        constexpr uint8_t TAG[5] = {0x34, 0x2f, 0x36, 0x36, 0x29};
-        if (name == nullptr) return false;
-
-        for (const char *p = name; *p != 0; p++)
+        if (haystack == nullptr || needle == nullptr || *needle == 0) return false;
+        for (const char *p = haystack; *p != 0; p++)
         {
-            size_t i = 0;
-            while (p[i] != 0 && i < 5)
+            const char *a = p;
+            const char *b = needle;
+            while (*a != 0 && *b != 0)
             {
-                char c = p[i];
-                if (c >= 'A' && c <= 'Z') c = (char)(c + 32);
-                if ((uint8_t)c != (uint8_t)(TAG[i] ^ 0x5a)) break;
-                i++;
+                char ca = *a;
+                char cb = *b;
+                if (ca >= 'A' && ca <= 'Z') ca = (char)(ca + 32);
+                if (cb >= 'A' && cb <= 'Z') cb = (char)(cb + 32);
+                if (ca != cb) break;
+                a++;
+                b++;
             }
-            if (i == 5) return true;
+            if (*b == 0) return true;
         }
         return false;
     }
@@ -39,7 +41,7 @@ namespace
     gboolean findModuleCallback(GumModule *module, gpointer userData)
     {
         if (module == nullptr) return TRUE;
-        if (!containsModuleTag(gum_module_get_name(module))) return TRUE;
+        if (!containsNoCase(gum_module_get_name(module), "nulls")) return TRUE;
 
         const GumMemoryRange *range = gum_module_get_range(module);
         if (range == nullptr) return TRUE;
@@ -161,4 +163,9 @@ uintptr_t module::baseAddress()
 __attribute__((constructor)) static void module_entry()
 {
     module::install();
+}
+
+extern "C" __attribute__((used, visibility("default"))) int _init_module()
+{
+    return 0;
 }
