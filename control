@@ -1,0 +1,12 @@
+Package: com.client.recoil
+Name: Recoil
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: Nulls Brawl Client-Side Tweak
+Maintainer: recode-dev
+Author: @eurogoth
+Section: Tweaks
+Priority: optional
+Depends: firmware (>= 15.0)
+Homepage: https://github.com/recode-dev/RecoilNulls
+License: MIT
