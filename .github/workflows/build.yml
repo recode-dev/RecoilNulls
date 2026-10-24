@@ -37,9 +37,9 @@ jobs:
             lib="$(dpkg -L libxml2-16 | grep 'libxml2\.so\.16$' | head -1)"
             [ -n "$lib" ] && sudo ln -sf "$lib" "$(dirname "$lib")/libxml2.so.2"
           fi
-          make -C Recoil -j"$(( $(nproc) + 1 ))" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1
+          make -j"$(( $(nproc) + 1 ))" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1
           mkdir -p out
-          dylib="$(find Recoil/.theos -name Recoil.dylib ! -path '*dSYM*' | head -1)"
+          dylib="$(find .theos -name Recoil.dylib ! -path '*dSYM*' | head -1)"
           [ -n "$dylib" ] || { echo "Recoil.dylib not found"; exit 1; }
           cp "$dylib" out/Recoil.dylib
 
