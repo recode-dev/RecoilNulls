@@ -1,110 +1,206 @@
 #include <cstdint>
 #include <cstddef>
-
 #include "offsets.cpp"
 
-namespace fn
+namespace
 {
-    using GetInstance = void *(*)();
-    using Int32OfPtr = int32_t (*)(void *);
-    using PtrOfPtr = void *(*)(void *);
-    using VoidOfPtr3Int = void (*)(void *, int, int, int);
-    using PtrOfPtrInt = void *(*)(void *, int);
-    using VoidOfPtrPtr = void (*)(void *, void *);
-    using U32OfPtr = uint32_t (*)(void *);
-    using PtrOfULong = void *(*)(unsigned long);
-
-    struct Functions
-    {
-        GetInstance BattleMode_getInstance = nullptr;
-        Int32OfPtr LogicGameObjectClient_getX = nullptr;
-        Int32OfPtr LogicGameObjectClient_getY = nullptr;
-        PtrOfPtr LogicBattleModeClient_getOwnCharacter = nullptr;
-        VoidOfPtr3Int LogicBattleModeClient_setClientPredictionMoveTo = nullptr;
-        PtrOfPtrInt ClientInput_constructor_int = nullptr;
-        VoidOfPtrPtr ClientInputManager_addInput = nullptr;
-        U32OfPtr LogicGameObjectClient_getGlobalID = nullptr;
-        U32OfPtr LogicBattleModeClient_getOwnPlayerTeam = nullptr;
-        Int32OfPtr LogicBattleModeClient_getOwnPlayerIndex = nullptr;
-        PtrOfPtr LogicGameObjectClient_getData = nullptr;
-        U32OfPtr LogicProjectileData_getSpeed = nullptr;
-        U32OfPtr LogicProjectileData_getRadius = nullptr;
-        PtrOfPtr LogicProjectileData_getSpawnAreaEffect = nullptr;
-        U32OfPtr LogicProjectileData_getNumEarlyTicks = nullptr;
-        U32OfPtr LogicProjectileData_isBeam = nullptr;
-        Int32OfPtr AreaEffectData_getRadius = nullptr;
-        Int32OfPtr AreaEffectData_getActiveTimeMs = nullptr;
-        Int32OfPtr LogicProjectileData_getRendering = nullptr;
-        Int32OfPtr LogicCharacterData_getSpeed = nullptr;
-        U32OfPtr LogicCharacterData_getCollisionRadius = nullptr;
-        PtrOfPtr LogicBattleModeClient_getTileMap = nullptr;
-        PtrOfPtr LogicProjectileClient_getData = nullptr;
-        PtrOfPtr LogicCharacterClient_getWeaponSkill = nullptr;
-        Int32OfPtr LogicSkillData_getCastingRange = nullptr;
-        PtrOfPtrInt LogicSkillData_getProjectileData = nullptr;
-        PtrOfPtrInt LogicSkillClient_getData = nullptr;
-        PtrOfPtr LogicData_getName = nullptr;
-        PtrOfPtrInt LogicCharacterClient_getSkillAt = nullptr;
-        PtrOfULong operator_new = nullptr;
-    };
-
-    inline uintptr_t base = 0;
-    inline Functions fns;
-    inline bool initialized = false;
+    uintptr_t g_base = 0;
 
     template <typename T>
-    inline T nf(uintptr_t moduleBase, uintptr_t offset)
+    T resolve(uintptr_t offset)
     {
-        if (offset == 0) return nullptr;
-        return reinterpret_cast<T>(moduleBase + offset);
+        return g_base == 0 ? nullptr : reinterpret_cast<T>(g_base + offset);
+    }
+}
+
+namespace functions
+{
+    void init(uintptr_t base)
+    {
+        g_base = base;
     }
 
-    inline void initFunctions(uintptr_t baseIn)
+    bool isInitialized()
     {
-        if (initialized) return;
-        base = baseIn;
-
-        fns.BattleMode_getInstance = nf<GetInstance>(base, offsets::BattleMode_getInstance);
-        fns.LogicGameObjectClient_getX = nf<Int32OfPtr>(base, offsets::LogicGameObjectClient_getX);
-        fns.LogicGameObjectClient_getY = nf<Int32OfPtr>(base, offsets::LogicGameObjectClient_getY);
-        fns.LogicBattleModeClient_getOwnCharacter = nf<PtrOfPtr>(base, offsets::LogicBattleModeClient_getOwnCharacter);
-        fns.LogicBattleModeClient_setClientPredictionMoveTo = nf<VoidOfPtr3Int>(base, offsets::LogicBattleModeClient_setClientPredictionMoveTo);
-        fns.ClientInput_constructor_int = nf<PtrOfPtrInt>(base, offsets::ClientInput_constructor_int);
-        fns.ClientInputManager_addInput = nf<VoidOfPtrPtr>(base, offsets::ClientInputManager_addInput);
-        fns.LogicGameObjectClient_getGlobalID = nf<U32OfPtr>(base, offsets::LogicGameObjectClient_getGlobalID);
-        fns.LogicBattleModeClient_getOwnPlayerTeam = nf<U32OfPtr>(base, offsets::LogicBattleModeClient_getOwnPlayerTeam);
-        fns.LogicBattleModeClient_getOwnPlayerIndex = nf<Int32OfPtr>(base, offsets::LogicBattleModeClient__getOwnPlayerIndex);
-        fns.LogicGameObjectClient_getData = nf<PtrOfPtr>(base, offsets::LogicGameObjectClient_getData);
-        fns.LogicProjectileData_getSpeed = nf<U32OfPtr>(base, offsets::LogicProjectileData_getSpeed);
-        fns.LogicProjectileData_getRadius = nf<U32OfPtr>(base, offsets::LogicProjectileData_getRadius);
-        fns.LogicProjectileData_getSpawnAreaEffect = nf<PtrOfPtr>(base, offsets::LogicProjectileData__getSpawnAreaEffect);
-        fns.LogicProjectileData_getNumEarlyTicks = nf<U32OfPtr>(base, offsets::LogicProjectileData_getNumEarlyTicks);
-        fns.LogicProjectileData_isBeam = nf<U32OfPtr>(base, offsets::LogicProjectileData_isBeam);
-        fns.AreaEffectData_getRadius = nf<Int32OfPtr>(base, offsets::AreaEffectData__getRadius);
-        fns.AreaEffectData_getActiveTimeMs = nf<Int32OfPtr>(base, offsets::AreaEffectData__getActiveTimeMs);
-        fns.LogicProjectileData_getRendering = nf<Int32OfPtr>(base, offsets::LogicProjectileData_getRendering);
-        fns.LogicCharacterData_getSpeed = nf<Int32OfPtr>(base, offsets::LogicCharacterData_getSpeed);
-        fns.LogicCharacterData_getCollisionRadius = nf<U32OfPtr>(base, offsets::LogicCharacterData_getCollisionRadius);
-        fns.LogicBattleModeClient_getTileMap = nf<PtrOfPtr>(base, offsets::LogicBattleModeClient__getTileMap);
-        fns.LogicProjectileClient_getData = nf<PtrOfPtr>(base, 0);
-        fns.LogicCharacterClient_getWeaponSkill = nf<PtrOfPtr>(base, offsets::LogicCharacterClient__getWeaponSkill);
-        fns.LogicSkillData_getCastingRange = nf<Int32OfPtr>(base, offsets::LogicSkillData__getCastingRange);
-        fns.LogicSkillData_getProjectileData = nf<PtrOfPtrInt>(base, offsets::LogicSkillData__getProjectileData);
-        fns.LogicSkillClient_getData = nf<PtrOfPtrInt>(base, offsets::LogicSkillClient__getData);
-        fns.LogicData_getName = nf<PtrOfPtr>(base, offsets::LogicData_getName);
-        fns.LogicCharacterClient_getSkillAt = nf<PtrOfPtrInt>(base, offsets::LogicCharacterClient__getSkillAt);
-        fns.operator_new = nf<PtrOfULong>(base, offsets::operator_new);
-
-        initialized = true;
+        return g_base != 0;
     }
 
-    inline Functions &getFunctions()
+    uintptr_t base()
     {
-        return fns;
+        return g_base;
     }
 
-    inline uintptr_t getBase()
+    uintptr_t BattleMode_getInstance()
     {
-        return base;
+        static uintptr_t (*fn)() = resolve<uintptr_t (*)()>(offsets::BattleMode_getInstance);
+        return fn != nullptr ? fn() : 0;
+    }
+
+    uintptr_t LogicBattleModeClient_getOwnCharacter(uintptr_t battleMode)
+    {
+        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicBattleModeClient_getOwnCharacter);
+        return fn != nullptr ? fn(battleMode) : 0;
+    }
+
+    uint32_t LogicBattleModeClient_getOwnPlayerTeam(uintptr_t battleMode)
+    {
+        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicBattleModeClient_getOwnPlayerTeam);
+        return fn != nullptr ? fn(battleMode) : 0;
+    }
+
+    int32_t LogicBattleModeClient__getOwnPlayerIndex(uintptr_t battleMode)
+    {
+        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicBattleModeClient__getOwnPlayerIndex);
+        return fn != nullptr ? fn(battleMode) : -1;
+    }
+
+    uintptr_t LogicBattleModeClient__getTileMap(uintptr_t battleMode)
+    {
+        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicBattleModeClient__getTileMap);
+        return fn != nullptr ? fn(battleMode) : 0;
+    }
+
+    void LogicBattleModeClient_setClientPredictionMoveTo(uintptr_t battleMode, int32_t x, int32_t y, int32_t flags)
+    {
+        static void (*fn)(uintptr_t, int32_t, int32_t, int32_t) = resolve<void (*)(uintptr_t, int32_t, int32_t, int32_t)>(offsets::LogicBattleModeClient_setClientPredictionMoveTo);
+        if (fn != nullptr) fn(battleMode, x, y, flags);
+    }
+
+    uintptr_t ClientInput_constructor_int(uintptr_t input, int32_t type)
+    {
+        static uintptr_t (*fn)(uintptr_t, int32_t) = resolve<uintptr_t (*)(uintptr_t, int32_t)>(offsets::ClientInput_constructor_int);
+        return fn != nullptr ? fn(input, type) : 0;
+    }
+
+    void ClientInputManager_addInput(uintptr_t manager, uintptr_t input)
+    {
+        static void (*fn)(uintptr_t, uintptr_t) = resolve<void (*)(uintptr_t, uintptr_t)>(offsets::ClientInputManager_addInput);
+        if (fn != nullptr) fn(manager, input);
+    }
+
+    uintptr_t operator_new(size_t size)
+    {
+        static uintptr_t (*fn)(size_t) = resolve<uintptr_t (*)(size_t)>(offsets::operator_new);
+        return fn != nullptr ? fn(size) : 0;
+    }
+
+    int32_t LogicGameObjectClient_getX(uintptr_t object)
+    {
+        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicGameObjectClient_getX);
+        return fn != nullptr ? fn(object) : 0;
+    }
+
+    int32_t LogicGameObjectClient_getY(uintptr_t object)
+    {
+        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicGameObjectClient_getY);
+        return fn != nullptr ? fn(object) : 0;
+    }
+
+    uintptr_t LogicGameObjectClient_getData(uintptr_t object)
+    {
+        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicGameObjectClient_getData);
+        return fn != nullptr ? fn(object) : 0;
+    }
+
+    uint32_t LogicGameObjectClient_getGlobalID(uintptr_t object)
+    {
+        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicGameObjectClient_getGlobalID);
+        return fn != nullptr ? fn(object) : 0;
+    }
+
+    int32_t LogicCharacterData_getSpeed(uintptr_t data)
+    {
+        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicCharacterData_getSpeed);
+        return fn != nullptr ? fn(data) : 0;
+    }
+
+    uint32_t LogicCharacterData_getCollisionRadius(uintptr_t data)
+    {
+        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicCharacterData_getCollisionRadius);
+        return fn != nullptr ? fn(data) : 0;
+    }
+
+    uintptr_t LogicCharacterClient__getWeaponSkill(uintptr_t character)
+    {
+        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicCharacterClient__getWeaponSkill);
+        return fn != nullptr ? fn(character) : 0;
+    }
+
+    uintptr_t LogicCharacterClient__getSkillAt(uintptr_t character, int32_t slot)
+    {
+        static uintptr_t (*fn)(uintptr_t, int32_t) = resolve<uintptr_t (*)(uintptr_t, int32_t)>(offsets::LogicCharacterClient__getSkillAt);
+        return fn != nullptr ? fn(character, slot) : 0;
+    }
+
+    uintptr_t LogicSkillClient__getData(uintptr_t skill, int32_t hyper)
+    {
+        static uintptr_t (*fn)(uintptr_t, int32_t) = resolve<uintptr_t (*)(uintptr_t, int32_t)>(offsets::LogicSkillClient__getData);
+        return fn != nullptr ? fn(skill, hyper) : 0;
+    }
+
+    int32_t LogicSkillData__getCastingRange(uintptr_t skillData)
+    {
+        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicSkillData__getCastingRange);
+        return fn != nullptr ? fn(skillData) : 0;
+    }
+
+    uintptr_t LogicSkillData__getProjectileData(uintptr_t skillData, int32_t index)
+    {
+        static uintptr_t (*fn)(uintptr_t, int32_t) = resolve<uintptr_t (*)(uintptr_t, int32_t)>(offsets::LogicSkillData__getProjectileData);
+        return fn != nullptr ? fn(skillData, index) : 0;
+    }
+
+    uint32_t LogicProjectileData_getSpeed(uintptr_t data)
+    {
+        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicProjectileData_getSpeed);
+        return fn != nullptr ? fn(data) : 0;
+    }
+
+    uint32_t LogicProjectileData_getRadius(uintptr_t data)
+    {
+        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicProjectileData_getRadius);
+        return fn != nullptr ? fn(data) : 0;
+    }
+
+    int32_t LogicProjectileData_getRendering(uintptr_t data)
+    {
+        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::LogicProjectileData_getRendering);
+        return fn != nullptr ? fn(data) : 0;
+    }
+
+    uintptr_t LogicProjectileData__getSpawnAreaEffect(uintptr_t data)
+    {
+        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicProjectileData__getSpawnAreaEffect);
+        return fn != nullptr ? fn(data) : 0;
+    }
+
+    uint32_t LogicProjectileData_getNumEarlyTicks(uintptr_t data)
+    {
+        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicProjectileData_getNumEarlyTicks);
+        return fn != nullptr ? fn(data) : 0;
+    }
+
+    uint32_t LogicProjectileData_isBeam(uintptr_t data)
+    {
+        static uint32_t (*fn)(uintptr_t) = resolve<uint32_t (*)(uintptr_t)>(offsets::LogicProjectileData_isBeam);
+        return fn != nullptr ? fn(data) : 0;
+    }
+
+    int32_t AreaEffectData__getRadius(uintptr_t data)
+    {
+        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::AreaEffectData__getRadius);
+        return fn != nullptr ? fn(data) : 0;
+    }
+
+    int32_t AreaEffectData__getActiveTimeMs(uintptr_t data)
+    {
+        static int32_t (*fn)(uintptr_t) = resolve<int32_t (*)(uintptr_t)>(offsets::AreaEffectData__getActiveTimeMs);
+        return fn != nullptr ? fn(data) : 0;
+    }
+
+    uintptr_t LogicData_getName(uintptr_t data)
+    {
+        static uintptr_t (*fn)(uintptr_t) = resolve<uintptr_t (*)(uintptr_t)>(offsets::LogicData_getName);
+        return fn != nullptr ? fn(data) : 0;
     }
 }
