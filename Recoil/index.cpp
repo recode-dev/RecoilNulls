@@ -7,6 +7,7 @@
 #include "core/functions.hpp"
 #include "core/scanner.hpp"
 #include "utils/walls.hpp"
+#include "features/autododge.hpp"
 
 namespace
 {
@@ -94,6 +95,7 @@ namespace
 
         walls::maybeRefreshWallCache(battleMode, now);
         scanner::update(battleMode, now, module::state::autododge);
+        if (module::state::autododge) autododge::update(now);
     }
 
     static void update_listener_iface_init(gpointer g_iface, gpointer iface_data)
