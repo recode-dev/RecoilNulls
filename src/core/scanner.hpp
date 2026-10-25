@@ -105,6 +105,7 @@ namespace scanner
     };
 
     void init(uintptr_t base);
+    uintptr_t getBattleMode();
     void reset();
     void enableProjectileTracking();
     uint32_t nowMs();

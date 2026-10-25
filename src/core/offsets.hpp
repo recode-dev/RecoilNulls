@@ -12,6 +12,14 @@ namespace offsets
     inline constexpr uintptr_t BattleMode_hashEnabled                           = 0x70;
     inline constexpr uintptr_t BattleMode_getInstance                           = 0x8c5130;
 
+    inline constexpr uintptr_t AppState                                         = 0x1123e58;
+    inline constexpr uintptr_t AppState_state                                   = 0x50;
+    inline constexpr uintptr_t AppState_scene                                   = 0x48;
+    inline constexpr uintptr_t Scene_client                                     = 0x28;
+    inline constexpr uintptr_t Client_objects                                   = 0x1c;
+    inline constexpr uintptr_t Client_ownIndex                                  = 0xe0;
+    inline constexpr uintptr_t Client_ownTeam                                   = 0xe4;
+
     inline constexpr uintptr_t ObjectManager_objectsArray                       = 0x0;
     inline constexpr uintptr_t ObjectManager_count                              = 0xc;
     inline constexpr uintptr_t ObjectManager_ptrStride                          = 0x8;
@@ -32,6 +40,10 @@ namespace offsets
     inline constexpr uintptr_t LogicGameObjectClient_getGlobalID                = 0x46464c;
 
     inline constexpr uintptr_t LogicCharacterClient_body                        = 0xa0;
+    inline constexpr uintptr_t LogicCharacterClient_predictionX                 = 0xfcc;
+    inline constexpr uintptr_t LogicCharacterClient_predictionY                 = 0xfd0;
+    inline constexpr uintptr_t LogicCharacterClient_predictionFlags1            = 0xf9c;
+    inline constexpr uintptr_t LogicCharacterClient_predictionFlags2            = 0xfa0;
     inline constexpr uintptr_t LogicCharacterClient__getWeaponSkill             = 0x9fc440;
     inline constexpr uintptr_t LogicCharacterClient__getSkillAt                 = 0xa007fc;
 

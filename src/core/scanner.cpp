@@ -128,14 +128,14 @@ namespace
         return true;
     }
 
-    bool readPtr(uintptr_t address, uintptr_t &out)
-    {
-        return readBytes(address, &out, sizeof(out));
-    }
-
     bool readU32(uintptr_t address, uint32_t &out)
     {
-        return readBytes(address, &out, sizeof(out));
+        return gum_process_read_uint32(GSIZE_TO_POINTER(address), &out);
+    }
+
+    bool readPtr(uintptr_t address, uintptr_t &out)
+    {
+        return gum_process_read_pointer(GSIZE_TO_POINTER(address), (gpointer *)&out);
     }
 
     bool readS32(uintptr_t address, int32_t &out)
@@ -655,6 +655,25 @@ void scanner::init(uintptr_t base)
     scanner::reset();
 }
 
+uintptr_t scanner::getBattleMode()
+{
+    if (g_base == 0) return 0;
+    
+    uintptr_t appState = 0;
+    if (!readPtr(g_base + offsets::AppState, appState) || appState == 0) return 0;
+
+    uint32_t state = 0;
+    if (!readU32(appState + offsets::AppState_state, state) || state != 5) return 0;
+
+    uintptr_t scene = 0;
+    if (!readPtr(appState + offsets::AppState_scene, scene) || scene == 0) return 0;
+
+    uintptr_t client = 0;
+    if (!readPtr(scene + offsets::Scene_client, client)) return 0;
+
+    return client;
+}
+
 void scanner::reset()
 {
     g_nameCount = 0;
@@ -825,9 +844,17 @@ void scanner::removeProjectile(uintptr_t projectile)
 bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 {
     if (g_base == 0 || battleModeClient == 0) return false;
-    if (!functions::isInitialized()) return false;
+    
+    uint32_t ownIndex = 0;
+    uint32_t ownTeam = 0;
+    uintptr_t objects = 0;
+    readU32(battleModeClient + offsets::Client_ownIndex, ownIndex);
+    readU32(battleModeClient + offsets::Client_ownTeam, ownTeam);
+    readPtr(battleModeClient + offsets::Client_objects, objects);
 
-    const uintptr_t own = functions::LogicBattleModeClient_getOwnCharacter(battleModeClient);
+    uintptr_t own = 0;
+    if (objects != 0) readPtr(objects + (size_t)ownIndex * 8, own);
+
     if (own == 0)
     {
         markDead(nowMs);
@@ -868,16 +895,8 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
         g_data.battleScreen = 0;
     }
 
-    g_data.myTeamId = ownTeamOf(battleModeClient, own);
-
-    if (functions::LogicBattleModeClient_getOwnPlayerIndex != nullptr)
-    {
-        g_data.myPlayerIndex = (int32_t)functions::LogicBattleModeClient_getOwnPlayerIndex(battleModeClient);
-    }
-    else
-    {
-        g_data.myPlayerIndex = readOwnerIndex(own);
-    }
+    g_data.myTeamId = (int32_t)ownTeam;
+    g_data.myPlayerIndex = (int32_t)ownIndex;
 
     g_friendlyCount = 0;
     g_teamOfIndexCount = 0;

@@ -86,7 +86,7 @@ namespace
     {
         (void)listener;
 
-        const uintptr_t battleMode = (uintptr_t)gum_invocation_context_get_nth_argument(context, 0);
+        const uintptr_t battleMode = scanner::getBattleMode();
         if (battleMode == 0) return;
 
         const uint32_t now = scanner::nowMs();

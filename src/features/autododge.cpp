@@ -3,6 +3,8 @@
 #include <cstring>
 #include <cmath>
 
+#include <frida-gum.h>
+
 #include "autododge.hpp"
 #include "../core/commands.hpp"
 #include "../core/functions.hpp"
@@ -327,6 +329,15 @@ namespace
     bool sendMove(uintptr_t logic, int32_t tx, int32_t ty)
     {
         if (logic == 0) return false;
+
+        const scanner::ScannerData &scan = scanner::data();
+        if (scan.ownCharacter != 0)
+        {
+            gum_process_write_uint32(GSIZE_TO_POINTER(scan.ownCharacter + offsets::LogicCharacterClient_predictionX), (uint32_t)tx);
+            gum_process_write_uint32(GSIZE_TO_POINTER(scan.ownCharacter + offsets::LogicCharacterClient_predictionY), (uint32_t)ty);
+            gum_process_write_uint32(GSIZE_TO_POINTER(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags1), 1);
+            gum_process_write_uint32(GSIZE_TO_POINTER(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags2), 1);
+        }
 
         if (functions::LogicBattleModeClient_setClientPredictionMoveTo != nullptr)
         {
