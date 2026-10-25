@@ -1653,7 +1653,7 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
 
 /** Урон, если стоять на месте. */
 function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
-  let arg1, v0, v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v3, v4, v5, v6, v7, v8, v9;
+  let v0, v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v3, v4, v5, v6, v7, v8, v9;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -1924,7 +1924,7 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
 
 /** Оригинальная (без поправок) оценка урона на месте. */
 function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, mathBindings}) {
-  let arg1, v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v2, v3, v4, v5, v6, v7, v8, v9;
+  let v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v2, v3, v4, v5, v6, v7, v8, v9;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -2466,7 +2466,7 @@ function releaseDodgeTouch({capturedValue0, capturedValue1, capturedValue2}) {
     pc = 42; continue;
   }
     case 42: {
-    if ([capturedValue0["capturedValue0["originalX"]"] == capturedValue0["originalY"]][0]) { pc = 79; continue; }
+    if ([capturedValue0["originalX"] == capturedValue0["originalY"]][0]) { pc = 79; continue; }
     pc = 45; continue;
   }
     case 45: {
@@ -2495,7 +2495,7 @@ function releaseDodgeTouch({capturedValue0, capturedValue1, capturedValue2}) {
 
 /** Тики полёта снаряда по дистанции. */
 function getProjectileTicks(arg0, arg1, arg2, arg3, arg4, {mathBindings, dodgePlanner}) {
-  let arg2, arg3, radians, v0, v10, v11, v12, v13, v3, v4, v6, v7, v8, v9;
+  let radians, v0, v10, v11, v12, v13, v3, v4, v6, v7, v8, v9;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -2633,7 +2633,7 @@ function getProjectilePosition(arg0, {capturedValue0, capturedValue1, capturedVa
     pc = 257; continue;
   }
     case 257: {
-    throw throw Reflect.construct([Error][0], [], [Error][0]);
+    throw Reflect.construct([Error][0], [], [Error][0]);
   }
     case 267: {
     v3 = Reflect.construct([DataView][0], [v2], [DataView][0]);

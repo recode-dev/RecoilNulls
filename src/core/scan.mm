@@ -25,11 +25,8 @@ int rcl_votescan_attempts = 0;
 
 double rcl_votescan_last = 0.0;
 
-BOOL rcl_snapshot_first = NO;
 
-BOOL rcl_snapshot_second = NO;
 
-double rcl_snapshot_start = 0.0;
 
 uintptr_t rcl_addr_getinstance = 0;
 
@@ -2175,21 +2172,6 @@ void rcl_run_workload(void)
     rcl_wall_maybe_refresh((uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0));
     rcl_locate_battle_mode();
     rcl_scan_world();
-    if (rcl_scene_object)
-    {
-        if (!rcl_snapshot_first)
-        {
-            rcl_snapshot_first = YES;
-            rcl_snapshot_start = CFAbsoluteTimeGetCurrent();
-        }
-        else if (!rcl_snapshot_second)
-        {
-            if (CFAbsoluteTimeGetCurrent() > (rcl_snapshot_start + RCL_SNAPSHOT_DELAY))
-            {
-                rcl_snapshot_second = YES;
-            }
-        }
-    }
     rcl_run_autododge();
 }
 
