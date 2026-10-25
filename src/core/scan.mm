@@ -2480,11 +2480,138 @@ int rcl_battle_gate(int scene)
     return rcl_battle_active;
 }
 
+static void rcl_proj_velocity(void)
+{
+    int k = 0;
+
+    for (k = 0; k < 16; k++)
+    {
+        rcl_proj_t *p = &rcl_projs[k];
+        double dt = 0.0;
+
+        if (!p->hasPrev || p->qms <= p->pms)
+        {
+            continue;
+        }
+        dt = (double)(p->qms - p->pms) / 1000.0;
+        if (dt <= 0.0005 || dt > 0.3)
+        {
+            continue;
+        }
+        p->vx = (float)(((double)p->x - (double)p->px) / dt);
+        p->vy = (float)(((double)p->y - (double)p->py) / dt);
+    }
+}
+
+void rcl_scan_world(void)
+{
+    uintptr_t slot = 0;
+    uintptr_t scene = 0;
+    uintptr_t client = 0;
+    uintptr_t manager = 0;
+    uintptr_t own = 0;
+    void *value = nullptr;
+    int32_t state = -1;
+    int32_t count = 0;
+    int32_t ownIndex = -1;
+    int32_t ownTeam = -1;
+    uint8_t dead = 0;
+    int usable = 0;
+    int32_t i = 0;
+    rcl_obj_t roster[64];
+
+    slot = (uintptr_t)rcl_read_global_ptr(RCL_STATE_RVA);
+    if (slot && rcl_read_int(slot + RCL_STATE_ENUM_OFF, &state) && state == 5 &&
+        rcl_read_ptr(slot + RCL_SCENE_OFF, &value) && value)
+    {
+        scene = (uintptr_t)value;
+    }
+    if (!scene)
+    {
+        return;
+    }
+    rcl_scene_object = scene;
+
+    if (!rcl_read_ptr(scene + RCL_CLIENT_OFF, &value) || !value)
+    {
+        return;
+    }
+    client = (uintptr_t)value;
+
+    if (!rcl_read_ptr(client + RCL_MGR_OFF, &value) || !value)
+    {
+        if (!rcl_read_ptr(client + RCL_MODE_MANAGER_OFF, &value) || !value)
+        {
+            return;
+        }
+    }
+    manager = (uintptr_t)value;
+    rcl_manager_ptr = manager;
+
+    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count <= 0 || count > RCL_COUNT_MAX)
+    {
+        return;
+    }
+
+    memset(roster, 0, sizeof(roster));
+    usable = rcl_collect(manager, roster, 64);
+
+    rcl_read_int(client + RCL_OWNIDX_OFF, &ownIndex);
+    if (rcl_read_int(client + RCL_OWNTEAM_OFF, &ownTeam) && ownTeam >= 0 && ownTeam <= 15)
+    {
+        rcl_own_team_b = ownTeam;
+    }
+
+    for (i = 0; i < usable; i++)
+    {
+        if (roster[i].object && roster[i].ownerIndex == ownIndex)
+        {
+            own = roster[i].object;
+            break;
+        }
+    }
+    if (!own && ownIndex >= 0)
+    {
+        void *element = nullptr;
+
+        if (rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) && value &&
+            rcl_read_ptr((uintptr_t)value + (uintptr_t)ownIndex * 8ULL, &element) && element)
+        {
+            if (rcl_pointer_plausible((uintptr_t)element))
+            {
+                own = (uintptr_t)element;
+            }
+        }
+    }
+    if (!own)
+    {
+        return;
+    }
+
+    rcl_own_elem = own;
+    if (rcl_read_byte(own + (uintptr_t)RCL_OBJ_DEADFLAG_OFF, &dead))
+    {
+        rcl_dead = dead ? 1 : 0;
+    }
+
+    rcl_proj_scan(manager, count, roster, usable);
+    rcl_proj_velocity();
+
+    for (i = 0; i < 16; i++)
+    {
+        if (rcl_projs[i].team == rcl_own_team_b)
+        {
+            rcl_projs[i].gid = 0;
+        }
+    }
+}
+
 void rcl_run_workload(void)
 {
     rcl_tick_begin();
     rcl_wall_maybe_refresh((uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0));
     rcl_locate_battle_mode();
+    rcl_scan_world();
     if (rcl_scene_object)
     {
         if (!rcl_snapshot_first)

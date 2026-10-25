@@ -555,6 +555,7 @@ void rcl_start_timer(void);
 int rcl_state_tick(void);
 int rcl_vtable_is_data(uintptr_t vtable);
 
+void rcl_scan_world(void);
 void rcl_run_workload(void);
 void setup(void);
 void rcl_run_autododge(void);
