@@ -2240,6 +2240,7 @@ void rcl_scan_world(void)
     {
         uintptr_t object = 0;
         uintptr_t data = 0;
+        void *vtableRaw = nullptr;
         uintptr_t dataVtable = 0;
         int32_t team = -1;
         int32_t x = 0;
@@ -2255,7 +2256,9 @@ void rcl_scan_world(void)
 
         rcl_read_int(object + (uintptr_t)RCL_OBJ_TEAM_OFF, &team);
 
-        if (!rcl_read_ptr(data, &dataVtable) || dataVtable != projectileVtable) continue;
+        if (!rcl_read_ptr(data, &vtableRaw) || !vtableRaw) continue;
+        dataVtable = (uintptr_t)vtableRaw;
+        if (dataVtable != projectileVtable) continue;
         if (team == ownTeam) continue;
         if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_X_OFF, &x)) continue;
         if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_Y_OFF, &y)) continue;
