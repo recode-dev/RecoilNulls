@@ -21,11 +21,10 @@ namespace
     constexpr size_t MAX_LIVE = 64;
     constexpr size_t MAX_NAMES = 64;
     constexpr size_t MAX_CHARS = 24;
-    constexpr size_t MAX_RANGES = 32;
-    constexpr size_t MAX_HARVESTED = 32;
     constexpr size_t MAX_INDICES = 16;
     constexpr size_t MAX_TEAMS = 16;
     constexpr uint32_t MAX_OBJECT_INDEX = 256;
+    constexpr int32_t DEFAULT_RADIUS = 60;
     constexpr int32_t DEFAULT_MOVE_SPEED = 720;
     constexpr int32_t MIN_MOVE_SPEED = 300;
     constexpr int32_t MAX_MOVE_SPEED = 3000;
@@ -49,11 +48,6 @@ namespace
         int32_t team;
     };
 
-    struct RangeEntry
-    {
-        char name[NAME_CAP];
-        int32_t units;
-    };
 
     struct LiveProjectile
     {
@@ -93,11 +87,7 @@ namespace
     CharRef g_chars[MAX_CHARS];
     size_t g_charCount = 0;
 
-    uintptr_t g_harvested[MAX_HARVESTED];
-    size_t g_harvestedCount = 0;
 
-    RangeEntry g_ranges[MAX_RANGES];
-    size_t g_rangeCount = 0;
 
     int32_t g_friendlyIdx[MAX_INDICES];
     size_t g_friendlyCount = 0;
@@ -210,34 +200,11 @@ namespace
         out[i] = 0;
     }
 
-    bool readDataName(uintptr_t data, char *out)
-    {
-        out[0] = 0;
-        if (!mapped(data)) return false;
-
-        uintptr_t namePtr = 0;
-        if (!readPtr(data + offsets::HeroData_namePtr, namePtr)) return false;
-        if (namePtr == 0) return false;
-
-        char raw[64];
-        if (readScStringInto(namePtr, raw, sizeof(raw)) == 0) return false;
-
-        const char *src = raw;
-        if (strncmp(raw, "hero_icon_", 10) == 0) src = raw + 10;
-        copyName(src, out);
-        return out[0] != 0;
-    }
 
     bool readProjectileName(uintptr_t data, char *out)
     {
         out[0] = 0;
         if (!mapped(data)) return false;
-
-        if (functions::LogicData_getName != nullptr)
-        {
-            const uintptr_t named = functions::LogicData_getName(data);
-            if (named != 0 && readScStringInto(named, out, NAME_CAP) > 0 && out[0] != 0) return true;
-        }
 
         uintptr_t namePtr = 0;
         if (!readPtr(data + offsets::LogicProjectileClient_dataName, namePtr)) return false;
@@ -343,58 +310,10 @@ namespace
         return -1;
     }
 
-    uintptr_t charByIndex(int32_t index)
-    {
-        for (size_t i = 0; i < g_charCount; i++)
-        {
-            if (g_chars[i].index == index) return g_chars[i].ptr;
-        }
-        return 0;
-    }
 
-    bool wasHarvested(uintptr_t character)
-    {
-        for (size_t i = 0; i < g_harvestedCount; i++)
-        {
-            if (g_harvested[i] == character) return true;
-        }
-        return false;
-    }
 
-    void markHarvested(uintptr_t character)
-    {
-        if (g_harvestedCount >= MAX_HARVESTED) return;
-        g_harvested[g_harvestedCount++] = character;
-    }
 
-    int32_t rangeFor(const char *name)
-    {
-        if (name == nullptr || name[0] == 0) return 0;
-        for (size_t i = 0; i < g_rangeCount; i++)
-        {
-            if (strncmp(g_ranges[i].name, name, NAME_CAP) == 0) return g_ranges[i].units;
-        }
-        return 0;
-    }
 
-    void noteCastRange(const char *name, int32_t units)
-    {
-        if (name == nullptr || name[0] == 0 || units <= 0 || units >= 70000) return;
-
-        for (size_t i = 0; i < g_rangeCount; i++)
-        {
-            if (strncmp(g_ranges[i].name, name, NAME_CAP) == 0)
-            {
-                if (units > g_ranges[i].units) g_ranges[i].units = units;
-                return;
-            }
-        }
-        if (g_rangeCount >= MAX_RANGES) return;
-        strncpy(g_ranges[g_rangeCount].name, name, NAME_CAP - 1);
-        g_ranges[g_rangeCount].name[NAME_CAP - 1] = 0;
-        g_ranges[g_rangeCount].units = units;
-        g_rangeCount++;
-    }
 
     const char *cachedName(uint32_t gid, bool &found)
     {
@@ -429,73 +348,8 @@ namespace
     }
 
     void rememberCharacter(int32_t index, uintptr_t character);
-    int32_t castRangeFor(const char *name, int32_t ownerIndex);
 
-    const char *ownerNameByIndex(int32_t ownerIndex)
-    {
-        if (ownerIndex < 0) return "";
-        if (ownerIndex == g_data.myPlayerIndex && g_data.myBrawlerName[0] != 0) return g_data.myBrawlerName;
 
-        for (int32_t i = 0; i < g_data.enemyCount; i++)
-        {
-            const Enemy &enemy = g_data.enemies[i];
-            if (enemy.playerIndex == ownerIndex && enemy.brawlerName[0] != 0) return enemy.brawlerName;
-        }
-        return "";
-    }
-
-    void harvestSkillData(uintptr_t skillData)
-    {
-        if (!mapped(skillData)) return;
-        if (functions::LogicSkillData_getCastingRange == nullptr) return;
-        if (functions::LogicSkillData_getProjectileData == nullptr) return;
-
-        const int32_t tiles = functions::LogicSkillData_getCastingRange(skillData);
-        if (tiles <= 0) return;
-
-        const int32_t units = tiles * CASTING_RANGE_SCALE;
-        for (int32_t i = 0; i < PROJ_INDEX_MAX; i++)
-        {
-            const uintptr_t projectile = functions::LogicSkillData_getProjectileData(skillData, i);
-            if (projectile == 0) continue;
-            char name[NAME_CAP];
-            if (readProjectileName(projectile, name)) noteCastRange(name, units);
-        }
-    }
-
-    bool harvestCharacter(uintptr_t character)
-    {
-        if (!mapped(character)) return false;
-        bool found = false;
-
-        if (functions::LogicCharacterClient_getWeaponSkill != nullptr)
-        {
-            const uintptr_t weapon = functions::LogicCharacterClient_getWeaponSkill(character);
-            if (weapon != 0)
-            {
-                harvestSkillData(weapon);
-                found = true;
-            }
-        }
-
-        if (functions::LogicCharacterClient_getSkillAt == nullptr) return found;
-        if (functions::LogicSkillClient_getData == nullptr) return found;
-
-        for (int32_t slot = 0; slot < SKILL_SLOT_MAX; slot++)
-        {
-            const uintptr_t skill = functions::LogicCharacterClient_getSkillAt(character, slot);
-            if (skill == 0) continue;
-
-            for (int32_t hyper = 0; hyper < 2; hyper++)
-            {
-                const uintptr_t data = functions::LogicSkillClient_getData(skill, hyper);
-                if (data == 0) continue;
-                harvestSkillData(data);
-                found = true;
-            }
-        }
-        return found;
-    }
 
     void rememberCharacter(int32_t index, uintptr_t character)
     {
@@ -520,22 +374,8 @@ namespace
                 g_charCount++;
             }
         }
-
-        if (wasHarvested(character)) return;
-        if (harvestCharacter(character)) markHarvested(character);
     }
 
-    int32_t castRangeFor(const char *name, int32_t ownerIndex)
-    {
-        const int32_t cached = rangeFor(name);
-        if (cached > 0) return cached;
-        if (ownerIndex < 0) return 0;
-
-        const uintptr_t owner = charByIndex(ownerIndex);
-        if (owner == 0) return 0;
-        if (!harvestCharacter(owner)) return 0;
-        return rangeFor(name);
-    }
 
     LiveProjectile *findLive(uint32_t gid)
     {
@@ -601,9 +441,8 @@ namespace
 
             int32_t x = 0;
             int32_t y = 0;
-            if (functions::LogicGameObjectClient_getX == nullptr) continue;
-            x = functions::LogicGameObjectClient_getX(live.ptr);
-            y = functions::LogicGameObjectClient_getY(live.ptr);
+            readS32(live.ptr + offsets::GameObj_x, x);
+            readS32(live.ptr + offsets::GameObj_y, y);
 
             const uint32_t elapsed = now - live.lastTs;
             const int32_t dx = x - live.lastX;
@@ -635,7 +474,6 @@ namespace
             if (ownerName[0] != 0) strncpy(live.ownerName, ownerName, NAME_CAP - 1);
             live.ownerName[NAME_CAP - 1] = 0;
 
-            if (live.castRange <= 0) live.castRange = castRangeFor(live.name, live.ownerIndex);
 
             if (scanner::isFriendlyOwner(live.ownerIndex, live.ownerTeam)) continue;
             if (g_data.projectileCount >= MAX_PROJECTILES) continue;
@@ -704,8 +542,6 @@ void scanner::reset()
 {
     g_nameCount = 0;
     g_charCount = 0;
-    g_harvestedCount = 0;
-    g_rangeCount = 0;
     g_friendlyCount = 0;
     g_teamOfIndexCount = 0;
     g_enemyTeamCount = 0;
@@ -754,14 +590,9 @@ bool scanner::isFriendlyOwner(int32_t ownerIndex, int32_t team)
 void scanner::captureProjectile(uintptr_t projectile, uintptr_t data, int32_t ownerTeamOverride, bool hasOverride, uint32_t nowMs)
 {
     if (!mapped(projectile)) return;
-    if (data == 0 && mapped(projectile) && functions::LogicGameObjectClient_getData != nullptr)
-    {
-        data = functions::LogicGameObjectClient_getData(projectile);
-    }
     if (!mapped(data)) return;
-    if (functions::LogicGameObjectClient_getGlobalID == nullptr) return;
 
-    const uint32_t gid = functions::LogicGameObjectClient_getGlobalID(projectile);
+    const uint32_t gid = readGid(projectile);
     LiveProjectile *existing = findLive(gid);
     if (existing != nullptr)
     {
@@ -781,8 +612,8 @@ void scanner::captureProjectile(uintptr_t projectile, uintptr_t data, int32_t ow
 
     int32_t x = 0;
     int32_t y = 0;
-    if (functions::LogicGameObjectClient_getX != nullptr) x = functions::LogicGameObjectClient_getX(projectile);
-    if (functions::LogicGameObjectClient_getY != nullptr) y = functions::LogicGameObjectClient_getY(projectile);
+    readS32(projectile + offsets::GameObj_x, x);
+    readS32(projectile + offsets::GameObj_y, y);
 
     uint32_t speed = 0;
     uint32_t radius = 0;
@@ -795,10 +626,6 @@ void scanner::captureProjectile(uintptr_t projectile, uintptr_t data, int32_t ow
     readU32(projectile + offsets::Projectile_isIndirect, isIndirect);
     record->isIndirect = isIndirect != 0;
 
-    if (functions::LogicProjectileData_isBeam != nullptr)
-    {
-        record->isBeam = functions::LogicProjectileData_isBeam(data) != 0;
-    }
 
     int32_t ownerTeam = 0;
     if (hasOverride)
@@ -814,13 +641,9 @@ void scanner::captureProjectile(uintptr_t projectile, uintptr_t data, int32_t ow
     record->ownerIndex = readOwnerIndex(projectile);
 
     readProjectileName(data, record->name);
-    record->castRange = castRangeFor(record->name, record->ownerIndex);
+    record->castRange = 0;
 
-    uint32_t earlyTicks = 0;
-    if (functions::LogicProjectileData_getNumEarlyTicks != nullptr)
-    {
-        earlyTicks = functions::LogicProjectileData_getNumEarlyTicks(data);
-    }
+    const uint32_t earlyTicks = 0;
 
     record->x = x;
     record->y = y;
@@ -840,10 +663,8 @@ void scanner::captureProjectile(uintptr_t projectile, uintptr_t data, int32_t ow
 void scanner::removeProjectile(uintptr_t projectile)
 {
     if (!mapped(projectile)) return;
-    if (projectile == 0) return;
-    if (functions::LogicGameObjectClient_getGlobalID == nullptr) return;
 
-    const uint32_t gid = functions::LogicGameObjectClient_getGlobalID(projectile);
+    const uint32_t gid = readGid(projectile);
     LiveProjectile *record = findLive(gid);
     if (record == nullptr) return;
 
@@ -926,35 +747,13 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
     rememberCharacter(g_data.myPlayerIndex, own);
 
     const uintptr_t self = bodyOf(own);
-    if (mapped(self))
-    {
-        if (functions::LogicGameObjectClient_getX != nullptr) g_data.myX = functions::LogicGameObjectClient_getX(self);
-        if (functions::LogicGameObjectClient_getY != nullptr) g_data.myY = functions::LogicGameObjectClient_getY(self);
-    }
+    const uintptr_t position = mapped(self) ? self : own;
+
+    readS32(position + offsets::GameObj_x, g_data.myX);
+    readS32(position + offsets::GameObj_y, g_data.myY);
 
     g_data.mySpeed = DEFAULT_MOVE_SPEED;
-    const uintptr_t ownData = (mapped(own) && functions::LogicGameObjectClient_getData != nullptr)
-        ? functions::LogicGameObjectClient_getData(own)
-        : 0;
-    if (mapped(ownData))
-    {
-        if (functions::LogicCharacterData_getCollisionRadius != nullptr)
-        {
-            const uint32_t radius = functions::LogicCharacterData_getCollisionRadius(ownData);
-            g_data.myRadius = radius != 0 ? (int32_t)radius : 60;
-        }
-        if (functions::LogicCharacterData_getSpeed != nullptr)
-        {
-            const int32_t speed = (int32_t)functions::LogicCharacterData_getSpeed(ownData);
-            if (speed >= MIN_MOVE_SPEED && speed <= MAX_MOVE_SPEED) g_data.mySpeed = speed;
-        }
-        char name[NAME_CAP];
-        if (readDataName(ownData, name) && name[0] != 0)
-        {
-            strncpy(g_data.myBrawlerName, name, NAME_CAP - 1);
-            g_data.myBrawlerName[NAME_CAP - 1] = 0;
-        }
-    }
+    g_data.myRadius = DEFAULT_RADIUS;
 
     int32_t hp = hpOf(own);
     if (self != own)
@@ -989,8 +788,6 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 
     int32_t enemyCount = 0;
 
-    const uintptr_t projectileVtable = g_base + offsets::Vtable_projectileData;
-
     uintptr_t objectManager = 0;
     if (readPtr(battleModeClient + offsets::BattleMode_objectManagerPtr, objectManager) && objectManager != 0)
     {
@@ -1016,32 +813,21 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
                 {
                     continue;
                 }
+
                 if (!mapped(object)) continue;
 
-                const uintptr_t data = functions::LogicGameObjectClient_getData != nullptr
-                    ? functions::LogicGameObjectClient_getData(object)
-                    : 0;
-                if (!mapped(data)) continue;
-
                 const int32_t team = readObjectTeam(object);
+                const int32_t owner = readOwnerIndex(object);
 
-                uintptr_t dataVtable = 0;
-                if (readPtr(data, dataVtable) && dataVtable == projectileVtable)
-                {
-                    if (autododge) scanner::captureProjectile(object, data, team, true, nowMs);
-                    continue;
-                }
-
-                const int32_t index = readOwnerIndex(object);
-                const bool friendly = (index >= 0 && hasFriendlyIndex(index)) ||
+                const bool friendly = (owner >= 0 && hasFriendlyIndex(owner)) ||
                     (team >= 0 && team == g_data.myTeamId);
 
                 if (friendly)
                 {
-                    if (index >= 0)
+                    if (owner >= 0)
                     {
-                        addFriendlyIndex(index);
-                        setIndexTeam(index, team);
+                        addFriendlyIndex(owner);
+                        setIndexTeam(owner, team);
                     }
                     continue;
                 }
@@ -1049,69 +835,32 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
                 uint32_t objectHp = 0;
                 if (!readU32(object + offsets::GameObj_hp, objectHp) || objectHp == 0) continue;
 
+                uint8_t deadFlag = 0;
+                if (readU8(object + offsets::GameObj_deadFlag, deadFlag) && (deadFlag & 1) != 0) continue;
+
                 if (enemyCount >= MAX_ENEMIES) continue;
 
-                const uint32_t gid = functions::LogicGameObjectClient_getGlobalID != nullptr
-                    ? functions::LogicGameObjectClient_getGlobalID(object)
-                    : 0;
-
-                char brawlerName[NAME_CAP];
-                bool cached = false;
-                const char *cachedPtr = cachedName(gid, cached);
-                if (cached)
-                {
-                    strncpy(brawlerName, cachedPtr, NAME_CAP - 1);
-                    brawlerName[NAME_CAP - 1] = 0;
-                }
-                else
-                {
-                    readDataName(data, brawlerName);
-                    storeName(gid, brawlerName);
-                }
-
-                int32_t radius = 0;
-                if (functions::LogicCharacterData_getCollisionRadius != nullptr)
-                {
-                    radius = (int32_t)functions::LogicCharacterData_getCollisionRadius(data);
-                }
-                if (brawlerName[0] == 0 && radius <= 0) continue;
-
-                int32_t moveSpeed = 0;
-                if (functions::LogicCharacterData_getSpeed != nullptr)
-                {
-                    moveSpeed = (int32_t)functions::LogicCharacterData_getSpeed(data);
-                }
-
-                const int32_t playerIndex = readOwnerIndex(object);
-                if (playerIndex >= 0) setIndexTeam(playerIndex, team);
-                if (team >= 0) addEnemyTeam(team);
-                if (brawlerName[0] != 0) rememberCharacter(playerIndex, object);
-
-                int32_t brawlerId = 0;
-                if (brawlerName[0] != 0)
-                {
-                    uint8_t raw = 0;
-                    if (readU8(data + offsets::CharData_brawlerId, raw)) brawlerId = raw;
-                }
-
                 const uintptr_t body = bodyOf(object);
+                const uintptr_t enemyPosition = mapped(body) ? body : object;
 
                 Enemy &enemy = g_enemies[enemyCount++];
-                enemy.gid = gid;
+                enemy.gid = readGid(object);
                 enemy.ptr = object;
                 enemy.body = body;
-                enemy.x = functions::LogicGameObjectClient_getX != nullptr
-                    ? functions::LogicGameObjectClient_getX(body) : 0;
-                enemy.y = functions::LogicGameObjectClient_getY != nullptr
-                    ? functions::LogicGameObjectClient_getY(body) : 0;
-                enemy.brawlerId = brawlerId;
+                enemy.x = 0;
+                enemy.y = 0;
+                readS32(enemyPosition + offsets::GameObj_x, enemy.x);
+                readS32(enemyPosition + offsets::GameObj_y, enemy.y);
+                enemy.brawlerId = 0;
                 enemy.teamId = team;
-                enemy.playerIndex = playerIndex;
-                enemy.moveSpeed = moveSpeed;
-                enemy.radius = radius;
-                enemy.isSpawnable = brawlerName[0] == 0;
-                strncpy(enemy.brawlerName, brawlerName, NAME_CAP - 1);
-                enemy.brawlerName[NAME_CAP - 1] = 0;
+                enemy.playerIndex = owner;
+                enemy.moveSpeed = 0;
+                enemy.radius = DEFAULT_RADIUS;
+                enemy.isSpawnable = false;
+                enemy.brawlerName[0] = 0;
+
+                if (owner >= 0) setIndexTeam(owner, team);
+                if (team >= 0) addEnemyTeam(team);
             }
         }
     }

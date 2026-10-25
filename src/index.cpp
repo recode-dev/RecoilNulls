@@ -49,13 +49,13 @@ namespace
             scanner::reset();
             autododge::reset();
             autoaim::resetAutoaim();
-            walls::notifyBattleModeChanged(client);
+            if (module::state::walls) walls::notifyBattleModeChanged(client);
         }
 
         scanner::update(client, now, module::state::autododge);
 
         if (module::state::autoaim) autoaim::updateAutoaim(true);
-        walls::maybeRefreshWallCache(client, now);
+        if (module::state::walls) walls::maybeRefreshWallCache(client, now);
         if (module::state::autododge) autododge::update(now);
     }
 

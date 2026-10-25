@@ -9,6 +9,7 @@ namespace module
     namespace state
     {
         inline bool autododge = true;
-        inline bool autoaim = true;
+        inline bool autoaim = false;
+        inline bool walls = false;
     }
 }

@@ -28,7 +28,11 @@ namespace offsets
 
     inline constexpr uintptr_t TileTypeData_BlocksMovement                      = 0x56;
 
+    inline constexpr uintptr_t GameObj_gid                                      = 0x8;
+    inline constexpr uintptr_t GameObj_x                                        = 0x30;
+    inline constexpr uintptr_t GameObj_y                                        = 0x34;
     inline constexpr uintptr_t GameObj_team                                     = 0x40;
+    inline constexpr uintptr_t GameObj_deadFlag                                 = 0xd0;
     inline constexpr uintptr_t GameObj_hp                                       = 0xc4;
 
     inline constexpr uintptr_t LogicGameObjectClient_ownerIndex                 = 0x3c;
