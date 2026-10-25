@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
 #include <cmath>
 
 #include "autododge.hpp"
@@ -146,6 +147,32 @@ namespace
         return left > 0.0f ? left : 0.0f;
     }
 
+    bool isIgnored(const char *name)
+    {
+        if (name == nullptr || name[0] == 0) return false;
+        if (g_options.ignoredCount <= 0) return false;
+
+        char upperName[24];
+        for (int32_t i = 0; i < 23; i++)
+        {
+            char c = name[i];
+            if (c == 0)
+            {
+                upperName[i] = 0;
+                break;
+            }
+            if (c >= 'a' && c <= 'z') upperName[i] = c - ('a' - 'A');
+            else upperName[i] = c;
+            upperName[i+1] = 0;
+        }
+
+        for (int32_t i = 0; i < g_options.ignoredCount; i++)
+        {
+            if (strcmp(upperName, g_options.ignoredBrawlers[i]) == 0) return true;
+        }
+        return false;
+    }
+
     int32_t collectLive(float myX, float myY, float bodyR)
     {
         int32_t count = 0;
@@ -160,6 +187,7 @@ namespace
             const scanner::Projectile &shot = scan.projectiles[i];
             if (shot.gid == 0) continue;
             if (scanner::isFriendlyOwner(shot.ownerIndex, shot.ownerTeam)) continue;
+            if (isIgnored(shot.ownerName)) continue;
 
             const float dx = (float)shot.x - myX;
             const float dy = (float)shot.y - myY;
@@ -427,6 +455,17 @@ void autododge::configure(const Options &options)
     if (margin < 0) margin = 0;
     if (margin > 120) margin = 120;
     g_options.safetyMargin = margin;
+
+    int32_t count = options.ignoredCount;
+    if (count < 0) count = 0;
+    if (count > 16) count = 16;
+    g_options.ignoredCount = count;
+
+    for (int32_t i = 0; i < count; i++)
+    {
+        strncpy(g_options.ignoredBrawlers[i], options.ignoredBrawlers[i], 23);
+        g_options.ignoredBrawlers[i][23] = 0;
+    }
 
     syncTuning();
 }
