@@ -2468,7 +2468,6 @@ int rcl_read_scstring(uintptr_t value, char *out, int capacity)
     }
     memcpy(&data, head + 8, sizeof(data));
     if (!data) return 0;
-    if (!rcl_read_ptr(data, &raw)) return 0;
     if (!rcl_read_bytes(data, out, (size_t)length)) return 0;
     out[length] = 0;
 

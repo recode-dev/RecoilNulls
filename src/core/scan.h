@@ -637,6 +637,8 @@ typedef struct
 #define RCL_OWN_RADIUS_MIN 40.0f
 #define RCL_OWN_RADIUS_MAX 200.0f
 
+#define RCL_NAME_CAP 32
+
 typedef struct
 {
     uintptr_t elem;
