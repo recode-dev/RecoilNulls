@@ -2100,17 +2100,63 @@ void rcl_scan_world(void)
 
     if (!manager || !array || count <= 0)
     {
-        return;
+        uintptr_t slot = (uintptr_t)rcl_read_global_ptr(RCL_STATE_RVA);
+        uintptr_t scene = 0;
+        uintptr_t client = 0;
+        int32_t state = -1;
+
+        if (slot && rcl_read_int(slot + RCL_STATE_ENUM_OFF, &state) && state == 5 &&
+            rcl_read_ptr(slot + RCL_SCENE_OFF, &value) && value)
+        {
+            scene = (uintptr_t)value;
+        }
+        if (!scene)
+        {
+            return;
+        }
+        rcl_scene_object = scene;
+
+        if (!rcl_read_ptr(scene + RCL_CLIENT_OFF, &value) || !value)
+        {
+            return;
+        }
+        client = (uintptr_t)value;
+
+        if (!rcl_read_ptr(client + RCL_MGR_OFF, &value) || !value)
+        {
+            return;
+        }
+        manager = (uintptr_t)value;
+
+        if (!rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) || !value)
+        {
+            return;
+        }
+        array = (uintptr_t)value;
+
+        if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count <= 0 || count > RCL_COUNT_MAX)
+        {
+            return;
+        }
     }
     rcl_manager_ptr = manager;
 
-    if (!rcl_read_int(rcl_client() + RCL_OWNIDX_OFF, &ownIndex))
     {
-        return;
-    }
-    if (rcl_read_int(rcl_client() + RCL_OWNTEAM_OFF, &ownTeam) && ownTeam >= 0 && ownTeam <= 15)
-    {
-        rcl_own_team_b = ownTeam;
+        uintptr_t client = rcl_client();
+
+        if (client)
+        {
+            rcl_read_int(client + RCL_OWNIDX_OFF, &ownIndex);
+            if (rcl_read_int(client + RCL_OWNTEAM_OFF, &ownTeam) && ownTeam >= 0 && ownTeam <= 15)
+            {
+                rcl_own_team_b = ownTeam;
+                rcl_own_team_seen = 1;
+            }
+        }
+        else if (rcl_own_team_b >= 0)
+        {
+            ownTeam = rcl_own_team_b;
+        }
     }
 
     if (ownIndex >= 0 && ownIndex < RCL_COUNT_MAX)
@@ -2145,6 +2191,8 @@ void rcl_scan_world(void)
     }
     if (!own)
     {
+        rcl_proj_scan(manager, count, nullptr, 0);
+        rcl_proj_velocity();
         return;
     }
 

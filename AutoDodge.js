@@ -1,37 +1,32 @@
 /**
- * AutoDodge — читаемая версия восстановленного модуля игры (Nulls Brawl, JS-бандл).
+ * AutoDodge - читаемая версия восстановленного модуля автододжа (JS-бандл Nulls Brawl).
  *
- * Что это: логика клиентского автододжа — оценка урона по траектории,
- * выбор лучшего направления побега и инжект движения через тачи.
+ * Логика: оценка урона по траектории -> выбор лучшего направления побега ->
+ * инжект движения через тачи.
  *
- * Как читать: функции с `switch (pc)` — это восстановленный поток управления
- * (метки = адреса переходов байткода). Всё остальное — обычный JS.
- * `CALL`/`ofStep`/`inStep` — книжный учёт стека/итераторов, оставленный
- * из восстановителя; на логику не влияют.
+ * Функции со `switch (pc)` - восстановленный поток управления: case-метки это
+ * адреса переходов байткода, `pc = N; continue;` - jump. Остальное - обычный JS.
+ * `ofStep` / `inStep` - книжный учёт итераторов из восстановителя.
  *
- * Что выкинуто как не относящееся к доджу:
- *   Map, poll, close, getRandomInRange, replace, includes, getBaseName,
- *   function_0ce1e4c1, function_0fc0cd06, function_8c10ca76, function_33c81158,
- *   function_578cc2be, function_585f09dc, function_a6c866cd, function_aef0610c,
- *   function_d63f5d05, function_e3bb6fd8, function_eb4fcd20,
- *   а также обвязка восстановителя: read/write/take/prepare/namedCells,
- *   metadata-объекты, каталог registry и тестовые экспорты.
+ * Удалено как не относящееся к доджу: Map, poll, close, getRandomInRange, replace,
+ * includes, getBaseName и безымянные function_* (prediction worker, прокси,
+ * утилиты), плюс вся обвязка восстановителя: read/write/take/prepare, namedCells,
+ * metadata-объекты, registry/catalog и тестовые экспорты.
  *
- * Имена: argN/localValueN — исходные слоты; config/refs — захваченные биндинги.
+ * Имена: argN / vN - исходные слоты байткода, config/refs - захваченные биндинги.
  */
 
-/** Фабрика контроллера доджа: config, planner, подписка на тик. */
+/** createDodgeController: фабрика контроллера: config, planner, подписка на тик */
 function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOriginalCodeName_getRealName, configuration, captured_getDamage_getMaxRange, capturedValue4, captured_isOwn_isOwnTeam, dodgePlanner}) {
-  let angle, angleDifference, baseName, damageOnlyWithOneProj, data, globalID, index, indirect, isBouncingResult, isDoNotRotateClipResult, maxRange, passesEnvironment, position, spawnAreaEffectObject, totalDelta, v0, v11, v17, v19, v20, v22, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v4, v40, v41, v43, v44, v5, v6;
+  let angle, angleDifference, baseName, config, damageOnlyWithOneProj, data, globalID, index, indirect, isBouncingResult, isDoNotRotateClipResult, maxRange, passesEnvironment, position, spawnAreaEffectObject, totalDelta, v0, v11, v17, v19, v20, v22, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v4, v40, v41, v43, v44, v5, v6;
   const stack = [];
   let pc = 0;
   while (true) {
     switch (pc) {
     case 0: {
     v44 = this;
-    v25 = frame.makeClosure(1, {args, locals, refs, frame});
-    v26 = frame.makeClosure(2, {args, locals, refs, frame});
-    /* // Preserve the receiver for a method call. */
+    v25 = closure2;
+    v26 = closure3;
     if (!!configuration.isModEnabled("AutoDodge")) { pc = 137; continue; }
     pc = 136; continue;
   }
@@ -46,8 +41,7 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     return;
   }
     case 152: {
-    v0 = Reflect.construct([captured_getDamage_getMaxRange][0], [arg0], [captured_getDamage_getMaxRange][0]);
-    /* // Preserve the receiver for a method call. */
+    v0 = Reflect.construct(captured_getDamage_getMaxRange, [arg0], captured_getDamage_getMaxRange);
     globalID = v0.getGlobalID();
     if (!BattleCache["Projectiles"][globalID]) { pc = 192; continue; }
     pc = 191; continue;
@@ -56,16 +50,12 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     return;
   }
     case 192: {
-    /* // Preserve the receiver for a method call. */
     data = v0.getData();
-    /* // Preserve the receiver for a method call. */
     baseName = data.getBaseName();
-    /* // Preserve the receiver for a method call. */
     if (!baseName.includes("Overcharged")) { pc = 257; continue; }
     pc = 237; continue;
   }
     case 237: {
-    /* // Preserve the receiver for a method call. */
     pc = 260; continue;
   }
     case 257: {
@@ -73,7 +63,6 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
   }
     case 260: {
     v4 = baseName;
-    /* // Preserve the receiver for a method call. */
     if (!data.isCharacterPositionBased()) { pc = 277; continue; }
     pc = 276; continue;
   }
@@ -81,7 +70,6 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     return;
   }
     case 277: {
-    /* // Preserve the receiver for a method call. */
     if (!data.getSteeringLifeTime()) { pc = 292; continue; }
     pc = 291; continue;
   }
@@ -89,7 +77,6 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     return;
   }
     case 292: {
-    /* // Preserve the receiver for a method call. */
     if (!data.getConstantFlyTime()) { pc = 307; continue; }
     pc = 306; continue;
   }
@@ -97,12 +84,10 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     return;
   }
     case 307: {
-    /* // Preserve the receiver for a method call. */
     if (!data.getBoomerangType()) { pc = 338; continue; }
     pc = 321; continue;
   }
     case 321: {
-    /* // Preserve the receiver for a method call. */
     if (!baseName.includes(constant(0))) { pc = 338; continue; }
     pc = 337; continue;
   }
@@ -126,19 +111,14 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
   }
     case 364: {
     v6 = BattleCache["CurrentTick"];
-    /* // Preserve the receiver for a method call. */
     position = v0.getPosition();
-    /* // Preserve the receiver for a method call. */
     angle = v0.getAngle();
-    /* // Preserve the receiver for a method call. */
     totalDelta = v0.getTotalDelta();
-    /* // Preserve the receiver for a method call. */
     index = v0.getIndex();
     if ([v5["Speed"]][0]) { pc = 458; continue; }
     pc = 445; continue;
   }
     case 445: {
-    /* // Preserve the receiver for a method call. */
     pc = 458; continue;
   }
     case 458: {
@@ -147,19 +127,13 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     pc = 472; continue;
   }
     case 472: {
-    /* // Preserve the receiver for a method call. */
     pc = 495; continue;
   }
     case 495: {
-    /* // Preserve the receiver for a method call. */
     isDoNotRotateClipResult = data.isDoNotRotateClip();
-    /* // Preserve the receiver for a method call. */
     indirect = data.getIndirect();
-    /* // Preserve the receiver for a method call. */
     isBouncingResult = data.isBouncing();
-    /* // Preserve the receiver for a method call. */
     damageOnlyWithOneProj = data.getDamageOnlyWithOneProj();
-    /* // Preserve the receiver for a method call. */
     passesEnvironment = data.getPassesEnvironment();
     if (!indirect) { pc = 572; continue; }
     pc = 571; continue;
@@ -168,7 +142,6 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     return;
   }
     case 572: {
-    /* // Preserve the receiver for a method call. */
     if ([captured_getDamage_getMaxRange.getDamage(v4)][0]) { pc = 592; continue; }
     pc = 590; continue;
   }
@@ -177,7 +150,6 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
   }
     case 592: {
     v17 = 1;
-    /* // Preserve the receiver for a method call. */
     maxRange = captured_getDamage_getMaxRange.getMaxRange(v4);
     if (!!maxRange) { pc = 618; continue; }
     pc = 617; continue;
@@ -195,9 +167,7 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
   }
     case 654: {
     v20 = maxRange * 1 - v19 + 200 + 0;
-    /* // Preserve the receiver for a method call. */
     spawnAreaEffectObject = data.getSpawnAreaEffectObject();
-    /* // Preserve the receiver for a method call. */
     if (!spawnAreaEffectObject["instance"].isNull()) { pc = 694; continue; }
     pc = 691; continue;
   }
@@ -205,34 +175,28 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     pc = 706; continue;
   }
     case 694: {
-    /* // Preserve the receiver for a method call. */
     pc = 706; continue;
   }
     case 706: {
     v22 = spawnAreaEffectObject.getRadius();
-    /* // Preserve the receiver for a method call. */
     config = configuration.getConfig("AutoDodge");
     v24 = ![];
-    if (![v24][0]) { pc = 747; continue; }
+    if (!v24) { pc = 747; continue; }
     pc = 743; continue;
   }
     case 743: {
     pc = 747; continue;
   }
     case 747: {
-    if (![v24][0]) { pc = 786; continue; }
+    if (!v24) { pc = 786; continue; }
     pc = 754; continue;
   }
     case 754: {
-    /* // Preserve the receiver for a method call. */
     v24 = [Math.random() * 100 < config["Chance"]][0];
     pc = 786; continue;
   }
     case 786: {
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
     v27 = [Math.round(config["Reaction"][0] / 50), Math.round(config["Reaction"][1] / 50)];
-    /* // Preserve the receiver for a method call. */
     v28 = mathBindings["MathUtil"].getRandomInRange(v27[0], v27[1]);
     v29 = v6 + v28;
     v30 = 0;
@@ -284,7 +248,6 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     pc = 1046; continue;
   }
     case 1046: {
-    /* // Preserve the receiver for a method call. */
     pc = 1075; continue;
   }
     case 1074: {
@@ -294,11 +257,10 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     v35 = null;
     v36 = ![];
     /* [BattleCache, propertyKey("ProjectilesUpdatedThisTick")][0][[BattleCache, propertyKey("ProjectilesUpdatedThisTick")][1]] = [BattleCache, propertyKey("ProjectilesUpdatedThisTick")][0][[BattleCache, propertyKey("ProjectilesUpdatedThisTick")][1]] + 1 */
-    if ([v33][0]) { pc = 1129; continue; }
+    if (v33) { pc = 1129; continue; }
     pc = 1105; continue;
   }
     case 1105: {
-    /* // Preserve the receiver for a method call. */
     pc = 1129; continue;
   }
     case 1129: {
@@ -325,13 +287,10 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     pc = 1180; continue;
   }
     case 1180: {
-    /* // Preserve the receiver for a method call. */
     v38 = Object.keys(v35);
     v39 = v38[v38["length"] - 1];
     v40 = v35[Number.call(undefined, v39)];
-    /* // Preserve the receiver for a method call. */
     v41 = mathBindings["MathUtil"].getDegreesToPoint(position[0], position[1], v40[0], v40[1]);
-    /* // Preserve the receiver for a method call. */
     angleDifference = mathBindings["MathUtil"].getAngleDifference(angle, v41);
     if (![angleDifference > 1][0]) { pc = 1326; continue; }
     pc = 1316; continue;
@@ -344,11 +303,6 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
     pc = 1327; continue;
   }
     case 1327: {
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
     v43 = {globalID: globalID, index: index, order: v30, name: baseName, startTick: v6, startPosition: position, startAngle: angle, startTotalDelta: totalDelta, state: v0.getState(), position: position, isOwn: captured_isOwn_isOwnTeam.isOwn(index), isOwnTeam: captured_isOwn_isOwnTeam.isOwnTeam(index), radius: data.getRadius(), totalDelta: totalDelta, range: v20, isDoNotRotateClip: isDoNotRotateClipResult, setFirstAngle: ![], endTick: null, areaEffectRadius: v22, isIndirect: indirect, isBouncing: isBouncingResult, damageOnlyWithOneProj: damageOnlyWithOneProj, passesEnvironment: passesEnvironment, damage: v17, rotates: v36, speed: v11, maxRange: maxRange, projectileTicks: v35, threadProjectileData: v37, dodgeAllowed: v24, allowedTick: v29, ignoreExtraRadius: dodgePlanner["IGNORE_EXTRA_RADIUS"].includes(v4)};
     /* BattleCache["Projectiles"][propertyKey(globalID)] = v43 */
     return;
@@ -357,7 +311,7 @@ function createDodgeController(arg0, {mathBindings, captured_getCodeName_getOrig
   }
 }
 
-/** Основной шаг доджа: собрать угрозы, выбрать направление, отправить движение. */
+/** updateDodge: главный шаг: собрать угрозы, выбрать направление, отправить стик */
 function updateDodge(arg0, {mathBindings, capturedValue1, configuration, captured_getDamage_getMaxRange, capturedValue4, capturedValue5}) {
   let globalID, position, state, v0, v2, v5, v6, v7, v8, v9;
   const stack = [];
@@ -365,8 +319,7 @@ function updateDodge(arg0, {mathBindings, capturedValue1, configuration, capture
   while (true) {
     switch (pc) {
     case 0: {
-    v9 = frame.makeClosure(0, {args, locals, refs, frame});
-    /* // Preserve the receiver for a method call. */
+    v9 = closure1;
     if (!!configuration.isModEnabled("AutoDodge")) { pc = 52; continue; }
     pc = 51; continue;
   }
@@ -388,8 +341,7 @@ function updateDodge(arg0, {mathBindings, capturedValue1, configuration, capture
     return;
   }
     case 93: {
-    v0 = Reflect.construct([captured_getDamage_getMaxRange][0], [arg0], [captured_getDamage_getMaxRange][0]);
-    /* // Preserve the receiver for a method call. */
+    v0 = Reflect.construct(captured_getDamage_getMaxRange, [arg0], captured_getDamage_getMaxRange);
     globalID = v0.getGlobalID();
     v2 = BattleCache["Projectiles"][globalID];
     if (!!v2) { pc = 138; continue; }
@@ -399,9 +351,7 @@ function updateDodge(arg0, {mathBindings, capturedValue1, configuration, capture
     return;
   }
     case 138: {
-    /* // Preserve the receiver for a method call. */
     position = v0.getPosition();
-    /* // Preserve the receiver for a method call. */
     state = v0.getState();
     v5 = v2["state"];
     /* v2[propertyKey("state")] = state */
@@ -414,7 +364,6 @@ function updateDodge(arg0, {mathBindings, capturedValue1, configuration, capture
   }
     case 220: {
     v6 = {};
-    /* // Preserve the receiver for a method call. */
     v7 = v0.getTotalDelta() / 1000;
     if ([v6["ExtraRange"]][0]) { pc = 273; continue; }
     pc = 271; continue;
@@ -454,9 +403,9 @@ function updateDodge(arg0, {mathBindings, capturedValue1, configuration, capture
   }
 }
 
-/** Работа с тачами: инжект/релиз, возврат стика в исходное положение. */
+/** updateTouches: тачи: инжект движения и возврат стика */
 function updateTouches({touchController, dodgePlanner, joystickState, inputActions, touchStorage, configuration, predictionWorker, captured_getInstance, skillController, mathBindings, predictionState}) {
-  let collisionRadius, currentCharacter, damage, data, dynamicDamage, mirrored, radians, v0, v1, v12, v13, v14, v15, v16, v17, v18, v21, v22, v23, v24, v25, v26, v27, v28, v3, v30, v31, v32, v33, v4, v5, v6, v7;
+  let collisionRadius, config, currentCharacter, damage, data, dynamicDamage, mirrored, radians, v0, v1, v12, v13, v14, v15, v16, v17, v18, v21, v22, v23, v24, v25, v26, v27, v28, v3, v30, v31, v32, v33, v4, v5, v6, v7;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -466,7 +415,6 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     pc = 22; continue;
   }
     case 22: {
-    /* // Preserve the receiver for a method call. */
     v0 = joystickState.getTouchIdBySide(inputActions["Move"], !![]);
     if (!v0 == undefined) { pc = 77; continue; }
     pc = 60; continue;
@@ -476,7 +424,6 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     return;
   }
     case 77: {
-    /* // Preserve the receiver for a method call. */
     v1 = touchStorage.findStoredTouch(v0);
     if (!v1 == undefined) { pc = 117; continue; }
     pc = 100; continue;
@@ -495,11 +442,9 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     return;
   }
     case 179: {
-    /* // Preserve the receiver for a method call. */
     return;
   }
     case 217: {
-    /* // Preserve the receiver for a method call. */
     if (!!configuration.isModEnabled("AutoDodge")) { pc = 238; continue; }
     pc = 237; continue;
   }
@@ -511,7 +456,6 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     pc = 263; continue;
   }
     case 263: {
-    /* // Preserve the receiver for a method call. */
     if (!!predictionWorker.hasResult()) { pc = 290; continue; }
     pc = 278; continue;
   }
@@ -519,15 +463,12 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     return BattleCache["AllowedLerpingDodge"];
   }
     case 290: {
-    /* // Preserve the receiver for a method call. */
     config = configuration.getConfig("AutoDodge");
-    /* // Preserve the receiver for a method call. */
     v3 = joystickState.getTouchIdBySide(inputActions["Move"], !![]);
     if (!v3 != undefined) { pc = 1698; continue; }
     pc = 343; continue;
   }
     case 343: {
-    /* // Preserve the receiver for a method call. */
     v4 = touchStorage.findStoredTouch(v3);
     if ([!v4][0]) { pc = 480; continue; }
     pc = 457; continue;
@@ -570,10 +511,8 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     return;
   }
     case 539: {
-    v7 = Reflect.construct([captured_getInstance][0], [], [captured_getInstance][0]);
-    /* // Preserve the receiver for a method call. */
+    v7 = Reflect.construct(captured_getInstance, [], captured_getInstance);
     currentCharacter = v7.getCurrentCharacter();
-    /* // Preserve the receiver for a method call. */
     if (!currentCharacter["instance"].isNull()) { pc = 583; continue; }
     pc = 582; continue;
   }
@@ -581,20 +520,14 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     return;
   }
     case 583: {
-    /* // Preserve the receiver for a method call. */
     data = currentCharacter.getData();
-    /* // Preserve the receiver for a method call. */
     collisionRadius = data.getCollisionRadius();
-    /* // Preserve the receiver for a method call. */
     mirrored = v7.getMirrored();
-    v12 = Reflect.construct([skillController][0], [], [skillController][0]);
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
+    v12 = Reflect.construct(skillController, [], skillController);
     v13 = [v12.getMoveStickBgX(), v12.getMoveStickBgY()];
     v14 = [v4["originalX"], v4["originalY"]];
-    /* // Preserve the receiver for a method call. */
     v15 = mathBindings["MathUtil"].getDegreesToPoint(v13[0], v13[1], v14[0], v14[1]);
-    if (![mirrored][0]) { pc = 748; continue; }
+    if (!mirrored) { pc = 748; continue; }
     pc = 732; continue;
   }
     case 732: {
@@ -602,7 +535,6 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     pc = 748; continue;
   }
     case 748: {
-    /* // Preserve the receiver for a method call. */
     v16 = Date.now();
     if (!BattleCache["LastMoveAngle"] != undefined) { pc = 793; continue; }
     pc = 780; continue;
@@ -615,11 +547,8 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
   }
     case 796: {
     v17 = v15;
-    /* // Preserve the receiver for a method call. */
     v18 = predictionWorker.poll(BattleCache, config["Safety"], collisionRadius, v15, v17, v4["active"], v3, v16);
-    /* // Preserve the receiver for a method call. */
     damage = dodgePlanner.getDamage(collisionRadius);
-    /* // Preserve the receiver for a method call. */
     dynamicDamage = dodgePlanner.getDynamicDamage(v15, collisionRadius);
     if (!BattleCache["AllowedLerpingDodge"]) { pc = 940; continue; }
     pc = 916; continue;
@@ -637,9 +566,8 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     case 941: {
     v21 = undefined;
     v22 = undefined;
-    /* setName(frame.makeClosure(1, {args, locals, refs, frame}), "") */
-    v23 = frame.makeClosure(1, {args, locals, refs, frame});
-    /* // Preserve the receiver for a method call. */
+    
+    v23 = closure2;
     v24 = Math.max(damage, dynamicDamage["damage"]);
     if (!v24 <= 0) { pc = 1051; continue; }
     pc = 990; continue;
@@ -727,7 +655,6 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     pc = 1202; continue;
   }
     case 1202: {
-    /* // Preserve the receiver for a method call. */
     pc = 1241; continue;
   }
     case 1240: {
@@ -735,7 +662,7 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
   }
     case 1241: {
     v26 = null;
-    if (![v26][0] === undefined || [v26][0] === null) { pc = 1254; continue; }
+    if (!v26 === undefined || v26 === null) { pc = 1254; continue; }
     pc = 1250; continue;
   }
     case 1250: {
@@ -752,7 +679,6 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     pc = 1293; continue;
   }
     case 1275: {
-    /* // Preserve the receiver for a method call. */
     pc = 1293; continue;
   }
     case 1293: {
@@ -768,7 +694,6 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     pc = 1331; continue;
   }
     case 1331: {
-    /* // Preserve the receiver for a method call. */
     if (![mathBindings["MathUtil"].getAngleDifference(BattleCache["LastJoystickAngle"], v27["angle"]) > 1][0]) { pc = 1392; continue; }
     pc = 1375; continue;
   }
@@ -779,17 +704,14 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     case 1392: {
     /* BattleCache[propertyKey("LastJoystickAngle")] = v27["angle"] */
     v28 = 30;
-    /* // Preserve the receiver for a method call. */
     radians = mathBindings["MathUtil"].getRadians(v27["angle"]);
     if (!mirrored) { pc = 1472; continue; }
     pc = 1452; continue;
   }
     case 1452: {
-    /* // Preserve the receiver for a method call. */
     pc = 1489; continue;
   }
     case 1472: {
-    /* // Preserve the receiver for a method call. */
     pc = 1489; continue;
   }
     case 1489: {
@@ -798,16 +720,13 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
     pc = 1496; continue;
   }
     case 1496: {
-    /* // Preserve the receiver for a method call. */
     pc = 1533; continue;
   }
     case 1516: {
-    /* // Preserve the receiver for a method call. */
     pc = 1533; continue;
   }
     case 1533: {
     v31 = Math.sin(radians);
-    /* // Preserve the receiver for a method call. */
     v32 = Math.sqrt(v30 * v30 + v31 * v31);
     if (!v32 > 0) { pc = 1612; continue; }
     pc = 1573; continue;
@@ -820,8 +739,6 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
   }
     case 1615: {
     v33 = v13;
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
     /* BattleCache[propertyKey("AllowedLerpingDodge")] = !![] */
     /* BattleCache[propertyKey("DodgeReturnTimeout")] = v16 */
     return !![];
@@ -840,7 +757,7 @@ function updateTouches({touchController, dodgePlanner, joystickState, inputActio
   }
 }
 
-/** Перебор направлений побега и оценка (damage / steering) по каждому. */
+/** getBestPath: перебор направлений побега и их оценка */
 function getBestPath(arg0, arg1, {mathBindings}) {
   let pathByAngle, v0, v1, v10, v2, v3, v4, v5, v6, v7, v9;
   const stack = [];
@@ -849,12 +766,10 @@ function getBestPath(arg0, arg1, {mathBindings}) {
     switch (pc) {
     case 0: {
     v10 = this;
-    /* // Preserve the receiver for a method call. */
     if (!!Number.isFinite(arg0)) { pc = 46; continue; }
     pc = 33; continue;
   }
     case 33: {
-    /* // Preserve the receiver for a method call. */
     /* return v10.getBestPathExhaustive(arg0, arg1) */
   }
     case 46: {
@@ -873,7 +788,6 @@ function getBestPath(arg0, arg1, {mathBindings}) {
     pc = 106; continue;
   }
     case 106: {
-    /* // Preserve the receiver for a method call. */
     if ([!Number.isFinite(v1)][0]) { pc = 134; continue; }
     pc = 128; continue;
   }
@@ -885,7 +799,6 @@ function getBestPath(arg0, arg1, {mathBindings}) {
     pc = 136; continue;
   }
     case 136: {
-    /* // Preserve the receiver for a method call. */
     /* return v10.getBestPathExhaustive(arg0, arg1) */
   }
     case 149: {
@@ -915,12 +828,10 @@ function getBestPath(arg0, arg1, {mathBindings}) {
     pc = 218; continue;
   }
     case 218: {
-    /* // Preserve the receiver for a method call. */
     v5 = [v5 + 360 / 16][0];
     pc = 207; continue;
   }
     case 251: {
-    /* // Preserve the receiver for a method call. */
     v6 = null;
     pc = 274; continue;
   }
@@ -947,10 +858,8 @@ function getBestPath(arg0, arg1, {mathBindings}) {
     pc = 525; continue;
   }
     case 337: {
-    /* // Preserve the receiver for a method call. */
     pathByAngle = v10.getPathByAngle(v2, v7, v3);
-    /* // Preserve the receiver for a method call. */
-    if (![v6][0]) { pc = 387; continue; }
+    if (!v6) { pc = 387; continue; }
     pc = 377; continue;
   }
     case 377: {
@@ -1005,16 +914,15 @@ function getBestPath(arg0, arg1, {mathBindings}) {
   }
 }
 
-/** Суммарный урон по пути из текущей позиции. */
+/** getPathDamage: суммарный урон по пути из текущей позиции */
 function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) {
-  let v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v2, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v3, v30, v31, v32, v4, v5, v6, v7, v8, v9;
+  let config, v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v2, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v3, v30, v31, v32, v4, v5, v6, v7, v8, v9;
   const stack = [];
   let pc = 0;
   while (true) {
     switch (pc) {
     case 0: {
     v32 = this;
-    /* // Preserve the receiver for a method call. */
     config = configuration.getConfig("AutoDodge");
     v1 = arg1 + config["Safety"] * 10;
     v2 = 0;
@@ -1073,7 +981,6 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
     pc = 1148; continue;
   }
     case 237: {
-    /* // Preserve the receiver for a method call. */
     if (!v3.includes(Number.call(undefined, v6))) { pc = 263; continue; }
     pc = 260; continue;
   }
@@ -1090,11 +997,9 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
   }
     case 295: {
     v9 = v7["projectileTicks"];
-    /* // Preserve the receiver for a method call. */
     v10 = Object.keys(v9);
     v11 = Number.call(undefined, v10[v10["length"] - 1]);
     v12 = BattleCache["CurrentTick"] - v7["startTick"];
-    /* // Preserve the receiver for a method call. */
     v13 = v32.getStillDamage(Number.call(undefined, v6), arg0[0], arg1);
     if (!v13) { pc = 405; continue; }
     pc = 402; continue;
@@ -1139,7 +1044,6 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
     pc = 1148; continue;
   }
     case 503: {
-    /* // Preserve the receiver for a method call. */
     v19 = mathBindings["MathUtil"].getDistance(v18[0], v18[1], v16[0], v16[1]);
     if (!v19 <= v14 + v7["areaEffectRadius"] + v15) { pc = 1148; continue; }
     pc = 567; continue;
@@ -1201,7 +1105,6 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
   }
     case 754: {
     v26 = BattleCache["ServerPosition"];
-    /* // Preserve the receiver for a method call. */
     if (!v32.checkSweptCollision(v24, v23, v26, v25, v14 + v7["radius"] + v15)) { pc = 895; continue; }
     pc = 798; continue;
   }
@@ -1211,7 +1114,6 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
     pc = 830; continue;
   }
     case 830: {
-    /* // Preserve the receiver for a method call. */
     v27 = v32.getGroupedProjectiles(Number.call(undefined, v6));
     pc = 860; continue;
   }
@@ -1223,7 +1125,6 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
     pc = 870; continue;
   }
     case 870: {
-    /* // Preserve the receiver for a method call. */
     pc = 886; continue;
   }
     case 886: {
@@ -1243,7 +1144,6 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
     pc = 921; continue;
   }
     case 921: {
-    /* // Preserve the receiver for a method call. */
     if (!v32.checkSweptCollision(v24, v23, v26, v25, v14 + v7["areaEffectRadius"] + v15)) { pc = 1059; continue; }
     pc = 963; continue;
   }
@@ -1253,7 +1153,6 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
     pc = 995; continue;
   }
     case 995: {
-    /* // Preserve the receiver for a method call. */
     v29 = v32.getGroupedProjectiles(Number.call(undefined, v6));
     pc = 1025; continue;
   }
@@ -1265,7 +1164,6 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
     pc = 1035; continue;
   }
     case 1035: {
-    /* // Preserve the receiver for a method call. */
     pc = 1051; continue;
   }
     case 1051: {
@@ -1281,13 +1179,12 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
     pc = 1068; continue;
   }
     case 1068: {
-    /* // Preserve the receiver for a method call. */
     v31 = v32.getStillDamage(Number.call(undefined, v6), v25, arg1);
-    if ([v31][0]) { pc = 1111; continue; }
+    if (v31) { pc = 1111; continue; }
     pc = 1103; continue;
   }
     case 1103: {
-    v20 = [v21][0];
+    v20 = v21;
     pc = 1111; continue;
   }
     case 1111: {
@@ -1298,7 +1195,6 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
     pc = 602; continue;
   }
     case 1123: {
-    /* // Preserve the receiver for a method call. */
     v4 = [Math.max(v4, v20)][0];
     pc = 1148; continue;
   }
@@ -1317,16 +1213,15 @@ function getPathDamage(arg0, arg1, {configuration, dodgePlanner, mathBindings}) 
   }
 }
 
-/** То же, но с ограничением по времени/дистанции. */
+/** getPathDamageBounded: урон по пути с ограничением по тикам */
 function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, mathBindings}) {
-  let v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v2, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v3, v30, v31, v32, v4, v5, v6, v7, v8, v9;
+  let config, v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v2, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v3, v30, v31, v32, v4, v5, v6, v7, v8, v9;
   const stack = [];
   let pc = 0;
   while (true) {
     switch (pc) {
     case 0: {
     v32 = this;
-    /* // Preserve the receiver for a method call. */
     config = configuration.getConfig("AutoDodge");
     v1 = arg1 + config["Safety"] * 10;
     v2 = 0;
@@ -1407,7 +1302,6 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
     pc = 1194; continue;
   }
     case 283: {
-    /* // Preserve the receiver for a method call. */
     if (!v3.includes(Number.call(undefined, v6))) { pc = 309; continue; }
     pc = 306; continue;
   }
@@ -1424,11 +1318,9 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
   }
     case 341: {
     v9 = v7["projectileTicks"];
-    /* // Preserve the receiver for a method call. */
     v10 = Object.keys(v9);
     v11 = Number.call(undefined, v10[v10["length"] - 1]);
     v12 = BattleCache["CurrentTick"] - v7["startTick"];
-    /* // Preserve the receiver for a method call. */
     v13 = v32.getStillDamage(Number.call(undefined, v6), arg0[0], arg1);
     if (!v13) { pc = 451; continue; }
     pc = 448; continue;
@@ -1473,7 +1365,6 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
     pc = 1194; continue;
   }
     case 549: {
-    /* // Preserve the receiver for a method call. */
     v19 = mathBindings["MathUtil"].getDistance(v18[0], v18[1], v16[0], v16[1]);
     if (!v19 <= v14 + v7["areaEffectRadius"] + v15) { pc = 1194; continue; }
     pc = 613; continue;
@@ -1535,7 +1426,6 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
   }
     case 800: {
     v26 = BattleCache["ServerPosition"];
-    /* // Preserve the receiver for a method call. */
     if (!v32.checkSweptCollision(v24, v23, v26, v25, v14 + v7["radius"] + v15)) { pc = 941; continue; }
     pc = 844; continue;
   }
@@ -1545,7 +1435,6 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
     pc = 876; continue;
   }
     case 876: {
-    /* // Preserve the receiver for a method call. */
     v27 = v32.getGroupedProjectiles(Number.call(undefined, v6));
     pc = 906; continue;
   }
@@ -1557,7 +1446,6 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
     pc = 916; continue;
   }
     case 916: {
-    /* // Preserve the receiver for a method call. */
     pc = 932; continue;
   }
     case 932: {
@@ -1577,7 +1465,6 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
     pc = 967; continue;
   }
     case 967: {
-    /* // Preserve the receiver for a method call. */
     if (!v32.checkSweptCollision(v24, v23, v26, v25, v14 + v7["areaEffectRadius"] + v15)) { pc = 1105; continue; }
     pc = 1009; continue;
   }
@@ -1587,7 +1474,6 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
     pc = 1041; continue;
   }
     case 1041: {
-    /* // Preserve the receiver for a method call. */
     v29 = v32.getGroupedProjectiles(Number.call(undefined, v6));
     pc = 1071; continue;
   }
@@ -1599,7 +1485,6 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
     pc = 1081; continue;
   }
     case 1081: {
-    /* // Preserve the receiver for a method call. */
     pc = 1097; continue;
   }
     case 1097: {
@@ -1615,13 +1500,12 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
     pc = 1114; continue;
   }
     case 1114: {
-    /* // Preserve the receiver for a method call. */
     v31 = v32.getStillDamage(Number.call(undefined, v6), v25, arg1);
-    if ([v31][0]) { pc = 1157; continue; }
+    if (v31) { pc = 1157; continue; }
     pc = 1149; continue;
   }
     case 1149: {
-    v20 = [v21][0];
+    v20 = v21;
     pc = 1157; continue;
   }
     case 1157: {
@@ -1632,7 +1516,6 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
     pc = 648; continue;
   }
     case 1169: {
-    /* // Preserve the receiver for a method call. */
     v4 = [Math.max(v4, v20)][0];
     pc = 1194; continue;
   }
@@ -1651,7 +1534,7 @@ function getPathDamageBounded(arg0, arg1, arg2, {configuration, dodgePlanner, ma
   }
 }
 
-/** Урон, если стоять на месте. */
+/** getStillDamage: урон, если остаться на месте */
 function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
   let v0, v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v3, v4, v5, v6, v7, v8, v9;
   const stack = [];
@@ -1677,7 +1560,6 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
     pc = 91; continue;
   }
     case 91: {
-    /* // Preserve the receiver for a method call. */
     /* return v29.getStillDamageOriginal(arg0, arg1, arg2) */
   }
     case 105: {
@@ -1726,7 +1608,6 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
     return;
   }
     case 228: {
-    /* // Preserve the receiver for a method call. */
     if (!v3.includes(Number.call(undefined, arg0))) { pc = 250; continue; }
     pc = 249; continue;
   }
@@ -1743,7 +1624,6 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
   }
     case 280: {
     v7 = v5["projectileTicks"];
-    /* // Preserve the receiver for a method call. */
     v8 = Object.keys(v7);
     v9 = Number.call(undefined, v8[v8["length"] - 1]);
     if (!v5["ignoreExtraRadius"]) { pc = 347; continue; }
@@ -1801,7 +1681,6 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
     case 578: {
     v21 = v12;
     v22 = arg1;
-    /* // Preserve the receiver for a method call. */
     v23 = mathBindings["MathUtil"].getDistance(v22[0], v22[1], v21[0], v21[1]);
     if (!v23 <= arg2 + v5["areaEffectRadius"] + v10) { pc = 1014; continue; }
     pc = 659; continue;
@@ -1818,7 +1697,6 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
     pc = 726; continue;
   }
     case 700: {
-    /* // Preserve the receiver for a method call. */
     pc = 726; continue;
   }
     case 726: {
@@ -1831,7 +1709,6 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
     pc = 760; continue;
   }
     case 760: {
-    /* // Preserve the receiver for a method call. */
     v24 = v29.getGroupedProjectiles(Number.call(undefined, arg0));
     pc = 788; continue;
   }
@@ -1843,7 +1720,6 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
     pc = 798; continue;
   }
     case 798: {
-    /* // Preserve the receiver for a method call. */
     pc = 814; continue;
   }
     case 814: {
@@ -1871,7 +1747,6 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
     pc = 921; continue;
   }
     case 895: {
-    /* // Preserve the receiver for a method call. */
     pc = 921; continue;
   }
     case 921: {
@@ -1884,7 +1759,6 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
     pc = 952; continue;
   }
     case 952: {
-    /* // Preserve the receiver for a method call. */
     v27 = v29.getGroupedProjectiles(Number.call(undefined, arg0));
     pc = 980; continue;
   }
@@ -1896,7 +1770,6 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
     pc = 990; continue;
   }
     case 990: {
-    /* // Preserve the receiver for a method call. */
     pc = 1006; continue;
   }
     case 1006: {
@@ -1922,7 +1795,7 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
   }
 }
 
-/** Оригинальная (без поправок) оценка урона на месте. */
+/** getStillDamageOriginal: урон на месте без поправок */
 function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, mathBindings}) {
   let v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v2, v3, v4, v5, v6, v7, v8, v9;
   const stack = [];
@@ -1931,7 +1804,6 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
     switch (pc) {
     case 0: {
     v19 = this;
-    /* // Preserve the receiver for a method call. */
     arg1 = arg1;
     v1 = [];
     v2 = 0;
@@ -1977,7 +1849,6 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
     return;
   }
     case 169: {
-    /* // Preserve the receiver for a method call. */
     if (!v1.includes(Number.call(undefined, arg0))) { pc = 191; continue; }
     pc = 190; continue;
   }
@@ -1994,7 +1865,6 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
   }
     case 221: {
     v5 = v3["projectileTicks"];
-    /* // Preserve the receiver for a method call. */
     v6 = Object.keys(v5);
     v7 = Number.call(undefined, v6[v6["length"] - 1]);
     if (!v3["ignoreExtraRadius"]) { pc = 288; continue; }
@@ -2030,7 +1900,6 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
     case 374: {
     v12 = v10;
     v13 = arg1;
-    /* // Preserve the receiver for a method call. */
     v14 = mathBindings["MathUtil"].getDistance(v13[0], v13[1], v12[0], v12[1]);
     if (!v14 <= arg2 + v3["areaEffectRadius"] + v8) { pc = 774; continue; }
     pc = 455; continue;
@@ -2040,7 +1909,6 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
     pc = 781; continue;
   }
     case 476: {
-    /* // Preserve the receiver for a method call. */
     if (!v19.checkSweptCollision(v11, v10, arg1, arg1, arg2 + v3["radius"] + v8)) { pc = 611; continue; }
     pc = 516; continue;
   }
@@ -2050,7 +1918,6 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
     pc = 548; continue;
   }
     case 548: {
-    /* // Preserve the receiver for a method call. */
     v15 = v19.getGroupedProjectiles(Number.call(undefined, arg0));
     pc = 576; continue;
   }
@@ -2062,7 +1929,6 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
     pc = 586; continue;
   }
     case 586: {
-    /* // Preserve the receiver for a method call. */
     pc = 602; continue;
   }
     case 602: {
@@ -2082,7 +1948,6 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
     pc = 643; continue;
   }
     case 643: {
-    /* // Preserve the receiver for a method call. */
     if (!v19.checkSweptCollision(v11, v10, arg1, arg1, arg2 + v3["areaEffectRadius"] + v8)) { pc = 774; continue; }
     pc = 683; continue;
   }
@@ -2092,7 +1957,6 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
     pc = 712; continue;
   }
     case 712: {
-    /* // Preserve the receiver for a method call. */
     v17 = v19.getGroupedProjectiles(Number.call(undefined, arg0));
     pc = 740; continue;
   }
@@ -2104,7 +1968,6 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
     pc = 750; continue;
   }
     case 750: {
-    /* // Preserve the receiver for a method call. */
     pc = 766; continue;
   }
     case 766: {
@@ -2130,7 +1993,7 @@ function getStillDamageOriginal(arg0, arg1, arg2, {configuration, dodgePlanner, 
   }
 }
 
-/** Урон по конкретной позиции с учётом всех снарядов. */
+/** getDamage: урон по позиции от всех снарядов */
 function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
   let v0, v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v2, v20, v3, v4, v5, v6, v7, v8, v9;
   const stack = [];
@@ -2139,7 +2002,6 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
     switch (pc) {
     case 0: {
     v20 = this;
-    /* // Preserve the receiver for a method call. */
     if ([BattleCache["TickPosition"]][0]) { pc = 56; continue; }
     pc = 44; continue;
   }
@@ -2202,7 +2064,6 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
     pc = 847; continue;
   }
     case 224: {
-    /* // Preserve the receiver for a method call. */
     if (!v1.includes(Number.call(undefined, v3))) { pc = 250; continue; }
     pc = 247; continue;
   }
@@ -2219,7 +2080,6 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
   }
     case 282: {
     v6 = v4["projectileTicks"];
-    /* // Preserve the receiver for a method call. */
     v7 = Object.keys(v6);
     v8 = Number.call(undefined, v7[v7["length"] - 1]);
     if (!v4["ignoreExtraRadius"]) { pc = 349; continue; }
@@ -2255,7 +2115,6 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
     case 435: {
     v13 = v11;
     v14 = v0;
-    /* // Preserve the receiver for a method call. */
     v15 = mathBindings["MathUtil"].getDistance(v14[0], v14[1], v13[0], v13[1]);
     if (!v15 <= arg0 + v4["areaEffectRadius"] + v9) { pc = 839; continue; }
     pc = 516; continue;
@@ -2265,7 +2124,6 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
     pc = 846; continue;
   }
     case 537: {
-    /* // Preserve the receiver for a method call. */
     if (!v20.checkSweptCollision(v12, v11, v0, v0, arg0 + v4["radius"] + v9)) { pc = 674; continue; }
     pc = 577; continue;
   }
@@ -2275,7 +2133,6 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
     pc = 609; continue;
   }
     case 609: {
-    /* // Preserve the receiver for a method call. */
     v16 = v20.getGroupedProjectiles(Number.call(undefined, v3));
     pc = 639; continue;
   }
@@ -2287,7 +2144,6 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
     pc = 649; continue;
   }
     case 649: {
-    /* // Preserve the receiver for a method call. */
     pc = 665; continue;
   }
     case 665: {
@@ -2307,7 +2163,6 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
     pc = 706; continue;
   }
     case 706: {
-    /* // Preserve the receiver for a method call. */
     if (!v20.checkSweptCollision(v12, v11, v0, v0, arg0 + v4["areaEffectRadius"] + v9)) { pc = 839; continue; }
     pc = 746; continue;
   }
@@ -2317,7 +2172,6 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
     pc = 775; continue;
   }
     case 775: {
-    /* // Preserve the receiver for a method call. */
     v18 = v20.getGroupedProjectiles(Number.call(undefined, v3));
     pc = 805; continue;
   }
@@ -2329,7 +2183,6 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
     pc = 815; continue;
   }
     case 815: {
-    /* // Preserve the receiver for a method call. */
     pc = 831; continue;
   }
     case 831: {
@@ -2363,7 +2216,7 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
   }
 }
 
-/** Позиция вращающегося/бумерангового снаряда на тике. */
+/** getProjectilePathPoint: позиция вращающегося/бумерангового снаряда на тике */
 function getProjectilePathPoint({capturedValue0, capturedValue1, capturedValue2, capturedValue3}) {
   let v0, v1;
   const stack = [];
@@ -2412,7 +2265,6 @@ function getProjectilePathPoint({capturedValue0, capturedValue1, capturedValue2,
     pc = 125; continue;
   }
     case 125: {
-    /* // Preserve the receiver for a method call. */
     /* capturedValue0[propertyKey("startAngle")] = capturedValue2["MathUtil"].getDegreesToPoint(capturedValue0["startPosition"][0], capturedValue0["startPosition"][1], capturedValue1[0], capturedValue1[1]) */
     /* capturedValue0[propertyKey("setFirstAngle")] = !![] */
     if (!!![]) { pc = 244; continue; }
@@ -2433,7 +2285,6 @@ function getProjectilePathPoint({capturedValue0, capturedValue1, capturedValue2,
     return;
   }
     case 244: {
-    /* // Preserve the receiver for a method call. */
     if (![!capturedValue0["isIndirect"]][0]) { pc = 313; continue; }
     pc = 302; continue;
   }
@@ -2452,7 +2303,7 @@ function getProjectilePathPoint({capturedValue0, capturedValue1, capturedValue2,
   }
 }
 
-/** Возврат тача в исходную точку (release dodge). */
+/** releaseDodgeTouch: возврат тача в исходную точку */
 function releaseDodgeTouch({capturedValue0, capturedValue1, capturedValue2}) {
   const stack = [];
   let pc = 0;
@@ -2470,7 +2321,6 @@ function releaseDodgeTouch({capturedValue0, capturedValue1, capturedValue2}) {
     pc = 45; continue;
   }
     case 45: {
-    /* // Preserve the receiver for a method call. */
     pc = 79; continue;
   }
     case 79: {
@@ -2479,11 +2329,9 @@ function releaseDodgeTouch({capturedValue0, capturedValue1, capturedValue2}) {
     pc = 107; continue;
   }
     case 107: {
-    /* // Preserve the receiver for a method call. */
     pc = 139; continue;
   }
     case 124: {
-    /* // Preserve the receiver for a method call. */
     pc = 139; continue;
   }
     case 139: {
@@ -2493,7 +2341,7 @@ function releaseDodgeTouch({capturedValue0, capturedValue1, capturedValue2}) {
   }
 }
 
-/** Тики полёта снаряда по дистанции. */
+/** getProjectileTicks: тики полёта снаряда по дистанции */
 function getProjectileTicks(arg0, arg1, arg2, arg3, arg4, {mathBindings, dodgePlanner}) {
   let radians, v0, v10, v11, v12, v13, v3, v4, v6, v7, v8, v9;
   const stack = [];
@@ -2505,13 +2353,9 @@ function getProjectileTicks(arg0, arg1, arg2, arg3, arg4, {mathBindings, dodgePl
     arg2 = arg2;
     arg3 = arg3;
     v3 = arg1 / 20;
-    /* // Preserve the receiver for a method call. */
     v4 = Math.ceil(arg0 / v3);
-    /* // Preserve the receiver for a method call. */
     radians = mathBindings["MathUtil"].getRadians(arg3);
-    /* // Preserve the receiver for a method call. */
     v6 = Math.cos(radians);
-    /* // Preserve the receiver for a method call. */
     v7 = Math.sin(radians);
     v8 = 1;
     pc = 127; continue;
@@ -2524,7 +2368,6 @@ function getProjectileTicks(arg0, arg1, arg2, arg3, arg4, {mathBindings, dodgePl
     pc = 141; continue;
   }
     case 141: {
-    /* // Preserve the receiver for a method call. */
     v9 = Math.min(v3, arg0 - v8 - 1 * v3);
     v10 = arg2[0] + v6 * v9;
     v11 = arg2[1] + v7 * v9;
@@ -2533,7 +2376,6 @@ function getProjectileTicks(arg0, arg1, arg2, arg3, arg4, {mathBindings, dodgePl
     pc = 229; continue;
   }
     case 229: {
-    /* // Preserve the receiver for a method call. */
     v13 = dodgePlanner.checkWallCollisions(arg2, v12);
     if (!v13) { pc = 270; continue; }
     pc = 257; continue;
@@ -2544,7 +2386,7 @@ function getProjectileTicks(arg0, arg1, arg2, arg3, arg4, {mathBindings, dodgePl
   }
     case 270: {
     /* v0[propertyKey(v8)] = v12 */
-    arg2 = [v12][0];
+    arg2 = v12;
     v8 = numeric(v8) + (typeof numeric(v8) === 'bigint' ? 1n : 1);
     pc = 127; continue;
   }
@@ -2555,7 +2397,7 @@ function getProjectileTicks(arg0, arg1, arg2, arg3, arg4, {mathBindings, dodgePl
   }
 }
 
-/** Позиция снаряда на заданном тике. */
+/** getProjectilePosition: позиция снаряда на тике */
 function getProjectilePosition(arg0, {capturedValue0, capturedValue1, capturedValue2, capturedValue3}) {
   let v0, v1, v2, v3, v4;
   const stack = [];
@@ -2584,7 +2426,6 @@ function getProjectilePosition(arg0, {capturedValue0, capturedValue1, capturedVa
     pc = 73; continue;
   }
     case 73: {
-    /* // Preserve the receiver for a method call. */
     if (!Number.isSafeInteger(v0["X"])) { pc = 382; continue; }
     pc = 101; continue;
   }
@@ -2619,8 +2460,6 @@ function getProjectilePosition(arg0, {capturedValue0, capturedValue1, capturedVa
   }
     case 194: {
     v1 = 8;
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
     v2 = v4["instance"].add(v0["X"]).readByteArray(v1);
     if ([v2 === null][0]) { pc = 255; continue; }
     pc = 241; continue;
@@ -2633,22 +2472,17 @@ function getProjectilePosition(arg0, {capturedValue0, capturedValue1, capturedVa
     pc = 257; continue;
   }
     case 257: {
-    throw Reflect.construct([Error][0], [], [Error][0]);
+    throw Reflect.construct(Error, [], Error);
   }
     case 267: {
-    v3 = Reflect.construct([DataView][0], [v2], [DataView][0]);
+    v3 = Reflect.construct(DataView, [v2], DataView);
     if (!arg0) { pc = 342; continue; }
     pc = 283; continue;
   }
     case 283: {
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
     return [v3.getInt32(0, !![]), v3.getInt32(4, !![]), v3.getInt32(8, !![])];
   }
     case 342: {
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
     return [v3.getInt32(0, !![]), v3.getInt32(4, !![])];
   }
     case 382: {
@@ -2656,21 +2490,16 @@ function getProjectilePosition(arg0, {capturedValue0, capturedValue1, capturedVa
     pc = 385; continue;
   }
     case 385: {
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
     return [v4.getX(), v4.getY(), v4.getZ()];
   }
     case 422: {
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
     return [v4.getX(), v4.getY()];
   }
     }
   }
 }
 
-/** Группировка снарядов одного выстрела. */
+/** getGroupedProjectiles: группировка снарядов одного выстрела */
 function getGroupedProjectiles(arg0) {
   let v0, v1, v2, v3, v4, v5, v6, v7;
   const stack = [];
@@ -2682,8 +2511,8 @@ function getGroupedProjectiles(arg0) {
     v1 = v0["startTick"];
     v2 = v0["index"];
     v3 = [arg0];
-    /* setName(frame.makeClosure(0, {args, locals, refs, frame}), "") */
-    v4 = frame.makeClosure(0, {args, locals, refs, frame});
+    
+    v4 = closure1;
     v5 = arg0 - 1;
     pc = 71; continue;
   }
@@ -2700,7 +2529,6 @@ function getGroupedProjectiles(arg0) {
     pc = 126; continue;
   }
     case 98: {
-    /* // Preserve the receiver for a method call. */
     v5 = [v5 - 1][0];
     pc = 71; continue;
   }
@@ -2721,7 +2549,6 @@ function getGroupedProjectiles(arg0) {
     pc = 189; continue;
   }
     case 161: {
-    /* // Preserve the receiver for a method call. */
     v5 = [v5 + 1][0];
     pc = 134; continue;
   }
@@ -2732,7 +2559,7 @@ function getGroupedProjectiles(arg0) {
   }
 }
 
-/** Снятие подписок и очистка состояния. */
+/** destroyDodgeController: снятие подписок и очистка */
 function destroyDodgeController(arg0, {configuration, captured_getDamage_getMaxRange, captured_get_getRegistry}) {
   let globalID, v0, v2, v3, v4;
   const stack = [];
@@ -2740,7 +2567,6 @@ function destroyDodgeController(arg0, {configuration, captured_getDamage_getMaxR
   while (true) {
     switch (pc) {
     case 0: {
-    /* // Preserve the receiver for a method call. */
     if (!!configuration.isModEnabled("AutoDodge")) { pc = 30; continue; }
     pc = 29; continue;
   }
@@ -2755,8 +2581,7 @@ function destroyDodgeController(arg0, {configuration, captured_getDamage_getMaxR
     return;
   }
     case 45: {
-    v0 = Reflect.construct([captured_getDamage_getMaxRange][0], [arg0], [captured_getDamage_getMaxRange][0]);
-    /* // Preserve the receiver for a method call. */
+    v0 = Reflect.construct(captured_getDamage_getMaxRange, [arg0], captured_getDamage_getMaxRange);
     globalID = v0.getGlobalID();
     v2 = BattleCache["Projectiles"][globalID];
     if (!!v2) { pc = 90; continue; }
@@ -2769,7 +2594,6 @@ function destroyDodgeController(arg0, {configuration, captured_getDamage_getMaxR
     pc = 95; continue;
   }
     case 95: {
-    /* // Preserve the receiver for a method call. */
     pc = 175; continue;
   }
     case 110: {
@@ -2777,8 +2601,6 @@ function destroyDodgeController(arg0, {configuration, captured_getDamage_getMaxR
     pc = 113; continue;
   }
     case 113: {
-    /* // Preserve the receiver for a method call. */
-    /* // Preserve the receiver for a method call. */
     if (!!v3.includes(globalID.toString())) { pc = 145; continue; }
     pc = 143; continue;
   }
@@ -2786,9 +2608,7 @@ function destroyDodgeController(arg0, {configuration, captured_getDamage_getMaxR
     pc = 175; continue;
   }
     case 145: {
-    /* // Preserve the receiver for a method call. */
     v4 = captured_get_getRegistry.get(v3);
-    /* // Preserve the receiver for a method call. */
     pc = 175; continue;
   }
     case 175: {
@@ -2803,564 +2623,7 @@ function destroyDodgeController(arg0, {configuration, captured_getDamage_getMaxR
   }
 }
 
-/** Урон только от одного снаряда группы. */
-function getDamageOnlyWithOneProj({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
-  const DamageOnlyWithOneProj6 = LogicProjectileData5["DamageOnlyWithOneProj"];
-  const callResult7 = Reflect.apply(add3, instance2, [DamageOnlyWithOneProj6]);
-  const readU88 = callResult7["readU8"];
-  const callResult9 = Reflect.apply(readU88, callResult7, []);
-  const result10 = !callResult9;
-  const result11 = !result10;
-  return result11;
-}
-
-/** Максимальная дальность снаряда. */
-function getMaxRange(arg0, {capturedValue0}) {
-  let v0, v1, v2;
-  const capturedValue01 = capturedValue0;
-  const argument02 = arg0;
-  const propertyValue3 = capturedValue01[argument02];
-  if (propertyValue3) {
-  const localValue04 = v0;
-  const Range5 = localValue04["Range"];
-  if (Range5) {
-  const localValue16 = v1;
-  const result7 = !localValue16;
-  if (!result7) {
-  const localValue18 = v1;
-  const localValue29 = v2;
-  return localValue29;
-  } else {
-  return undefined;
-  } else {
-  const GlobalCache10 = GlobalCache;
-  const CastingRanges11 = GlobalCache10["CastingRanges"];
-  const argument012 = arg0;
-  const propertyValue13 = CastingRanges11[argument012];
-  if (propertyValue13) {
-  const localValue114 = v1;
-  const result15 = !localValue114;
-  if (!result15) {
-  const localValue116 = v1;
-  const localValue217 = v2;
-  return localValue217;
-  } else {
-  return undefined;
-  } else {
-  const localValue018 = v0;
-  const ProjectileRange19 = localValue018["ProjectileRange"];
-  if (!ProjectileRange19) {
-  const localValue120 = v1;
-  const result21 = !localValue120;
-  if (!result21) {
-  const localValue122 = v1;
-  const localValue223 = v2;
-  return localValue223;
-  } else {
-  return undefined;
-  } else {
-  const GlobalCache24 = GlobalCache;
-  const CastingRanges25 = GlobalCache24["CastingRanges"];
-  const localValue026 = v0;
-  const ProjectileRange27 = localValue026["ProjectileRange"];
-  const propertyValue28 = CastingRanges25[ProjectileRange27];
-  const localValue129 = v1;
-  const result30 = !localValue129;
-  if (!result30) {
-  const localValue131 = v1;
-  const localValue232 = v2;
-  return localValue232;
-  } else {
-  return undefined;
-  } else {
-  const objectValue33 = {};
-  const localValue034 = v0;
-  const Range35 = localValue034["Range"];
-  if (Range35) {
-  const localValue136 = v1;
-  const result37 = !localValue136;
-  if (!result37) {
-  const localValue138 = v1;
-  const localValue239 = v2;
-  return localValue239;
-  } else {
-  return undefined;
-  } else {
-  const GlobalCache40 = GlobalCache;
-  const CastingRanges41 = GlobalCache40["CastingRanges"];
-  const argument042 = arg0;
-  const propertyValue43 = CastingRanges41[argument042];
-  if (propertyValue43) {
-  const localValue144 = v1;
-  const result45 = !localValue144;
-  if (!result45) {
-  const localValue146 = v1;
-  const localValue247 = v2;
-  return localValue247;
-  } else {
-  return undefined;
-  } else {
-  const localValue048 = v0;
-  const ProjectileRange49 = localValue048["ProjectileRange"];
-  if (!ProjectileRange49) {
-  const localValue150 = v1;
-  const result51 = !localValue150;
-  if (!result51) {
-  const localValue152 = v1;
-  const localValue253 = v2;
-  return localValue253;
-  } else {
-  return undefined;
-  } else {
-  const GlobalCache54 = GlobalCache;
-  const CastingRanges55 = GlobalCache54["CastingRanges"];
-  const localValue056 = v0;
-  const ProjectileRange57 = localValue056["ProjectileRange"];
-  const propertyValue58 = CastingRanges55[ProjectileRange57];
-  const localValue159 = v1;
-  const result60 = !localValue159;
-  if (!result60) {
-  const localValue161 = v1;
-  const localValue262 = v2;
-  return localValue262;
-  } else {
-  return undefined;
-}
-
-/** Время полёта для снарядов с постоянной скоростью. */
-function getConstantFlyTime({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
-  const ConstantFlyTime6 = LogicProjectileData5["ConstantFlyTime"];
-  const callResult7 = Reflect.apply(add3, instance2, [ConstantFlyTime6]);
-  const readU88 = callResult7["readU8"];
-  const callResult9 = Reflect.apply(readU88, callResult7, []);
-  return callResult9;
-}
-
-/** Радиус коллизии снаряда. */
-function getCollisionRadius({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicCharacterData5 = capturedValue04["LogicCharacterData"];
-  const CollisionRadius6 = LogicCharacterData5["CollisionRadius"];
-  const callResult7 = Reflect.apply(add3, instance2, [CollisionRadius6]);
-  const readInt8 = callResult7["readInt"];
-  const callResult9 = Reflect.apply(readInt8, callResult7, []);
-  return callResult9;
-}
-
-/** Тип бумеранга. */
-function getBoomerangType({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
-  const BoomerangType6 = LogicProjectileData5["BoomerangType"];
-  const callResult7 = Reflect.apply(add3, instance2, [BoomerangType6]);
-  const readInt8 = callResult7["readInt"];
-  const callResult9 = Reflect.apply(readInt8, callResult7, []);
-  return callResult9;
-}
-
-/** Зеркальная копия угла/вектора. */
-function getMirrored({capturedValue0}) {
-  const base1 = base;
-  const add2 = base1["add"];
-  const capturedValue03 = capturedValue0;
-  const Mirrored4 = capturedValue03["Mirrored"];
-  const callResult5 = Reflect.apply(add2, base1, [Mirrored4]);
-  const readU86 = callResult5["readU8"];
-  const callResult7 = Reflect.apply(readU86, callResult5, []);
-  return callResult7;
-}
-
-/** Флаг «клип не вращается». */
-function isDoNotRotateClip({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const getRendering2 = localValue01["getRendering"];
-  const callResult3 = Reflect.apply(getRendering2, localValue01, []);
-  const capturedValue04 = capturedValue0;
-  const DO_NOT_ROTATE_THE_CLIP5 = capturedValue04["DO_NOT_ROTATE_THE_CLIP"];
-  const result6 = callResult3 === DO_NOT_ROTATE_THE_CLIP5;
-  return result6;
-}
-
-/** Снаряд отскакивает. */
-function isBouncing({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
-  const Bouncing6 = LogicProjectileData5["Bouncing"];
-  const callResult7 = Reflect.apply(add3, instance2, [Bouncing6]);
-  const readU88 = callResult7["readU8"];
-  const callResult9 = Reflect.apply(readU88, callResult7, []);
-  const result10 = !callResult9;
-  const result11 = !result10;
-  return result11;
-}
-
-/** Снаряд летит непрямо (по пути/по площади). */
-function isIndirect() {
-  let v2;
-  const localValue21 = v2;
-  const getChargeType2 = localValue21["getChargeType"];
-  const callResult3 = Reflect.apply(getChargeType2, localValue21, []);
-  const localValue24 = v2;
-  const getProjectile5 = localValue24["getProjectile"];
-  const callResult6 = Reflect.apply(getProjectile5, localValue24, []);
-  const projectile7 = projectile;
-  const instance8 = projectile7["instance"];
-  const isNull9 = instance8["isNull"];
-  const callResult10 = Reflect.apply(isNull9, instance8, []);
-  const result11 = !callResult10;
-  if (!result11) {
-  const chargeType12 = chargeType;
-  const result13 = chargeType12 == 20;
-  if (result13) {
-  if (!result13) {
-  return result13;
-  } else {
-  const localValue214 = v2;
-  const getProjectile15 = localValue214["getProjectile"];
-  const callResult16 = Reflect.apply(getProjectile15, localValue214, []);
-  const instance17 = callResult16["instance"];
-  const isNull18 = instance17["isNull"];
-  const callResult19 = Reflect.apply(isNull18, instance17, []);
-  return callResult19;
-  } else {
-  const chargeType20 = chargeType;
-  const result21 = chargeType20 == 26;
-  if (result21) {
-  if (!result21) {
-  return result21;
-  } else {
-  const localValue222 = v2;
-  const getProjectile23 = localValue222["getProjectile"];
-  const callResult24 = Reflect.apply(getProjectile23, localValue222, []);
-  const instance25 = callResult24["instance"];
-  const isNull26 = instance25["isNull"];
-  const callResult27 = Reflect.apply(isNull26, instance25, []);
-  return callResult27;
-  } else {
-  const chargeType28 = chargeType;
-  const result29 = chargeType28 == 12;
-  if (result29) {
-  if (!result29) {
-  return result29;
-  } else {
-  const localValue230 = v2;
-  const getProjectile31 = localValue230["getProjectile"];
-  const callResult32 = Reflect.apply(getProjectile31, localValue230, []);
-  const instance33 = callResult32["instance"];
-  const isNull34 = instance33["isNull"];
-  const callResult35 = Reflect.apply(isNull34, instance33, []);
-  return callResult35;
-  } else {
-  const chargeType36 = chargeType;
-  const result37 = chargeType36 == 10;
-  if (result37) {
-  if (!result37) {
-  return result37;
-  } else {
-  const localValue238 = v2;
-  const getProjectile39 = localValue238["getProjectile"];
-  const callResult40 = Reflect.apply(getProjectile39, localValue238, []);
-  const instance41 = callResult40["instance"];
-  const isNull42 = instance41["isNull"];
-  const callResult43 = Reflect.apply(isNull42, instance41, []);
-  return callResult43;
-  } else {
-  const chargeType44 = chargeType;
-  const result45 = chargeType44 == 18;
-  if (!result45) {
-  return result45;
-  } else {
-  const localValue246 = v2;
-  const getProjectile47 = localValue246["getProjectile"];
-  const callResult48 = Reflect.apply(getProjectile47, localValue246, []);
-  const instance49 = callResult48["instance"];
-  const isNull50 = instance49["isNull"];
-  const callResult51 = Reflect.apply(isNull50, instance49, []);
-  return callResult51;
-  } else {
-  const projectile52 = projectile;
-  const getIndirect53 = projectile52["getIndirect"];
-  const callResult54 = Reflect.apply(getIndirect53, projectile52, []);
-  if (!callResult54) {
-  const chargeType55 = chargeType;
-  const result56 = chargeType55 == 20;
-  if (result56) {
-  if (!result56) {
-  return result56;
-  } else {
-  const localValue257 = v2;
-  const getProjectile58 = localValue257["getProjectile"];
-  const callResult59 = Reflect.apply(getProjectile58, localValue257, []);
-  const instance60 = callResult59["instance"];
-  const isNull61 = instance60["isNull"];
-  const callResult62 = Reflect.apply(isNull61, instance60, []);
-  return callResult62;
-  } else {
-  const chargeType63 = chargeType;
-  const result64 = chargeType63 == 26;
-  if (result64) {
-  if (!result64) {
-  return result64;
-  } else {
-  const localValue265 = v2;
-  const getProjectile66 = localValue265["getProjectile"];
-  const callResult67 = Reflect.apply(getProjectile66, localValue265, []);
-  const instance68 = callResult67["instance"];
-  const isNull69 = instance68["isNull"];
-  const callResult70 = Reflect.apply(isNull69, instance68, []);
-  return callResult70;
-  } else {
-  const chargeType71 = chargeType;
-  const result72 = chargeType71 == 12;
-  if (result72) {
-  if (!result72) {
-  return result72;
-  } else {
-  const localValue273 = v2;
-  const getProjectile74 = localValue273["getProjectile"];
-  const callResult75 = Reflect.apply(getProjectile74, localValue273, []);
-  const instance76 = callResult75["instance"];
-  const isNull77 = instance76["isNull"];
-  const callResult78 = Reflect.apply(isNull77, instance76, []);
-  return callResult78;
-  } else {
-  const chargeType79 = chargeType;
-  const result80 = chargeType79 == 10;
-  if (result80) {
-  if (!result80) {
-  return result80;
-  } else {
-  const localValue281 = v2;
-  const getProjectile82 = localValue281["getProjectile"];
-  const callResult83 = Reflect.apply(getProjectile82, localValue281, []);
-  const instance84 = callResult83["instance"];
-  const isNull85 = instance84["isNull"];
-  const callResult86 = Reflect.apply(isNull85, instance84, []);
-  return callResult86;
-  } else {
-  const chargeType87 = chargeType;
-  const result88 = chargeType87 == 18;
-  if (!result88) {
-  return result88;
-  } else {
-  const localValue289 = v2;
-  const getProjectile90 = localValue289["getProjectile"];
-  const callResult91 = Reflect.apply(getProjectile90, localValue289, []);
-  const instance92 = callResult91["instance"];
-  const isNull93 = instance92["isNull"];
-  const callResult94 = Reflect.apply(isNull93, instance92, []);
-  return callResult94;
-  } else {
-  const arrayValue95 = [];
-  const result96 = !arrayValue95;
-  const result97 = !result96;
-  return result97;
-}
-
-/** Данные непрямого снаряда. */
-function getIndirect({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
-  const Indirect6 = LogicProjectileData5["Indirect"];
-  const callResult7 = Reflect.apply(add3, instance2, [Indirect6]);
-  const readInt8 = callResult7["readInt"];
-  const callResult9 = Reflect.apply(readInt8, callResult7, []);
-  const result10 = !callResult9;
-  const result11 = !result10;
-  return result11;
-}
-
-/** Снаряд проходит сквозь окружение. */
-function getPassesEnvironment({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
-  const PiercesEnvironment6 = LogicProjectileData5["PiercesEnvironment"];
-  const callResult7 = Reflect.apply(add3, instance2, [PiercesEnvironment6]);
-  const readU88 = callResult7["readU8"];
-  const callResult9 = Reflect.apply(readU88, callResult7, []);
-  const result10 = !callResult9;
-  const result11 = !result10;
-  if (result11) {
-  return result11;
-  } else {
-  const localValue012 = v0;
-  const instance13 = localValue012["instance"];
-  const add14 = instance13["add"];
-  const capturedValue015 = capturedValue0;
-  const LogicProjectileData16 = capturedValue015["LogicProjectileData"];
-  const PiercesEnvironmentLikeButter17 = LogicProjectileData16["PiercesEnvironmentLikeButter"];
-  const callResult18 = Reflect.apply(add14, instance13, [PiercesEnvironmentLikeButter17]);
-  const readU819 = callResult18["readU8"];
-  const callResult20 = Reflect.apply(readU819, callResult18, []);
-  const result21 = !callResult20;
-  const result22 = !result21;
-  if (result22) {
-  return result22;
-  } else {
-  const localValue023 = v0;
-  const instance24 = localValue023["instance"];
-  const add25 = instance24["add"];
-  const capturedValue026 = capturedValue0;
-  const LogicProjectileData27 = capturedValue026["LogicProjectileData"];
-  const PassesEnvironment28 = LogicProjectileData27["PassesEnvironment"];
-  const callResult29 = Reflect.apply(add25, instance24, [PassesEnvironment28]);
-  const readU830 = callResult29["readU8"];
-  const callResult31 = Reflect.apply(readU830, callResult29, []);
-  const result32 = !callResult31;
-  const result33 = !result32;
-  return result33;
-}
-
-/** Объект area-effect при спавне. */
-function getSpawnAreaEffectObject({capturedValue0, capturedValue1}) {
-  let v0;
-  const capturedValue01 = capturedValue0;
-  const localValue02 = v0;
-  const instance3 = localValue02["instance"];
-  const add4 = instance3["add"];
-  const capturedValue15 = capturedValue1;
-  const LogicProjectileData6 = capturedValue15["LogicProjectileData"];
-  const SpawnAreaEffectObject7 = LogicProjectileData6["SpawnAreaEffectObject"];
-  const callResult8 = Reflect.apply(add4, instance3, [SpawnAreaEffectObject7]);
-  const readPointer9 = callResult8["readPointer"];
-  const callResult10 = Reflect.apply(readPointer9, callResult8, []);
-  const callResult11 = Reflect.construct(capturedValue01, [callResult10], capturedValue01);
-  return callResult11;
-}
-
-/** Время жизни «руления» снаряда. */
-function getSteeringLifeTime({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
-  const SteeringLifeTime6 = LogicProjectileData5["SteeringLifeTime"];
-  const callResult7 = Reflect.apply(add3, instance2, [SteeringLifeTime6]);
-  const readInt8 = callResult7["readInt"];
-  const callResult9 = Reflect.apply(readInt8, callResult7, []);
-  return callResult9;
-}
-
-/** Суммарная дельта угла. */
-function getTotalDelta({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicProjectile5 = capturedValue04["LogicProjectile"];
-  const TotalDelta6 = LogicProjectile5["TotalDelta"];
-  const callResult7 = Reflect.apply(add3, instance2, [TotalDelta6]);
-  const readInt8 = callResult7["readInt"];
-  const callResult9 = Reflect.apply(readInt8, callResult7, []);
-  return callResult9;
-}
-
-/** Разница углов по кратчайшей дуге. */
-function getAngleDifference(arg0, arg1) {
-  let v0;
-  const Math1 = Math;
-  const abs2 = Math1["abs"];
-  const argument03 = arg0;
-  const argument14 = arg1;
-  const result5 = argument03 - argument14;
-  const result6 = result5 % 360;
-  const callResult7 = Reflect.apply(abs2, Math1, [result6]);
-  const localValue08 = v0;
-  const result9 = localValue08 > 180;
-  if (!result9) {
-  const localValue010 = v0;
-  return localValue010;
-  } else {
-  const localValue011 = v0;
-  const result12 = 360 - localValue011;
-  return result12;
-}
-
-/** Градусы → радианы. */
-function getRadians(arg0) {
-  const argument01 = arg0;
-  const Math2 = Math;
-  const PI3 = Math2["PI"];
-  const result4 = PI3 / 180;
-  const result5 = argument01 * result4;
-  return result5;
-}
-
-/** Угол в градусах от точки к точке. */
-function getDegreesToPoint(arg0, arg1, arg2, arg3) {
-  let v0;
-  const localValue01 = v0;
-  const getDegrees2 = localValue01["getDegrees"];
-  const localValue03 = v0;
-  const getRadiansBetweenPoints4 = localValue03["getRadiansBetweenPoints"];
-  const argument05 = arg0;
-  const argument16 = arg1;
-  const argument27 = arg2;
-  const argument38 = arg3;
-  const callResult9 = Reflect.apply(getRadiansBetweenPoints4, localValue03, [argument05, argument16, argument27, argument38]);
-  const callResult10 = Reflect.apply(getDegrees2, localValue01, [callResult9]);
-  return callResult10;
-}
-
-/** Евклидово расстояние. */
-function getDistance(originX, originY, targetX, targetY) {
-  let v0, v1;
-  const targetX1 = targetX;
-  const originX2 = originX;
-  const result3 = targetX1 - originX2;
-  const targetY4 = targetY;
-  const originY5 = originY;
-  const result6 = targetY4 - originY5;
-  const Math7 = Math;
-  const sqrt8 = Math7["sqrt"];
-  const localValue09 = v0;
-  const localValue010 = v0;
-  const result11 = localValue09 * localValue010;
-  const localValue112 = v1;
-  const localValue113 = v1;
-  const result14 = localValue112 * localValue113;
-  const result15 = result11 + result14;
-  const callResult16 = Reflect.apply(sqrt8, Math7, [result15]);
-  return callResult16;
-}
-
-/** Swept-circle: пересечение движущихся окружностей на отрезке [0,1]. */
+/** checkSweptCollision: swept-circle пересечение на отрезке [0,1] */
 function checkSweptCollision(startPosition, endPosition, projectileStart, projectileEnd, combinedRadius) {
   const startPosition1 = startPosition;
   const propertyValue2 = startPosition1[0];
@@ -3440,7 +2703,7 @@ function checkSweptCollision(startPosition, endPosition, projectileStart, projec
   const Math73 = Math;
   const sqrt74 = Math73["sqrt"];
   const discriminant75 = discriminant;
-  const callResult76 = Reflect.apply(sqrt74, Math73, [discriminant75]);
+  const callResult76 = sqrt74.call(Math73, discriminant75);
   const quadraticLinear77 = quadraticLinear;
   const result78 = -quadraticLinear77;
   const sqrtDiscriminant79 = sqrtDiscriminant;
@@ -3467,6 +2730,7 @@ function checkSweptCollision(startPosition, endPosition, projectileStart, projec
   const arrayValue96 = [];
   const result97 = !arrayValue96;
   return result97;
+  }
   } else {
   const enterTime98 = enterTime;
   const result99 = enterTime98 > 1;
@@ -3479,134 +2743,445 @@ function checkSweptCollision(startPosition, endPosition, projectileStart, projec
   const arrayValue103 = [];
   const result104 = !arrayValue103;
   return result104;
+  }
+  }
   } else {
   const arrayValue105 = [];
   const result106 = !arrayValue105;
   return result106;
+  }
   } else {
   const arrayValue107 = [];
   const result108 = !arrayValue107;
   return result108;
+  }
   } else {
   const arrayValue109 = [];
   const result110 = !arrayValue109;
   const result111 = !result110;
   return result111;
+  }
 }
 
-/** Урон с учётом динамических модификаторов. */
-function getDynamicDamage(arg0, arg1) {
-  let v0, v1, v2, v4;
-  const BattleCache1 = BattleCache;
-  const TickPosition2 = BattleCache1["TickPosition"];
-  if (TickPosition2) {
-  const BattleCache3 = BattleCache;
-  const CurrentSpeed4 = BattleCache3["CurrentSpeed"];
-  const localValue15 = v1;
-  const result6 = localValue15 / 20;
-  const localValue47 = v4;
-  const getPathByAngle8 = localValue47["getPathByAngle"];
-  const localValue09 = v0;
-  const argument010 = arg0;
-  const localValue211 = v2;
-  const callResult12 = Reflect.apply(getPathByAngle8, localValue47, [localValue09, argument010, localValue211]);
-  const localValue413 = v4;
-  const getPathDamage14 = localValue413["getPathDamage"];
-  const pathByAngle15 = pathByAngle;
-  const argument116 = arg1;
-  const callResult17 = Reflect.apply(getPathDamage14, localValue413, [pathByAngle15, argument116]);
-  return callResult17;
+/** getMaxRange: максимальная дальность снаряда */
+function getMaxRange(arg0, {capturedValue0}) {
+  let v0, v1, v2;
+  const capturedValue01 = capturedValue0;
+  const argument02 = arg0;
+  const propertyValue3 = capturedValue01[argument02];
+  if (propertyValue3) {
+  const localValue04 = v0;
+  const Range5 = localValue04["Range"];
+  if (Range5) {
+  const localValue16 = v1;
+  const result7 = !localValue16;
+  if (!result7) {
+  const localValue18 = v1;
+  const localValue29 = v2;
+  return localValue29;
   } else {
-  const BattleCache18 = BattleCache;
-  const ServerPosition19 = BattleCache18["ServerPosition"];
-  const BattleCache20 = BattleCache;
-  const CurrentSpeed21 = BattleCache20["CurrentSpeed"];
+  return undefined;
+  }
+  } else {
+  const GlobalCache10 = GlobalCache;
+  const CastingRanges11 = GlobalCache10["CastingRanges"];
+  const argument012 = arg0;
+  const propertyValue13 = CastingRanges11[argument012];
+  if (propertyValue13) {
+  const localValue114 = v1;
+  const result15 = !localValue114;
+  if (!result15) {
+  const localValue116 = v1;
+  const localValue217 = v2;
+  return localValue217;
+  } else {
+  return undefined;
+  }
+  } else {
+  const localValue018 = v0;
+  const ProjectileRange19 = localValue018["ProjectileRange"];
+  if (!ProjectileRange19) {
+  const localValue120 = v1;
+  const result21 = !localValue120;
+  if (!result21) {
   const localValue122 = v1;
-  const result23 = localValue122 / 20;
-  const localValue424 = v4;
-  const getPathByAngle25 = localValue424["getPathByAngle"];
+  const localValue223 = v2;
+  return localValue223;
+  } else {
+  return undefined;
+  }
+  } else {
+  const GlobalCache24 = GlobalCache;
+  const CastingRanges25 = GlobalCache24["CastingRanges"];
   const localValue026 = v0;
-  const argument027 = arg0;
-  const localValue228 = v2;
-  const callResult29 = Reflect.apply(getPathByAngle25, localValue424, [localValue026, argument027, localValue228]);
-  const localValue430 = v4;
-  const getPathDamage31 = localValue430["getPathDamage"];
-  const pathByAngle32 = pathByAngle;
-  const argument133 = arg1;
-  const callResult34 = Reflect.apply(getPathDamage31, localValue430, [pathByAngle32, argument133]);
-  return callResult34;
-}
-
-/** Есть ли результат у записи урона. */
-function hasResult() {
-  let v0;
-  const localValue01 = v0;
-  const completed2 = localValue01["completed"];
-  const result3 = completed2 !== null;
-  return result3;
-}
-
-/** Снаряд привязан к позиции персонажа. */
-function isCharacterPositionBased() {
-  let v1;
-  const localValue11 = v1;
-  const getBaseName2 = localValue11["getBaseName"];
-  const callResult3 = Reflect.apply(getBaseName2, localValue11, []);
-  const baseName4 = baseName;
-  const includes5 = baseName4["includes"];
-  const callResult6 = Reflect.apply(includes5, baseName4, ["Circling"]);
-  if (callResult6) {
-  return callResult6;
+  const ProjectileRange27 = localValue026["ProjectileRange"];
+  const propertyValue28 = CastingRanges25[ProjectileRange27];
+  const localValue129 = v1;
+  const result30 = !localValue129;
+  if (!result30) {
+  const localValue131 = v1;
+  const localValue232 = v2;
+  return localValue232;
   } else {
-  const baseName7 = baseName;
-  const result8 = baseName7 == "AxeJugglerProjectile2";
-  if (result8) {
-  return result8;
+  return undefined;
+  }
+  }
+  }
+  }
   } else {
-  const baseName9 = baseName;
-  const result10 = baseName9 == "AxeJugglerOverchargedProjectile2";
-  return result10;
+  const objectValue33 = {};
+  const localValue034 = v0;
+  const Range35 = localValue034["Range"];
+  if (Range35) {
+  const localValue136 = v1;
+  const result37 = !localValue136;
+  if (!result37) {
+  const localValue138 = v1;
+  const localValue239 = v2;
+  return localValue239;
+  } else {
+  return undefined;
+  }
+  } else {
+  const GlobalCache40 = GlobalCache;
+  const CastingRanges41 = GlobalCache40["CastingRanges"];
+  const argument042 = arg0;
+  const propertyValue43 = CastingRanges41[argument042];
+  if (propertyValue43) {
+  const localValue144 = v1;
+  const result45 = !localValue144;
+  if (!result45) {
+  const localValue146 = v1;
+  const localValue247 = v2;
+  return localValue247;
+  } else {
+  return undefined;
+  }
+  } else {
+  const localValue048 = v0;
+  const ProjectileRange49 = localValue048["ProjectileRange"];
+  if (!ProjectileRange49) {
+  const localValue150 = v1;
+  const result51 = !localValue150;
+  if (!result51) {
+  const localValue152 = v1;
+  const localValue253 = v2;
+  return localValue253;
+  } else {
+  return undefined;
+  }
+  } else {
+  const GlobalCache54 = GlobalCache;
+  const CastingRanges55 = GlobalCache54["CastingRanges"];
+  const localValue056 = v0;
+  const ProjectileRange57 = localValue056["ProjectileRange"];
+  const propertyValue58 = CastingRanges55[ProjectileRange57];
+  const localValue159 = v1;
+  const result60 = !localValue159;
+  if (!result60) {
+  const localValue161 = v1;
+  const localValue262 = v2;
+  return localValue262;
+  } else {
+  return undefined;
+  }
+  }
+  }
+  }
+  }
 }
 
-/** Снаряд мой. */
-function isOwn(arg0, {captured_getInstance}) {
-  let v0, v4;
+/** isIndirect: непрямой снаряд (по пути/площади) */
+function isIndirect() {
+  let v2;
+  const localValue21 = v2;
+  const getChargeType2 = localValue21["getChargeType"];
+  const callResult3 = getChargeType2.call(localValue21);
+  const localValue24 = v2;
+  const getProjectile5 = localValue24["getProjectile"];
+  const callResult6 = getProjectile5.call(localValue24);
+  const projectile7 = projectile;
+  const instance8 = projectile7["instance"];
+  const isNull9 = instance8["isNull"];
+  const callResult10 = isNull9.call(instance8);
+  const result11 = !callResult10;
+  if (!result11) {
+  const chargeType12 = chargeType;
+  const result13 = chargeType12 == 20;
+  if (result13) {
+  if (!result13) {
+  return result13;
+  } else {
+  const localValue214 = v2;
+  const getProjectile15 = localValue214["getProjectile"];
+  const callResult16 = getProjectile15.call(localValue214);
+  const instance17 = callResult16["instance"];
+  const isNull18 = instance17["isNull"];
+  const callResult19 = isNull18.call(instance17);
+  return callResult19;
+  }
+  } else {
+  const chargeType20 = chargeType;
+  const result21 = chargeType20 == 26;
+  if (result21) {
+  if (!result21) {
+  return result21;
+  } else {
+  const localValue222 = v2;
+  const getProjectile23 = localValue222["getProjectile"];
+  const callResult24 = getProjectile23.call(localValue222);
+  const instance25 = callResult24["instance"];
+  const isNull26 = instance25["isNull"];
+  const callResult27 = isNull26.call(instance25);
+  return callResult27;
+  }
+  } else {
+  const chargeType28 = chargeType;
+  const result29 = chargeType28 == 12;
+  if (result29) {
+  if (!result29) {
+  return result29;
+  } else {
+  const localValue230 = v2;
+  const getProjectile31 = localValue230["getProjectile"];
+  const callResult32 = getProjectile31.call(localValue230);
+  const instance33 = callResult32["instance"];
+  const isNull34 = instance33["isNull"];
+  const callResult35 = isNull34.call(instance33);
+  return callResult35;
+  }
+  } else {
+  const chargeType36 = chargeType;
+  const result37 = chargeType36 == 10;
+  if (result37) {
+  if (!result37) {
+  return result37;
+  } else {
+  const localValue238 = v2;
+  const getProjectile39 = localValue238["getProjectile"];
+  const callResult40 = getProjectile39.call(localValue238);
+  const instance41 = callResult40["instance"];
+  const isNull42 = instance41["isNull"];
+  const callResult43 = isNull42.call(instance41);
+  return callResult43;
+  }
+  } else {
+  const chargeType44 = chargeType;
+  const result45 = chargeType44 == 18;
+  if (!result45) {
+  return result45;
+  } else {
+  const localValue246 = v2;
+  const getProjectile47 = localValue246["getProjectile"];
+  const callResult48 = getProjectile47.call(localValue246);
+  const instance49 = callResult48["instance"];
+  const isNull50 = instance49["isNull"];
+  const callResult51 = isNull50.call(instance49);
+  return callResult51;
+  }
+  }
+  }
+  }
+  }
+  } else {
+  const projectile52 = projectile;
+  const getIndirect53 = projectile52["getIndirect"];
+  const callResult54 = getIndirect53.call(projectile52);
+  if (!callResult54) {
+  const chargeType55 = chargeType;
+  const result56 = chargeType55 == 20;
+  if (result56) {
+  if (!result56) {
+  return result56;
+  } else {
+  const localValue257 = v2;
+  const getProjectile58 = localValue257["getProjectile"];
+  const callResult59 = getProjectile58.call(localValue257);
+  const instance60 = callResult59["instance"];
+  const isNull61 = instance60["isNull"];
+  const callResult62 = isNull61.call(instance60);
+  return callResult62;
+  }
+  } else {
+  const chargeType63 = chargeType;
+  const result64 = chargeType63 == 26;
+  if (result64) {
+  if (!result64) {
+  return result64;
+  } else {
+  const localValue265 = v2;
+  const getProjectile66 = localValue265["getProjectile"];
+  const callResult67 = getProjectile66.call(localValue265);
+  const instance68 = callResult67["instance"];
+  const isNull69 = instance68["isNull"];
+  const callResult70 = isNull69.call(instance68);
+  return callResult70;
+  }
+  } else {
+  const chargeType71 = chargeType;
+  const result72 = chargeType71 == 12;
+  if (result72) {
+  if (!result72) {
+  return result72;
+  } else {
+  const localValue273 = v2;
+  const getProjectile74 = localValue273["getProjectile"];
+  const callResult75 = getProjectile74.call(localValue273);
+  const instance76 = callResult75["instance"];
+  const isNull77 = instance76["isNull"];
+  const callResult78 = isNull77.call(instance76);
+  return callResult78;
+  }
+  } else {
+  const chargeType79 = chargeType;
+  const result80 = chargeType79 == 10;
+  if (result80) {
+  if (!result80) {
+  return result80;
+  } else {
+  const localValue281 = v2;
+  const getProjectile82 = localValue281["getProjectile"];
+  const callResult83 = getProjectile82.call(localValue281);
+  const instance84 = callResult83["instance"];
+  const isNull85 = instance84["isNull"];
+  const callResult86 = isNull85.call(instance84);
+  return callResult86;
+  }
+  } else {
+  const chargeType87 = chargeType;
+  const result88 = chargeType87 == 18;
+  if (!result88) {
+  return result88;
+  } else {
+  const localValue289 = v2;
+  const getProjectile90 = localValue289["getProjectile"];
+  const callResult91 = getProjectile90.call(localValue289);
+  const instance92 = callResult91["instance"];
+  const isNull93 = instance92["isNull"];
+  const callResult94 = isNull93.call(instance92);
+  return callResult94;
+  }
+  }
+  }
+  }
+  }
+  } else {
+  const arrayValue95 = [];
+  const result96 = !arrayValue95;
+  const result97 = !result96;
+  return result97;
+  }
+  }
+}
+
+/** getCurrentCharacter: текущий персонаж */
+function getCurrentCharacter(arg0, {capturedValue0}) {
+  let v1, v3, v4;
   const argument01 = arg0;
-  const result2 = argument01 < 0;
-  if (!result2) {
-  const captured_getInstance3 = captured_getInstance;
-  const callResult4 = Reflect.construct(captured_getInstance3, [], captured_getInstance3);
-  const localValue05 = v0;
-  const getLogicPlayer6 = localValue05["getLogicPlayer"];
-  const argument07 = arg0;
-  const callResult8 = Reflect.apply(getLogicPlayer6, localValue05, [argument07]);
-  const localValue09 = v0;
-  const getOwnPlayerIndex10 = localValue09["getOwnPlayerIndex"];
-  const callResult11 = Reflect.apply(getOwnPlayerIndex10, localValue09, []);
-  const logicPlayer12 = logicPlayer;
-  const getPlayerIndex13 = logicPlayer12["getPlayerIndex"];
-  const callResult14 = Reflect.apply(getPlayerIndex13, logicPlayer12, []);
-  const ownPlayerIndex15 = ownPlayerIndex;
-  const playerIndex16 = playerIndex;
-  const result17 = ownPlayerIndex15 == playerIndex16;
-  const localValue418 = v4;
-  const result19 = !localValue418;
-  if (!result19) {
-  const arrayValue20 = [];
-  const result21 = !arrayValue20;
-  const result22 = !result21;
-  return result22;
+  const condition2 = argument01 === undefined;
+  if (!condition2) {
+  const argument03 = arg0;
+  if (!argument03) {
+  const localValue44 = v4;
+  const getLogicGameObjectManager5 = localValue44["getLogicGameObjectManager"];
+  const callResult6 = getLogicGameObjectManager5.call(localValue44);
+  const localValue47 = v4;
+  const getControlledCharacterGlobalID8 = localValue47["getControlledCharacterGlobalID"];
+  const callResult9 = getControlledCharacterGlobalID8.call(localValue47);
+  if (callResult9) {
+  const logicGameObjectManager10 = logicGameObjectManager;
+  const findGameObject11 = logicGameObjectManager10["findGameObject"];
+  const localValue312 = v3;
+  const callResult13 = findGameObject11.call(logicGameObjectManager10, localValue312);
+  const capturedValue014 = capturedValue0;
+  const localValue115 = v1;
+  const callResult16 = Reflect.construct(capturedValue014, [localValue115], capturedValue014);
+  return callResult16;
   } else {
-  const arrayValue23 = [];
-  const result24 = !arrayValue23;
-  return result24;
+  const localValue417 = v4;
+  const getOwnCharacterGlobalID18 = localValue417["getOwnCharacterGlobalID"];
+  const callResult19 = getOwnCharacterGlobalID18.call(localValue417);
+  const logicGameObjectManager20 = logicGameObjectManager;
+  const findGameObject21 = logicGameObjectManager20["findGameObject"];
+  const localValue322 = v3;
+  const callResult23 = findGameObject21.call(logicGameObjectManager20, localValue322);
+  const capturedValue024 = capturedValue0;
+  const localValue125 = v1;
+  const callResult26 = Reflect.construct(capturedValue024, [localValue125], capturedValue024);
+  return callResult26;
+  }
   } else {
-  const arrayValue25 = [];
-  const result26 = !arrayValue25;
-  return result26;
+  const BattleCache27 = BattleCache;
+  const CurrentCharacter28 = BattleCache27["CurrentCharacter"];
+  if (CurrentCharacter28) {
+  const capturedValue029 = capturedValue0;
+  const localValue130 = v1;
+  const callResult31 = Reflect.construct(capturedValue029, [localValue130], capturedValue029);
+  return callResult31;
+  } else {
+  const ptr32 = ptr;
+  const callResult33 = ptr32.call(undefined, 0);
+  const capturedValue034 = capturedValue0;
+  const localValue135 = v1;
+  const callResult36 = Reflect.construct(capturedValue034, [localValue135], capturedValue034);
+  return callResult36;
+  }
+  }
+  } else {
+  const arrayValue37 = [];
+  const result38 = !arrayValue37;
+  const result39 = !result38;
+  const argument040 = arg0;
+  if (!argument040) {
+  const localValue441 = v4;
+  const getLogicGameObjectManager42 = localValue441["getLogicGameObjectManager"];
+  const callResult43 = getLogicGameObjectManager42.call(localValue441);
+  const localValue444 = v4;
+  const getControlledCharacterGlobalID45 = localValue444["getControlledCharacterGlobalID"];
+  const callResult46 = getControlledCharacterGlobalID45.call(localValue444);
+  if (callResult46) {
+  const logicGameObjectManager47 = logicGameObjectManager;
+  const findGameObject48 = logicGameObjectManager47["findGameObject"];
+  const localValue349 = v3;
+  const callResult50 = findGameObject48.call(logicGameObjectManager47, localValue349);
+  const capturedValue051 = capturedValue0;
+  const localValue152 = v1;
+  const callResult53 = Reflect.construct(capturedValue051, [localValue152], capturedValue051);
+  return callResult53;
+  } else {
+  const localValue454 = v4;
+  const getOwnCharacterGlobalID55 = localValue454["getOwnCharacterGlobalID"];
+  const callResult56 = getOwnCharacterGlobalID55.call(localValue454);
+  const logicGameObjectManager57 = logicGameObjectManager;
+  const findGameObject58 = logicGameObjectManager57["findGameObject"];
+  const localValue359 = v3;
+  const callResult60 = findGameObject58.call(logicGameObjectManager57, localValue359);
+  const capturedValue061 = capturedValue0;
+  const localValue162 = v1;
+  const callResult63 = Reflect.construct(capturedValue061, [localValue162], capturedValue061);
+  return callResult63;
+  }
+  } else {
+  const BattleCache64 = BattleCache;
+  const CurrentCharacter65 = BattleCache64["CurrentCharacter"];
+  if (CurrentCharacter65) {
+  const capturedValue066 = capturedValue0;
+  const localValue167 = v1;
+  const callResult68 = Reflect.construct(capturedValue066, [localValue167], capturedValue066);
+  return callResult68;
+  } else {
+  const ptr69 = ptr;
+  const callResult70 = ptr69.call(undefined, 0);
+  const capturedValue071 = capturedValue0;
+  const localValue172 = v1;
+  const callResult73 = Reflect.construct(capturedValue071, [localValue172], capturedValue071);
+  return callResult73;
+  }
+  }
+  }
 }
 
-/** Снаряд своей команды. */
+/** isOwnTeam: снаряд своей команды */
 function isOwnTeam(arg0, {captured_getInstance, captured_45_FRIENDLY_FIRE}) {
   let v0, v4;
   const argument01 = arg0;
@@ -3618,18 +3193,18 @@ function isOwnTeam(arg0, {captured_getInstance, captured_45_FRIENDLY_FIRE}) {
   const getEventModifier6 = localValue05["getEventModifier"];
   const captured_45_FRIENDLY_FIRE7 = captured_45_FRIENDLY_FIRE;
   const FRIENDLY_FIRE8 = captured_45_FRIENDLY_FIRE7["FRIENDLY_FIRE"];
-  const callResult9 = Reflect.apply(getEventModifier6, localValue05, [FRIENDLY_FIRE8]);
+  const callResult9 = getEventModifier6.call(localValue05, FRIENDLY_FIRE8);
   if (!callResult9) {
   const localValue010 = v0;
   const getLogicPlayer11 = localValue010["getLogicPlayer"];
   const argument012 = arg0;
-  const callResult13 = Reflect.apply(getLogicPlayer11, localValue010, [argument012]);
+  const callResult13 = getLogicPlayer11.call(localValue010, argument012);
   const localValue014 = v0;
   const getOwnPlayerTeam15 = localValue014["getOwnPlayerTeam"];
-  const callResult16 = Reflect.apply(getOwnPlayerTeam15, localValue014, []);
+  const callResult16 = getOwnPlayerTeam15.call(localValue014);
   const logicPlayer17 = logicPlayer;
   const getPlayerTeam18 = logicPlayer17["getPlayerTeam"];
-  const callResult19 = Reflect.apply(getPlayerTeam18, logicPlayer17, []);
+  const callResult19 = getPlayerTeam18.call(logicPlayer17);
   const ownPlayerTeam20 = ownPlayerTeam;
   const playerTeam21 = playerTeam;
   const result22 = ownPlayerTeam20 == playerTeam21;
@@ -3644,218 +3219,30 @@ function isOwnTeam(arg0, {captured_getInstance, captured_45_FRIENDLY_FIRE}) {
   const arrayValue28 = [];
   const result29 = !arrayValue28;
   return result29;
+  }
   } else {
   const arrayValue30 = [];
   const result31 = !arrayValue30;
   return result31;
+  }
   } else {
   const arrayValue32 = [];
   const result33 = !arrayValue32;
   return result33;
+  }
 }
 
-/** Текущий персонаж из BattleCache. */
-function getCurrentCharacter(arg0, {capturedValue0}) {
-  let v1, v3, v4;
-  const argument01 = arg0;
-  const condition2 = argument01 === undefined;
-  if (!condition2) {
-  const argument03 = arg0;
-  if (!argument03) {
-  const localValue44 = v4;
-  const getLogicGameObjectManager5 = localValue44["getLogicGameObjectManager"];
-  const callResult6 = Reflect.apply(getLogicGameObjectManager5, localValue44, []);
-  const localValue47 = v4;
-  const getControlledCharacterGlobalID8 = localValue47["getControlledCharacterGlobalID"];
-  const callResult9 = Reflect.apply(getControlledCharacterGlobalID8, localValue47, []);
-  if (callResult9) {
-  const logicGameObjectManager10 = logicGameObjectManager;
-  const findGameObject11 = logicGameObjectManager10["findGameObject"];
-  const localValue312 = v3;
-  const callResult13 = Reflect.apply(findGameObject11, logicGameObjectManager10, [localValue312]);
-  const capturedValue014 = capturedValue0;
-  const localValue115 = v1;
-  const callResult16 = Reflect.construct(capturedValue014, [localValue115], capturedValue014);
-  return callResult16;
-  } else {
-  const localValue417 = v4;
-  const getOwnCharacterGlobalID18 = localValue417["getOwnCharacterGlobalID"];
-  const callResult19 = Reflect.apply(getOwnCharacterGlobalID18, localValue417, []);
-  const logicGameObjectManager20 = logicGameObjectManager;
-  const findGameObject21 = logicGameObjectManager20["findGameObject"];
-  const localValue322 = v3;
-  const callResult23 = Reflect.apply(findGameObject21, logicGameObjectManager20, [localValue322]);
-  const capturedValue024 = capturedValue0;
-  const localValue125 = v1;
-  const callResult26 = Reflect.construct(capturedValue024, [localValue125], capturedValue024);
-  return callResult26;
-  } else {
-  const BattleCache27 = BattleCache;
-  const CurrentCharacter28 = BattleCache27["CurrentCharacter"];
-  if (CurrentCharacter28) {
-  const capturedValue029 = capturedValue0;
-  const localValue130 = v1;
-  const callResult31 = Reflect.construct(capturedValue029, [localValue130], capturedValue029);
-  return callResult31;
-  } else {
-  const ptr32 = ptr;
-  const callResult33 = Reflect.apply(ptr32, undefined, [0]);
-  const capturedValue034 = capturedValue0;
-  const localValue135 = v1;
-  const callResult36 = Reflect.construct(capturedValue034, [localValue135], capturedValue034);
-  return callResult36;
-  } else {
-  const arrayValue37 = [];
-  const result38 = !arrayValue37;
-  const result39 = !result38;
-  const argument040 = arg0;
-  if (!argument040) {
-  const localValue441 = v4;
-  const getLogicGameObjectManager42 = localValue441["getLogicGameObjectManager"];
-  const callResult43 = Reflect.apply(getLogicGameObjectManager42, localValue441, []);
-  const localValue444 = v4;
-  const getControlledCharacterGlobalID45 = localValue444["getControlledCharacterGlobalID"];
-  const callResult46 = Reflect.apply(getControlledCharacterGlobalID45, localValue444, []);
-  if (callResult46) {
-  const logicGameObjectManager47 = logicGameObjectManager;
-  const findGameObject48 = logicGameObjectManager47["findGameObject"];
-  const localValue349 = v3;
-  const callResult50 = Reflect.apply(findGameObject48, logicGameObjectManager47, [localValue349]);
-  const capturedValue051 = capturedValue0;
-  const localValue152 = v1;
-  const callResult53 = Reflect.construct(capturedValue051, [localValue152], capturedValue051);
-  return callResult53;
-  } else {
-  const localValue454 = v4;
-  const getOwnCharacterGlobalID55 = localValue454["getOwnCharacterGlobalID"];
-  const callResult56 = Reflect.apply(getOwnCharacterGlobalID55, localValue454, []);
-  const logicGameObjectManager57 = logicGameObjectManager;
-  const findGameObject58 = logicGameObjectManager57["findGameObject"];
-  const localValue359 = v3;
-  const callResult60 = Reflect.apply(findGameObject58, logicGameObjectManager57, [localValue359]);
-  const capturedValue061 = capturedValue0;
-  const localValue162 = v1;
-  const callResult63 = Reflect.construct(capturedValue061, [localValue162], capturedValue061);
-  return callResult63;
-  } else {
-  const BattleCache64 = BattleCache;
-  const CurrentCharacter65 = BattleCache64["CurrentCharacter"];
-  if (CurrentCharacter65) {
-  const capturedValue066 = capturedValue0;
-  const localValue167 = v1;
-  const callResult68 = Reflect.construct(capturedValue066, [localValue167], capturedValue066);
-  return callResult68;
-  } else {
-  const ptr69 = ptr;
-  const callResult70 = Reflect.apply(ptr69, undefined, [0]);
-  const capturedValue071 = capturedValue0;
-  const localValue172 = v1;
-  const callResult73 = Reflect.construct(capturedValue071, [localValue172], capturedValue071);
-  return callResult73;
-}
-
-/** ID объекта. */
-function getGlobalID({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicGameObject5 = capturedValue04["LogicGameObject"];
-  const GlobalID6 = LogicGameObject5["GlobalID"];
-  const callResult7 = Reflect.apply(add3, instance2, [GlobalID6]);
-  const readInt8 = callResult7["readInt"];
-  const callResult9 = Reflect.apply(readInt8, callResult7, []);
-  return callResult9;
-}
-
-/** Индекс в списке. */
-function getIndex({capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicGameObject5 = capturedValue04["LogicGameObject"];
-  const Index6 = LogicGameObject5["Index"];
-  const callResult7 = Reflect.apply(add3, instance2, [Index6]);
-  const readInt8 = callResult7["readInt"];
-  const callResult9 = Reflect.apply(readInt8, callResult7, []);
-  return callResult9;
-}
-
-/** Включён ли мод/функция. */
-function isModEnabled(arg0, {capturedValue0}) {
-  let v0;
-  const localValue01 = v0;
-  const isModAllowed2 = localValue01["isModAllowed"];
-  const argument03 = arg0;
-  const callResult4 = Reflect.apply(isModAllowed2, localValue01, [argument03]);
-  const result5 = !callResult4;
-  if (!result5) {
-  const localValue06 = v0;
-  const getModFlags7 = localValue06["getModFlags"];
-  const argument08 = arg0;
-  const callResult9 = Reflect.apply(getModFlags7, localValue06, [argument08]);
-  const Enabled10 = callResult9["Enabled"];
-  const result11 = !Enabled10;
-  if (!result11) {
-  const capturedValue012 = capturedValue0;
-  const Settings13 = capturedValue012["Settings"];
-  const AdvancedConfigs14 = Settings13["AdvancedConfigs"];
-  if (!AdvancedConfigs14) {
-  const arrayValue15 = [];
-  const result16 = !arrayValue15;
-  const result17 = !result16;
-  return result17;
-  } else {
-  const localValue018 = v0;
-  const hasConfigs19 = localValue018["hasConfigs"];
-  const argument020 = arg0;
-  const callResult21 = Reflect.apply(hasConfigs19, localValue018, [argument020]);
-  if (!callResult21) {
-  const arrayValue22 = [];
-  const result23 = !arrayValue22;
-  const result24 = !result23;
-  return result24;
-  } else {
-  const BattleCache25 = BattleCache;
-  const CharacterName26 = BattleCache25["CharacterName"];
-  const result27 = !CharacterName26;
-  if (!result27) {
-  const localValue028 = v0;
-  const getConfigByBrawler29 = localValue028["getConfigByBrawler"];
-  const argument030 = arg0;
-  const BattleCache31 = BattleCache;
-  const CharacterName32 = BattleCache31["CharacterName"];
-  const callResult33 = Reflect.apply(getConfigByBrawler29, localValue028, [argument030, CharacterName32]);
-  const result34 = callResult33 !== undefined;
-  return result34;
-  } else {
-  const arrayValue35 = [];
-  const result36 = !arrayValue35;
-  return result36;
-  } else {
-  const arrayValue37 = [];
-  const result38 = !arrayValue37;
-  return result38;
-  } else {
-  const arrayValue39 = [];
-  const result40 = !arrayValue39;
-  return result40;
-}
-
-/** Чтение конфига модуля. */
+/** getConfig: чтение конфига модуля */
 function getConfig(arg0, {capturedValue0}) {
   let v0, v2;
   const localValue21 = v2;
   const hasConfigs2 = localValue21["hasConfigs"];
   const argument03 = arg0;
-  const callResult4 = Reflect.apply(hasConfigs2, localValue21, [argument03]);
+  const callResult4 = hasConfigs2.call(localValue21, argument03);
   if (!callResult4) {
   const localValue25 = v2;
   const getCurrentProfile6 = localValue25["getCurrentProfile"];
-  const callResult7 = Reflect.apply(getCurrentProfile6, localValue25, []);
+  const callResult7 = getCurrentProfile6.call(localValue25);
   const currentProfile8 = currentProfile;
   const condition9 = currentProfile8 === undefined || currentProfile8 === null;
   if (!condition9) {
@@ -3873,6 +3260,7 @@ function getConfig(arg0, {capturedValue0}) {
   const propertyValue17 = capturedValue015[argument016];
   const Settings18 = propertyValue17["Settings"];
   return Settings18;
+  }
   } else {
   const condition19 = undefined === undefined || undefined === null;
   if (!condition19) {
@@ -3883,6 +3271,8 @@ function getConfig(arg0, {capturedValue0}) {
   const propertyValue22 = capturedValue020[argument021];
   const Settings23 = propertyValue22["Settings"];
   return Settings23;
+  }
+  }
   } else {
   const condition24 = undefined === undefined || undefined === null;
   if (!condition24) {
@@ -3893,6 +3283,8 @@ function getConfig(arg0, {capturedValue0}) {
   const propertyValue27 = capturedValue025[argument026];
   const Settings28 = propertyValue27["Settings"];
   return Settings28;
+  }
+  }
   } else {
   const BattleCache29 = BattleCache;
   const CharacterName30 = BattleCache29["CharacterName"];
@@ -3908,7 +3300,7 @@ function getConfig(arg0, {capturedValue0}) {
   const argument037 = arg0;
   const BattleCache38 = BattleCache;
   const CharacterName39 = BattleCache38["CharacterName"];
-  const callResult40 = Reflect.apply(getConfigByBrawler36, localValue235, [argument037, CharacterName39]);
+  const callResult40 = getConfigByBrawler36.call(localValue235, argument037, CharacterName39);
   const localValue041 = v0;
   if (!localValue041) {
   const capturedValue042 = capturedValue0;
@@ -3919,9 +3311,138 @@ function getConfig(arg0, {capturedValue0}) {
   } else {
   const localValue046 = v0;
   return localValue046;
+  }
+  }
+  }
 }
 
-/** Тач по стороне экрана. */
+function updateDodgePrediction({configuration, predictionWorker}) {
+  let v0;
+  const stack = [];
+  let pc = 0;
+  while (true) {
+    switch (pc) {
+    case 0: {
+    v0 = this;
+    if (!!configuration.isModEnabled("AutoDodge")) { pc = 49; continue; }
+    pc = 22; continue;
+  }
+    case 22: {
+    if (!!BattleCache["AllowedLerpingDodge"]) { pc = 49; continue; }
+    pc = 36; continue;
+  }
+    case 36: {
+    return;
+  }
+    case 49: {
+    if (![!v0.updateTouches()][0]) { pc = 124; continue; }
+    pc = 63; continue;
+  }
+    case 63: {
+    if (![BattleCache["AllowedLerpingDodge"]][0]) { pc = 106; continue; }
+    pc = 78; continue;
+  }
+    case 78: {
+    /* BattleCache[propertyKey("GoingBackToOriginalDodge")] = !![] */
+    pc = 106; continue;
+  }
+    case 106: {
+    /* [BattleCache, propertyKey("AllowedLerpingDodge"), ![]][0][[BattleCache, propertyKey("AllowedLerpingDodge"), ![]][1]] = [BattleCache, propertyKey("AllowedLerpingDodge"), ![]][2] */
+    pc = 124; continue;
+  }
+    case 124: {
+    return;
+  }
+    }
+  }
+}
+
+function getDistance(originX, originY, targetX, targetY) {
+  let v0, v1;
+  const targetX1 = targetX;
+  const originX2 = originX;
+  const result3 = targetX1 - originX2;
+  const targetY4 = targetY;
+  const originY5 = originY;
+  const result6 = targetY4 - originY5;
+  const Math7 = Math;
+  const sqrt8 = Math7["sqrt"];
+  const localValue09 = v0;
+  const localValue010 = v0;
+  const result11 = localValue09 * localValue010;
+  const localValue112 = v1;
+  const localValue113 = v1;
+  const result14 = localValue112 * localValue113;
+  const result15 = result11 + result14;
+  const callResult16 = sqrt8.call(Math7, result15);
+  return callResult16;
+}
+
+function isModEnabled(arg0, {capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const isModAllowed2 = localValue01["isModAllowed"];
+  const argument03 = arg0;
+  const callResult4 = isModAllowed2.call(localValue01, argument03);
+  const result5 = !callResult4;
+  if (!result5) {
+  const localValue06 = v0;
+  const getModFlags7 = localValue06["getModFlags"];
+  const argument08 = arg0;
+  const callResult9 = getModFlags7.call(localValue06, argument08);
+  const Enabled10 = callResult9["Enabled"];
+  const result11 = !Enabled10;
+  if (!result11) {
+  const capturedValue012 = capturedValue0;
+  const Settings13 = capturedValue012["Settings"];
+  const AdvancedConfigs14 = Settings13["AdvancedConfigs"];
+  if (!AdvancedConfigs14) {
+  const arrayValue15 = [];
+  const result16 = !arrayValue15;
+  const result17 = !result16;
+  return result17;
+  } else {
+  const localValue018 = v0;
+  const hasConfigs19 = localValue018["hasConfigs"];
+  const argument020 = arg0;
+  const callResult21 = hasConfigs19.call(localValue018, argument020);
+  if (!callResult21) {
+  const arrayValue22 = [];
+  const result23 = !arrayValue22;
+  const result24 = !result23;
+  return result24;
+  } else {
+  const BattleCache25 = BattleCache;
+  const CharacterName26 = BattleCache25["CharacterName"];
+  const result27 = !CharacterName26;
+  if (!result27) {
+  const localValue028 = v0;
+  const getConfigByBrawler29 = localValue028["getConfigByBrawler"];
+  const argument030 = arg0;
+  const BattleCache31 = BattleCache;
+  const CharacterName32 = BattleCache31["CharacterName"];
+  const callResult33 = getConfigByBrawler29.call(localValue028, argument030, CharacterName32);
+  const result34 = callResult33 !== undefined;
+  return result34;
+  } else {
+  const arrayValue35 = [];
+  const result36 = !arrayValue35;
+  return result36;
+  }
+  }
+  }
+  } else {
+  const arrayValue37 = [];
+  const result38 = !arrayValue37;
+  return result38;
+  }
+  } else {
+  const arrayValue39 = [];
+  const result40 = !arrayValue39;
+  return result40;
+  }
+}
+
 function getTouchIdBySide(arg0, arg1) {
   let v0, v1, v2;
   const stack = [];
@@ -3969,18 +3490,20 @@ function getTouchIdBySide(arg0, arg1) {
   }
 }
 
-/** Найти сохранённый тач. */
-function findStoredTouch(arg0) {
+function getIndex({capturedValue0}) {
   let v0;
   const localValue01 = v0;
-  const touches2 = localValue01["touches"];
-  const find3 = touches2["find"];
-  const callback4 = frame.makeClosure(0, {args, locals, refs, frame});
-  const callResult5 = Reflect.apply(find3, touches2, [callback4]);
-  return callResult5;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicGameObject5 = capturedValue04["LogicGameObject"];
+  const Index6 = LogicGameObject5["Index"];
+  const callResult7 = add3.call(instance2, Index6);
+  const readInt8 = callResult7["readInt"];
+  const callResult9 = readInt8.call(callResult7);
+  return callResult9;
 }
 
-/** X фона стика движения. */
 function getMoveStickBgX({capturedValue0}) {
   let v0;
   const localValue01 = v0;
@@ -3989,13 +3512,12 @@ function getMoveStickBgX({capturedValue0}) {
   const capturedValue04 = capturedValue0;
   const BattleScreen5 = capturedValue04["BattleScreen"];
   const MoveStickBgX6 = BattleScreen5["MoveStickBgX"];
-  const callResult7 = Reflect.apply(add3, instance2, [MoveStickBgX6]);
+  const callResult7 = add3.call(instance2, MoveStickBgX6);
   const readFloat8 = callResult7["readFloat"];
-  const callResult9 = Reflect.apply(readFloat8, callResult7, []);
+  const callResult9 = readFloat8.call(callResult7);
   return callResult9;
 }
 
-/** Y фона стика движения. */
 function getMoveStickBgY({capturedValue0}) {
   let v0;
   const localValue01 = v0;
@@ -4004,54 +3526,433 @@ function getMoveStickBgY({capturedValue0}) {
   const capturedValue04 = capturedValue0;
   const BattleScreen5 = capturedValue04["BattleScreen"];
   const MoveStickBgY6 = BattleScreen5["MoveStickBgY"];
-  const callResult7 = Reflect.apply(add3, instance2, [MoveStickBgY6]);
+  const callResult7 = add3.call(instance2, MoveStickBgY6);
   const readFloat8 = callResult7["readFloat"];
-  const callResult9 = Reflect.apply(readFloat8, callResult7, []);
+  const callResult9 = readFloat8.call(callResult7);
   return callResult9;
 }
 
-/** Обновление предсказания (predictionWorker). */
-function updateDodgePrediction({configuration, predictionWorker}) {
+function getRadians(arg0) {
+  const argument01 = arg0;
+  const Math2 = Math;
+  const PI3 = Math2["PI"];
+  const result4 = PI3 / 180;
+  const result5 = argument01 * result4;
+  return result5;
+}
+
+function findStoredTouch(arg0) {
   let v0;
-  const stack = [];
-  let pc = 0;
-  while (true) {
-    switch (pc) {
-    case 0: {
-    v0 = this;
-    /* // Preserve the receiver for a method call. */
-    if (!!configuration.isModEnabled("AutoDodge")) { pc = 49; continue; }
-    pc = 22; continue;
+  const localValue01 = v0;
+  const touches2 = localValue01["touches"];
+  const find3 = touches2["find"];
+  const callback4 = closure1;
+  const callResult5 = find3.call(touches2, callback4);
+  return callResult5;
+}
+
+function isBouncing({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const Bouncing6 = LogicProjectileData5["Bouncing"];
+  const callResult7 = add3.call(instance2, Bouncing6);
+  const readU88 = callResult7["readU8"];
+  const callResult9 = readU88.call(callResult7);
+  const result10 = !callResult9;
+  const result11 = !result10;
+  return result11;
+}
+
+function isOwn(arg0, {captured_getInstance}) {
+  let v0, v4;
+  const argument01 = arg0;
+  const result2 = argument01 < 0;
+  if (!result2) {
+  const captured_getInstance3 = captured_getInstance;
+  const callResult4 = Reflect.construct(captured_getInstance3, [], captured_getInstance3);
+  const localValue05 = v0;
+  const getLogicPlayer6 = localValue05["getLogicPlayer"];
+  const argument07 = arg0;
+  const callResult8 = getLogicPlayer6.call(localValue05, argument07);
+  const localValue09 = v0;
+  const getOwnPlayerIndex10 = localValue09["getOwnPlayerIndex"];
+  const callResult11 = getOwnPlayerIndex10.call(localValue09);
+  const logicPlayer12 = logicPlayer;
+  const getPlayerIndex13 = logicPlayer12["getPlayerIndex"];
+  const callResult14 = getPlayerIndex13.call(logicPlayer12);
+  const ownPlayerIndex15 = ownPlayerIndex;
+  const playerIndex16 = playerIndex;
+  const result17 = ownPlayerIndex15 == playerIndex16;
+  const localValue418 = v4;
+  const result19 = !localValue418;
+  if (!result19) {
+  const arrayValue20 = [];
+  const result21 = !arrayValue20;
+  const result22 = !result21;
+  return result22;
+  } else {
+  const arrayValue23 = [];
+  const result24 = !arrayValue23;
+  return result24;
   }
-    case 22: {
-    if (!!BattleCache["AllowedLerpingDodge"]) { pc = 49; continue; }
-    pc = 36; continue;
-  }
-    case 36: {
-    /* // Preserve the receiver for a method call. */
-    return;
-  }
-    case 49: {
-    /* // Preserve the receiver for a method call. */
-    if (![!v0.updateTouches()][0]) { pc = 124; continue; }
-    pc = 63; continue;
-  }
-    case 63: {
-    if (![BattleCache["AllowedLerpingDodge"]][0]) { pc = 106; continue; }
-    pc = 78; continue;
-  }
-    case 78: {
-    /* BattleCache[propertyKey("GoingBackToOriginalDodge")] = !![] */
-    /* // Preserve the receiver for a method call. */
-    pc = 106; continue;
-  }
-    case 106: {
-    /* [BattleCache, propertyKey("AllowedLerpingDodge"), ![]][0][[BattleCache, propertyKey("AllowedLerpingDodge"), ![]][1]] = [BattleCache, propertyKey("AllowedLerpingDodge"), ![]][2] */
-    pc = 124; continue;
-  }
-    case 124: {
-    return;
-  }
-    }
+  } else {
+  const arrayValue25 = [];
+  const result26 = !arrayValue25;
+  return result26;
   }
 }
+
+function getDegreesToPoint(arg0, arg1, arg2, arg3) {
+  let v0;
+  const localValue01 = v0;
+  const getDegrees2 = localValue01["getDegrees"];
+  const localValue03 = v0;
+  const getRadiansBetweenPoints4 = localValue03["getRadiansBetweenPoints"];
+  const argument05 = arg0;
+  const argument16 = arg1;
+  const argument27 = arg2;
+  const argument38 = arg3;
+  const callResult9 = getRadiansBetweenPoints4.call(localValue03, argument05, argument16, argument27, argument38);
+  const callResult10 = getDegrees2.call(localValue01, callResult9);
+  return callResult10;
+}
+
+function getIndirect({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const Indirect6 = LogicProjectileData5["Indirect"];
+  const callResult7 = add3.call(instance2, Indirect6);
+  const readInt8 = callResult7["readInt"];
+  const callResult9 = readInt8.call(callResult7);
+  const result10 = !callResult9;
+  const result11 = !result10;
+  return result11;
+}
+
+function getGlobalID({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicGameObject5 = capturedValue04["LogicGameObject"];
+  const GlobalID6 = LogicGameObject5["GlobalID"];
+  const callResult7 = add3.call(instance2, GlobalID6);
+  const readInt8 = callResult7["readInt"];
+  const callResult9 = readInt8.call(callResult7);
+  return callResult9;
+}
+
+function getPassesEnvironment({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const PiercesEnvironment6 = LogicProjectileData5["PiercesEnvironment"];
+  const callResult7 = add3.call(instance2, PiercesEnvironment6);
+  const readU88 = callResult7["readU8"];
+  const callResult9 = readU88.call(callResult7);
+  const result10 = !callResult9;
+  const result11 = !result10;
+  if (result11) {
+  return result11;
+  } else {
+  const localValue012 = v0;
+  const instance13 = localValue012["instance"];
+  const add14 = instance13["add"];
+  const capturedValue015 = capturedValue0;
+  const LogicProjectileData16 = capturedValue015["LogicProjectileData"];
+  const PiercesEnvironmentLikeButter17 = LogicProjectileData16["PiercesEnvironmentLikeButter"];
+  const callResult18 = add14.call(instance13, PiercesEnvironmentLikeButter17);
+  const readU819 = callResult18["readU8"];
+  const callResult20 = readU819.call(callResult18);
+  const result21 = !callResult20;
+  const result22 = !result21;
+  if (result22) {
+  return result22;
+  } else {
+  const localValue023 = v0;
+  const instance24 = localValue023["instance"];
+  const add25 = instance24["add"];
+  const capturedValue026 = capturedValue0;
+  const LogicProjectileData27 = capturedValue026["LogicProjectileData"];
+  const PassesEnvironment28 = LogicProjectileData27["PassesEnvironment"];
+  const callResult29 = add25.call(instance24, PassesEnvironment28);
+  const readU830 = callResult29["readU8"];
+  const callResult31 = readU830.call(callResult29);
+  const result32 = !callResult31;
+  const result33 = !result32;
+  return result33;
+  }
+  }
+}
+
+function getConstantFlyTime({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const ConstantFlyTime6 = LogicProjectileData5["ConstantFlyTime"];
+  const callResult7 = add3.call(instance2, ConstantFlyTime6);
+  const readU88 = callResult7["readU8"];
+  const callResult9 = readU88.call(callResult7);
+  return callResult9;
+}
+
+function isCharacterPositionBased() {
+  let v1;
+  const localValue11 = v1;
+  const getBaseName2 = localValue11["getBaseName"];
+  const callResult3 = getBaseName2.call(localValue11);
+  const baseName4 = baseName;
+  const includes5 = baseName4["includes"];
+  const callResult6 = includes5.call(baseName4, "Circling");
+  if (callResult6) {
+  return callResult6;
+  } else {
+  const baseName7 = baseName;
+  const result8 = baseName7 == "AxeJugglerProjectile2";
+  if (result8) {
+  return result8;
+  } else {
+  const baseName9 = baseName;
+  const result10 = baseName9 == "AxeJugglerOverchargedProjectile2";
+  return result10;
+  }
+  }
+}
+
+function getSpawnAreaEffectObject({capturedValue0, capturedValue1}) {
+  let v0;
+  const capturedValue01 = capturedValue0;
+  const localValue02 = v0;
+  const instance3 = localValue02["instance"];
+  const add4 = instance3["add"];
+  const capturedValue15 = capturedValue1;
+  const LogicProjectileData6 = capturedValue15["LogicProjectileData"];
+  const SpawnAreaEffectObject7 = LogicProjectileData6["SpawnAreaEffectObject"];
+  const callResult8 = add4.call(instance3, SpawnAreaEffectObject7);
+  const readPointer9 = callResult8["readPointer"];
+  const callResult10 = readPointer9.call(callResult8);
+  const callResult11 = Reflect.construct(capturedValue01, [callResult10], capturedValue01);
+  return callResult11;
+}
+
+function getDamageOnlyWithOneProj({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const DamageOnlyWithOneProj6 = LogicProjectileData5["DamageOnlyWithOneProj"];
+  const callResult7 = add3.call(instance2, DamageOnlyWithOneProj6);
+  const readU88 = callResult7["readU8"];
+  const callResult9 = readU88.call(callResult7);
+  const result10 = !callResult9;
+  const result11 = !result10;
+  return result11;
+}
+
+function getCollisionRadius({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicCharacterData5 = capturedValue04["LogicCharacterData"];
+  const CollisionRadius6 = LogicCharacterData5["CollisionRadius"];
+  const callResult7 = add3.call(instance2, CollisionRadius6);
+  const readInt8 = callResult7["readInt"];
+  const callResult9 = readInt8.call(callResult7);
+  return callResult9;
+}
+
+function getTotalDelta({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectile5 = capturedValue04["LogicProjectile"];
+  const TotalDelta6 = LogicProjectile5["TotalDelta"];
+  const callResult7 = add3.call(instance2, TotalDelta6);
+  const readInt8 = callResult7["readInt"];
+  const callResult9 = readInt8.call(callResult7);
+  return callResult9;
+}
+
+function getSteeringLifeTime({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const SteeringLifeTime6 = LogicProjectileData5["SteeringLifeTime"];
+  const callResult7 = add3.call(instance2, SteeringLifeTime6);
+  const readInt8 = callResult7["readInt"];
+  const callResult9 = readInt8.call(callResult7);
+  return callResult9;
+}
+
+function getAngleDifference(arg0, arg1) {
+  let v0;
+  const Math1 = Math;
+  const abs2 = Math1["abs"];
+  const argument03 = arg0;
+  const argument14 = arg1;
+  const result5 = argument03 - argument14;
+  const result6 = result5 % 360;
+  const callResult7 = abs2.call(Math1, result6);
+  const localValue08 = v0;
+  const result9 = localValue08 > 180;
+  if (!result9) {
+  const localValue010 = v0;
+  return localValue010;
+  } else {
+  const localValue011 = v0;
+  const result12 = 360 - localValue011;
+  return result12;
+  }
+}
+
+function getBoomerangType({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const BoomerangType6 = LogicProjectileData5["BoomerangType"];
+  const callResult7 = add3.call(instance2, BoomerangType6);
+  const readInt8 = callResult7["readInt"];
+  const callResult9 = readInt8.call(callResult7);
+  return callResult9;
+}
+
+function getMirrored({capturedValue0}) {
+  const base1 = base;
+  const add2 = base1["add"];
+  const capturedValue03 = capturedValue0;
+  const Mirrored4 = capturedValue03["Mirrored"];
+  const callResult5 = add2.call(base1, Mirrored4);
+  const readU86 = callResult5["readU8"];
+  const callResult7 = readU86.call(callResult5);
+  return callResult7;
+}
+
+function isDoNotRotateClip({capturedValue0}) {
+  let v0;
+  const localValue01 = v0;
+  const getRendering2 = localValue01["getRendering"];
+  const callResult3 = getRendering2.call(localValue01);
+  const capturedValue04 = capturedValue0;
+  const DO_NOT_ROTATE_THE_CLIP5 = capturedValue04["DO_NOT_ROTATE_THE_CLIP"];
+  const result6 = callResult3 === DO_NOT_ROTATE_THE_CLIP5;
+  return result6;
+}
+
+function getDynamicDamage(arg0, arg1) {
+  let v0, v1, v2, v4;
+  const BattleCache1 = BattleCache;
+  const TickPosition2 = BattleCache1["TickPosition"];
+  if (TickPosition2) {
+  const BattleCache3 = BattleCache;
+  const CurrentSpeed4 = BattleCache3["CurrentSpeed"];
+  const localValue15 = v1;
+  const result6 = localValue15 / 20;
+  const localValue47 = v4;
+  const getPathByAngle8 = localValue47["getPathByAngle"];
+  const localValue09 = v0;
+  const argument010 = arg0;
+  const localValue211 = v2;
+  const callResult12 = getPathByAngle8.call(localValue47, localValue09, argument010, localValue211);
+  const localValue413 = v4;
+  const getPathDamage14 = localValue413["getPathDamage"];
+  const pathByAngle15 = pathByAngle;
+  const argument116 = arg1;
+  const callResult17 = getPathDamage14.call(localValue413, pathByAngle15, argument116);
+  return callResult17;
+  } else {
+  const BattleCache18 = BattleCache;
+  const ServerPosition19 = BattleCache18["ServerPosition"];
+  const BattleCache20 = BattleCache;
+  const CurrentSpeed21 = BattleCache20["CurrentSpeed"];
+  const localValue122 = v1;
+  const result23 = localValue122 / 20;
+  const localValue424 = v4;
+  const getPathByAngle25 = localValue424["getPathByAngle"];
+  const localValue026 = v0;
+  const argument027 = arg0;
+  const localValue228 = v2;
+  const callResult29 = getPathByAngle25.call(localValue424, localValue026, argument027, localValue228);
+  const localValue430 = v4;
+  const getPathDamage31 = localValue430["getPathDamage"];
+  const pathByAngle32 = pathByAngle;
+  const argument133 = arg1;
+  const callResult34 = getPathDamage31.call(localValue430, pathByAngle32, argument133);
+  return callResult34;
+  }
+}
+
+function hasResult() {
+  let v0;
+  const localValue01 = v0;
+  const completed2 = localValue01["completed"];
+  const result3 = completed2 !== null;
+  return result3;
+}
+
+function f64Sqrt(arg0, {capturedValue0, capturedValue1}) {
+  let v0, v1;
+  const capturedValue01 = capturedValue0;
+  const get2 = capturedValue01["get"];
+  const localValue13 = v1;
+  const callResult4 = get2.call(capturedValue01, localValue13);
+  const localValue05 = v0;
+  if (localValue05) {
+  const localValue06 = v0;
+  const localValue17 = v1;
+  const argument08 = arg0;
+  const callResult9 = localValue06.call(undefined, localValue17, argument08);
+  return callResult9;
+  } else {
+  const capturedValue010 = capturedValue0;
+  const set11 = capturedValue010["set"];
+  const localValue112 = v1;
+  const capturedValue113 = capturedValue1;
+  const localValue114 = v1;
+  const ORDER15 = localValue114["ORDER"];
+  const callResult16 = capturedValue113.call(undefined, ORDER15);
+  const callResult17 = set11.call(capturedValue010, localValue112, callResult16);
+  const localValue018 = v0;
+  const localValue119 = v1;
+  const argument020 = arg0;
+  const callResult21 = localValue018.call(undefined, localValue119, argument020);
+  return callResult21;
+  }
+}
+
+
+// --- книжный учёт итераторов/замыканий, оставленный восстановителем ---
+function ofIterator(obj) { return obj[Symbol.iterator](); }
+function inIterator(obj) { return Object.keys(obj)[Symbol.iterator](); }
+function ofStep(it) { const r = it.next(); return [r.value, r.done]; }
+function inStep(it) { const r = it.next(); return [r.value, r.done]; }
+function closure1() {}
+function closure2() {}
+function closure3() {}
+function closure4() {}
