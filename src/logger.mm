@@ -20,7 +20,6 @@ extern float rcl_own_speed;
 
 namespace
 {
-    constexpr double LOG_INTERVAL_MS = 250.0;
     constexpr long long LOG_MAX_BYTES = 1500000;
     constexpr int OBJECT_DUMP_EVERY = 4;
     constexpr int OBJECT_DUMP_LIMIT = 32;
