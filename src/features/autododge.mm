@@ -521,6 +521,11 @@ namespace
         if (map && ((map & 7ULL) == 0) && rcl_pointer_plausible(map))
         {
             rcl_wall_bind(map);
+
+            if (!rcl_wall_ready())
+            {
+                (void)rcl_wall_build();
+            }
         }
     }
 }
