@@ -1385,6 +1385,19 @@ static int rcl_ad_update(float mx, float my)
 
     rcl_dbg.hazards = rcl_ad_hazard_n;
     rcl_dbg.threats = rcl_bd_threat_n;
+    rcl_dbg.thn = rcl_bd_threat_n < 6 ? rcl_bd_threat_n : 6;
+    {
+        int ti = 0;
+
+        for (ti = 0; ti < rcl_dbg.thn; ti++)
+        {
+            rcl_dbg.thx[ti] = rcl_bd_threats[ti].x;
+            rcl_dbg.thy[ti] = rcl_bd_threats[ti].y;
+            rcl_dbg.thvx[ti] = rcl_bd_threats[ti].vx;
+            rcl_dbg.thvy[ti] = rcl_bd_threats[ti].vy;
+            rcl_dbg.thrad[ti] = rcl_bd_threats[ti].rad;
+        }
+    }
 
     if (rcl_bd_threat_n == 0)
     {

@@ -22,10 +22,10 @@ extern uintptr_t rcl_addr_projbeam;
 
 namespace
 {
-    constexpr long long LOG_MAX_BYTES = 4000000;
-    constexpr int LOG_INTERVAL_MS = 100;
+    constexpr long long LOG_MAX_BYTES = 8000000;
+    constexpr int LOG_INTERVAL_MS = 200;
     constexpr int PROJ_SLOTS = 16;
-    constexpr int RAW_EVERY = 30;
+    constexpr int RAW_EVERY = 50;
     constexpr uintptr_t RAW_BYTES = 0x1F0;
 
     FILE *g_file = nullptr;
@@ -265,6 +265,11 @@ namespace
              rcl_dbg.dy, rcl_dbg.ix, rcl_dbg.iy, rcl_dbg.tx, rcl_dbg.ty, rcl_dbg.sent, rcl_active,
              rcl_moving);
 
+        for (int i = 0; i < rcl_dbg.thn; i++)
+        {
+            line("  th%d x=%.0f y=%.0f vx=%.0f vy=%.0f rad=%.0f\n", i, rcl_dbg.thx[i], rcl_dbg.thy[i],
+                 rcl_dbg.thvx[i], rcl_dbg.thvy[i], rcl_dbg.thrad[i]);
+        }
         if (rcl_dbg.note[0]) line("adg note=%s\n", rcl_dbg.note);
     }
 
@@ -393,7 +398,7 @@ namespace
         dump_ad();
 
         if ((g_ticks % 2) == 0) dump_roster();
-        if ((g_ticks % 3) == 0) dump_objects();
+        if ((g_ticks % 4) == 0) dump_objects();
         if ((g_ticks % RAW_EVERY) == 0) dump_raw();
         if ((g_ticks % 50) == 0) dump_header();
 

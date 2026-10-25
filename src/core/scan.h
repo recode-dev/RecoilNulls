@@ -429,6 +429,12 @@ typedef struct
     float speed;
     int sent;
     int approach;
+    int thn;
+    float thx[6];
+    float thy[6];
+    float thvx[6];
+    float thvy[6];
+    float thrad[6];
     char note[64];
 } rcl_dbg_t;
 
