@@ -2086,69 +2086,6 @@ static float rcl_call1f(uintptr_t fn, uintptr_t self)
     return ((rcl_fn1f)fn)(self);
 }
 
-static void rcl_proj_store(uintptr_t elem, uintptr_t data, int32_t team, int32_t gid, int32_t x, int32_t y)
-{
-    rcl_proj_t *slot = nullptr;
-    int i = 0;
-
-    for (i = 0; i < 16; i++)
-    {
-        if (rcl_projs[i].elem == elem && rcl_projs[i].gid != 0)
-        {
-            slot = &rcl_projs[i];
-            break;
-        }
-    }
-    if (!slot)
-    {
-        for (i = 0; i < 16; i++)
-        {
-            if (rcl_projs[i].gid == 0)
-            {
-                slot = &rcl_projs[i];
-                break;
-            }
-        }
-    }
-    if (!slot) return;
-
-    if (slot->elem != elem || slot->gid == 0)
-    {
-        memset(slot, 0, sizeof(*slot));
-        slot->elem = elem;
-        slot->spawnX = x;
-        slot->spawnY = y;
-        slot->px = x;
-        slot->py = y;
-        slot->pms = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
-        slot->qms = slot->pms;
-        slot->radius = rcl_call1f(rcl_addr_projradius, data);
-        slot->isBeam = rcl_call1i(rcl_addr_projbeam, data) ? 1 : 0;
-    }
-    else
-    {
-        slot->px = slot->x;
-        slot->py = slot->y;
-        slot->pms = slot->qms;
-    }
-
-    slot->qms = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
-    slot->x = x;
-    slot->y = y;
-    slot->team = team;
-    slot->gid = gid;
-    slot->classRva = RCL_CLASS_PROJ_RVA;
-    slot->hasPrev = (slot->px != slot->x || slot->py != slot->y) ? 1 : slot->hasPrev;
-
-    if (slot->hasPrev && slot->qms > slot->pms)
-    {
-        float dt = (float)(slot->qms - slot->pms);
-        slot->vx = (float)(slot->x - slot->px) * 1000.0f / dt;
-        slot->vy = (float)(slot->y - slot->py) * 1000.0f / dt;
-    }
-}
-
-
 static int rcl_mgr_plausible(uintptr_t manager)
 {
     void *array = nullptr;
@@ -2474,6 +2411,14 @@ int rcl_read_scstring(uintptr_t value, char *out, int capacity)
     return length;
 }
 
+uintptr_t rcl_manager_array_ptr = 0;
+int32_t rcl_manager_count_v = 0;
+int32_t rcl_own_x = 0;
+int32_t rcl_own_y = 0;
+int32_t rcl_own_index_v = -1;
+int rcl_own_ok_hp = 0;
+rcl_dbg_t rcl_dbg;
+
 void rcl_scan_world(void)
 {
     uintptr_t client = 0;
@@ -2482,27 +2427,34 @@ void rcl_scan_world(void)
     uintptr_t manager = 0;
     uintptr_t array = 0;
     void *value = nullptr;
-    uintptr_t projectileVtable = 0;
     int32_t count = 0;
     int32_t ownIndex = -1;
     int32_t ownTeam = -1;
-    uint8_t dead = 0;
-    int seen[16];
-    int32_t i = 0;
-    int k = 0;
+    int32_t x = 0;
+    int32_t y = 0;
+    int32_t hp = 0;
+
+    rcl_dbg.stage = 0;
 
     if (!rcl_base) return;
 
     client = rcl_controller();
-    if (!client) return;
-
-    if (rcl_addr_getownchar)
+    if (!client)
     {
-        own = rcl_call1(rcl_addr_getownchar, client);
+        rcl_own_elem = 0;
+        rcl_own_elem_scan = 0;
+        rcl_own_x = 0;
+        rcl_own_y = 0;
+        rcl_dead = 1;
+        rcl_dbg.stage = 1;
+        return;
     }
+
+    own = rcl_addr_getownchar ? rcl_call1(rcl_addr_getownchar, client) : 0;
     if (!rcl_pointer_plausible(own))
     {
         own = 0;
+        rcl_dbg.stage = 2;
     }
 
     if (rcl_addr_getteam)
@@ -2517,123 +2469,86 @@ void rcl_scan_world(void)
     if (own)
     {
         rcl_own_elem = own;
+        rcl_own_elem_scan = own;
     }
     if (ownTeam >= 0 && ownTeam <= 15)
     {
         rcl_own_team_b = ownTeam;
+        rcl_own_team_a = ownTeam;
         rcl_own_team_seen = 1;
     }
-
-    rcl_dead = (rcl_own_hp == 0) ? 1 : 0;
-    (void)dead;
-
-    ownData = rcl_call1(rcl_addr_getdata, own);
-    if (rcl_pointer_plausible(ownData))
+    if (ownIndex >= 0 && ownIndex < 64)
     {
-        float radius = rcl_call1f(rcl_addr_charradius, ownData);
-        float speed = rcl_call1f(rcl_addr_charspeed, ownData);
-
-        if (radius > 1.0f) rcl_own_r = radius;
-        if (speed > 1.0f) rcl_own_speed = speed;
+        rcl_own_index_v = ownIndex;
     }
 
-    if (!rcl_read_ptr(client + RCL_MODE_MANAGER_OFF, &value) || !value) return;
+    /* own position + hp straight off the character object */
+    if (own)
+    {
+        if (rcl_read_int(own + (uintptr_t)RCL_OBJ_X_OFF, &x) &&
+            rcl_read_int(own + (uintptr_t)RCL_OBJ_Y_OFF, &y))
+        {
+            rcl_own_x = x;
+            rcl_own_y = y;
+        }
+
+        if (rcl_read_int(own + (uintptr_t)RCL_OBJ_HP_OFF, &hp))
+        {
+            rcl_own_ok_hp = 1;
+            rcl_own_hp = (uint32_t)(hp > 0 ? hp : 0);
+            rcl_dead = (hp > 0) ? 0 : 1;
+        }
+        else
+        {
+            rcl_own_ok_hp = 0;
+            rcl_dead = 0;
+        }
+    }
+    else
+    {
+        rcl_dead = 1;
+    }
+
+    if (own)
+    {
+        int32_t probe = 0;
+
+        ownData = rcl_addr_getdata ? rcl_call1(rcl_addr_getdata, own) : 0;
+        if (rcl_pointer_plausible(ownData) && rcl_read_int(ownData, &probe))
+        {
+            float radius = rcl_addr_charradius ? rcl_call1f(rcl_addr_charradius, ownData) : 0.0f;
+            float speed = rcl_addr_charspeed ? rcl_call1f(rcl_addr_charspeed, ownData) : 0.0f;
+
+            if (radius > 1.0f && radius < 4000.0f) rcl_own_r = radius;
+            if (speed > 1.0f && speed < 4000.0f) rcl_own_speed = speed;
+        }
+    }
+
+    if (!rcl_read_ptr(client + (uintptr_t)RCL_MODE_MANAGER_OFF, &value) || !value)
+    {
+        rcl_dbg.stage = 3;
+        return;
+    }
     manager = (uintptr_t)value;
     rcl_manager_ptr = manager;
 
-    if (!rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) || !value) return;
+    if (!rcl_read_ptr(manager + (uintptr_t)RCL_MGR_ARRAY_OFF, &value) || !value)
+    {
+        rcl_dbg.stage = 4;
+        return;
+    }
     array = (uintptr_t)value;
 
-    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count <= 0) return;
-
-    if (count > RCL_COUNT_MAX)
+    if (!rcl_read_int(manager + (uintptr_t)RCL_MGR_COUNT_OFF, &count) || count <= 0)
     {
-        count = RCL_COUNT_MAX;
+        rcl_dbg.stage = 5;
+        return;
     }
+    if (count > RCL_COUNT_MAX) count = RCL_COUNT_MAX;
 
-    projectileVtable = rcl_base + RCL_VTABLE_PROJ_DATA_RVA;
-
-    memset(seen, 0, sizeof(seen));
-
-    for (i = 0; i < count && i < RCL_COUNT_MAX; i++)
-    {
-        uintptr_t object = 0;
-        uintptr_t data = 0;
-        void *vtableRaw = nullptr;
-        uintptr_t dataVtable = 0;
-        int32_t team = -1;
-        int32_t x = 0;
-        int32_t y = 0;
-        int32_t gid = 0;
-
-        if (!rcl_read_ptr(array + (uintptr_t)i * 8ULL, &value) || !value) continue;
-        object = (uintptr_t)value;
-        if (!rcl_pointer_plausible(object)) continue;
-
-        data = rcl_call1(rcl_addr_getdata, object);
-        if (!rcl_pointer_plausible(data)) continue;
-
-        rcl_read_int(object + (uintptr_t)RCL_OBJ_TEAM_OFF, &team);
-
-        gid = rcl_call1i(rcl_addr_getgid, object);
-        rcl_read_ptr(data, &vtableRaw);
-        dataVtable = (uintptr_t)vtableRaw;
-
-        if (dataVtable == projectileVtable)
-        {
-            int32_t ownerTeam = team;
-
-            if (ownerTeam == ownTeam) continue;
-            if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_X_OFF, &x)) continue;
-            if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_Y_OFF, &y)) continue;
-
-            rcl_proj_store(object, data, ownerTeam, gid, x, y);
-
-            for (k = 0; k < 16; k++)
-            {
-                if (rcl_projs[k].elem == object)
-                {
-                    uint32_t speed = 0;
-                    uint32_t radius = 0;
-                    uint32_t indirect = 0;
-
-                    rcl_read_int(data + (uintptr_t)RCL_PROJDATA_SPEED_OFF, (int32_t *)&speed);
-                    rcl_read_int(data + (uintptr_t)RCL_PROJDATA_RADIUS_OFF, (int32_t *)&radius);
-                    rcl_read_int(object + (uintptr_t)RCL_PROJ_INDIRECT_OFF, (int32_t *)&indirect);
-
-                    rcl_projs[k].speed = (float)(speed > 0 ? speed : 1);
-                    rcl_projs[k].radius = (float)radius;
-                    rcl_projs[k].isThrower = indirect ? 1 : 0;
-                    rcl_projs[k].isBeam = rcl_addr_projbeam ? (rcl_call1i(rcl_addr_projbeam, data) ? 1 : 0) : 0;
-                    rcl_read_scstring(data + (uintptr_t)RCL_CHARDATA_NAME_OFF, rcl_projs[k].scratchName, RCL_NAME_CAP);
-                    seen[k] = 1;
-                }
-            }
-            continue;
-        }
-
-        if (team == ownTeam)
-        {
-            continue;
-        }
-
-        {
-            uint32_t hp = 0;
-
-            rcl_read_int(object + (uintptr_t)RCL_OBJ_HP_OFF, (int32_t *)&hp);
-            if (hp == 0) continue;
-
-            if (object == own)
-            {
-                rcl_own_hp = hp;
-            }
-        }
-    }
-
-    for (k = 0; k < 16; k++)
-    {
-        if (!seen[k]) rcl_projs[k].gid = 0;
-    }
+    rcl_manager_array_ptr = array;
+    rcl_manager_count_v = count;
+    rcl_dbg.stage = 6;
 
     rcl_ticks_a++;
 }
@@ -3620,7 +3535,7 @@ int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int
         gid = rcl_gid((uintptr_t)element, nullptr);
         if (gid < 2000000)
         {
-            continue;
+            gid = 0;
         }
         {
             static uintptr_t seenCls[4] = {0, 0, 0, 0};
@@ -3695,8 +3610,11 @@ int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int
             rcl_projs[slot].spawnX = px;
             rcl_projs[slot].spawnY = py;
             rcl_projs[slot].pms = nowMs;
+            rcl_projs[slot].qms = nowMs;
             rcl_projs[slot].hasPrev = 0;
             rcl_projs[slot].spawnedAt = nowMs;
+            rcl_projs[slot].vx = 0.0f;
+            rcl_projs[slot].vy = 0.0f;
         }
         {
             uintptr_t teamOff =
@@ -3738,8 +3656,6 @@ int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int
             rcl_projs[slot].name = nullptr;
             rcl_projs[slot].angle = 0.0f;
             rcl_projs[slot].radius = 0.0f;
-            rcl_projs[slot].vx = 0.0f;
-            rcl_projs[slot].vy = 0.0f;
             rcl_projs[slot].isThrower = 0;
             rcl_projs[slot].isBeam = 0;
             rcl_projs[slot].targetX = 0;
@@ -3800,6 +3716,16 @@ int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int
                 }
             }
         }
+        if (rcl_projs[slot].hasPrev && nowMs > rcl_projs[slot].pms)
+        {
+            float dt = (float)(nowMs - rcl_projs[slot].pms);
+
+            if (dt < 1.0f) dt = 1.0f;
+
+            rcl_projs[slot].vx = (float)(px - rcl_projs[slot].px) * 1000.0f / dt;
+            rcl_projs[slot].vy = (float)(py - rcl_projs[slot].py) * 1000.0f / dt;
+        }
+
         rcl_projs[slot].classRva = vtRva;
         rcl_projs[slot].x = px;
         rcl_projs[slot].y = py;

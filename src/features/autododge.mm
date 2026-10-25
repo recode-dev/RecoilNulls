@@ -1375,28 +1375,49 @@ static int rcl_ad_update(float mx, float my)
         myRadius = 60.0f;
     }
 
+    rcl_dbg.px = mx;
+    rcl_dbg.py = my;
+    rcl_dbg.radius = myRadius;
+    rcl_dbg.speed = speed;
+
     rcl_ad_collect(mx, my, myRadius, now);
     rcl_bd_build_threats();
+
+    rcl_dbg.hazards = rcl_ad_hazard_n;
+    rcl_dbg.threats = rcl_bd_threat_n;
 
     if (rcl_bd_threat_n == 0)
     {
         rcl_bdc_forget();
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no threats");
 
         return 0;
     }
 
     if (!rcl_bd_danger(mx, my, myRadius))
     {
+        rcl_dbg.danger = 0;
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no danger");
+
         return 0;
     }
+    rcl_dbg.danger = 1;
 
     rcl_bd_intent(&ix, &iy);
+    rcl_dbg.ix = ix;
+    rcl_dbg.iy = iy;
+
     rcl_bdc_pick(mx, my, myRadius, ix, iy, speed, &dirx, &diry);
+    rcl_dbg.dx = dirx;
+    rcl_dbg.dy = diry;
+    rcl_dbg.dirs = rcl_bdc_sel_n;
 
     tx = roundf(mx + dirx * RCL_AD_REACH);
     ty = roundf(my + diry * RCL_AD_REACH);
+    rcl_dbg.tx = tx;
+    rcl_dbg.ty = ty;
 
-    rcl_ad_send_move(tx, ty, mx, my);
+    rcl_dbg.sent = rcl_ad_send_move(tx, ty, mx, my);
 
     return 1;
 }
@@ -1405,87 +1426,56 @@ void rcl_autododge(void)
 {
     rcl_obj_t objects[64];
     int usable = 0;
-    int ownIndex = -1;
-    int32_t ownTeam = 0;
-    int ownX = 0;
-    int ownY = 0;
-    int32_t count = 0;
-    const char *ownFrom = "none";
 
     if (!rcl_base)
     {
         return;
     }
 
-    if (!rcl_manager_ptr)
-    {
-        rcl_manager_auto();
-    }
+    rcl_dbg.hazards = 0;
+    rcl_dbg.threats = 0;
+    rcl_dbg.danger = 0;
+    rcl_dbg.dirs = 0;
+    rcl_dbg.pick = -1;
+    rcl_dbg.sent = 0;
+    rcl_dbg.note[0] = 0;
 
-    if (!rcl_manager_ptr)
+    if (!rcl_own_elem)
     {
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no own elem");
         return;
     }
-
-    memset(objects, 0, sizeof(objects));
-
-    rcl_read_int(rcl_manager_ptr + RCL_MGR_COUNT_OFF, &count);
-
-    usable = rcl_collect(rcl_manager_ptr, objects, 64);
-
-    if (usable < RCL_MIN_USABLE_2)
+    if (rcl_own_team_b < 0 || rcl_own_team_b > 15)
     {
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no own team");
         return;
     }
-
-    rcl_own_scan();
-
-    if (!rcl_own_latch(objects, usable, &ownIndex, &ownFrom) &&
-        !rcl_resolve_own(objects, usable, &ownIndex, &ownFrom) &&
-        !rcl_own_by_owner(objects, usable, &ownIndex, &ownFrom))
-    {
-        return;
-    }
-
-    if (ownIndex < 0 || ownIndex >= usable || ownIndex >= 64)
-    {
-        return;
-    }
-
-    rcl_publish_own(objects[ownIndex].object, ownFrom);
-
-    ownTeam = (rcl_team_off == (int)RCL_OBJ_TEAM_OFF) ? objects[ownIndex].teamOld : objects[ownIndex].teamNew;
-    ownX = objects[ownIndex].x;
-    ownY = objects[ownIndex].y;
-
-    rcl_own_elem_2 = objects[ownIndex].object;
-    rcl_own_team_a = (int)ownTeam;
-
-    if (ownTeam >= 0 && ownTeam <= 15)
-    {
-        rcl_own_team_seen = 1;
-        rcl_own_team_b = (int)ownTeam;
-    }
-
     if (rcl_dead)
     {
         rcl_bdc_forget();
-
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "dead hp=%u", rcl_own_hp);
         return;
     }
-
-    if (rcl_life(objects[ownIndex].object, ownX, ownY))
+    if (!rcl_manager_ptr || rcl_manager_count_v <= 0)
     {
-        rcl_bdc_forget();
-
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no manager");
+        return;
+    }
+    if (rcl_own_x == 0 && rcl_own_y == 0)
+    {
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no own pos");
         return;
     }
 
-    rcl_roster(objects[ownIndex].object, ownIndex, (int)ownTeam, objects, usable);
+    usable = rcl_collect(rcl_manager_ptr, objects, 64);
+    if (usable > 0)
+    {
+        rcl_roster(rcl_own_elem, rcl_own_index_v, rcl_own_team_b, objects, usable);
+    }
 
-    rcl_proj_scan(rcl_manager_ptr, count, objects, usable);
+    rcl_proj_scan(rcl_manager_ptr, rcl_manager_count_v, objects, usable);
 
-    rcl_active = rcl_ad_update((float)ownX, (float)ownY);
+    rcl_active = rcl_ad_update((float)rcl_own_x, (float)rcl_own_y);
 }
 
 float rcl_own_radius(void)

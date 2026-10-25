@@ -396,12 +396,43 @@ static inline BOOL rcl_object_plausible(void *object)
 }
 
 extern uintptr_t rcl_manager_ptr;
+extern uintptr_t rcl_manager_array_ptr;
+extern int32_t rcl_manager_count_v;
 
 extern uint64_t rcl_ticks_a;
 
 extern uint32_t rcl_own_hp;
 extern float rcl_own_r;
 extern float rcl_own_speed;
+extern int32_t rcl_own_x;
+extern int32_t rcl_own_y;
+extern int32_t rcl_own_index_v;
+extern int rcl_own_ok_hp;
+
+typedef struct
+{
+    int stage;
+    int hazards;
+    int threats;
+    int danger;
+    int dirs;
+    int pick;
+    float px;
+    float py;
+    float ix;
+    float iy;
+    float dx;
+    float dy;
+    float tx;
+    float ty;
+    float radius;
+    float speed;
+    int sent;
+    int approach;
+    char note[64];
+} rcl_dbg_t;
+
+extern rcl_dbg_t rcl_dbg;
 extern int rcl_logs_a;
 extern int rcl_seeded;
 extern int32_t rcl_last_x_a;
