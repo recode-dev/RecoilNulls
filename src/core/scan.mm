@@ -843,6 +843,8 @@ uintptr_t rcl_base = 0;
 
 uintptr_t rcl_manager_ptr = 0;
 
+uint64_t rcl_ticks_a = 0;
+
 int rcl_collect(uintptr_t manager, rcl_obj_t *out, int capacity)
 {
     void *data = nullptr;
@@ -3449,54 +3451,6 @@ uintptr_t rcl_controller(void)
     return client;
 }
 
-void rcl_death_signals(uintptr_t ownElem, int32_t, int32_t)
-{
-    static int lastDead = -999;
-    static int lastOwnAlive = -999;
-    static int lastCtrlAlive = -999;
-    uintptr_t ctrl = 0;
-    uint8_t deadByte = 0;
-    int dead = -1;
-    int ownAlive = -1;
-    int ctrlAlive = -1;
-    if (!ownElem)
-    {
-        return;
-    }
-    if (rcl_read_bytes(ownElem + RCL_DEAD_OFF, &deadByte, sizeof(deadByte)))
-    {
-        dead = (int)deadByte;
-    }
-    if (!rcl_read_int(ownElem + RCL_OWN_ALIVE_OFF, &ownAlive))
-    {
-        ownAlive = -1;
-    }
-    ctrl = rcl_controller();
-    if (ctrl && !rcl_read_int(ctrl + RCL_CTRL_ALIVE_OFF, &ctrlAlive))
-    {
-        ctrlAlive = -1;
-    }
-    if (dead > 0 || ownAlive == 0)
-    {
-        rcl_dead = 1;
-    }
-    else if (dead == 0 && ownAlive == 1)
-    {
-        rcl_dead = 0;
-    }
-    if (dead == lastDead && ownAlive == lastOwnAlive && ctrlAlive == lastCtrlAlive)
-    {
-        return;
-    }
-    lastDead = dead;
-    lastOwnAlive = ownAlive;
-    lastCtrlAlive = ctrlAlive;
-    if (rcl_signal_logs >= 12)
-    {
-        return;
-    }
-    rcl_signal_logs++;
-}
 
 
 uint64_t rcl_read_u64(uintptr_t address)

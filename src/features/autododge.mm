@@ -1403,261 +1403,30 @@ static int rcl_ad_update(float mx, float my)
 
 void rcl_autododge(void)
 {
-    if (rcl_base && rcl_own_elem && rcl_manager_ptr)
-    {
-        int ownX = 0;
-        int ownY = 0;
-
-        rcl_read_int(rcl_own_elem + (uintptr_t)RCL_OBJ_X_OFF, &ownX);
-        rcl_read_int(rcl_own_elem + (uintptr_t)RCL_OBJ_Y_OFF, &ownY);
-
-        rcl_own_elem_2 = rcl_own_elem;
-        rcl_own_team_a = rcl_own_team_b;
-
-        if (rcl_dead)
-        {
-            rcl_bdc_forget();
-            return;
-        }
-
-        rcl_alive(ownX, ownY);
-
-        if (rcl_life(rcl_own_elem, ownX, ownY))
-        {
-            rcl_bdc_forget();
-            return;
-        }
-
-        rcl_active = rcl_ad_update((float)ownX, (float)ownY);
-
-        return;
-    }
-
-    rcl_paircal();
-
-    rcl_obj_t objects[64];
-    uintptr_t source = 0;
-    int usable = 0;
-    int ownIndex = -1;
-    int32_t ownTeam = 0;
     int ownX = 0;
     int ownY = 0;
 
-    if (!rcl_base)
+    if (!rcl_base || !rcl_own_elem || !rcl_manager_ptr)
     {
         return;
     }
 
-    int sourceIsMode = (rcl_scene_object != 0);
+    rcl_read_int(rcl_own_elem + (uintptr_t)RCL_OBJ_X_OFF, &ownX);
+    rcl_read_int(rcl_own_elem + (uintptr_t)RCL_OBJ_Y_OFF, &ownY);
 
-    if (sourceIsMode)
-    {
-        source = rcl_scene_object;
-    }
-    else if (rcl_players_object)
-    {
-        source = rcl_players_object;
-    }
-    else if (rcl_objvote_best_owner && rcl_objvote_best_teamcount >= RCL_OWNER_VOTE_TEAMS_MIN &&
-             rcl_objvote_max_votes >= RCL_OWNER_VOTE_MIN)
-    {
-        source = rcl_objvote_best_owner;
-    }
-    else if (rcl_trail_count > 0 && rcl_trail_best >= 0 && rcl_trail_best < rcl_trail_count)
-    {
-        source = rcl_trail[rcl_trail_best].manager;
-    }
-    else
-    {
-        rcl_no_source_passes = 0;
-    }
+    rcl_own_elem_2 = rcl_own_elem;
+    rcl_own_team_a = rcl_own_team_b;
 
-    rcl_ticks_a++;
-
-    if (!source)
+    if (rcl_dead)
     {
+        rcl_bdc_forget();
+        return;
+    }
+    if (rcl_life(rcl_own_elem, ownX, ownY))
+    {
+        rcl_bdc_forget();
         return;
     }
 
-    {
-        uint64_t probeNow = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
-        void *resolved = nullptr;
-        int changed = (rcl_probe_object != source);
-        int managerChanged = 0;
-        int periodic = 0;
-
-        if (sourceIsMode && rcl_hop_chosen == 1 && rcl_tick_object)
-        {
-            resolved = (void *)rcl_tick_object;
-        }
-        else if (sourceIsMode)
-        {
-            if (!rcl_read_ptr(source + RCL_MODE_MANAGER_OFF, &resolved) || !resolved)
-            {
-                resolved = nullptr;
-            }
-        }
-        else
-        {
-            resolved = (void *)source;
-        }
-
-        managerChanged = ((uintptr_t)resolved != rcl_manager_ptr);
-
-        {
-            int32_t liveCount = 0;
-
-            if (resolved)
-            {
-                rcl_read_int((uintptr_t)resolved + RCL_MGR_COUNT_OFF, &liveCount);
-            }
-
-            if (resolved && liveCount > 0 && rcl_hop_chosen == 1 &&
-                (liveCount != rcl_walk_count || (rcl_walk_tick != rcl_ticks_b && (rcl_ticks_b % RCL_WALK_EVERY) == 0)))
-            {
-                rcl_walk_count = liveCount;
-                rcl_walk_tick = rcl_ticks_b;
-                periodic = 1;
-            }
-        }
-
-        if (!rcl_probe_done || changed || managerChanged || periodic ||
-            (!rcl_coord_ok && probeNow > rcl_probe_last_ms + RCL_REPROBE_MS))
-        {
-            rcl_probe_object = source;
-            rcl_probe_last_ms = probeNow;
-            rcl_manager_ptr = (uintptr_t)resolved;
-
-            if (resolved)
-            {
-                int loud = (changed || managerChanged || !rcl_probe_done);
-                rcl_probe((uintptr_t)resolved, rcl_scene_object, loud);
-
-                if (loud)
-                {
-                    rcl_discriminate((uintptr_t)resolved);
-                }
-            }
-        }
-    }
-
-    if (!rcl_coord_ok && rcl_coord_usable < RCL_MIN_USABLE)
-    {
-        return;
-    }
-
-    if (!rcl_scene_object)
-    {
-        return;
-    }
-
-    memset(objects, 0, sizeof(objects));
-
-    usable = rcl_collect(rcl_manager_ptr, objects, 64);
-
-    if (usable < RCL_MIN_USABLE_2)
-    {
-        return;
-    }
-
-    rcl_own_scan();
-
-    {
-        const char *ownFrom = "none";
-
-        if (!rcl_own_latch(objects, usable, &ownIndex, &ownFrom) &&
-            !rcl_resolve_own(objects, usable, &ownIndex, &ownFrom) &&
-            !rcl_resolve_own_2(objects, usable, &ownIndex, &ownFrom))
-        {
-            return;
-        }
-
-        rcl_publish_own(objects[ownIndex].object, ownFrom);
-    }
-
-    rcl_own_elem_2 = objects[ownIndex].object;
-
-    ownTeam = (rcl_team_off == (int)RCL_OBJ_TEAM_OFF) ? objects[ownIndex].teamOld : objects[ownIndex].teamNew;
-    ownX = objects[ownIndex].x;
-    ownY = objects[ownIndex].y;
-
-    rcl_death_signals((ownIndex >= 0 && ownIndex < usable) ? objects[ownIndex].object : 0, ownX, ownY);
-
-    rcl_alive(ownX, ownY);
-
-    {
-        int32_t projCount = 0;
-
-        if (rcl_manager_ptr)
-        {
-            rcl_read_int(rcl_manager_ptr + RCL_MGR_COUNT_OFF, &projCount);
-        }
-
-        rcl_own_team_a = (int)ownTeam;
-
-        if (ownIndex >= 0 && ownTeam >= 0 && ownTeam <= 15)
-        {
-            rcl_own_team_seen = 1;
-        }
-
-        rcl_roster(rcl_own_elem_2, ownIndex, (int)ownTeam, objects, usable);
-
-        if (ownIndex < 0 || ownIndex >= usable || ownIndex >= 64)
-        {
-            return;
-        }
-
-        if (rcl_life(objects[ownIndex].object, ownX, ownY))
-        {
-            rcl_bdc_forget();
-
-            return;
-        }
-
-        rcl_proj_scan(rcl_manager_ptr, projCount, objects, usable);
-
-        rcl_active = rcl_ad_update((float)ownX, (float)ownY);
-    }
-}
-
-float rcl_own_radius(void)
-{
-    if (rcl_own_r > 1.0f)
-    {
-        float r = rcl_own_r;
-
-        if (r > RCL_OWN_RADIUS_MAX)
-        {
-            r = RCL_OWN_RADIUS_MAX;
-        }
-        if (r < RCL_OWN_RADIUS_MIN)
-        {
-            r = RCL_OWN_RADIUS_MIN;
-        }
-
-        return r;
-    }
-
-    return 120.0f;
-}
-
-int rcl_proj_vel(const rcl_proj_t *p, float *vxOut, float *vyOut)
-{
-    float dt = 0.0f;
-
-    if (!p->elem || !p->hasPrev)
-    {
-        return 0;
-    }
-
-    dt = (float)(p->qms - p->pms);
-    if (dt < RCL_AD_TICK_MS || dt > RCL_AD_TICK_MAX_MS)
-    {
-        dt = RCL_AD_TICK_MS;
-    }
-
-    *vxOut = (float)(p->x - p->px) * 1000.0f / dt;
-    *vyOut = (float)(p->y - p->py) * 1000.0f / dt;
-
-    return 1;
+    rcl_active = rcl_ad_update((float)ownX, (float)ownY);
 }

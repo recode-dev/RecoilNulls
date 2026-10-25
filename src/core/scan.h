@@ -398,8 +398,9 @@ static inline BOOL rcl_object_plausible(void *object)
     return rcl_addr_executable(firstEntry);
 }
 
-extern uint64_t rcl_ticks_a;
 extern uintptr_t rcl_manager_ptr;
+
+extern uint64_t rcl_ticks_a;
 extern int rcl_logs_a;
 extern int rcl_seeded;
 extern int32_t rcl_last_x_a;
@@ -408,10 +409,7 @@ extern int32_t rcl_last_y_a;
 int rcl_collect(uintptr_t manager, rcl_obj_t *out, int capacity);
 int rcl_small(long value);
 float rcl_as_float(uint32_t bits);
-void rcl_discriminate(uintptr_t manager);
-void rcl_probe(uintptr_t manager, uintptr_t mode, int verbose);
 uint64_t rcl_us(void);
-void rcl_paircal(void);
 
 uintptr_t rcl_pair_base(void);
 
@@ -584,8 +582,6 @@ extern uintptr_t rcl_scan_container;
 extern uintptr_t rcl_hop_scene;
 extern int rcl_last_choice;
 extern int rcl_hop_logs;
-extern int rcl_probe_done;
-extern uintptr_t rcl_probe_object;
 extern uint64_t rcl_probe_last_ms;
 extern int rcl_coord_ok;
 extern int rcl_coord_usable;
@@ -672,7 +668,6 @@ typedef struct
 extern rcl_proj_t rcl_projs[16];
 extern rcl_proj_death_t rcl_proj_deaths[16];
 extern int rcl_proj_death_n;
-extern int rcl_signal_logs;
 
 int rcl_modesig_hit(uintptr_t at);
 void rcl_modesig_tick(void);
@@ -705,8 +700,6 @@ int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int
 int rcl_proj_vel(const rcl_proj_t *p, float *vxOut, float *vyOut);
 
 uintptr_t rcl_controller(void);
-void rcl_death_signals(uintptr_t ownElem, int32_t ownX, int32_t ownY);
-void rcl_alive(int32_t ownX, int32_t ownY);
 int rcl_own(int32_t *xOut, int32_t *yOut);
 uint64_t rcl_read_u64(uintptr_t address);
 const char *rcl_header_reason(uintptr_t manager, int32_t *countOut, int32_t *capOut);
