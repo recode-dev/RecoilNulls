@@ -2505,81 +2505,70 @@ static void rcl_proj_velocity(void)
 
 void rcl_scan_world(void)
 {
-    uintptr_t slot = 0;
-    uintptr_t scene = 0;
-    uintptr_t client = 0;
+    static uint64_t lastScanUs = 0;
+    uint64_t nowUs = rcl_us();
     uintptr_t manager = 0;
+    uintptr_t array = 0;
     uintptr_t own = 0;
     void *value = nullptr;
-    int32_t state = -1;
     int32_t count = 0;
     int32_t ownIndex = -1;
     int32_t ownTeam = -1;
     uint8_t dead = 0;
-    int usable = 0;
     int32_t i = 0;
-    rcl_obj_t roster[64];
 
-    slot = (uintptr_t)rcl_read_global_ptr(RCL_STATE_RVA);
-    if (slot && rcl_read_int(slot + RCL_STATE_ENUM_OFF, &state) && state == 5 &&
-        rcl_read_ptr(slot + RCL_SCENE_OFF, &value) && value)
-    {
-        scene = (uintptr_t)value;
-    }
-    if (!scene)
+    if (lastScanUs && (nowUs - lastScanUs) < RCL_WORLD_GAP_US)
     {
         return;
     }
-    rcl_scene_object = scene;
+    lastScanUs = nowUs;
 
-    if (!rcl_read_ptr(scene + RCL_CLIENT_OFF, &value) || !value)
+    manager = rcl_tick_object;
+    array = rcl_tick_array;
+    count = rcl_tick_count;
+
+    if (!manager || !array || count <= 0)
     {
         return;
     }
-    client = (uintptr_t)value;
-
-    if (!rcl_read_ptr(client + RCL_MGR_OFF, &value) || !value)
-    {
-        if (!rcl_read_ptr(client + RCL_MODE_MANAGER_OFF, &value) || !value)
-        {
-            return;
-        }
-    }
-    manager = (uintptr_t)value;
     rcl_manager_ptr = manager;
 
-    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count <= 0 || count > RCL_COUNT_MAX)
+    if (!rcl_read_int(rcl_client() + RCL_OWNIDX_OFF, &ownIndex))
     {
         return;
     }
-
-    memset(roster, 0, sizeof(roster));
-    usable = rcl_collect(manager, roster, 64);
-
-    rcl_read_int(client + RCL_OWNIDX_OFF, &ownIndex);
-    if (rcl_read_int(client + RCL_OWNTEAM_OFF, &ownTeam) && ownTeam >= 0 && ownTeam <= 15)
+    if (rcl_read_int(rcl_client() + RCL_OWNTEAM_OFF, &ownTeam) && ownTeam >= 0 && ownTeam <= 15)
     {
         rcl_own_team_b = ownTeam;
     }
 
-    for (i = 0; i < usable; i++)
+    if (ownIndex >= 0 && ownIndex < RCL_COUNT_MAX)
     {
-        if (roster[i].object && roster[i].ownerIndex == ownIndex)
+        if (rcl_read_ptr(array + (uintptr_t)ownIndex * 8ULL, &value) && value &&
+            rcl_pointer_plausible((uintptr_t)value))
         {
-            own = roster[i].object;
-            break;
+            own = (uintptr_t)value;
         }
     }
     if (!own && ownIndex >= 0)
     {
-        void *element = nullptr;
-
-        if (rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) && value &&
-            rcl_read_ptr((uintptr_t)value + (uintptr_t)ownIndex * 8ULL, &element) && element)
+        for (i = 0; i < count && i < RCL_COUNT_MAX; i++)
         {
-            if (rcl_pointer_plausible((uintptr_t)element))
+            void *element = nullptr;
+            int32_t owner = -1;
+
+            if (!rcl_read_ptr(array + (uintptr_t)i * 8ULL, &element) || !element)
+            {
+                continue;
+            }
+            if (!rcl_read_int((uintptr_t)element + RCL_OBJ_OWNERINDEX_OFF, &owner))
+            {
+                continue;
+            }
+            if (owner == ownIndex && rcl_pointer_plausible((uintptr_t)element))
             {
                 own = (uintptr_t)element;
+                break;
             }
         }
     }
@@ -2594,7 +2583,7 @@ void rcl_scan_world(void)
         rcl_dead = dead ? 1 : 0;
     }
 
-    rcl_proj_scan(manager, count, roster, usable);
+    rcl_proj_scan(manager, count, nullptr, 0);
     rcl_proj_velocity();
 
     for (i = 0; i < 16; i++)
@@ -3606,6 +3595,7 @@ static int rcl_proj_read_name(uintptr_t data, char *dst, int cap)
 
 int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int rosterUsable)
 {
+    int32_t ownerTeam[64];
     void *array = nullptr;
     int found = 0;
     int k;
@@ -3629,6 +3619,29 @@ int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int
     }
     rcl_proj_death_n = 0;
     nowMs = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
+    {
+        int rk = 0;
+
+        for (rk = 0; rk < 64; rk++)
+        {
+            ownerTeam[rk] = -1;
+        }
+        for (rk = 0; rk < rosterUsable && rk < 64; rk++)
+        {
+            int32_t idx = roster[rk].ownerIndex;
+
+            if (idx < 0 || idx >= 64)
+            {
+                continue;
+            }
+            if (roster[rk].gid < 1000000 || roster[rk].gid >= 2000000)
+            {
+                continue;
+            }
+            ownerTeam[idx] = rcl_team_at(roster, rk);
+        }
+    }
+
     for (i = 0; i < count && found < 16; i++)
     {
         void *element = nullptr;
@@ -3734,25 +3747,12 @@ int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int
             int32_t pteam = -1;
             int32_t ownerIdx = -1;
             int settled = 0;
-            int rk = 0;
             if (roster && rosterUsable > 0 &&
                 rcl_read_int((uintptr_t)element + (uintptr_t)RCL_OBJ_OWNERINDEX_OFF, &ownerIdx) &&
                 ownerIdx >= 0 && ownerIdx < 64)
             {
-                for (rk = 0; rk < rosterUsable && rk < 64; rk++)
-                {
-                    if (roster[rk].ownerIndex != ownerIdx)
-                    {
-                        continue;
-                    }
-                    if (roster[rk].gid < 1000000 || roster[rk].gid >= 2000000)
-                    {
-                        continue;
-                    }
-                    pteam = rcl_team_at(roster, rk);
-                    settled = 1;
-                    break;
-                }
+                pteam = ownerTeam[ownerIdx];
+                settled = pteam >= 0;
             }
             if (!settled && rcl_read_int((uintptr_t)element + teamOff, &pteam) && pteam >= 0 && pteam <= 7)
             {
