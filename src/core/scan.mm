@@ -839,6 +839,7 @@ uintptr_t rcl_manager_ptr = 0;
 uint64_t rcl_ticks_a = 0;
 
 float rcl_own_speed = 720.0f;
+uint32_t rcl_own_hp = 0;
 
 int rcl_collect(uintptr_t manager, rcl_obj_t *out, int capacity)
 {
@@ -2445,6 +2446,35 @@ uintptr_t rcl_manager_auto(void)
 }
 
 
+int rcl_read_scstring(uintptr_t value, char *out, int capacity)
+{
+    uint8_t head[16];
+    int32_t length = 0;
+    uintptr_t data = 0;
+    if (!out || capacity < 2) return 0;
+    out[0] = 0;
+    if (!value) return 0;
+    if (!rcl_read_bytes(value + RCL_SCSTRING_LENGTH_OFF, head, sizeof(head))) return 0;
+
+    memcpy(&length, head, sizeof(length));
+    if (length <= 0) return 0;
+    if (length > capacity - 1) length = capacity - 1;
+
+    if (length <= 7)
+    {
+        memcpy(out, head + 8, (size_t)length);
+        out[length] = 0;
+        return length;
+    }
+    memcpy(&data, head + 8, sizeof(data));
+    if (!data) return 0;
+    if (!rcl_read_ptr(data, &raw)) return 0;
+    if (!rcl_read_bytes(data, out, (size_t)length)) return 0;
+    out[length] = 0;
+
+    return length;
+}
+
 void rcl_scan_world(void)
 {
     uintptr_t client = 0;
@@ -2495,7 +2525,7 @@ void rcl_scan_world(void)
         rcl_own_team_seen = 1;
     }
 
-    rcl_dead = 0;
+    rcl_dead = (rcl_own_hp == 0) ? 1 : 0;
     (void)dead;
 
     ownData = rcl_call1(rcl_addr_getdata, own);
@@ -2550,16 +2580,54 @@ void rcl_scan_world(void)
         rcl_read_ptr(data, &vtableRaw);
         dataVtable = (uintptr_t)vtableRaw;
 
-        if (dataVtable != projectileVtable && gid < 2000000) continue;
-        if (team == ownTeam) continue;
-        if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_X_OFF, &x)) continue;
-        if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_Y_OFF, &y)) continue;
-
-        rcl_proj_store(object, data, team, gid, x, y);
-
-        for (k = 0; k < 16; k++)
+        if (dataVtable == projectileVtable)
         {
-            if (rcl_projs[k].elem == object) seen[k] = 1;
+            int32_t ownerTeam = team;
+
+            if (ownerTeam == ownTeam) continue;
+            if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_X_OFF, &x)) continue;
+            if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_Y_OFF, &y)) continue;
+
+            rcl_proj_store(object, data, ownerTeam, gid, x, y);
+
+            for (k = 0; k < 16; k++)
+            {
+                if (rcl_projs[k].elem == object)
+                {
+                    uint32_t speed = 0;
+                    uint32_t radius = 0;
+                    uint32_t indirect = 0;
+
+                    rcl_read_int(data + (uintptr_t)RCL_PROJDATA_SPEED_OFF, (int32_t *)&speed);
+                    rcl_read_int(data + (uintptr_t)RCL_PROJDATA_RADIUS_OFF, (int32_t *)&radius);
+                    rcl_read_int(object + (uintptr_t)RCL_PROJ_INDIRECT_OFF, (int32_t *)&indirect);
+
+                    rcl_projs[k].speed = (float)(speed > 0 ? speed : 1);
+                    rcl_projs[k].radius = (float)radius;
+                    rcl_projs[k].isThrower = indirect ? 1 : 0;
+                    rcl_projs[k].isBeam = rcl_addr_projbeam ? (rcl_call1i(rcl_addr_projbeam, data) ? 1 : 0) : 0;
+                    rcl_read_scstring(data + (uintptr_t)RCL_CHARDATA_NAME_OFF, rcl_projs[k].scratchName, RCL_NAME_CAP);
+                    seen[k] = 1;
+                }
+            }
+            continue;
+        }
+
+        if (team == ownTeam)
+        {
+            continue;
+        }
+
+        {
+            uint32_t hp = 0;
+
+            rcl_read_int(object + (uintptr_t)RCL_OBJ_HP_OFF, (int32_t *)&hp);
+            if (hp == 0) continue;
+
+            if (object == own)
+            {
+                rcl_own_hp = hp;
+            }
         }
     }
 

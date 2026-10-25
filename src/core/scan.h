@@ -399,6 +399,7 @@ extern uintptr_t rcl_manager_ptr;
 
 extern uint64_t rcl_ticks_a;
 
+extern uint32_t rcl_own_hp;
 extern float rcl_own_r;
 extern float rcl_own_speed;
 extern int rcl_logs_a;
@@ -554,6 +555,7 @@ int rcl_state_tick(void);
 int rcl_vtable_is_data(uintptr_t vtable);
 
 void rcl_scan_world(void);
+int rcl_read_scstring(uintptr_t value, char *out, int capacity);
 void rcl_run_workload(void);
 void setup(void);
 void rcl_run_autododge(void);
@@ -656,6 +658,8 @@ typedef struct
     float radius;
     float angle;
     uint64_t spawnedAt;
+    char scratchName[32];
+    float speed;
     float vx;
     float vy;
     int isThrower;
