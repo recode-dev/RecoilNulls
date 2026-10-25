@@ -54,13 +54,8 @@ namespace offsets
 
     inline constexpr uintptr_t LogicProjectileData_getSpeed                     = 0x8cee94;
     inline constexpr uintptr_t LogicProjectileData_getRadius                    = 0x860d88;
-    inline constexpr uintptr_t LogicProjectileData_getRendering                 = 0x97d5c0;
-    inline constexpr uintptr_t LogicProjectileData__getSpawnAreaEffect          = 0x9cda1c;
     inline constexpr uintptr_t LogicProjectileData_getNumEarlyTicks             = 0x979d50;
     inline constexpr uintptr_t LogicProjectileData_isBeam                       = 0x9b6448;
-
-    inline constexpr uintptr_t AreaEffectData__getRadius                        = 0x8cee8c;
-    inline constexpr uintptr_t AreaEffectData__getActiveTimeMs                  = 0x9bf8f4;
 
     inline constexpr uintptr_t ClientInput_x                                    = 0xc;
     inline constexpr uintptr_t ClientInput_y                                    = 0x10;
@@ -73,6 +68,7 @@ namespace offsets
     inline constexpr uintptr_t ClientInputManager_addInput                      = 0x74675c;
 
     inline constexpr uintptr_t ScString_length                                  = 0x4;
+    inline constexpr uintptr_t ScString_data                                    = 0x8;
 
     inline constexpr uintptr_t LogicBattleModeClient_update                     = 0xac1ee8;
     inline constexpr uintptr_t LogicBattleModeClient_getOwnCharacter            = 0xac3934;

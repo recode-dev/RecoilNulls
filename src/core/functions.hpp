@@ -36,13 +36,8 @@ namespace functions
 
     inline uint32_t (*LogicProjectileData_getSpeed)(uintptr_t) = nullptr;
     inline uint32_t (*LogicProjectileData_getRadius)(uintptr_t) = nullptr;
-    inline int32_t (*LogicProjectileData_getRendering)(uintptr_t) = nullptr;
-    inline uintptr_t (*LogicProjectileData_getSpawnAreaEffect)(uintptr_t) = nullptr;
     inline uint32_t (*LogicProjectileData_getNumEarlyTicks)(uintptr_t) = nullptr;
     inline uint32_t (*LogicProjectileData_isBeam)(uintptr_t) = nullptr;
-
-    inline int32_t (*AreaEffectData_getRadius)(uintptr_t) = nullptr;
-    inline int32_t (*AreaEffectData_getActiveTimeMs)(uintptr_t) = nullptr;
 
     inline uintptr_t (*LogicData_getName)(uintptr_t) = nullptr;
 

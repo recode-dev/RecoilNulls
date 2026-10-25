@@ -62,13 +62,8 @@ bool functions::init(uintptr_t base_address)
 
     ok = bind(functions::LogicProjectileData_getSpeed, offsets::LogicProjectileData_getSpeed) && ok;
     ok = bind(functions::LogicProjectileData_getRadius, offsets::LogicProjectileData_getRadius) && ok;
-    ok = bind(functions::LogicProjectileData_getRendering, offsets::LogicProjectileData_getRendering) && ok;
-    ok = bind(functions::LogicProjectileData_getSpawnAreaEffect, offsets::LogicProjectileData__getSpawnAreaEffect) && ok;
     ok = bind(functions::LogicProjectileData_getNumEarlyTicks, offsets::LogicProjectileData_getNumEarlyTicks) && ok;
     ok = bind(functions::LogicProjectileData_isBeam, offsets::LogicProjectileData_isBeam) && ok;
-
-    ok = bind(functions::AreaEffectData_getRadius, offsets::AreaEffectData__getRadius) && ok;
-    ok = bind(functions::AreaEffectData_getActiveTimeMs, offsets::AreaEffectData__getActiveTimeMs) && ok;
 
     ok = bind(functions::LogicData_getName, offsets::LogicData_getName) && ok;
 
