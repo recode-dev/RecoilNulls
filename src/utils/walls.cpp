@@ -1,8 +1,10 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <frida-gum.h>
+#include <time.h>
 
+#include "../../tools/hook.hpp"
+#include "../../tools/memory.hpp"
 #include "walls.hpp"
 #include "../core/offsets.hpp"
 #include "../core/functions.hpp"
@@ -37,10 +39,7 @@ namespace
 
     bool readBytes(uintptr_t address, void *out, size_t size)
     {
-        if (address == 0 || out == nullptr || size == 0) return false;
-        if (!gum_memory_is_readable((gconstpointer)address, (gsize)size)) return false;
-        memcpy(out, (const void *)address, size);
-        return true;
+        return tools::memory::read(address, out, size);
     }
 
     bool readU16(uintptr_t address, uint16_t &out)
@@ -60,7 +59,10 @@ namespace
 
     uint32_t nowMs()
     {
-        return (uint32_t)(g_get_monotonic_time() / 1000);
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+
+        return (uint32_t)((uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000));
     }
 
     uint8_t flagsOfType(uintptr_t tileType)
@@ -134,57 +136,34 @@ namespace
         return true;
     }
 
-    typedef struct _TileListener TileListener;
-    typedef struct _TileListenerClass TileListenerClass;
+    using SlotFn = uint64_t (*)(void *, uint64_t, uint64_t, uint64_t,
+                                uint64_t, uint64_t, uint64_t, uint64_t);
 
-    struct _TileListener
-    {
-        GObject parent;
-    };
+    SlotFn g_origSetData = nullptr;
+    bool g_watchInstalled = false;
 
-    struct _TileListenerClass
-    {
-        GObjectClass parent_class;
-    };
-
-    static void tile_listener_iface_init(gpointer g_iface, gpointer);
-
-    static void tile_listener_init(TileListener *)
-    {
-    }
-
-    static void tile_listener_class_init(TileListenerClass *)
-    {
-    }
-
-    static void tile_listener_on_enter(GumInvocationListener *, GumInvocationContext *)
+    // Any tile mutation invalidates the cached grid; the actual rebuild happens
+    // on the next tick so we never walk the map from inside the setter.
+    uint64_t tile_set_data(void *self, uint64_t a1, uint64_t a2, uint64_t a3,
+                           uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
     {
         g_needsRebuild = true;
-    }
 
-    static void tile_listener_iface_init(gpointer g_iface, gpointer)
-    {
-        GumInvocationListenerInterface *iface = static_cast<GumInvocationListenerInterface *>(g_iface);
-        iface->on_enter = tile_listener_on_enter;
-    }
+        if (g_origSetData != nullptr) return g_origSetData(self, a1, a2, a3, a4, a5, a6, a7);
 
-    G_DEFINE_TYPE_EXTENDED(TileListener, tile_listener, G_TYPE_OBJECT, 0,
-        G_IMPLEMENT_INTERFACE(GUM_TYPE_INVOCATION_LISTENER, tile_listener_iface_init))
+        return 0;
+    }
 }
 
 void walls::watchTileChanges(uintptr_t baseAddress)
 {
-    if (g_watchInstalled) return;
-    if (baseAddress == 0) return;
+    if (g_watchInstalled || baseAddress == 0) return;
+    if (offsets::LogicTile__setData == 0) return;
 
-    GumInterceptor *interceptor = gum_interceptor_obtain();
-    TileListener *listener = reinterpret_cast<TileListener *>(g_object_new(tile_listener_get_type(), NULL));
-    const GumAttachReturn attachResult = gum_interceptor_attach(interceptor,
-        GSIZE_TO_POINTER(baseAddress + offsets::LogicTile__setData),
-        GUM_INVOCATION_LISTENER(listener),
-        NULL, GUM_ATTACH_FLAGS_NONE);
+    g_origSetData = reinterpret_cast<SlotFn>(
+        tools::hook::install(baseAddress, offsets::LogicTile__setData, reinterpret_cast<void *>(&tile_set_data)));
 
-    g_watchInstalled = attachResult == GUM_ATTACH_OK;
+    g_watchInstalled = g_origSetData != nullptr;
 }
 
 void walls::notifyBattleModeChanged(uintptr_t battleMode)

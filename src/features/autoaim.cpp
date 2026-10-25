@@ -2,12 +2,14 @@
 #include <cstddef>
 #include <cstring>
 #include <cmath>
-#include <frida-gum.h>
+#include <time.h>
 
+#include "../../tools/hook.hpp"
+#include "../../tools/memory.hpp"
 #include "autoaim.hpp"
 #include "../core/offsets.hpp"
 #include "../core/functions.hpp"
-#include "../core/scanner.hpp"
+#include "../core/scan.hpp"
 #include "../utils/walls.hpp"
 
 namespace
@@ -72,10 +74,7 @@ namespace
 
     bool readBytes(uintptr_t address, void *out, size_t size)
     {
-        if (address == 0 || out == nullptr || size == 0) return false;
-        if (!gum_memory_is_readable((gconstpointer)address, (gsize)size)) return false;
-        memcpy(out, (const void *)address, size);
-        return true;
+        return tools::memory::read(address, out, size);
     }
 
     bool readU32(uintptr_t address, uint32_t &out)
@@ -95,7 +94,10 @@ namespace
 
     uint32_t nowMs()
     {
-        return (uint32_t)(g_get_monotonic_time() / 1000);
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+
+        return (uint32_t)((uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000));
     }
 
     float randomUnit()
@@ -545,112 +547,62 @@ namespace
         memset(&g_target, 0, sizeof(g_target));
     }
 
-    typedef struct _TargetListener TargetListener;
-    typedef struct _TargetListenerClass TargetListenerClass;
+    using SlotFn = uint64_t (*)(void *, uint64_t, uint64_t, uint64_t,
+                                uint64_t, uint64_t, uint64_t, uint64_t);
 
-    struct _TargetListener
+    SlotFn g_origClosestTarget = nullptr;
+    SlotFn g_origActivateSkill = nullptr;
+
+    // Replaces the engine's target pick with ours once the original has run.
+    uint64_t closest_target(void *self, uint64_t a1, uint64_t a2, uint64_t a3,
+                            uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
     {
-        GObject parent;
-    };
+        uint64_t result = 0;
 
-    struct _TargetListenerClass
-    {
-        GObjectClass parent_class;
-    };
+        if (g_origClosestTarget != nullptr)
+        {
+            result = g_origClosestTarget(self, a1, a2, a3, a4, a5, a6, a7);
+        }
 
-    static void target_listener_iface_init(gpointer g_iface, gpointer);
+        if (g_enabled && g_targetPtr != 0) return (uint64_t)g_targetPtr;
 
-    static void target_listener_init(TargetListener *)
-    {
+        return result;
     }
 
-    static void target_listener_class_init(TargetListenerClass *)
+    // Rewrites the aim coordinates before the engine casts.
+    uint64_t activate_skill(void *self, uint64_t x, uint64_t y, uint64_t a3,
+                            uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
     {
-    }
-
-    static void target_listener_on_leave(GumInvocationListener *, GumInvocationContext *context)
-    {
-        if (!g_enabled) return;
-        if (g_targetPtr == 0) return;
-        gum_invocation_context_replace_return_value(context, (gpointer)g_targetPtr);
-    }
-
-    static void target_listener_iface_init(gpointer g_iface, gpointer)
-    {
-        GumInvocationListenerInterface *iface = static_cast<GumInvocationListenerInterface *>(g_iface);
-        iface->on_leave = target_listener_on_leave;
-    }
-
-    G_DEFINE_TYPE_EXTENDED(TargetListener, target_listener, G_TYPE_OBJECT, 0,
-        G_IMPLEMENT_INTERFACE(GUM_TYPE_INVOCATION_LISTENER, target_listener_iface_init))
-
-    typedef struct _SkillListener SkillListener;
-    typedef struct _SkillListenerClass SkillListenerClass;
-
-    struct _SkillListener
-    {
-        GObject parent;
-    };
-
-    struct _SkillListenerClass
-    {
-        GObjectClass parent_class;
-    };
-
-    static void skill_listener_iface_init(gpointer g_iface, gpointer);
-
-    static void skill_listener_init(SkillListener *)
-    {
-    }
-
-    static void skill_listener_class_init(SkillListenerClass *)
-    {
-    }
-
-    static void skill_listener_on_enter(GumInvocationListener *, GumInvocationContext *context)
-    {
-        if (!g_enabled) return;
-        if (g_targetPtr == 0) return;
-
         Solution aim = {};
-        if (!aimAt(nowMs(), aim)) return;
 
-        GumCpuContext *cpu = context->cpu_context;
-        if (cpu == nullptr) return;
-        cpu->x[1] = (guint64)aim.x;
-        cpu->x[2] = (guint64)aim.y;
+        if (g_enabled && g_targetPtr != 0 && aimAt(nowMs(), aim))
+        {
+            x = (uint64_t)(int64_t)aim.x;
+            y = (uint64_t)(int64_t)aim.y;
+        }
+
+        if (g_origActivateSkill != nullptr)
+        {
+            return g_origActivateSkill(self, x, y, a3, a4, a5, a6, a7);
+        }
+
+        return 0;
     }
-
-    static void skill_listener_iface_init(gpointer g_iface, gpointer)
-    {
-        GumInvocationListenerInterface *iface = static_cast<GumInvocationListenerInterface *>(g_iface);
-        iface->on_enter = skill_listener_on_enter;
-    }
-
-    G_DEFINE_TYPE_EXTENDED(SkillListener, skill_listener, G_TYPE_OBJECT, 0,
-        G_IMPLEMENT_INTERFACE(GUM_TYPE_INVOCATION_LISTENER, skill_listener_iface_init))
 }
 
 void autoaim::setupAutoaim(uintptr_t baseAddress)
 {
-    if (g_hooks) return;
-    if (baseAddress == 0) return;
+    if (g_hooks || baseAddress == 0) return;
 
-    GumInterceptor *interceptor = gum_interceptor_obtain();
+    g_origClosestTarget = reinterpret_cast<SlotFn>(
+        tools::hook::install(baseAddress, offsets::BattleScreen_getClosestTargetForAutoshoot,
+                             reinterpret_cast<void *>(&closest_target)));
 
-    TargetListener *targetListener = reinterpret_cast<TargetListener *>(g_object_new(target_listener_get_type(), NULL));
-    (void)gum_interceptor_attach(interceptor,
-        GSIZE_TO_POINTER(baseAddress + offsets::BattleScreen_getClosestTargetForAutoshoot),
-        GUM_INVOCATION_LISTENER(targetListener),
-        NULL, GUM_ATTACH_FLAGS_NONE);
+    g_origActivateSkill = reinterpret_cast<SlotFn>(
+        tools::hook::install(baseAddress, offsets::BattleScreen_activateSkill,
+                             reinterpret_cast<void *>(&activate_skill)));
 
-    SkillListener *skillListener = reinterpret_cast<SkillListener *>(g_object_new(skill_listener_get_type(), NULL));
-    (void)gum_interceptor_attach(interceptor,
-        GSIZE_TO_POINTER(baseAddress + offsets::BattleScreen_activateSkill),
-        GUM_INVOCATION_LISTENER(skillListener),
-        NULL, GUM_ATTACH_FLAGS_NONE);
-
-    g_hooks = true;
+    g_hooks = g_origClosestTarget != nullptr || g_origActivateSkill != nullptr;
 }
 
 void autoaim::updateAutoaim(bool enabled)

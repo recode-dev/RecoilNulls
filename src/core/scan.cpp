@@ -1,12 +1,13 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <frida-gum.h>
+#include <time.h>
 
+#include "../../tools/hook.hpp"
+#include "../../tools/memory.hpp"
 #include "offsets.hpp"
 #include "functions.hpp"
-#include "scstring.hpp"
-#include "scanner.hpp"
+#include "scan.hpp"
 
 using namespace scanner;
 
@@ -119,9 +120,46 @@ namespace
     int32_t g_lastSeenY = 0;
     uint32_t g_scanCount = 0;
 
+    constexpr int32_t SCSTRING_INLINE_MAX = 7;
+    constexpr size_t SCSTRING_HEADER = 16;
+
+    // Reads the engine's small-string type: length at +0x4, inline bytes or a
+    // heap pointer at +0x8.
+    size_t readScStringInto(uintptr_t value, char *out, size_t capacity)
+    {
+        if (value == 0 || out == nullptr || capacity < 2) return 0;
+
+        uint8_t head[SCSTRING_HEADER];
+        if (!tools::memory::read(value + offsets::ScString_length, head, sizeof(head))) return 0;
+
+        const int32_t length = (int32_t)((uint32_t)head[0] |
+            ((uint32_t)head[1] << 8) |
+            ((uint32_t)head[2] << 16) |
+            ((uint32_t)head[3] << 24));
+        if (length <= 0) return 0;
+
+        const size_t limit = capacity - 1;
+        const size_t want = (size_t)length < limit ? (size_t)length : limit;
+
+        if (length <= SCSTRING_INLINE_MAX)
+        {
+            memcpy(out, head + 4, want);
+            out[want] = 0;
+            return want;
+        }
+
+        uintptr_t data = 0;
+        for (size_t i = 0; i < 8; i++) data |= (uintptr_t)head[4 + i] << (8 * i);
+        if (data == 0) return 0;
+
+        if (!tools::memory::read(data, out, want)) return 0;
+        out[want] = 0;
+        return want;
+    }
+
     bool readBytes(uintptr_t address, void *out, size_t size)
     {
-        return scanner::readBytes(address, out, size);
+        return tools::memory::read(address, out, size);
     }
 
     bool readU32(uintptr_t address, uint32_t &out)
@@ -852,17 +890,12 @@ void scanner::removeProjectile(uintptr_t projectile)
 
 bool scanner::readBytes(uintptr_t address, void *out, size_t size)
 {
-    if (address == 0 || out == nullptr || size == 0) return false;
-    if (!gum_memory_is_readable((gconstpointer)address, (gsize)size)) return false;
-    memcpy(out, (const void *)address, size);
-    return true;
+    return tools::memory::read(address, out, size);
 }
 
 bool scanner::writeBytes(uintptr_t address, const void *data, size_t size)
 {
-    if (address == 0 || data == nullptr || size == 0) return false;
-    memcpy((void *)address, data, size);
-    return true;
+    return tools::memory::write(address, data, size);
 }
 
 bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
@@ -1208,76 +1241,37 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 
 namespace
 {
-    constexpr int32_t HOOK_MODE_CTOR = 0;
-    constexpr int32_t HOOK_MODE_DESTRUCT = 1;
+    // Eight integer arguments covered by the replacements: on arm64 the first
+    // eight go in x0..x7, so passing the untouched registers through to the
+    // original is always ABI-correct regardless of the real signature.
+    using SlotFn = uint64_t (*)(void *, uint64_t, uint64_t, uint64_t,
+                                uint64_t, uint64_t, uint64_t, uint64_t);
 
-    typedef struct _ProjectileListener ProjectileListener;
-    typedef struct _ProjectileListenerClass ProjectileListenerClass;
-
-    struct _ProjectileListener
-    {
-        GObject parent;
-        int32_t mode;
-    };
-
-    struct _ProjectileListenerClass
-    {
-        GObjectClass parent_class;
-    };
-
-    static void projectile_listener_iface_init(gpointer g_iface, gpointer);
-
-    static void projectile_listener_init(ProjectileListener *self)
-    {
-        self->mode = HOOK_MODE_CTOR;
-    }
-
-    static void projectile_listener_class_init(ProjectileListenerClass *)
-    {
-    }
-
-    static void projectile_listener_on_enter(GumInvocationListener *listener, GumInvocationContext *context)
-    {
-        ProjectileListener *self = reinterpret_cast<ProjectileListener *>(listener);
-
-        if (self->mode == HOOK_MODE_CTOR)
-        {
-            uintptr_t *stash = static_cast<uintptr_t *>(
-                gum_invocation_context_get_listener_invocation_data(context, sizeof(uintptr_t) * 2));
-            if (stash == nullptr) return;
-            stash[0] = (uintptr_t)gum_invocation_context_get_nth_argument(context, 0);
-            stash[1] = (uintptr_t)gum_invocation_context_get_nth_argument(context, 1);
-            return;
-        }
-
-        scanner::removeProjectile((uintptr_t)gum_invocation_context_get_nth_argument(context, 0));
-    }
-
-    static void projectile_listener_on_leave(GumInvocationListener *listener, GumInvocationContext *context)
-    {
-        ProjectileListener *self = reinterpret_cast<ProjectileListener *>(listener);
-        if (self->mode != HOOK_MODE_CTOR) return;
-
-        uintptr_t *stash = static_cast<uintptr_t *>(
-            gum_invocation_context_get_listener_invocation_data(context, sizeof(uintptr_t) * 2));
-        if (stash == nullptr) return;
-
-        scanner::captureProjectile(stash[0], stash[1], 0, false, scanner::nowMs());
-    }
-
-    static void projectile_listener_iface_init(gpointer g_iface, gpointer)
-    {
-        GumInvocationListenerInterface *iface = static_cast<GumInvocationListenerInterface *>(g_iface);
-        iface->on_enter = projectile_listener_on_enter;
-        iface->on_leave = projectile_listener_on_leave;
-    }
-
-    G_DEFINE_TYPE_EXTENDED(ProjectileListener, projectile_listener, G_TYPE_OBJECT, 0,
-        G_IMPLEMENT_INTERFACE(GUM_TYPE_INVOCATION_LISTENER, projectile_listener_iface_init))
-
-    ProjectileListener *g_ctorListener = nullptr;
-    ProjectileListener *g_destructListener = nullptr;
+    SlotFn g_origCtor = nullptr;
+    SlotFn g_origDestruct = nullptr;
     bool g_hooksInstalled = false;
+
+    uint64_t projectile_ctor(void *self, uint64_t data, uint64_t a2, uint64_t a3,
+                             uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+    {
+        uint64_t result = 0;
+
+        if (g_origCtor != nullptr) result = g_origCtor(self, data, a2, a3, a4, a5, a6, a7);
+
+        scanner::captureProjectile((uintptr_t)self, (uintptr_t)data, 0, false, scanner::nowMs());
+
+        return result;
+    }
+
+    uint64_t projectile_destruct(void *self, uint64_t a1, uint64_t a2, uint64_t a3,
+                                 uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+    {
+        scanner::removeProjectile((uintptr_t)self);
+
+        if (g_origDestruct != nullptr) return g_origDestruct(self, a1, a2, a3, a4, a5, a6, a7);
+
+        return 0;
+    }
 }
 
 void scanner::enableProjectileTracking()
@@ -1287,24 +1281,18 @@ void scanner::enableProjectileTracking()
     if (offsets::LogicProjectileClient_destruct == 0) return;
 
     g_hooksInstalled = true;
-    GumInterceptor *interceptor = gum_interceptor_obtain();
 
-    g_ctorListener = reinterpret_cast<ProjectileListener *>(g_object_new(projectile_listener_get_type(), NULL));
-    g_ctorListener->mode = HOOK_MODE_CTOR;
-    (void)gum_interceptor_attach(interceptor,
-        GSIZE_TO_POINTER(g_base + offsets::LogicProjectileClient_ctor),
-        GUM_INVOCATION_LISTENER(g_ctorListener),
-        NULL, GUM_ATTACH_FLAGS_NONE);
+    g_origCtor = reinterpret_cast<SlotFn>(
+        tools::hook::install(g_base, offsets::LogicProjectileClient_ctor, reinterpret_cast<void *>(&projectile_ctor)));
 
-    g_destructListener = reinterpret_cast<ProjectileListener *>(g_object_new(projectile_listener_get_type(), NULL));
-    g_destructListener->mode = HOOK_MODE_DESTRUCT;
-    (void)gum_interceptor_attach(interceptor,
-        GSIZE_TO_POINTER(g_base + offsets::LogicProjectileClient_destruct),
-        GUM_INVOCATION_LISTENER(g_destructListener),
-        NULL, GUM_ATTACH_FLAGS_NONE);
+    g_origDestruct = reinterpret_cast<SlotFn>(
+        tools::hook::install(g_base, offsets::LogicProjectileClient_destruct, reinterpret_cast<void *>(&projectile_destruct)));
 }
 
 uint32_t scanner::nowMs()
 {
-    return (uint32_t)(g_get_monotonic_time() / 1000);
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+
+    return (uint32_t)((uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000));
 }

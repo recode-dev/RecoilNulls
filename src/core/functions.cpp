@@ -1,7 +1,6 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <frida-gum.h>
 
 #include "offsets.hpp"
 #include "functions.hpp"

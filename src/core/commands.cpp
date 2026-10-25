@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <frida-gum.h>
+#include "../../tools/memory.hpp"
 
 #include "offsets.hpp"
 #include "functions.hpp"
@@ -19,9 +19,7 @@ namespace
     bool readBytes(uintptr_t address, void *out, size_t size)
     {
         if (address == 0 || out == nullptr || size == 0) return false;
-        if (!gum_memory_is_readable((gconstpointer)address, (gsize)size)) return false;
-        memcpy(out, (const void *)address, size);
-        return true;
+        return tools::memory::read(address, out, size);
     }
 
     bool readU32(uintptr_t address, uint32_t &out)

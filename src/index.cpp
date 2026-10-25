@@ -1,187 +1,165 @@
 #include <cstdint>
 #include <cstddef>
-#include <frida-gum.h>
-
-#include "index.hpp"
-#include "core/offsets.hpp"
-#include "core/functions.hpp"
-#include "core/scanner.hpp"
-#include "utils/walls.hpp"
-#include "features/autododge.hpp"
-#include "features/autoaim.hpp"
-
 #include <pthread.h>
 #include <unistd.h>
+#include <objc/runtime.h>
+
+#include "../tools/hook.hpp"
+#include "../tools/image.hpp"
+#include "../tools/memory.hpp"
+#include "../tools/swizzle.hpp"
+#include "module.hpp"
+#include "core/offsets.hpp"
+#include "core/functions.hpp"
+#include "core/scan.hpp"
+#include "features/autoaim.hpp"
+#include "features/autododge.hpp"
+#include "utils/walls.hpp"
 
 namespace
 {
+    constexpr uint32_t POLL_INTERVAL_MS = 500;
+    constexpr uint32_t POLL_LIMIT = 1200;      // ~10 minutes
+    constexpr uint32_t PUMP_MIN_GAP_MS = 4;    // <=250 fps of work
+
+    using SlotFn = uint64_t (*)(void *, uint64_t, uint64_t, uint64_t,
+                                uint64_t, uint64_t, uint64_t, uint64_t);
+
     bool g_installed = false;
     uintptr_t g_base = 0;
     uintptr_t g_lastBattle = 0;
+    uint32_t g_lastPump = 0;
 
-    bool containsNoCase(const char *haystack, const char *needle)
+    SlotFn g_origTick = nullptr;
+    IMP g_origRender = nullptr;
+
+    void pump_locked(uintptr_t client)
     {
-        if (haystack == nullptr || needle == nullptr || *needle == 0) return false;
-        for (const char *p = haystack; *p != 0; p++)
-        {
-            const char *a = p;
-            const char *b = needle;
-            while (*a != 0 && *b != 0)
-            {
-                char ca = *a;
-                char cb = *b;
-                if (ca >= 'A' && ca <= 'Z') ca = (char)(ca + 32);
-                if (cb >= 'A' && cb <= 'Z') cb = (char)(cb + 32);
-                if (ca != cb) break;
-                a++;
-                b++;
-            }
-            if (*b == 0) return true;
-        }
-        return false;
-    }
+        if (g_base == 0) return;
 
-    gboolean findModuleCallback(GumModule *module, gpointer userData)
-    {
-        if (module == nullptr) return TRUE;
-        if (!containsNoCase(gum_module_get_name(module), "nulls")) return TRUE;
-
-        const GumMemoryRange *range = gum_module_get_range(module);
-        if (range == nullptr) return TRUE;
-
-        *(uintptr_t *)userData = (uintptr_t)range->base_address;
-        return FALSE;
-    }
-
-    uintptr_t findBase()
-    {
-        uintptr_t found = 0;
-        gum_process_enumerate_modules(findModuleCallback, &found);
-        return found;
-    }
-
-    typedef struct _UpdateListener UpdateListener;
-    typedef struct _UpdateListenerClass UpdateListenerClass;
-
-    struct _UpdateListener
-    {
-        GObject parent;
-    };
-
-    struct _UpdateListenerClass
-    {
-        GObjectClass parent_class;
-    };
-
-    static void update_listener_iface_init(gpointer g_iface, gpointer iface_data);
-
-    static void update_listener_init(UpdateListener *self)
-    {
-        (void)self;
-    }
-
-    static void update_listener_class_init(UpdateListenerClass *klass)
-    {
-        (void)klass;
-    }
-
-    static void update_listener_on_enter(GumInvocationListener *listener, GumInvocationContext *context)
-    {
-        (void)listener;
-        
-        // Use argument[0] as battleMode pointer
-        const uintptr_t battleMode = (uintptr_t)gum_invocation_context_get_nth_argument(context, 0);
-        if (battleMode == 0) return;
-
-        // Verify state == 5 to ensure we are in a real battle
+        // Combat filter: state must be 5, otherwise nothing but the cheap read
+        // below ever runs.
         if (scanner::getBattleMode() == 0) return;
 
         const uint32_t now = scanner::nowMs();
+        if (g_lastPump != 0 && (now - g_lastPump) < PUMP_MIN_GAP_MS) return;
+        g_lastPump = now;
 
-        if (battleMode != g_lastBattle)
+        if (client == 0) client = scanner::getBattleMode();
+        if (client == 0) return;
+
+        if (client != g_lastBattle)
         {
-            g_lastBattle = battleMode;
+            g_lastBattle = client;
             scanner::reset();
             autododge::reset();
             autoaim::resetAutoaim();
-            walls::notifyBattleModeChanged(battleMode);
+            walls::notifyBattleModeChanged(client);
         }
 
-        scanner::update(battleMode, now, module::state::autododge);
+        scanner::update(client, now, module::state::autododge);
+
         if (module::state::autoaim) autoaim::updateAutoaim(true);
-        walls::maybeRefreshWallCache(battleMode, now);
+        walls::maybeRefreshWallCache(client, now);
         if (module::state::autododge) autododge::update(now);
     }
 
-    static void update_listener_iface_init(gpointer g_iface, gpointer iface_data)
+    // Slot replacement for LogicBattleModeClient::update.
+    uint64_t tick(void *self, uint64_t a1, uint64_t a2, uint64_t a3,
+                  uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
     {
-        (void)iface_data;
+        pump_locked((uintptr_t)self);
 
-        GumInvocationListenerInterface *iface = static_cast<GumInvocationListenerInterface *>(g_iface);
-        iface->on_enter = update_listener_on_enter;
+        if (g_origTick != nullptr) return g_origTick(self, a1, a2, a3, a4, a5, a6, a7);
+
+        return 0;
     }
 
-    G_DEFINE_TYPE_EXTENDED(UpdateListener, update_listener, G_TYPE_OBJECT, 0,
-        G_IMPLEMENT_INTERFACE(GUM_TYPE_INVOCATION_LISTENER, update_listener_iface_init))
+    // Fallback driver: the view's render pass, used when the update slot cannot
+    // be swapped on this build.
+    void render_hook(id self, SEL cmd)
+    {
+        pump_locked((uintptr_t)self);
 
-    UpdateListener *g_updateListener = nullptr;
+        if (g_origRender != nullptr) ((void (*)(id, SEL))g_origRender)(self, cmd);
+    }
+
+    void *poll_thread(void *)
+    {
+        for (uint32_t tickIndex = 0; tickIndex < POLL_LIMIT; tickIndex++)
+        {
+            const uintptr_t base = tools::image::base_named("nulls");
+
+            if (base != 0)
+            {
+                module::install(base);
+                return nullptr;
+            }
+
+            usleep(POLL_INTERVAL_MS * 1000);
+        }
+
+        return nullptr;
+    }
 }
 
-bool module::install()
+bool module::install(uintptr_t base)
 {
-    if (g_installed) return true;
-
-    gum_init_embedded();
-
-    const uintptr_t base = findBase();
-    if (base == 0) return false;
-    
-    functions::init(base);
+    if (g_installed || base == 0) return false;
 
     g_base = base;
+
+    if (!functions::init(base)) return false;
+
     scanner::init(base);
-    // DO NOT enable tracking here - wait for battle
-    // scanner::enableProjectileTracking(); 
-    // walls::watchTileChanges(base);
-    // autododge::setup();
-    // autoaim::setupAutoaim(base);
 
-    GumInterceptor *interceptor = gum_interceptor_obtain();
-    g_updateListener = reinterpret_cast<UpdateListener *>(g_object_new(update_listener_get_type(), NULL));
-    
-    const GumAttachReturn attachResult = gum_interceptor_attach(interceptor,
-        GSIZE_TO_POINTER(base + offsets::LogicBattleModeClient_update),
-        GUM_INVOCATION_LISTENER(g_updateListener),
-        NULL, GUM_ATTACH_FLAGS_NONE);
+    // Frame driver. Preferred: swap the battle client's update slot.
+    g_origTick = reinterpret_cast<SlotFn>(
+        tools::hook::install(base, offsets::LogicBattleModeClient_update, reinterpret_cast<void *>(&tick)));
 
-    if (attachResult != GUM_ATTACH_OK) return false;
+    // Fallback (and extra frame source): the ObjC view render pass.
+    if (g_origTick == nullptr)
+    {
+        g_origRender = (IMP)tools::swizzle::install("NullView", "render", (void *)&render_hook);
+    }
+
+    scanner::enableProjectileTracking();
+    walls::watchTileChanges(base);
+    autododge::setup();
+    autoaim::setupAutoaim(base);
 
     g_installed = true;
+
     return true;
 }
 
-bool module::isInstalled()
+bool module::is_installed()
 {
     return g_installed;
 }
 
-uintptr_t module::baseAddress()
+uintptr_t module::base_address()
 {
     return g_base;
 }
 
-extern "C" void *install_thread(void *arg)
+void module::pump(uintptr_t client)
 {
-    (void)arg;
-    // Wait for the game to stabilize
-    sleep(12);
-    module::install();
-    return NULL;
+    pump_locked(client);
+}
+
+void module::pump()
+{
+    pump_locked(0);
 }
 
 __attribute__((constructor)) static void module_entry()
 {
+    // Never block the loader: the game image is not mapped yet at constructor
+    // time, so wait for it on a detached thread.
     pthread_t thread;
-    pthread_create(&thread, NULL, install_thread, NULL);
-    pthread_detach(thread);
+    if (pthread_create(&thread, nullptr, poll_thread, nullptr) == 0)
+    {
+        pthread_detach(thread);
+    }
 }

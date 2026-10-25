@@ -3,13 +3,11 @@
 #include <cstring>
 #include <cmath>
 
-#include <frida-gum.h>
-
 #include "autododge.hpp"
 #include "../core/commands.hpp"
 #include "../core/functions.hpp"
 #include "../core/offsets.hpp"
-#include "../core/scanner.hpp"
+#include "../core/scan.hpp"
 #include "../utils/walls.hpp"
 
 namespace

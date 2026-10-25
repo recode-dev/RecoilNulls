@@ -1,6 +1,7 @@
 .theos/
 packages/
 out/
-vendor/
 build.log
 .DS_Store
+*.dylib
+vendor/
