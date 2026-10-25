@@ -1419,32 +1419,12 @@ void rcl_autododge(void)
 
     if (!rcl_manager_ptr)
     {
-        uintptr_t slot = (uintptr_t)rcl_read_global_ptr(RCL_STATE_RVA);
-        void *value = nullptr;
-        int32_t state = -1;
+        rcl_manager_auto();
+    }
 
-        if (slot && rcl_read_int(slot + RCL_STATE_ENUM_OFF, &state) && state == 5 &&
-            rcl_read_ptr(slot + RCL_SCENE_OFF, &value) && value)
-        {
-            uintptr_t scene = (uintptr_t)value;
-
-            if (rcl_read_ptr(scene + RCL_CLIENT_OFF, &value) && value)
-            {
-                uintptr_t client = (uintptr_t)value;
-
-                rcl_scene_object = scene;
-
-                if (rcl_read_ptr(client + RCL_MGR_OFF, &value) && value)
-                {
-                    rcl_manager_ptr = (uintptr_t)value;
-                }
-            }
-        }
-
-        if (!rcl_manager_ptr)
-        {
-            return;
-        }
+    if (!rcl_manager_ptr)
+    {
+        return;
     }
 
     memset(objects, 0, sizeof(objects));

@@ -2151,6 +2151,140 @@ static void rcl_proj_store(uintptr_t elem, uintptr_t data, int32_t team, int32_t
     }
 }
 
+
+static uintptr_t rcl_mgr_from_chain(uintptr_t client)
+{
+    uintptr_t candidates[3];
+    int32_t state = -1;
+    int best = -1;
+    int bestScore = -1;
+    int i;
+    void *value = nullptr;
+
+    if (!client)
+    {
+        return 0;
+    }
+
+    candidates[0] = client;
+    candidates[1] = 0;
+    candidates[2] = 0;
+
+    if (rcl_read_ptr(client + RCL_CLIENT_HOP_OFF, &value) && value)
+    {
+        candidates[1] = (uintptr_t)value;
+    }
+    if (rcl_read_ptr(client + RCL_MGR_OFF, &value) && value)
+    {
+        candidates[2] = (uintptr_t)value;
+    }
+
+    for (i = 0; i < 3; i++)
+    {
+        uintptr_t array = 0;
+        int32_t count = 0;
+        int32_t cap = 0;
+        int score = 0;
+
+        if (!candidates[i])
+        {
+            continue;
+        }
+        if (!rcl_container_header(candidates[i], &array, &count, &cap))
+        {
+            continue;
+        }
+        if (count <= 0 || count > RCL_COUNT_MAX)
+        {
+            continue;
+        }
+        score = rcl_container_score(candidates[i]);
+        if (score > bestScore)
+        {
+            bestScore = score;
+            best = i;
+        }
+    }
+
+    (void)state;
+
+    return (best >= 0) ? candidates[best] : 0;
+}
+
+uintptr_t rcl_manager_auto(void)
+{
+    void *value = nullptr;
+    uintptr_t slot = 0;
+    uintptr_t scene = 0;
+    uintptr_t client = 0;
+    uintptr_t found = 0;
+    int32_t state = -1;
+
+    if (rcl_manager_ptr)
+    {
+        uintptr_t array = 0;
+        int32_t count = 0;
+        int32_t cap = 0;
+
+        if (rcl_container_header(rcl_manager_ptr, &array, &count, &cap) && count > 0 &&
+            count <= RCL_COUNT_MAX)
+        {
+            return rcl_manager_ptr;
+        }
+    }
+
+    slot = (uintptr_t)rcl_read_global_ptr(RCL_STATE_RVA);
+
+    if (slot && rcl_read_int(slot + RCL_STATE_ENUM_OFF, &state) && state == 5 &&
+        rcl_read_ptr(slot + RCL_SCENE_OFF, &value) && value)
+    {
+        scene = (uintptr_t)value;
+    }
+    if (!scene && rcl_scene_object)
+    {
+        scene = rcl_scene_object;
+    }
+    if (scene)
+    {
+        rcl_scene_object = scene;
+
+        if (rcl_read_ptr(scene + RCL_CLIENT_OFF, &value) && value)
+        {
+            client = (uintptr_t)value;
+            found = rcl_mgr_from_chain(client);
+        }
+        if (!found && rcl_read_ptr(scene + RCL_MODE_MANAGER_OFF, &value) && value)
+        {
+            found = rcl_mgr_from_chain((uintptr_t)value);
+        }
+    }
+
+    if (!found && rcl_players_object)
+    {
+        found = rcl_players_object;
+    }
+    if (!found && rcl_objvote_best_owner && rcl_objvote_best_teamcount >= RCL_OWNER_VOTE_TEAMS_MIN &&
+        rcl_objvote_max_votes >= RCL_OWNER_VOTE_MIN)
+    {
+        found = rcl_objvote_best_owner;
+    }
+    if (!found && rcl_trail_count > 0 && rcl_trail_best >= 0 && rcl_trail_best < rcl_trail_count)
+    {
+        found = rcl_trail[rcl_trail_best].manager;
+    }
+    if (!found && rcl_tick_object)
+    {
+        found = rcl_tick_object;
+    }
+
+    if (found)
+    {
+        rcl_manager_ptr = found;
+    }
+
+    return found;
+}
+
 void rcl_scan_world(void)
 {
     uintptr_t client = 0;
@@ -2168,19 +2302,38 @@ void rcl_scan_world(void)
     int32_t i = 0;
     int k = 0;
 
-    if (!rcl_base || !rcl_addr_getownchar) return;
+    if (!rcl_base) return;
 
     client = rcl_controller();
     if (!client) return;
 
-    own = rcl_call1(rcl_addr_getownchar, client);
-    if (!rcl_pointer_plausible(own)) return;
+    if (rcl_addr_getownchar)
+    {
+        own = rcl_call1(rcl_addr_getownchar, client);
+    }
+    if (!rcl_pointer_plausible(own))
+    {
+        own = 0;
+    }
 
-    ownTeam = rcl_call1i(rcl_addr_getteam, client);
-    ownIndex = rcl_call1i(rcl_addr_getownidx, client);
+    if (rcl_addr_getteam)
+    {
+        ownTeam = rcl_call1i(rcl_addr_getteam, client);
+    }
+    if (rcl_addr_getownidx)
+    {
+        ownIndex = rcl_call1i(rcl_addr_getownidx, client);
+    }
 
-    rcl_own_elem = own;
-    rcl_own_team_b = ownTeam;
+    if (own)
+    {
+        rcl_own_elem = own;
+    }
+    if (ownTeam >= 0 && ownTeam <= 15)
+    {
+        rcl_own_team_b = ownTeam;
+        rcl_own_team_seen = 1;
+    }
 
     if (rcl_read_byte(own + (uintptr_t)RCL_OBJ_DEADFLAG_OFF, &dead))
     {
@@ -2197,12 +2350,8 @@ void rcl_scan_world(void)
         if (speed > 1.0f) rcl_own_speed = speed;
     }
 
-    if (!rcl_read_ptr(client + RCL_MGR_OFF, &value) || !value)
-    {
-        if (!rcl_read_ptr(client + RCL_MODE_MANAGER_OFF, &value) || !value) return;
-    }
-    manager = (uintptr_t)value;
-    rcl_manager_ptr = manager;
+    manager = rcl_manager_auto();
+    if (!manager) return;
 
     if (!rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) || !value) return;
     array = (uintptr_t)value;

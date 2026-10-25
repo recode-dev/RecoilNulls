@@ -700,6 +700,7 @@ int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int
 int rcl_proj_vel(const rcl_proj_t *p, float *vxOut, float *vyOut);
 
 uintptr_t rcl_controller(void);
+uintptr_t rcl_manager_auto(void);
 int rcl_own(int32_t *xOut, int32_t *yOut);
 uint64_t rcl_read_u64(uintptr_t address);
 const char *rcl_header_reason(uintptr_t manager, int32_t *countOut, int32_t *capOut);
