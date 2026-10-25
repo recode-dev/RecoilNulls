@@ -404,7 +404,7 @@ static void rcl_ad_collect(float mx, float my, float myRadius, uint64_t nowMs)
             float hx = (float)(p->x - p->spawnX);
             float hy = (float)(p->y - p->spawnY);
             float hl = sqrtf(hx * hx + hy * hy);
-            float nominal = p->speed > 1.0f ? (float)p->speed : RCL_AD_NOMINAL_SPEED;
+            float nominal = RCL_AD_NOMINAL_SPEED;
 
             if (hl >= 1.0f)
             {
