@@ -151,12 +151,14 @@ void rcl_autododge(void)
     {
         snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no own elem");
         rcl_active = 0;
+        g_last_dbg = rcl_dbg;
         return;
     }
     if (rcl_dead)
     {
         snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "dead");
         rcl_active = 0;
+        g_last_dbg = rcl_dbg;
         return;
     }
 
@@ -167,6 +169,7 @@ void rcl_autododge(void)
     {
         snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no own pos");
         rcl_active = 0;
+        g_last_dbg = rcl_dbg;
         return;
     }
 
