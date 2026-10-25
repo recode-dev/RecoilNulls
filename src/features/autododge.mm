@@ -79,6 +79,9 @@ static void rcl_dodge_speed_probe(void)
 #define RCL_AD_REACH 600.0f
 #define RCL_AD_WALL_BODY 240.0f
 #define RCL_AD_TICK_MS 16.0f
+#define RCL_AD_TICK_HZ 20.0f
+#define RCL_AD_MAX_TICKS 36
+#define RCL_MAX_HIT_RADIUS 90.0f
 #define RCL_AD_FIT_PAD 0.0f
 #define RCL_AD_FIT_GROW 0.0f
 #define RCL_AD_RADIUS_FALLBACK 50.0f
@@ -587,6 +590,45 @@ static void rcl_bd_intent(float *ix, float *iy)
     rcl_bd_norm(rx, ry, ix, iy);
 }
 
+static int rcl_ad_impact_tick(const rcl_bd_threat_t *p, float mx, float my, float myR)
+{
+    float r = myR + p->rad + RCL_BD_SAFETY_MARGIN * 2.5f;
+    float spd = sqrtf(p->vx * p->vx + p->vy * p->vy);
+    float step = 0.0f;
+    float ux = 0.0f;
+    float uy = 0.0f;
+    int tick = 0;
+
+    if (spd < 1.0f)
+    {
+        return -1;
+    }
+
+    step = spd / RCL_AD_TICK_HZ;
+    ux = p->vx / spd;
+    uy = p->vy / spd;
+
+    for (tick = 1; tick <= RCL_AD_MAX_TICKS; tick++)
+    {
+        float travel = step * (float)tick;
+        float x = p->x + ux * travel;
+        float y = p->y + uy * travel;
+        float dx = mx - x;
+        float dy = my - y;
+
+        if (rcl_wall_is_blocked_at(x, y, RCL_WALL_BLOCKS_PROJECTILES))
+        {
+            return -1;
+        }
+        if (dx * dx + dy * dy <= r * r)
+        {
+            return tick;
+        }
+    }
+
+    return -1;
+}
+
 static int rcl_bd_danger(float mx, float my, float myR)
 {
     int i;
@@ -605,6 +647,11 @@ static int rcl_bd_danger(float mx, float my, float myR)
         float cy;
 
         if (distSq <= r * r)
+        {
+            return 1;
+        }
+
+        if (rcl_ad_impact_tick(p, mx, my, myR) > 0)
         {
             return 1;
         }
