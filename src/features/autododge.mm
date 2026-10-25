@@ -455,21 +455,22 @@ static void rcl_ad_collect(float mx, float my, float myRadius, uint64_t nowMs)
         }
 
         left = rcl_ad_life_left(p, spd, nowMs);
-
-        if (left <= 10.0f)
-        {
-            continue;
-        }
-
         gap = sqrtf(dx * dx + dy * dy) - bodyR - shotR;
 
-        if (left < 0.85f * (gap > 0.0f ? gap : 0.0f))
+        if (p->castRange > 0)
         {
-            continue;
-        }
-        if (!blob && spd >= 1.0f && playerAlong > left + shotR)
-        {
-            continue;
+            if (left <= 10.0f)
+            {
+                continue;
+            }
+            if (left < 0.85f * (gap > 0.0f ? gap : 0.0f))
+            {
+                continue;
+            }
+            if (!blob && spd >= 1.0f && playerAlong > left + shotR)
+            {
+                continue;
+            }
         }
         if (rcl_ad_hazard_n >= RCL_AD_HAZARD_MAX)
         {
