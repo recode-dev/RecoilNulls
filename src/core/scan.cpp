@@ -22,6 +22,7 @@ namespace
     constexpr size_t MAX_TEAMS = 16;
     constexpr uint32_t MAX_OBJECT_INDEX = 256;
     constexpr int32_t DEFAULT_RADIUS = 60;
+    constexpr uint32_t PROJECTILE_GID_MIN = 2000000;
     constexpr int32_t DEFAULT_MOVE_SPEED = 720;
     constexpr uint32_t APP_STATE_BATTLE = 5;
 
@@ -565,7 +566,6 @@ bool scanner::isFriendlyOwner(int32_t ownerIndex, int32_t team)
 void scanner::captureProjectile(uintptr_t projectile, uintptr_t data, int32_t ownerTeamOverride, bool hasOverride, uint32_t nowMs)
 {
     if (!mapped(projectile)) return;
-    if (!mapped(data)) return;
 
     const uint32_t gid = readGid(projectile);
     LiveProjectile *existing = findLive(gid);
@@ -592,10 +592,13 @@ void scanner::captureProjectile(uintptr_t projectile, uintptr_t data, int32_t ow
 
     uint32_t speed = 0;
     uint32_t radius = 0;
-    readU32(data + offsets::ProjectileData_speed, speed);
-    readU32(data + offsets::ProjectileData_radius, radius);
-    record->speed = speed > 0 ? speed : 1;
-    record->radius = radius;
+    if (mapped(data))
+    {
+        readU32(data + offsets::ProjectileData_speed, speed);
+        readU32(data + offsets::ProjectileData_radius, radius);
+    }
+    record->speed = speed;
+    record->radius = (int32_t)radius;
 
     uint32_t isIndirect = 0;
     readU32(projectile + offsets::Projectile_isIndirect, isIndirect);
@@ -615,7 +618,7 @@ void scanner::captureProjectile(uintptr_t projectile, uintptr_t data, int32_t ow
     record->ownerTeam = ownerTeam;
     record->ownerIndex = readOwnerIndex(projectile);
 
-    readProjectileName(data, record->name);
+    if (mapped(data)) readProjectileName(data, record->name);
     record->castRange = 0;
 
     const uint32_t earlyTicks = 0;
@@ -793,6 +796,13 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 
                 const int32_t team = readObjectTeam(object);
                 const int32_t owner = readOwnerIndex(object);
+                const uint32_t gid = readGid(object);
+
+                if (gid >= PROJECTILE_GID_MIN)
+                {
+                    if (autododge) scanner::captureProjectile(object, 0, team, true, nowMs);
+                    continue;
+                }
 
                 const bool friendly = (owner >= 0 && hasFriendlyIndex(owner)) ||
                     (team >= 0 && team == g_data.myTeamId);
@@ -819,7 +829,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
                 const uintptr_t enemyPosition = mapped(body) ? body : object;
 
                 Enemy &enemy = g_enemies[enemyCount++];
-                enemy.gid = readGid(object);
+                enemy.gid = gid;
                 enemy.ptr = object;
                 enemy.body = body;
                 enemy.x = 0;
