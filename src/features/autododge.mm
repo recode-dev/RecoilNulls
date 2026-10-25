@@ -26,16 +26,15 @@ namespace
     constexpr float RCL_BS_MIN_RADIUS = 45.0f;
     constexpr double RCL_BS_REACH = 800.0;
 
-    // the core is heavy: solve at ~100 Hz, push the chosen direction every frame
+    // the core is heavy and the battle tick is 20 Hz: 30 Hz is plenty
     constexpr uint64_t RCL_BS_PERIOD_MS = 33;
-    // server input does not need more than the 20 Hz battle tick
-    constexpr uint64_t RCL_BS_SEND_MS = 50;
 
     double g_angle = 0.0;
     int g_have_angle = 0;
+    int g_solved = 0;
+    int g_was_active = 0;
     uint64_t g_last_solve_ms = 0;
-    uint64_t g_last_send_ms = 0;
-    int g_last_sent = 0;
+    rcl_dbg_t g_last_dbg;
 
     void rcl_bs_push(float mx, float my, double angleDeg)
     {
@@ -126,9 +125,18 @@ void rcl_autododge(void)
     float my = 0.0f;
     float radius = 0.0f;
     double speed = 0.0;
+    double angle = 0.0;
     int sent = 0;
 
     if (!rcl_base) return;
+
+    /* the solver is expensive and the battle tick is 20 Hz: solve on a fixed cadence */
+    if (g_solved && now > g_last_solve_ms && (now - g_last_solve_ms) < RCL_BS_PERIOD_MS)
+    {
+        rcl_dbg = g_last_dbg;
+        return;
+    }
+    g_last_solve_ms = now;
 
     rcl_dbg.hazards = 0;
     rcl_dbg.threats = 0;
@@ -137,6 +145,7 @@ void rcl_autododge(void)
     rcl_dbg.sent = 0;
     rcl_dbg.thn = 0;
     rcl_dbg.note[0] = 0;
+    g_last_dbg = rcl_dbg;
 
     if (!rcl_own_elem)
     {
@@ -170,24 +179,11 @@ void rcl_autododge(void)
     rcl_dbg.radius = radius;
     rcl_dbg.speed = (float)speed;
 
-    if (g_have_angle && now > g_last_solve_ms && (now - g_last_solve_ms) < RCL_BS_PERIOD_MS)
-    {
-        rcl_bs_push(mx, my, g_angle);
-        rcl_dbg.dirs = 1;
-        rcl_dbg.sent = g_last_sent;
-        rcl_dbg.danger = g_last_sent;
-        rcl_moving = g_last_sent;
-
-        return;
-    }
-
-    g_last_solve_ms = now;
-
     {
         std::vector<bs::Projectile> ps = rcl_bs_projectiles(mx, my);
         bs::DodgeResult res;
-        double angle = 0.0;
 
+        g_solved = 1;
         rcl_dbg.hazards = (int)ps.size();
         rcl_dbg.threats = (int)ps.size();
 
@@ -197,6 +193,9 @@ void rcl_autododge(void)
             rcl_active = 0;
             rcl_moving = 0;
             g_have_angle = 0;
+            g_was_active = 0;
+            g_last_dbg = rcl_dbg;
+
             return;
         }
 
@@ -206,37 +205,49 @@ void rcl_autododge(void)
         snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "dmg=%.0f first=%.1f clear=%.0f mini=%.0f",
                  res.eval.dmg, res.eval.first, res.eval.clear, res.eval.minimax);
 
+        rcl_dbg.ix = (float)res.eval.dmg;
+        rcl_dbg.iy = (float)res.eval.first;
+
         angle = res.angle;
         g_angle = angle;
         g_have_angle = 1;
 
         if (res.deadzone)
         {
+            /* release the prediction target once, then leave the stick alone */
+            if (g_was_active)
+            {
+                rcl_move_to((int32_t)mx, (int32_t)my, mx, my);
+                (void)rcl_enqueue((int32_t)mx, (int32_t)my);
+                g_was_active = 0;
+            }
+
             rcl_active = 1;
             rcl_moving = 0;
-            g_last_sent = 0;
             rcl_dbg.danger = 0;
+            rcl_dbg.sent = 0;
+            g_last_dbg = rcl_dbg;
 
             return;
         }
 
+        g_was_active = 1;
         rcl_dbg.danger = 1;
+
         rcl_bs_push(mx, my, angle);
         rcl_dbg.dirs = 1;
 
-        if (now > g_last_send_ms && (now - g_last_send_ms) >= RCL_BS_SEND_MS)
         {
             int32_t tx = (int32_t)round((double)mx + cos(angle * M_PI / 180.0) * RCL_BS_REACH);
             int32_t ty = (int32_t)round((double)my + sin(angle * M_PI / 180.0) * RCL_BS_REACH);
 
-            g_last_send_ms = now;
             sent = rcl_enqueue(tx, ty);
-            g_last_sent = sent;
         }
 
         rcl_active = 1;
         rcl_moving = sent;
         rcl_dbg.sent = sent;
+        g_last_dbg = rcl_dbg;
     }
 }
 
@@ -244,9 +255,9 @@ void rcl_autododge_reset(void)
 {
     g_angle = 0.0;
     g_have_angle = 0;
+    g_solved = 0;
+    g_was_active = 0;
     g_last_solve_ms = 0;
-    g_last_send_ms = 0;
-    g_last_sent = 0;
     rcl_active = 0;
     rcl_moving = 0;
 }

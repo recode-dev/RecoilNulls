@@ -259,9 +259,9 @@ namespace
 
     void dump_ad(void)
     {
-        line("adg stage=%d haz=%d thr=%d danger=%d dirs=%d dir=(%.2f,%.2f) intent=(%.2f,%.2f) "
+        line("adg stage=%d haz=%d thr=%d danger=%d dir=(%.2f,%.2f) dmg=%.0f first=%.1f "
              "tgt=(%.0f,%.0f) sent=%d active=%d moving=%d\n",
-             rcl_dbg.stage, rcl_dbg.hazards, rcl_dbg.threats, rcl_dbg.danger, rcl_dbg.dirs, rcl_dbg.dx,
+             rcl_dbg.stage, rcl_dbg.hazards, rcl_dbg.threats, rcl_dbg.danger, rcl_dbg.dx,
              rcl_dbg.dy, rcl_dbg.ix, rcl_dbg.iy, rcl_dbg.tx, rcl_dbg.ty, rcl_dbg.sent, rcl_active,
              rcl_moving);
 
