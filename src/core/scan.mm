@@ -4,8 +4,6 @@ const char *rcl_image_names[4] = {"Nulls Brawl", "Laser", "NB.app", nullptr};
 
 BOOL rcl_setup_done = NO;
 
-BOOL rcl_aim_rejected = NO;
-
 __thread BOOL rcl_inside_hook = NO;
 
 int rcl_dump_np = 0;
@@ -2503,8 +2501,6 @@ void rcl_run_workload(void)
         }
     }
     rcl_run_autododge();
-    rcl_run_autoaim();
-    rcl_run_assist();
 }
 
 void rcl_run_autododge(void)

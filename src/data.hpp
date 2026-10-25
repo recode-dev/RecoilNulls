@@ -24,17 +24,13 @@
 
 #include "./helpers/dodge_kinds.h"
 #include "./helpers/dodge_profiles.h"
-#include "./helpers/assist.h"
-#include "./helpers/aim_ahead.h"
 #include "./utils/crypto.h"
 #include "./utils/walls.h"
 #include "./utils/flags.h"
-#include "./utils/brawlers.h"
 
 #include "objc.h"
 #include "./core/scan.h"
 
-#include "./features/autoaim.h"
 #include "./features/autododge.h"
 
 #include "./core/commands.h"

@@ -48,7 +48,6 @@ extern const char *rcl_image_names[4];
 extern uintptr_t *rcl_starts;
 extern size_t rcl_starts_count;
 extern BOOL rcl_setup_done;
-extern BOOL rcl_aim_rejected;
 extern __thread BOOL rcl_inside_hook;
 extern int rcl_dump_np;
 extern BOOL rcl_mode_strong;

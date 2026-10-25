@@ -1,9 +1,9 @@
 #include "../data.hpp"
 
-static const char *g_flag_names[RCL_FEATURE_MAX] = {"aimbot", "autododge", "assist"};
+static const char *g_flag_names[RCL_FEATURE_MAX] = {"autododge"};
 
-static int g_flag_count = 3;
-static uint32_t g_flags = RCL_FLAG_AIMBOT | RCL_FLAG_AUTODODGE;
+static int g_flag_count = 1;
+static uint32_t g_flags = RCL_FLAG_AUTODODGE;
 
 static int rcl_flag_index(const char *name)
 {
