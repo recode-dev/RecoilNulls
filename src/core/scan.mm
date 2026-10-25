@@ -40,6 +40,16 @@ uintptr_t rcl_addr_gety = 0;
 
 uintptr_t rcl_addr_battlescreen = 0;
 
+uintptr_t rcl_addr_getownidx = 0;
+uintptr_t rcl_addr_movedto = 0;
+uintptr_t rcl_addr_getdata = 0;
+uintptr_t rcl_addr_getgid = 0;
+uintptr_t rcl_addr_charspeed = 0;
+uintptr_t rcl_addr_charradius = 0;
+uintptr_t rcl_addr_projspeed = 0;
+uintptr_t rcl_addr_projradius = 0;
+uintptr_t rcl_addr_projbeam = 0;
+
 volatile int rcl_at = 0;
 
 uintptr_t rcl_slot_object[34] = {0};
@@ -841,6 +851,9 @@ uintptr_t rcl_base = 0;
 uintptr_t rcl_manager_ptr = 0;
 
 uint64_t rcl_ticks_a = 0;
+
+float rcl_own_r = 120.0f;
+float rcl_own_speed = 720.0f;
 
 int rcl_collect(uintptr_t manager, rcl_obj_t *out, int capacity)
 {
@@ -2074,153 +2087,194 @@ static void rcl_proj_velocity(void)
     }
 }
 
-void rcl_scan_world(void)
+typedef uintptr_t (*rcl_fn1)(uintptr_t);
+typedef int32_t (*rcl_fn1i)(uintptr_t);
+typedef float (*rcl_fn1f)(uintptr_t);
+
+static uintptr_t rcl_call1(uintptr_t fn, uintptr_t self)
 {
-    static uint64_t lastScanUs = 0;
-    uint64_t nowUs = rcl_us();
-    uintptr_t manager = 0;
-    uintptr_t array = 0;
-    uintptr_t own = 0;
-    uintptr_t localClient = 0;
-    void *value = nullptr;
-    int32_t count = 0;
-    int32_t ownIndex = -1;
-    int32_t ownTeam = -1;
-    uint8_t dead = 0;
-    int32_t i = 0;
+    if (!fn || !self) return 0;
 
-    if (lastScanUs && (nowUs - lastScanUs) < RCL_WORLD_GAP_US)
+    return ((rcl_fn1)fn)(self);
+}
+
+static int32_t rcl_call1i(uintptr_t fn, uintptr_t self)
+{
+    if (!fn || !self) return 0;
+
+    return ((rcl_fn1i)fn)(self);
+}
+
+static float rcl_call1f(uintptr_t fn, uintptr_t self)
+{
+    if (!fn || !self) return 0.0f;
+
+    return ((rcl_fn1f)fn)(self);
+}
+
+static void rcl_proj_store(uintptr_t elem, uintptr_t data, int32_t team, int32_t gid, int32_t x, int32_t y)
+{
+    rcl_proj_t *slot = nullptr;
+    int i = 0;
+
+    for (i = 0; i < 16; i++)
     {
-        return;
-    }
-    lastScanUs = nowUs;
-
-    {
-        uintptr_t slot = (uintptr_t)rcl_read_global_ptr(RCL_STATE_RVA);
-        uintptr_t scene = 0;
-        uintptr_t client = 0;
-        int32_t state = -1;
-
-        if (slot && rcl_read_int(slot + RCL_STATE_ENUM_OFF, &state) && state == 5 &&
-            rcl_read_ptr(slot + RCL_SCENE_OFF, &value) && value)
+        if (rcl_projs[i].elem == elem && rcl_projs[i].gid != 0)
         {
-            scene = (uintptr_t)value;
-        }
-        if (scene && rcl_read_ptr(scene + RCL_CLIENT_OFF, &value) && value)
-        {
-            client = (uintptr_t)value;
-            localClient = client;
-            rcl_scene_object = scene;
-
-            if (rcl_read_ptr(client + RCL_MGR_OFF, &value) && value)
-            {
-                manager = (uintptr_t)value;
-                if (rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) && value)
-                {
-                    array = (uintptr_t)value;
-                    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) ||
-                        count <= 0 || count > RCL_COUNT_MAX)
-                    {
-                        manager = 0;
-                        array = 0;
-                        count = 0;
-                    }
-                }
-            }
+            slot = &rcl_projs[i];
+            break;
         }
     }
-
-    if (!manager || !array || count <= 0)
+    if (!slot)
     {
-        manager = rcl_tick_object;
-        array = rcl_tick_array;
-        count = rcl_tick_count;
-    }
-
-    if (!manager || !array || count <= 0)
-    {
-        return;
-    }
-    rcl_manager_ptr = manager;
-
-    {
-        uintptr_t client = rcl_client();
-
-        if (!client)
+        for (i = 0; i < 16; i++)
         {
-            client = localClient;
-        }
-        if (client)
-        {
-            rcl_read_int(client + RCL_OWNIDX_OFF, &ownIndex);
-            if (rcl_read_int(client + RCL_OWNTEAM_OFF, &ownTeam) && ownTeam >= 0 && ownTeam <= 15)
+            if (rcl_projs[i].gid == 0)
             {
-                rcl_own_team_b = ownTeam;
-                rcl_own_team_seen = 1;
-            }
-        }
-    }
-
-    if (ownIndex >= 0 && ownIndex < RCL_COUNT_MAX)
-    {
-        if (rcl_read_ptr(array + (uintptr_t)ownIndex * 8ULL, &value) && value &&
-            rcl_pointer_plausible((uintptr_t)value))
-        {
-            own = (uintptr_t)value;
-        }
-    }
-    if (!own && ownIndex >= 0)
-    {
-        for (i = 0; i < count && i < RCL_COUNT_MAX; i++)
-        {
-            void *element = nullptr;
-            int32_t owner = -1;
-
-            if (!rcl_read_ptr(array + (uintptr_t)i * 8ULL, &element) || !element)
-            {
-                continue;
-            }
-            if (!rcl_read_int((uintptr_t)element + RCL_OBJ_OWNERINDEX_OFF, &owner))
-            {
-                continue;
-            }
-            if (owner == ownIndex && rcl_pointer_plausible((uintptr_t)element))
-            {
-                own = (uintptr_t)element;
+                slot = &rcl_projs[i];
                 break;
             }
         }
     }
-    if (!own)
+    if (!slot) return;
+
+    if (slot->elem != elem || slot->gid == 0)
     {
-        if (rcl_own_elem && rcl_pointer_plausible(rcl_own_elem))
-        {
-            own = rcl_own_elem;
-        }
-        else
-        {
-            rcl_proj_scan(manager, count, nullptr, 0);
-            rcl_proj_velocity();
-            return;
-        }
+        memset(slot, 0, sizeof(*slot));
+        slot->elem = elem;
+        slot->spawnX = x;
+        slot->spawnY = y;
+        slot->px = x;
+        slot->py = y;
+        slot->pms = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
+        slot->qms = slot->pms;
+        slot->radius = rcl_call1f(rcl_addr_projradius, data);
+        slot->isBeam = rcl_call1i(rcl_addr_projbeam, data) ? 1 : 0;
+    }
+    else
+    {
+        slot->px = slot->x;
+        slot->py = slot->y;
+        slot->pms = slot->qms;
     }
 
+    slot->qms = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
+    slot->x = x;
+    slot->y = y;
+    slot->team = team;
+    slot->gid = gid;
+    slot->classRva = RCL_CLASS_PROJ_RVA;
+    slot->hasPrev = (slot->px != slot->x || slot->py != slot->y) ? 1 : slot->hasPrev;
+
+    if (slot->hasPrev && slot->qms > slot->pms)
+    {
+        float dt = (float)(slot->qms - slot->pms);
+        slot->vx = (float)(slot->x - slot->px) * 1000.0f / dt;
+        slot->vy = (float)(slot->y - slot->py) * 1000.0f / dt;
+    }
+}
+
+void rcl_scan_world(void)
+{
+    uintptr_t client = 0;
+    uintptr_t own = 0;
+    uintptr_t ownData = 0;
+    uintptr_t manager = 0;
+    uintptr_t array = 0;
+    void *value = nullptr;
+    uintptr_t projectileVtable = 0;
+    int32_t count = 0;
+    int32_t ownIndex = -1;
+    int32_t ownTeam = -1;
+    uint8_t dead = 0;
+    int seen[16];
+    int32_t i = 0;
+    int k = 0;
+
+    if (!rcl_base || !rcl_addr_getownchar) return;
+
+    client = rcl_controller();
+    if (!client) return;
+
+    own = rcl_call1(rcl_addr_getownchar, client);
+    if (!rcl_pointer_plausible(own)) return;
+
+    ownTeam = rcl_call1i(rcl_addr_getteam, client);
+    ownIndex = rcl_call1i(rcl_addr_getownidx, client);
+
     rcl_own_elem = own;
+    rcl_own_team_b = ownTeam;
+
     if (rcl_read_byte(own + (uintptr_t)RCL_OBJ_DEADFLAG_OFF, &dead))
     {
         rcl_dead = dead ? 1 : 0;
     }
 
-    rcl_proj_scan(manager, count, nullptr, 0);
-    rcl_proj_velocity();
-
-    for (i = 0; i < 16; i++)
+    ownData = rcl_call1(rcl_addr_getdata, own);
+    if (rcl_pointer_plausible(ownData))
     {
-        if (rcl_own_team_b >= 0 && rcl_projs[i].team >= 0 && rcl_projs[i].team == rcl_own_team_b)
+        float radius = rcl_call1f(rcl_addr_charradius, ownData);
+        float speed = rcl_call1f(rcl_addr_charspeed, ownData);
+
+        if (radius > 1.0f) rcl_own_r = radius;
+        if (speed > 1.0f) rcl_own_speed = speed;
+    }
+
+    if (!rcl_read_ptr(client + RCL_MGR_OFF, &value) || !value)
+    {
+        if (!rcl_read_ptr(client + RCL_MODE_MANAGER_OFF, &value) || !value) return;
+    }
+    manager = (uintptr_t)value;
+    rcl_manager_ptr = manager;
+
+    if (!rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) || !value) return;
+    array = (uintptr_t)value;
+
+    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count <= 0 || count > RCL_COUNT_MAX) return;
+
+    projectileVtable = rcl_base + RCL_VTABLE_PROJ_DATA_RVA;
+
+    memset(seen, 0, sizeof(seen));
+
+    for (i = 0; i < count && i < RCL_COUNT_MAX; i++)
+    {
+        uintptr_t object = 0;
+        uintptr_t data = 0;
+        uintptr_t dataVtable = 0;
+        int32_t team = -1;
+        int32_t x = 0;
+        int32_t y = 0;
+        int32_t gid = 0;
+
+        if (!rcl_read_ptr(array + (uintptr_t)i * 8ULL, &value) || !value) continue;
+        object = (uintptr_t)value;
+        if (!rcl_pointer_plausible(object)) continue;
+
+        data = rcl_call1(rcl_addr_getdata, object);
+        if (!rcl_pointer_plausible(data)) continue;
+
+        rcl_read_int(object + (uintptr_t)RCL_OBJ_TEAM_OFF, &team);
+
+        if (!rcl_read_ptr(data, &dataVtable) || dataVtable != projectileVtable) continue;
+        if (team == ownTeam) continue;
+        if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_X_OFF, &x)) continue;
+        if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_Y_OFF, &y)) continue;
+        gid = rcl_call1i(rcl_addr_getgid, object);
+
+        rcl_proj_store(object, data, team, gid, x, y);
+
+        for (k = 0; k < 16; k++)
         {
-            rcl_projs[i].gid = 0;
+            if (rcl_projs[k].elem == object) seen[k] = 1;
         }
     }
+
+    for (k = 0; k < 16; k++)
+    {
+        if (!seen[k]) rcl_projs[k].gid = 0;
+    }
+
+    rcl_ticks_a++;
 }
 
 void rcl_run_workload(void)
@@ -2647,6 +2701,15 @@ void rcl_resolve_addresses(void)
     rcl_addr_getx = rcl_callable(RVA_LOGICGAMEOBJECTCLIENT_GETX);
     rcl_addr_gety = rcl_callable(RVA_LOGICGAMEOBJECTCLIENT_GETY);
     rcl_addr_battlescreen = rcl_base;
+    rcl_addr_getownidx = rcl_callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX);
+    rcl_addr_movedto = rcl_callable(RVA_LOGICBATTLEMODECLIENT_SETCLIENTPREDICTIONMOVETO);
+    rcl_addr_getdata = rcl_callable(RVA_LOGICGAMEOBJECTCLIENT_GETDATA);
+    rcl_addr_getgid = rcl_callable(RVA_LOGICGAMEOBJECTCLIENT_GETGLOBALID);
+    rcl_addr_charspeed = rcl_callable(RVA_LOGICCHARACTERDATA_GETSPEED);
+    rcl_addr_charradius = rcl_callable(RVA_LOGICCHARACTERDATA_GETCOLLISIONRADIUS);
+    rcl_addr_projspeed = rcl_callable(RVA_LOGICPROJECTILEDATA_GETSPEED);
+    rcl_addr_projradius = rcl_callable(RVA_LOGICPROJECTILEDATA_GETRADIUS);
+    rcl_addr_projbeam = rcl_callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
     if (!rcl_addr_readable(rcl_addr_battlescreen, sizeof(void *)))
     {
         rcl_addr_battlescreen = 0;

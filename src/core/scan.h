@@ -398,6 +398,9 @@ static inline BOOL rcl_object_plausible(void *object)
 extern uintptr_t rcl_manager_ptr;
 
 extern uint64_t rcl_ticks_a;
+
+extern float rcl_own_r;
+extern float rcl_own_speed;
 extern int rcl_logs_a;
 extern int rcl_seeded;
 extern int32_t rcl_last_x_a;
