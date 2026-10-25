@@ -6,7 +6,7 @@
 namespace offsets
 {
     inline constexpr uintptr_t BattleMode_battleScreenPtr                       = 0x8;
-    inline constexpr uintptr_t BattleMode_objectManagerPtr                      = 0x28;
+    inline constexpr uintptr_t BattleMode_objectManagerPtr                      = 0x58;
     inline constexpr uintptr_t BattleMode_clientInputManager                    = 0x58;
     inline constexpr uintptr_t BattleMode_hashKey                               = 0x60;
     inline constexpr uintptr_t BattleMode_getInstance                           = 0x8c5130;
@@ -18,7 +18,7 @@ namespace offsets
     inline constexpr uintptr_t Client_ownIndex                                  = 0xe0;
     inline constexpr uintptr_t Client_ownTeam                                   = 0xe4;
 
-    inline constexpr uintptr_t ObjectManager_objectsArray                       = 0x18;
+    inline constexpr uintptr_t ObjectManager_objectsArray                       = 0x0;
     inline constexpr uintptr_t ObjectManager_count                              = 0xc;
     inline constexpr uintptr_t ObjectManager_ptrStride                          = 0x8;
 

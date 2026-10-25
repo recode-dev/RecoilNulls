@@ -320,29 +320,31 @@ namespace
 
     bool sendMove(uintptr_t logic, int32_t tx, int32_t ty)
     {
-        const scanner::ScannerData &scan = scanner::data();
-        const uintptr_t own = scan.ownCharacter;
+        if (logic == 0) return false;
 
-        if (own != 0)
+        const uintptr_t own = scanner::data().ownCharacter;
+
+        int32_t moveX = tx;
+        int32_t moveY = ty;
+        int32_t idle = 0;
+        uint8_t moving = 1;
+
+        tools::memory::write(logic + offsets::LogicCharacterClient_predictionX, &moveX, sizeof(moveX));
+        tools::memory::write(logic + offsets::LogicCharacterClient_predictionY, &moveY, sizeof(moveY));
+        tools::memory::write(logic + offsets::LogicCharacterClient_predictionFlags1, &moving, sizeof(moving));
+        tools::memory::write(logic + offsets::LogicCharacterClient_predictionFlags2, &idle, sizeof(idle));
+
+        if (functions::LogicBattleModeClient_setClientPredictionMoveTo != nullptr)
         {
-            uint32_t moveX = (uint32_t)tx;
-            uint32_t moveY = (uint32_t)ty;
-            uint32_t moving = 1;
-            uint32_t idle = 0;
+            functions::LogicBattleModeClient_setClientPredictionMoveTo(logic, tx, ty, 1);
 
-            tools::memory::write(own + offsets::LogicCharacterClient_predictionX, &moveX, 4);
-            tools::memory::write(own + offsets::LogicCharacterClient_predictionY, &moveY, 4);
-            tools::memory::write(own + offsets::LogicCharacterClient_predictionFlags1, &moving, 4);
-            tools::memory::write(own + offsets::LogicCharacterClient_predictionFlags2, &idle, 4);
-
-            if (functions::LogicBattleModeClient_setClientPredictionMoveTo != nullptr)
+            if (own != 0 && own != logic)
             {
                 functions::LogicBattleModeClient_setClientPredictionMoveTo(own, tx, ty, 1);
-                return true;
             }
-        }
 
-        if (logic == 0) return false;
+            return true;
+        }
 
         MoveInput input;
         input.x = tx;
