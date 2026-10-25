@@ -439,8 +439,6 @@ BOOL rcl_start_word(uint32_t word);
 int rcl_word(uintptr_t address, uint32_t *out);
 
 #include "hook.h"
-#include "./../helpers/dodge_kinds.h"
-#include "./../helpers/dodge_profiles.h"
 
 void rcl_slot_note(int index, void *self, uint64_t arg1);
 uint64_t rcl_hook_dispatches(void);
@@ -603,6 +601,36 @@ extern uint64_t rcl_proj_diff_logs;
 extern uintptr_t rcl_own_elem;
 extern int32_t rcl_own_gid;
 extern int rcl_no_source_passes;
+typedef struct
+{
+    uintptr_t elem;
+    uintptr_t classRva;
+    int32_t x;
+    int32_t y;
+    int32_t px;
+    int32_t py;
+    int32_t team;
+    int32_t spawnX;
+    int32_t spawnY;
+    int32_t gid;
+    uint64_t pms;
+    uint64_t qms;
+    int hasPrev;
+    const char *name;
+    int32_t targetX;
+    int32_t targetY;
+    float radius;
+    float angle;
+    uint64_t spawnedAt;
+    float vx;
+    float vy;
+    int isThrower;
+    int isBeam;
+    int32_t spawnAreaRadius;
+    int32_t spawnAreaActiveTime;
+    int32_t castRange;
+} rcl_proj_t;
+
 extern rcl_proj_t rcl_projs[16];
 extern rcl_proj_death_t rcl_proj_deaths[16];
 extern int rcl_proj_death_n;

@@ -22,11 +22,8 @@
 #import <ptrauth.h>
 #endif
 
-#include "./helpers/dodge_kinds.h"
-#include "./helpers/dodge_profiles.h"
 #include "./utils/crypto.h"
 #include "./utils/walls.h"
-#include "./utils/flags.h"
 
 #include "objc.h"
 #include "./core/scan.h"

@@ -2505,10 +2505,6 @@ void rcl_run_workload(void)
 
 void rcl_run_autododge(void)
 {
-    if (!rcl_flag_state("autododge"))
-    {
-        return;
-    }
     if (rcl_in_move)
     {
         return;
@@ -2549,7 +2545,7 @@ void setup(void)
     rcl_resolve_addresses();
     rcl_objc_arm(rcl_base, "MetalView", "render", rcl_objc_body);
     rcl_objc_arm(rcl_base, "NullView", "render", rcl_objc_body);
-    rcl_feature_setup("slot hooks", rcl_slot_hooks_install);
+    rcl_slot_hooks_install();
     rcl_start_timer();
 }
 
