@@ -124,7 +124,8 @@ namespace tools::image
 
         for (uint32_t i = 0; i < count; i++)
         {
-            const struct mach_header_64 *header = _dyld_get_image_header(i);
+            const struct mach_header_64 *header =
+                (const struct mach_header_64 *)_dyld_get_image_header(i);
             if (header == nullptr) continue;
 
             const char *path = _dyld_get_image_name(i);
@@ -172,7 +173,8 @@ namespace tools::image
             if (path == nullptr) continue;
             if (!contains_nocase(path, needle)) continue;
 
-            const struct mach_header_64 *header = _dyld_get_image_header(i);
+            const struct mach_header_64 *header =
+                (const struct mach_header_64 *)_dyld_get_image_header(i);
             if (header == nullptr) continue;
 
             return (uintptr_t)header;
@@ -190,7 +192,8 @@ namespace tools::image
 
         for (uint32_t i = 0; i < count; i++)
         {
-            const struct mach_header_64 *header = _dyld_get_image_header(i);
+            const struct mach_header_64 *header =
+                (const struct mach_header_64 *)_dyld_get_image_header(i);
             if (header == nullptr) continue;
 
             const uintptr_t base = (uintptr_t)header;
