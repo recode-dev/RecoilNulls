@@ -266,102 +266,13 @@ static int rcl_pred_probe(uintptr_t pred, int *alignOut, int *readOut, int *writ
     return 1;
 }
 
-static int rcl_pred_ok(uintptr_t pred)
-{
-    return rcl_pred_probe(pred, nullptr, nullptr, nullptr, nullptr);
-}
 
-static int rcl_move_pair_ok(uintptr_t obj, int32_t *outX, int32_t *outY)
-{
-    int32_t ix = 0;
-    int32_t iy = 0;
-    if (!obj)
-    {
-        return 0;
-    }
-    if (!rcl_read_int(obj + RCL_MOVE_X_OFF, &ix))
-    {
-        return 0;
-    }
-    if (!rcl_read_int(obj + RCL_MOVE_Y_OFF, &iy))
-    {
-        return 0;
-    }
-    if (ix < -200000 || ix > 200000)
-    {
-        return 0;
-    }
-    if (iy < -200000 || iy > 200000)
-    {
-        return 0;
-    }
-    if (outX)
-    {
-        *outX = ix;
-    }
-    if (outY)
-    {
-        *outY = iy;
-    }
-    return 1;
-}
 
-static int rcl_move_obj_ok(uintptr_t obj)
-{
-    if (!obj)
-    {
-        return 0;
-    }
-    if (!rcl_instance_shaped(obj))
-    {
-        return 0;
-    }
-    if (!rcl_move_pair_ok(obj, nullptr, nullptr))
-    {
-        return 0;
-    }
-    return 1;
-}
 
-static uintptr_t rcl_move_carrier(void)
-{
-    uintptr_t ctrl = rcl_controller();
-    uintptr_t mover = 0;
-    void *mgr = nullptr;
-    if (ctrl)
-    {
-        mover = rcl_hop(ctrl, nullptr);
-        if (rcl_move_obj_ok(mover))
-        {
-            return mover;
-        }
-        if (rcl_read_ptr(ctrl + (uintptr_t)RCL_MGR_OFF, &mgr) && mgr)
-        {
-            mover = rcl_hop((uintptr_t)mgr, nullptr);
-            if (rcl_move_obj_ok(mover))
-            {
-                return mover;
-            }
-        }
-        if (rcl_move_obj_ok(ctrl))
-        {
-            return ctrl;
-        }
-    }
-    if (rcl_scene_object)
-    {
-        mover = rcl_hop(rcl_scene_object, nullptr);
-        if (rcl_move_obj_ok(mover))
-        {
-            return mover;
-        }
-        if (rcl_move_obj_ok(rcl_scene_object))
-        {
-            return rcl_scene_object;
-        }
-    }
-    return 0;
-}
+
+
+
+
 
 uintptr_t rcl_entry_callable(uintptr_t rva)
 {
@@ -459,103 +370,64 @@ void *rcl_manager(void)
 int rcl_pred_set(int x, int y)
 {
     uintptr_t setFn = 0;
-    uintptr_t pred = 0;
-    if (!RCL_PRED_SET)
+    uintptr_t ctrl = 0;
+
+    if (!RCL_PRED_SET || !rcl_coord_ok)
     {
         return 0;
     }
-    if (!rcl_coord_ok)
+
+    {
+        static uintptr_t c_set = 0;
+
+        setFn = rcl_callable_cached(&c_set, RCL_SETINPUT_RVA);
+    }
+
+    ctrl = rcl_controller();
+    if (!setFn || !ctrl)
     {
         return 0;
     }
-    static uintptr_t c_set = 0;
-    setFn = rcl_callable_cached(&c_set, RCL_SETINPUT_RVA);
-    if (!setFn)
-    {
-        return 0;
-    }
-    pred = rcl_hop(rcl_controller(), nullptr);
-    if (!rcl_pred_ok(pred))
-    {
-        return 0;
-    }
-    ((void (*)(uintptr_t, int, int, int))setFn)(pred, x, y, RCL_PRED_FLAG);
+
+    /* same receiver as rcl_move_to: the battle mode client, not rcl_hop() */
+    ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, RCL_PRED_FLAG);
+
     return 1;
 }
 
 int rcl_move_to(int32_t x, int32_t y, float ox, float oy)
 {
     uintptr_t fn = 0;
-    uintptr_t own = 0;
     uintptr_t ctrl = 0;
-    void (*move_fn)(void *, int, int, int) = nullptr;
-    int32_t px = x;
-    int32_t py = y;
-    int32_t zero = 0;
-    uint8_t moving = 1;
+
     (void)ox;
     (void)oy;
+
     if (!RCL_MOVE_ON || rcl_dead)
     {
         return 0;
     }
-    if (x < -200000 || x > 200000)
+    if (x < -200000 || x > 200000 || y < -200000 || y > 200000)
     {
         return 0;
     }
-    if (y < -200000 || y > 200000)
+
     {
-        return 0;
+        static uintptr_t c_move = 0;
+
+        fn = rcl_callable_cached(&c_move, RCL_MOVE_RVA);
     }
-    static uintptr_t c_move = 0;
-    fn = rcl_callable_cached(&c_move, RCL_MOVE_RVA);
-    own = rcl_move_carrier();
+
     ctrl = rcl_controller();
-    if (!fn)
+    if (!fn || !ctrl)
     {
         return 0;
     }
-    if (own && !rcl_move_pair_ok(own, nullptr, nullptr))
-    {
-        own = 0;
-    }
-    if (own)
-    {
-        uint8_t deadByte = 0;
-        if (rcl_read_bytes(own + (uintptr_t)RCL_DEAD_OFF, &deadByte, sizeof(deadByte)) && deadByte)
-        {
-            own = 0;
-        }
-    }
-    if (!own && !ctrl)
-    {
-        return 0;
-    }
-    if (ctrl && !rcl_addr_writable(ctrl + (uintptr_t)RCL_CTRL_MOVE_ON_OFF,
-                                   (size_t)(RCL_CTRL_MOVE_Y_OFF + 4 - RCL_CTRL_MOVE_ON_OFF)))
-    {
-        ctrl = 0;
-    }
-    if (ctrl && !rcl_ctrl_bounds(ctrl, nullptr, nullptr))
-    {
-        ctrl = 0;
-    }
-    if (!own && !ctrl)
-    {
-        return 0;
-    }
-    move_fn = (void (*)(void *, int, int, int))fn;
-    if (ctrl)
-    {
-        rcl_write_bytes(ctrl + (uintptr_t)RCL_CTRL_MOVE_X_OFF, &px, sizeof(px));
-        rcl_write_bytes(ctrl + (uintptr_t)RCL_CTRL_MOVE_Y_OFF, &py, sizeof(py));
-        rcl_write_bytes(ctrl + (uintptr_t)RCL_CTRL_MOVE_ON_OFF, &moving, sizeof(moving));
-        rcl_write_bytes(ctrl + (uintptr_t)RCL_CTRL_MOVE_ZERO_OFF, &zero, sizeof(zero));
-        move_fn((void *)ctrl, (int)x, (int)y, (int)1);
-    }
-    if (own && own != ctrl)
-    {
-        move_fn((void *)own, (int)x, (int)y, (int)1);
-    }
+
+    /* setClientPredictionMoveTo(this, x, y, 1) on the battle mode client only;
+       poking +0xf9c..+0xfd0 here was writing BattleScreen fields into the
+       client object and left the brawler turning without translating */
+    ((void (*)(void *, int, int, int))fn)((void *)ctrl, (int)x, (int)y, 1);
+
     return 1;
 }

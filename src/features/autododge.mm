@@ -465,7 +465,7 @@ namespace
     constexpr int RCL_BS_DELAY_TICKS = 2;
     constexpr int RCL_BS_MAX_PROJ = 6;
     constexpr int RCL_BS_MAX_WALLS = 40;
-    constexpr float RCL_BS_PROJ_ZONE = 2200.0f;
+    constexpr float RCL_BS_PROJ_ZONE = 3200.0f;
     constexpr float RCL_BS_WALL_ZONE = 900.0f;
     constexpr float RCL_BS_MIN_RADIUS = 45.0f;
     constexpr double RCL_BS_REACH = 800.0;
