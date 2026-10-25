@@ -128,14 +128,22 @@ namespace
         return true;
     }
 
+    bool writeBytes(uintptr_t address, const void *data, size_t size)
+    {
+        if (address == 0 || data == nullptr || size == 0) return false;
+        if (!gum_memory_is_writable((gpointer)address, (gsize)size)) return false;
+        memcpy((void *)address, data, size);
+        return true;
+    }
+
     bool readU32(uintptr_t address, uint32_t &out)
     {
-        return gum_process_read_uint32(GSIZE_TO_POINTER(address), &out);
+        return readBytes(address, &out, sizeof(out));
     }
 
     bool readPtr(uintptr_t address, uintptr_t &out)
     {
-        return gum_process_read_pointer(GSIZE_TO_POINTER(address), (gpointer *)&out);
+        return readBytes(address, &out, sizeof(out));
     }
 
     bool readS32(uintptr_t address, int32_t &out)

@@ -333,10 +333,13 @@ namespace
         const scanner::ScannerData &scan = scanner::data();
         if (scan.ownCharacter != 0)
         {
-            gum_process_write_uint32(GSIZE_TO_POINTER(scan.ownCharacter + offsets::LogicCharacterClient_predictionX), (uint32_t)tx);
-            gum_process_write_uint32(GSIZE_TO_POINTER(scan.ownCharacter + offsets::LogicCharacterClient_predictionY), (uint32_t)ty);
-            gum_process_write_uint32(GSIZE_TO_POINTER(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags1), 1);
-            gum_process_write_uint32(GSIZE_TO_POINTER(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags2), 1);
+            uint32_t valX = (uint32_t)tx;
+            uint32_t valY = (uint32_t)ty;
+            uint32_t valFlag = 1;
+            scanner::writeBytes(scan.ownCharacter + offsets::LogicCharacterClient_predictionX, &valX, 4);
+            scanner::writeBytes(scan.ownCharacter + offsets::LogicCharacterClient_predictionY, &valY, 4);
+            scanner::writeBytes(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags1, &valFlag, 4);
+            scanner::writeBytes(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags2, &valFlag, 4);
         }
 
         if (functions::LogicBattleModeClient_setClientPredictionMoveTo != nullptr)
