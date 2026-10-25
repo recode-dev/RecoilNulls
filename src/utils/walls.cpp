@@ -1,13 +1,13 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-#include <time.h>
 
 #include "../../tools/hook.hpp"
 #include "../../tools/memory.hpp"
 #include "walls.hpp"
 #include "../core/offsets.hpp"
 #include "../core/functions.hpp"
+#include "../core/scan.hpp"
 
 namespace
 {
@@ -55,14 +55,6 @@ namespace
     bool readPtr(uintptr_t address, uintptr_t &out)
     {
         return readBytes(address, &out, sizeof(out));
-    }
-
-    uint32_t nowMs()
-    {
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-
-        return (uint32_t)((uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000));
     }
 
     uint8_t flagsOfType(uintptr_t tileType)
@@ -141,8 +133,6 @@ namespace
 
     SlotFn g_origSetData = nullptr;
 
-    // Any tile mutation invalidates the cached grid; the actual rebuild happens
-    // on the next tick so we never walk the map from inside the setter.
     uint64_t tile_set_data(void *self, uint64_t a1, uint64_t a2, uint64_t a3,
                            uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
     {
@@ -173,7 +163,7 @@ void walls::notifyBattleModeChanged(uintptr_t battleMode)
     g_needsRebuild = true;
     g_lastFailedTs = 0;
     g_typeCount = 0;
-    walls::maybeRefreshWallCache(battleMode, nowMs());
+    walls::maybeRefreshWallCache(battleMode, scanner::nowMs());
 }
 
 void walls::maybeRefreshWallCache(uintptr_t battleMode, uint32_t now)

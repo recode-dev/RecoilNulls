@@ -1,8 +1,5 @@
 #pragma once
 
-// Umbrella header. Pulls in the whole tweak in dependency order so a single
-// include is enough when debugging.
-
 #include <cstdint>
 #include <cstddef>
 

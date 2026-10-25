@@ -9,15 +9,12 @@ namespace
     constexpr uintptr_t PAGE_MASK = ~(uintptr_t)0xFFF;
     constexpr uintptr_t LOWEST_PLAUSIBLE = 0x100000000ULL;
 
-    // One cached region for the last address we looked at; the scanner hits the
-    // same handful of mappings over and over, so this removes most mach calls.
     uintptr_t g_regionStart = 0;
     uintptr_t g_regionEnd = 0;
     int g_regionProt = 0;
     int g_regionMax = 0;
     bool g_regionValid = false;
 
-    // Single open write window (start/end + protection to restore).
     uintptr_t g_windowStart = 0;
     uintptr_t g_windowEnd = 0;
     int g_windowSaved = 0;

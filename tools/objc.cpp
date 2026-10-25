@@ -11,11 +11,9 @@ namespace
         if (cls == nullptr) return nullptr;
         if (!classMethod) return cls;
 
-        // Class methods live on the metaclass.
         return object_getClass((id)cls);
     }
 
-    // True when the class itself declares the selector (not a superclass).
     bool class_owns(Class host, SEL sel)
     {
         if (host == nullptr || sel == nullptr) return false;
@@ -94,8 +92,6 @@ namespace tools::objc
             return method_setImplementation(method, replacement);
         }
 
-        // Inherited method: adding an override keeps the superclass untouched
-        // and returns the IMP we are shadowing.
         const IMP previous = method_getImplementation(method);
         const char *types = method_getTypeEncoding(method);
         if (types == nullptr) return nullptr;

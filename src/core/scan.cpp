@@ -25,6 +25,8 @@ namespace
     constexpr size_t MAX_HARVESTED = 32;
     constexpr size_t MAX_INDICES = 16;
     constexpr size_t MAX_TEAMS = 16;
+    constexpr uintptr_t ADDRESS_MIN = 0x100000000ULL;
+    constexpr uint32_t APP_STATE_BATTLE = 5;
 
     struct NameEntry
     {
@@ -123,8 +125,6 @@ namespace
     constexpr int32_t SCSTRING_INLINE_MAX = 7;
     constexpr size_t SCSTRING_HEADER = 16;
 
-    // Reads the engine's small-string type: length at +0x4, inline bytes or a
-    // heap pointer at +0x8.
     size_t readScStringInto(uintptr_t value, char *out, size_t capacity)
     {
         if (value == 0 || out == nullptr || capacity < 2) return 0;
@@ -676,49 +676,24 @@ void scanner::init(uintptr_t base)
 uintptr_t scanner::getBattleMode()
 {
     if (g_base == 0) return 0;
-    
-    // Try primary AppState offset
+
     uintptr_t appState = 0;
-    const uintptr_t appStatePtr = g_base + 0x1123e58;
-    
-    if (scanner::readBytes(appStatePtr, &appState, sizeof(appState)) && appState > 0x100000000)
-    {
-        uint32_t state = 0;
-        if (scanner::readBytes(appState + 0x50, &state, 4) && state == 5)
-        {
-            uintptr_t scene = 0;
-            if (scanner::readBytes(appState + 0x48, &scene, sizeof(scene)) && scene > 0x100000000)
-            {
-                uintptr_t client = 0;
-                if (scanner::readBytes(scene + 0x28, &client, sizeof(client)) && client > 0x100000000)
-                {
-                    return client;
-                }
-            }
-        }
-    }
+    if (!readBytes(g_base + offsets::AppState, &appState, sizeof(appState))) return 0;
+    if (appState < ADDRESS_MIN) return 0;
 
-    // Try secondary AppState offset
-    appState = 0;
-    const uintptr_t appStatePtr2 = g_base + 0x1127e58;
-    if (scanner::readBytes(appStatePtr2, &appState, sizeof(appState)) && appState > 0x100000000)
-    {
-        uint32_t state = 0;
-        if (scanner::readBytes(appState + 0x50, &state, 4) && state == 5)
-        {
-            uintptr_t scene = 0;
-            if (scanner::readBytes(appState + 0x48, &scene, sizeof(scene)) && scene > 0x100000000)
-            {
-                uintptr_t client = 0;
-                if (scanner::readBytes(scene + 0x28, &client, sizeof(client)) && client > 0x100000000)
-                {
-                    return client;
-                }
-            }
-        }
-    }
+    uint32_t state = 0;
+    if (!readBytes(appState + offsets::AppState_state, &state, sizeof(state))) return 0;
+    if (state != APP_STATE_BATTLE) return 0;
 
-    return 0;
+    uintptr_t scene = 0;
+    if (!readBytes(appState + offsets::AppState_scene, &scene, sizeof(scene))) return 0;
+    if (scene < ADDRESS_MIN) return 0;
+
+    uintptr_t client = 0;
+    if (!readBytes(scene + offsets::Scene_client, &client, sizeof(client))) return 0;
+    if (client < ADDRESS_MIN) return 0;
+
+    return client;
 }
 
 void scanner::reset()
@@ -888,47 +863,35 @@ void scanner::removeProjectile(uintptr_t projectile)
     record->used = false;
 }
 
-bool scanner::readBytes(uintptr_t address, void *out, size_t size)
-{
-    return tools::memory::read(address, out, size);
-}
-
-bool scanner::writeBytes(uintptr_t address, const void *data, size_t size)
-{
-    return tools::memory::write(address, data, size);
-}
-
 bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 {
-    if (g_base == 0 || battleModeClient == 0 || battleModeClient < 0x100000000) return false;
-    
-    // Safety check for vtable
+    if (g_base == 0 || battleModeClient < ADDRESS_MIN) return false;
+
     uintptr_t vtable = 0;
-    if (!scanner::readBytes(battleModeClient, &vtable, sizeof(vtable)) || vtable < 0x100000000) return false;
+    if (!readBytes(battleModeClient, &vtable, sizeof(vtable))) return false;
+    if (vtable < ADDRESS_MIN) return false;
 
     uint32_t ownIndex = 0;
+    if (!readBytes(battleModeClient + offsets::Client_ownIndex, &ownIndex, sizeof(ownIndex))) return false;
+    if (ownIndex >= (uint32_t)MAX_OBJECTS) return false;
+
     uint32_t ownTeam = 0;
-    uintptr_t objMgr = 0;
-    
-    // Use very safe reads
-    if (!scanner::readBytes(battleModeClient + offsets::Client_ownIndex, &ownIndex, 4)) return false;
-    if (ownIndex > 100) return false; // Increased sanity limit
-    
-    if (!scanner::readBytes(battleModeClient + offsets::Client_ownTeam, &ownTeam, 4)) return false;
-    if (ownTeam > 32) return false;
+    if (!readBytes(battleModeClient + offsets::Client_ownTeam, &ownTeam, sizeof(ownTeam))) return false;
+    if (ownTeam >= (uint32_t)MAX_TEAMS) return false;
 
-    // ObjectManager at client + 0x28
-    if (!scanner::readBytes(battleModeClient + 0x28, &objMgr, sizeof(objMgr)) || objMgr < 0x100000000) return false;
+    uintptr_t manager = 0;
+    if (!readBytes(battleModeClient + offsets::BattleMode_objectManagerPtr, &manager, sizeof(manager))) return false;
+    if (manager < ADDRESS_MIN) return false;
 
-    // Objects array at manager + 0x18
     uintptr_t objects = 0;
-    if (!scanner::readBytes(objMgr + 0x18, &objects, sizeof(objects)) || objects < 0x100000000) return false;
+    if (!readBytes(manager + offsets::ObjectManager_objectsArray, &objects, sizeof(objects))) return false;
+    if (objects < ADDRESS_MIN) return false;
 
-    // Own character at objects[ownIndex]
     uintptr_t own = 0;
-    if (!scanner::readBytes(objects + (size_t)ownIndex * 8, &own, sizeof(own)) || own < 0x100000000)
+    if (!readBytes(objects + (size_t)ownIndex * sizeof(uintptr_t), &own, sizeof(own))) return false;
+
+    if (own < ADDRESS_MIN)
     {
-        // ... (rest of the death handling)
         markDead(nowMs);
         g_data.ownCharacter = 0;
         g_data.battleModeClient = battleModeClient;
@@ -1241,9 +1204,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 
 namespace
 {
-    // Eight integer arguments covered by the replacements: on arm64 the first
-    // eight go in x0..x7, so passing the untouched registers through to the
-    // original is always ABI-correct regardless of the real signature.
+
     using SlotFn = uint64_t (*)(void *, uint64_t, uint64_t, uint64_t,
                                 uint64_t, uint64_t, uint64_t, uint64_t);
 

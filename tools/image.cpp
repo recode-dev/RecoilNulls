@@ -20,8 +20,6 @@ namespace
         return header;
     }
 
-    // Walks LC_SEGMENT_64 commands. `visit` gets in-memory start/end plus the
-    // raw segment, and may stop the walk by returning false.
     template <typename Fn>
     bool walk_segments(uintptr_t base, Fn visit)
     {
@@ -31,8 +29,6 @@ namespace
         const uint8_t *cursor = (const uint8_t *)(header + 1);
         const uint8_t *limit = cursor + header->sizeofcmds;
 
-        // Prefer the dyld-reported base over manual slide math: it is correct
-        // for both the main executable and every loaded dylib.
         uintptr_t textVmaddr = 0;
         bool haveText = false;
 
@@ -86,30 +82,14 @@ namespace
         return true;
     }
 
-    bool contains_nocase(const char *haystack, const char *needle)
+    const char *file_name(const char *path)
     {
-        if (haystack == nullptr || needle == nullptr || *needle == 0) return false;
+        if (path == nullptr) return "";
 
-        for (const char *p = haystack; *p != 0; p++)
-        {
-            const char *a = p;
-            const char *b = needle;
+        const char *slash = strrchr(path, '/');
+        if (slash == nullptr) return path;
 
-            while (*a != 0 && *b != 0)
-            {
-                char ca = *a;
-                char cb = *b;
-                if (ca >= 'A' && ca <= 'Z') ca = (char)(ca + 32);
-                if (cb >= 'A' && cb <= 'Z') cb = (char)(cb + 32);
-                if (ca != cb) break;
-                a++;
-                b++;
-            }
-
-            if (*b == 0) return true;
-        }
-
-        return false;
+        return slash + 1;
     }
 }
 
@@ -160,9 +140,9 @@ namespace tools::image
         });
     }
 
-    uintptr_t base_named(const char *needle)
+    uintptr_t base_exact(const char *name)
     {
-        if (needle == nullptr || *needle == 0) return 0;
+        if (name == nullptr || *name == 0) return 0;
 
         uint32_t count = _dyld_image_count();
         if (count > MAX_IMAGES) count = MAX_IMAGES;
@@ -171,7 +151,7 @@ namespace tools::image
         {
             const char *path = _dyld_get_image_name(i);
             if (path == nullptr) continue;
-            if (!contains_nocase(path, needle)) continue;
+            if (strcmp(file_name(path), name) != 0) continue;
 
             const struct mach_header_64 *header =
                 (const struct mach_header_64 *)_dyld_get_image_header(i);

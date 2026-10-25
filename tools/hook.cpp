@@ -60,8 +60,6 @@ namespace
         fprintf(stderr, "[hook] %s\n", line);
     }
 
-    // Does this stored 8-byte value reference `needle`?
-    // Accepts the exact pointer and the PAC-stripped form.
     bool slot_matches(uintptr_t value, uintptr_t needle)
     {
         if (needle == 0) return false;
@@ -101,7 +99,6 @@ namespace
                 continue;
             }
 
-            // Align the walk to 8 bytes inside the chunk.
             for (size_t offset = 0; offset + sizeof(uintptr_t) <= want; offset += sizeof(uintptr_t))
             {
                 const uintptr_t value = g_scanBuffer[offset / sizeof(uintptr_t)];
@@ -206,21 +203,20 @@ namespace tools::hook
         uint32_t word = 0;
         if (!tools::memory::read(address, &word, sizeof(word))) return false;
 
-        // sub sp, sp, #imm
         if ((word & 0xFFC003FFu) == 0xD10003FFu) return true;
-        // stp x29, x30 / stp x0, x1 style stack stores
+
         if ((word & 0xFF4003E0u) == 0xA90003E0u) return true;
         if ((word & 0xFF4003E0u) == 0xA80003E0u) return true;
-        // pacibsp / autibsp
+
         if (word == 0xD503237Fu) return true;
         if (word == 0xD503245Fu) return true;
-        // ret (tiny leaf function)
+
         if (word == 0xD65F03C0u) return true;
-        // mov x29, sp
+
         if (word == 0x910003FDu) return true;
-        // b <target> thunk
+
         if ((word & 0xFF000000u) == 0x14000000u) return true;
-        // adr / adrp first instruction
+
         if ((word & 0x9F000000u) == 0x10000000u) return true;
 
         return false;
@@ -270,7 +266,7 @@ namespace tools::hook
                 const uint32_t actual = site_hash(target);
                 if (actual != specs[i].siteHash)
                 {
-                    // Offsets drifted for this build: skip instead of corrupting.
+
                     continue;
                 }
             }

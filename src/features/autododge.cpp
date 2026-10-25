@@ -7,6 +7,7 @@
 #include "../core/commands.hpp"
 #include "../core/functions.hpp"
 #include "../core/offsets.hpp"
+#include "../../tools/memory.hpp"
 #include "../core/scan.hpp"
 #include "../utils/walls.hpp"
 
@@ -334,10 +335,10 @@ namespace
             uint32_t valX = (uint32_t)tx;
             uint32_t valY = (uint32_t)ty;
             uint32_t valFlag = 1;
-            scanner::writeBytes(scan.ownCharacter + offsets::LogicCharacterClient_predictionX, &valX, 4);
-            scanner::writeBytes(scan.ownCharacter + offsets::LogicCharacterClient_predictionY, &valY, 4);
-            scanner::writeBytes(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags1, &valFlag, 4);
-            scanner::writeBytes(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags2, &valFlag, 4);
+            tools::memory::write(scan.ownCharacter + offsets::LogicCharacterClient_predictionX, &valX, 4);
+            tools::memory::write(scan.ownCharacter + offsets::LogicCharacterClient_predictionY, &valY, 4);
+            tools::memory::write(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags1, &valFlag, 4);
+            tools::memory::write(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags2, &valFlag, 4);
         }
 
         if (functions::LogicBattleModeClient_setClientPredictionMoveTo != nullptr)

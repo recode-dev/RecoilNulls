@@ -19,8 +19,9 @@
 namespace
 {
     constexpr uint32_t POLL_INTERVAL_MS = 500;
-    constexpr uint32_t POLL_LIMIT = 1200;      // ~10 minutes
-    constexpr uint32_t PUMP_MIN_GAP_MS = 4;    // <=250 fps of work
+    constexpr uint32_t POLL_LIMIT = 1200;
+    constexpr uint32_t PUMP_MIN_GAP_MS = 4;
+    constexpr uintptr_t ADDRESS_MIN = 0x100000000ULL;
 
     using SlotFn = uint64_t (*)(void *, uint64_t, uint64_t, uint64_t,
                                 uint64_t, uint64_t, uint64_t, uint64_t);
@@ -37,16 +38,14 @@ namespace
     {
         if (g_base == 0) return;
 
-        // Combat filter: state must be 5, otherwise nothing but the cheap read
-        // below ever runs.
-        if (scanner::getBattleMode() == 0) return;
+        const uintptr_t battle = scanner::getBattleMode();
+        if (battle == 0) return;
 
         const uint32_t now = scanner::nowMs();
         if (g_lastPump != 0 && (now - g_lastPump) < PUMP_MIN_GAP_MS) return;
         g_lastPump = now;
 
-        if (client == 0) client = scanner::getBattleMode();
-        if (client == 0) return;
+        if (client < ADDRESS_MIN) client = battle;
 
         if (client != g_lastBattle)
         {
@@ -64,7 +63,6 @@ namespace
         if (module::state::autododge) autododge::update(now);
     }
 
-    // Slot replacement for LogicBattleModeClient::update.
     uint64_t tick(void *self, uint64_t a1, uint64_t a2, uint64_t a3,
                   uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
     {
@@ -75,11 +73,11 @@ namespace
         return 0;
     }
 
-    // Fallback driver: the view's render pass, used when the update slot cannot
-    // be swapped on this build.
     void render_hook(id self, SEL cmd)
     {
-        pump_locked((uintptr_t)self);
+        (void)self;
+
+        pump_locked(0);
 
         if (g_origRender != nullptr) ((void (*)(id, SEL))g_origRender)(self, cmd);
     }
@@ -88,7 +86,7 @@ namespace
     {
         for (uint32_t tickIndex = 0; tickIndex < POLL_LIMIT; tickIndex++)
         {
-            const uintptr_t base = tools::image::base_named("nulls");
+            const uintptr_t base = tools::image::base_exact("Nulls Brawl");
 
             if (base != 0)
             {
@@ -113,11 +111,9 @@ bool module::install(uintptr_t base)
 
     scanner::init(base);
 
-    // Frame driver. Preferred: swap the battle client's update slot.
     g_origTick = reinterpret_cast<SlotFn>(
         tools::hook::install(base, offsets::LogicBattleModeClient_update, reinterpret_cast<void *>(&tick)));
 
-    // Fallback (and extra frame source): the ObjC view render pass.
     if (g_origTick == nullptr)
     {
         g_origRender = (IMP)tools::swizzle::install("NullView", "render", (void *)&render_hook);
@@ -133,30 +129,8 @@ bool module::install(uintptr_t base)
     return true;
 }
 
-bool module::is_installed()
-{
-    return g_installed;
-}
-
-uintptr_t module::base_address()
-{
-    return g_base;
-}
-
-void module::pump(uintptr_t client)
-{
-    pump_locked(client);
-}
-
-void module::pump()
-{
-    pump_locked(0);
-}
-
 __attribute__((constructor)) static void module_entry()
 {
-    // Never block the loader: the game image is not mapped yet at constructor
-    // time, so wait for it on a detached thread.
     pthread_t thread;
     if (pthread_create(&thread, nullptr, poll_thread, nullptr) == 0)
     {

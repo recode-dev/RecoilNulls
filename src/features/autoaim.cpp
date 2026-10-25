@@ -2,7 +2,6 @@
 #include <cstddef>
 #include <cstring>
 #include <cmath>
-#include <time.h>
 
 #include "../../tools/hook.hpp"
 #include "../../tools/memory.hpp"
@@ -90,14 +89,6 @@ namespace
     bool readFloat(uintptr_t address, float &out)
     {
         return readBytes(address, &out, sizeof(out));
-    }
-
-    uint32_t nowMs()
-    {
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-
-        return (uint32_t)((uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000));
     }
 
     float randomUnit()
@@ -332,7 +323,7 @@ namespace
 
     float ownProjectileSpeed()
     {
-        const uint32_t now = nowMs();
+        const uint32_t now = scanner::nowMs();
         if (now - g_speedAt < SPEED_REFRESH_MS) return g_projectileSpeed;
         g_speedAt = now;
 
@@ -361,7 +352,7 @@ namespace
 
     float ownRange(float speed)
     {
-        const uint32_t now = nowMs();
+        const uint32_t now = scanner::nowMs();
         const float fallback = speed * RANGE_FLIGHT_S * RANGE_MARGIN;
         if (now - g_rangeAt < SPEED_REFRESH_MS) return g_rangeCache > 0.0f ? g_rangeCache : fallback;
         g_rangeAt = now;
@@ -553,7 +544,6 @@ namespace
     SlotFn g_origClosestTarget = nullptr;
     SlotFn g_origActivateSkill = nullptr;
 
-    // Replaces the engine's target pick with ours once the original has run.
     uint64_t closest_target(void *self, uint64_t a1, uint64_t a2, uint64_t a3,
                             uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
     {
@@ -569,13 +559,12 @@ namespace
         return result;
     }
 
-    // Rewrites the aim coordinates before the engine casts.
     uint64_t activate_skill(void *self, uint64_t x, uint64_t y, uint64_t a3,
                             uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
     {
         Solution aim = {};
 
-        if (g_enabled && g_targetPtr != 0 && aimAt(nowMs(), aim))
+        if (g_enabled && g_targetPtr != 0 && aimAt(scanner::nowMs(), aim))
         {
             x = (uint64_t)(int64_t)aim.x;
             y = (uint64_t)(int64_t)aim.y;
@@ -621,7 +610,7 @@ void autoaim::updateAutoaim(bool enabled)
         return;
     }
 
-    const scanner::Enemy *pick = pickTarget(nowMs());
+    const scanner::Enemy *pick = pickTarget(scanner::nowMs());
     if (pick == nullptr)
     {
         clearTarget();
