@@ -2002,11 +2002,12 @@ void rcl_scan_world(void)
         ownData = rcl_addr_getdata ? rcl_call1(rcl_addr_getdata, own) : 0;
         if (rcl_pointer_plausible(ownData) && rcl_read_int(ownData, &probe))
         {
-            float radius = rcl_addr_charradius ? rcl_call1f(rcl_addr_charradius, ownData) : 0.0f;
-            float speed = rcl_addr_charspeed ? rcl_call1f(rcl_addr_charspeed, ownData) : 0.0f;
+            /* both getters return ints, not floats */
+            int32_t radius = rcl_addr_charradius ? rcl_call1i(rcl_addr_charradius, ownData) : 0;
+            int32_t speed = rcl_addr_charspeed ? rcl_call1i(rcl_addr_charspeed, ownData) : 0;
 
-            if (radius > 1.0f && radius < 4000.0f) rcl_own_r = radius;
-            if (speed > 1.0f && speed < 4000.0f) rcl_own_speed = speed;
+            if (radius >= 20 && radius <= 400) rcl_own_r = (float)radius;
+            if (speed >= 300 && speed <= 3000) rcl_own_speed = (float)speed;
         }
     }
 

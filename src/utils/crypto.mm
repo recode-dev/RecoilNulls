@@ -158,8 +158,8 @@ void rcl_ci_make_block(const uint8_t key16[16], const uint8_t mask16[16], uint8_
 }
 
 uint32_t rcl_ci_compute_token(const uint8_t key16[16], const uint8_t cmd16[16],
-                              const uint32_t *table, const uint8_t innerMask[16],
-                              const uint8_t outerMask[16])
+                              const uint32_t *table, uint32_t fallback,
+                              const uint8_t innerMask[16], const uint8_t outerMask[16])
 {
     uint8_t msg[0x14];
     uint8_t innerBuf[64 + 0x14];
@@ -173,14 +173,10 @@ uint32_t rcl_ci_compute_token(const uint8_t key16[16], const uint8_t cmd16[16],
     int i = 0;
     typeRaw = (uint32_t)cmd16[4] | ((uint32_t)cmd16[5] << 8) | ((uint32_t)cmd16[6] << 16) |
               ((uint32_t)cmd16[7] << 24);
-    typeC = (typeRaw <= 0x16) ? table[typeRaw] : (uint32_t)0xdeadbeef;
-    for (i = 0; i < 12; i++)
+    typeC = (typeRaw <= 0x16) ? table[typeRaw] : fallback;
+    for (i = 0; i < 16; i++)
     {
-        msg[i] = cmd16[4 + i];
-    }
-    for (i = 0; i < 4; i++)
-    {
-        msg[12 + i] = cmd16[i];
+        msg[i] = cmd16[i];
     }
     msg[16] = (uint8_t)(typeC);
     msg[17] = (uint8_t)(typeC >> 8);

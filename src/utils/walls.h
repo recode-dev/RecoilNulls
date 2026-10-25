@@ -24,6 +24,9 @@ int rcl_wall_cache_w(void);
 int rcl_wall_cache_h(void);
 
 int rcl_wall_build(void);
+void rcl_wall_bind(uintptr_t tileMap);
+int rcl_walls_near(float x, float y, float radius, float *out, int max);
+int rcl_wall_ready(void);
 int rcl_wall_maybe_refresh(uint64_t now_ms);
 int rcl_wall_is_blocked_at(float x, float y, int mask);
 int rcl_wall_is_blocked_wide(float x, float y, float r, int mask);

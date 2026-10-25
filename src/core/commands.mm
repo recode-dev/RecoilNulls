@@ -11,6 +11,8 @@
 
 static uint32_t rcl_ci_table[RCL_CI_TABLE_TYPES];
 
+static uint32_t rcl_ci_fallback = 0;
+
 static uint8_t rcl_ci_inner[0x10];
 
 static uint8_t rcl_ci_outer[0x10];
@@ -37,6 +39,10 @@ int rcl_ci_load_constants(void)
         {
             return 0;
         }
+    }
+    if (!rcl_read_bytes(rcl_base + RCL_CI_TYPE_FALLBACK_RVA, &rcl_ci_fallback, sizeof(uint32_t)))
+    {
+        return 0;
     }
     if (!rcl_read_bytes(rcl_base + RCL_CI_HASH_INNER_MASK_RVA, rcl_ci_inner, 0x10))
     {
@@ -81,7 +87,7 @@ uint32_t rcl_ci_sign(void *ci, void *battle)
     {
         return 0;
     }
-    token = rcl_ci_compute_token(key, cmd, rcl_ci_table, rcl_ci_inner, rcl_ci_outer);
+    token = rcl_ci_compute_token(key, cmd, rcl_ci_table, rcl_ci_fallback, rcl_ci_inner, rcl_ci_outer);
     if (!rcl_write_bytes((uintptr_t)ci + RCL_CI_TOKEN_OFF, &token, sizeof(token)))
     {
         return 0;

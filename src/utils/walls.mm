@@ -74,6 +74,89 @@ int rcl_wall_cache_h(void)
     return rcl_wall_h;
 }
 
+void rcl_wall_bind(uintptr_t tileMap)
+{
+    void *tiles = nullptr;
+    int32_t w = 0;
+    int32_t h = 0;
+
+    if (!tileMap)
+    {
+        return;
+    }
+    if (!rcl_read_int(tileMap + (uintptr_t)RCL_TILEMAP_W_OFF, &w) || w <= 0 ||
+        w > RCL_WALL_MAX_MAP_TILES)
+    {
+        return;
+    }
+    if (!rcl_read_int(tileMap + (uintptr_t)RCL_TILEMAP_H_OFF, &h) || h <= 0 ||
+        h > RCL_WALL_MAX_MAP_TILES)
+    {
+        return;
+    }
+    if (!rcl_read_ptr(tileMap + (uintptr_t)RCL_TILEMAP_ARRAY_OFF, &tiles) || !tiles)
+    {
+        return;
+    }
+    if ((uintptr_t)tiles != rcl_tiles || w != rcl_w || h != rcl_h)
+    {
+        rcl_tiles = (uintptr_t)tiles;
+        rcl_w = w;
+        rcl_h = h;
+        rcl_wall_dirty = 1;
+        rcl_wall_have = 0;
+    }
+}
+
+int rcl_wall_ready(void)
+{
+    return rcl_wall_have;
+}
+
+int rcl_walls_near(float x, float y, float radius, float *out, int max)
+{
+    int x0 = 0;
+    int y0 = 0;
+    int x1 = 0;
+    int y1 = 0;
+    int n = 0;
+    int tx = 0;
+    int ty = 0;
+
+    if (!rcl_wall_have || !out || max <= 0)
+    {
+        return 0;
+    }
+
+    x0 = (int)((x - radius) / RCL_WALL_TILE_SIZE);
+    y0 = (int)((y - radius) / RCL_WALL_TILE_SIZE);
+    x1 = (int)((x + radius) / RCL_WALL_TILE_SIZE);
+    y1 = (int)((y + radius) / RCL_WALL_TILE_SIZE);
+
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 >= rcl_wall_w) x1 = rcl_wall_w - 1;
+    if (y1 >= rcl_wall_h) y1 = rcl_wall_h - 1;
+
+    for (ty = y0; ty <= y1 && n < max; ty++)
+    {
+        for (tx = x0; tx <= x1 && n < max; tx++)
+        {
+            if (!(rcl_wall_grid[ty * rcl_wall_w + tx] & RCL_WALL_BLOCKS_MOVEMENT))
+            {
+                continue;
+            }
+            out[n * 4 + 0] = (float)tx * RCL_WALL_TILE_SIZE;
+            out[n * 4 + 1] = (float)ty * RCL_WALL_TILE_SIZE;
+            out[n * 4 + 2] = RCL_WALL_TILE_SIZE;
+            out[n * 4 + 3] = RCL_WALL_TILE_SIZE;
+            n++;
+        }
+    }
+
+    return n;
+}
+
 int rcl_wall_build(void)
 {
     int width = 0;
