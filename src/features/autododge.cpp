@@ -310,6 +310,52 @@ namespace
         }
         return raw;
     }
+
+    void writeMoveInput(uintptr_t clientInput, uintptr_t, void *ctx)
+    {
+        const MoveInput *input = static_cast<const MoveInput *>(ctx);
+        *(int32_t *)(clientInput + offsets::ClientInput_x) = input->x;
+        *(int32_t *)(clientInput + offsets::ClientInput_y) = input->y;
+    }
+
+    bool sendMove(uintptr_t logic, int32_t tx, int32_t ty)
+    {
+        const scanner::ScannerData &scan = scanner::data();
+        const uintptr_t own = scan.ownCharacter;
+
+        if (own != 0)
+        {
+            uint32_t moveX = (uint32_t)tx;
+            uint32_t moveY = (uint32_t)ty;
+            uint32_t moving = 1;
+            uint32_t idle = 0;
+
+            tools::memory::write(own + offsets::LogicCharacterClient_predictionX, &moveX, 4);
+            tools::memory::write(own + offsets::LogicCharacterClient_predictionY, &moveY, 4);
+            tools::memory::write(own + offsets::LogicCharacterClient_predictionFlags1, &moving, 4);
+            tools::memory::write(own + offsets::LogicCharacterClient_predictionFlags2, &idle, 4);
+
+            if (functions::LogicBattleModeClient_setClientPredictionMoveTo != nullptr)
+            {
+                functions::LogicBattleModeClient_setClientPredictionMoveTo(own, tx, ty, 1);
+                return true;
+            }
+        }
+
+        if (logic == 0) return false;
+
+        MoveInput input;
+        input.x = tx;
+        input.y = ty;
+        return sendCommand(MOVE_INPUT_TYPE, writeMoveInput, &input);
+    }
+
+    void clearHeading()
+    {
+        g_heading.valid = false;
+        g_headingIdx = -1;
+        g_holdUntil = 0;
+    }
 }
 
 void autododge::setup()
