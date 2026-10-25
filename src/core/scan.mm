@@ -300,7 +300,7 @@ uintptr_t rcl_callable(uintptr_t rva)
         return 0;
     }
     uintptr_t address = rcl_base + rva;
-    if (!rcl_addr_executable(address))
+    if (address < rcl_base || address >= rcl_base + 0x2000000ULL)
     {
         return 0;
     }
@@ -2075,6 +2075,16 @@ static uintptr_t rcl_call1(uintptr_t fn, uintptr_t self)
     return ((rcl_fn1)fn)(self);
 }
 
+static uintptr_t rcl_call0(uintptr_t fn)
+{
+    if (!fn)
+    {
+        return 0;
+    }
+
+    return ((rcl_fn1)fn)(0);
+}
+
 static int32_t rcl_call1i(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self) return 0;
@@ -2152,63 +2162,222 @@ static void rcl_proj_store(uintptr_t elem, uintptr_t data, int32_t team, int32_t
 }
 
 
-static uintptr_t rcl_mgr_from_chain(uintptr_t client)
+static int rcl_mgr_plausible(uintptr_t manager)
+{
+    void *array = nullptr;
+    int32_t count = 0;
+    int good = 0;
+    int i;
+
+    if (!manager)
+    {
+        return 0;
+    }
+    if (!rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &array) || !array)
+    {
+        return 0;
+    }
+    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count <= 0)
+    {
+        return 0;
+    }
+    for (i = 0; i < count && i < 8; i++)
+    {
+        void *element = nullptr;
+        void *vtable = nullptr;
+        uintptr_t rva = 0;
+
+        if (!rcl_read_ptr((uintptr_t)array + (uintptr_t)i * 8ULL, &element) || !element)
+        {
+            continue;
+        }
+        if (!rcl_read_ptr((uintptr_t)element, &vtable) || !vtable)
+        {
+            continue;
+        }
+        rva = (uintptr_t)vtable - rcl_base;
+        if ((rva >= RCL_DC_RVA_LO && rva < RCL_DC_RVA_LO + RCL_DC_RVA_SIZE) ||
+            rva == (uintptr_t)RCL_CLASS_PROJ_RVA)
+        {
+            good++;
+        }
+    }
+
+    return good;
+}
+
+static uintptr_t rcl_mgr_from_chain(uintptr_t base)
 {
     uintptr_t candidates[3];
-    int32_t state = -1;
     int best = -1;
-    int bestScore = -1;
+    int bestGood = 0;
     int i;
     void *value = nullptr;
 
-    if (!client)
+    if (!base)
     {
         return 0;
     }
 
-    candidates[0] = client;
+    candidates[0] = base;
     candidates[1] = 0;
     candidates[2] = 0;
 
-    if (rcl_read_ptr(client + RCL_CLIENT_HOP_OFF, &value) && value)
+    if (rcl_read_ptr(base + RCL_MODE_MANAGER_OFF, &value) && value)
     {
         candidates[1] = (uintptr_t)value;
     }
-    if (rcl_read_ptr(client + RCL_MGR_OFF, &value) && value)
+    if (rcl_read_ptr(base + RCL_MGR_OFF, &value) && value)
     {
         candidates[2] = (uintptr_t)value;
     }
 
     for (i = 0; i < 3; i++)
     {
-        uintptr_t array = 0;
-        int32_t count = 0;
-        int32_t cap = 0;
-        int score = 0;
+        int good = rcl_mgr_plausible(candidates[i]);
 
-        if (!candidates[i])
+        if (good > bestGood)
         {
-            continue;
-        }
-        if (!rcl_container_header(candidates[i], &array, &count, &cap))
-        {
-            continue;
-        }
-        if (count <= 0 || count > RCL_COUNT_MAX)
-        {
-            continue;
-        }
-        score = rcl_container_score(candidates[i]);
-        if (score > bestScore)
-        {
-            bestScore = score;
+            bestGood = good;
             best = i;
         }
     }
 
-    (void)state;
-
     return (best >= 0) ? candidates[best] : 0;
+}
+
+
+static uintptr_t rcl_own_this_cached = 0;
+
+static int rcl_own_index_from_this(uintptr_t self, int32_t *idxOut, int32_t *teamOut)
+{
+    int32_t idx = -1;
+    int32_t team = -1;
+
+    if (idxOut)
+    {
+        *idxOut = -1;
+    }
+    if (teamOut)
+    {
+        *teamOut = -1;
+    }
+    if (!self)
+    {
+        return 0;
+    }
+    if (rcl_addr_getownidx)
+    {
+        idx = rcl_call1i(rcl_addr_getownidx, self);
+    }
+    if (rcl_addr_getteam)
+    {
+        team = rcl_call1i(rcl_addr_getteam, self);
+    }
+    if (idx < 0 || idx > 63)
+    {
+        return 0;
+    }
+    if (team < -1 || team > 15)
+    {
+        team = -1;
+    }
+    if (idxOut)
+    {
+        *idxOut = idx;
+    }
+    if (teamOut)
+    {
+        *teamOut = team;
+    }
+
+    return 1;
+}
+
+int rcl_own_by_owner(const rcl_obj_t *objects, int usable, int *indexOut, const char **fromOut)
+{
+    uintptr_t candidates[3];
+    void *value = nullptr;
+    int c;
+    int i;
+
+    if (indexOut)
+    {
+        *indexOut = -1;
+    }
+    if (fromOut)
+    {
+        *fromOut = "none";
+    }
+    if (!objects || usable <= 0)
+    {
+        return 0;
+    }
+
+    candidates[0] = rcl_own_this_cached;
+    candidates[1] = rcl_scene_object;
+    candidates[2] = 0;
+
+    if (rcl_scene_object && rcl_read_ptr(rcl_scene_object + RCL_CLIENT_OFF, &value) && value)
+    {
+        candidates[2] = (uintptr_t)value;
+    }
+
+    for (c = 0; c < 3; c++)
+    {
+        int32_t idx = -1;
+        int32_t team = -1;
+        int hits = 0;
+        int last = -1;
+
+        if (!candidates[c])
+        {
+            continue;
+        }
+        if (!rcl_own_index_from_this(candidates[c], &idx, &team))
+        {
+            continue;
+        }
+
+        for (i = 0; i < usable; i++)
+        {
+            if (objects[i].ownerIndex != idx)
+            {
+                continue;
+            }
+            if (team >= 0 && objects[i].teamOld >= 0 && objects[i].teamOld != team &&
+                objects[i].teamNew >= 0 && objects[i].teamNew != team)
+            {
+                continue;
+            }
+            hits++;
+            last = i;
+        }
+
+        if (hits == 1 && last >= 0)
+        {
+            rcl_own_this_cached = candidates[c];
+            rcl_own_index = idx;
+
+            if (team >= 0)
+            {
+                rcl_own_team_b = team;
+                rcl_own_team_seen = 1;
+            }
+            if (indexOut)
+            {
+                *indexOut = last;
+            }
+            if (fromOut)
+            {
+                *fromOut = "owner-index";
+            }
+
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 uintptr_t rcl_manager_auto(void)
@@ -2220,16 +2389,17 @@ uintptr_t rcl_manager_auto(void)
     uintptr_t found = 0;
     int32_t state = -1;
 
-    if (rcl_manager_ptr)
+    if (rcl_manager_ptr && rcl_mgr_plausible(rcl_manager_ptr) > 0)
     {
-        uintptr_t array = 0;
-        int32_t count = 0;
-        int32_t cap = 0;
+        return rcl_manager_ptr;
+    }
 
-        if (rcl_container_header(rcl_manager_ptr, &array, &count, &cap) && count > 0 &&
-            count <= RCL_COUNT_MAX)
+    if (rcl_addr_getinstance)
+    {
+        scene = rcl_call0(rcl_addr_getinstance);
+        if (scene && !rcl_pointer_plausible(scene))
         {
-            return rcl_manager_ptr;
+            scene = 0;
         }
     }
 
@@ -2238,7 +2408,10 @@ uintptr_t rcl_manager_auto(void)
     if (slot && rcl_read_int(slot + RCL_STATE_ENUM_OFF, &state) && state == 5 &&
         rcl_read_ptr(slot + RCL_SCENE_OFF, &value) && value)
     {
-        scene = (uintptr_t)value;
+        if (!scene)
+        {
+            scene = (uintptr_t)value;
+        }
     }
     if (!scene && rcl_scene_object)
     {
@@ -2253,7 +2426,7 @@ uintptr_t rcl_manager_auto(void)
             client = (uintptr_t)value;
             found = rcl_mgr_from_chain(client);
         }
-        if (!found && rcl_read_ptr(scene + RCL_MODE_MANAGER_OFF, &value) && value)
+        if (!found && rcl_read_ptr(scene + RCL_MGR_OFF, &value) && value)
         {
             found = rcl_mgr_from_chain((uintptr_t)value);
         }
@@ -2283,6 +2456,73 @@ uintptr_t rcl_manager_auto(void)
     }
 
     return found;
+}
+
+
+static uintptr_t rcl_mgr_offset = 0;
+
+static int rcl_mgr_probe(uintptr_t manager, uintptr_t *arrayOut, int32_t *countOut)
+{
+    void *raw = nullptr;
+    int32_t count = 0;
+    int good = 0;
+    int i = 0;
+
+    if (!rcl_pointer_plausible(manager)) return 0;
+    if (!rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &raw) || !raw) return 0;
+    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count < 1 || count > 1200) return 0;
+
+    for (i = 0; i < count && i < 12; i++)
+    {
+        void *element = nullptr;
+        uintptr_t vtable = 0;
+
+        if (!rcl_read_ptr((uintptr_t)raw + (uintptr_t)i * 8ULL, &element) || !element) continue;
+        if (!rcl_read_ptr((uintptr_t)element, &vtable) || !vtable) continue;
+        if (vtable < rcl_base || vtable >= rcl_base + 0x2000000ULL) continue;
+        good++;
+    }
+    if (good < 2) return 0;
+
+    *arrayOut = (uintptr_t)raw;
+    *countOut = count;
+    return 1;
+}
+
+static int rcl_mgr_find(uintptr_t client, uintptr_t scene, uintptr_t *arrayOut, int32_t *countOut)
+{
+    uintptr_t bases[2];
+    unsigned long long offsets[3];
+    int b = 0;
+    int o = 0;
+
+    bases[0] = client;
+    bases[1] = scene;
+    offsets[0] = RCL_MGR_OFF;
+    offsets[1] = RCL_MGR_OFF + 0x30;
+    offsets[2] = 0;
+
+    for (b = 0; b < 2; b++)
+    {
+        void *raw = nullptr;
+
+        if (!bases[b]) continue;
+        if (rcl_read_ptr(bases[b] + RCL_MGR_OFF, &raw) && raw && rcl_mgr_probe((uintptr_t)raw, arrayOut, countOut))
+        {
+            rcl_mgr_offset = RCL_MGR_OFF;
+            return 1;
+        }
+        for (o = 0; o < 0x300; o += 8)
+        {
+            if (!rcl_read_ptr(bases[b] + (uintptr_t)o, &raw) || !raw) continue;
+            if (!rcl_mgr_probe((uintptr_t)raw, arrayOut, countOut)) continue;
+            rcl_mgr_offset = (uintptr_t)o;
+            return 1;
+        }
+    }
+    (void)offsets;
+
+    return 0;
 }
 
 void rcl_scan_world(void)
@@ -2356,7 +2596,12 @@ void rcl_scan_world(void)
     if (!rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) || !value) return;
     array = (uintptr_t)value;
 
-    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count <= 0 || count > RCL_COUNT_MAX) return;
+    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count <= 0) return;
+
+    if (count > RCL_COUNT_MAX)
+    {
+        count = RCL_COUNT_MAX;
+    }
 
     projectileVtable = rcl_base + RCL_VTABLE_PROJ_DATA_RVA;
 

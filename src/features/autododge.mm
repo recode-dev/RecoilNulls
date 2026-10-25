@@ -1441,7 +1441,8 @@ void rcl_autododge(void)
     rcl_own_scan();
 
     if (!rcl_own_latch(objects, usable, &ownIndex, &ownFrom) &&
-        !rcl_resolve_own(objects, usable, &ownIndex, &ownFrom))
+        !rcl_resolve_own(objects, usable, &ownIndex, &ownFrom) &&
+        !rcl_own_by_owner(objects, usable, &ownIndex, &ownFrom))
     {
         return;
     }
