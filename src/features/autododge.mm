@@ -1403,6 +1403,36 @@ static int rcl_ad_update(float mx, float my)
 
 void rcl_autododge(void)
 {
+    if (rcl_base && rcl_own_elem && rcl_manager_ptr)
+    {
+        int ownX = 0;
+        int ownY = 0;
+
+        rcl_read_int(rcl_own_elem + (uintptr_t)RCL_OBJ_X_OFF, &ownX);
+        rcl_read_int(rcl_own_elem + (uintptr_t)RCL_OBJ_Y_OFF, &ownY);
+
+        rcl_own_elem_2 = rcl_own_elem;
+        rcl_own_team_a = rcl_own_team_b;
+
+        if (rcl_dead)
+        {
+            rcl_bdc_forget();
+            return;
+        }
+
+        rcl_alive(ownX, ownY);
+
+        if (rcl_life(rcl_own_elem, ownX, ownY))
+        {
+            rcl_bdc_forget();
+            return;
+        }
+
+        rcl_active = rcl_ad_update((float)ownX, (float)ownY);
+
+        return;
+    }
+
     rcl_paircal();
 
     rcl_obj_t objects[64];
