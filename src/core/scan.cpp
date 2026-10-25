@@ -99,10 +99,8 @@ namespace
 
     uint8_t g_batch[MAX_OBJECTS * 8];
 
-    bool g_hpSane = false;
     bool g_wasDead = false;
     bool g_hasSeenPos = false;
-    int32_t g_hpZeroStreak = 0;
     int32_t g_lastSeenX = 0;
     int32_t g_lastSeenY = 0;
     uint32_t g_scanCount = 0;
@@ -225,15 +223,6 @@ namespace
         return value;
     }
 
-    int32_t hpOf(uintptr_t obj)
-    {
-        if (obj == 0) return -1;
-        uint32_t raw = 0;
-        if (!readU32(obj + offsets::GameObj_hp, raw)) return -1;
-        const int32_t value = (int32_t)raw;
-        if (value > 200000) return -1;
-        return value;
-    }
 
     int32_t readObjectTeam(uintptr_t obj)
     {
@@ -521,10 +510,8 @@ void scanner::reset()
     g_friendlyCount = 0;
     g_teamOfIndexCount = 0;
     g_enemyTeamCount = 0;
-    g_hpSane = false;
     g_wasDead = false;
     g_hasSeenPos = false;
-    g_hpZeroStreak = 0;
     g_lastSeenX = 0;
     g_lastSeenY = 0;
     g_scanCount = 0;
@@ -733,36 +720,17 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
     g_data.mySpeed = DEFAULT_MOVE_SPEED;
     g_data.myRadius = DEFAULT_RADIUS;
 
-    int32_t hp = hpOf(own);
-    if (self != own)
-    {
-        const int32_t bodyHp = hpOf(self);
-        if (bodyHp > 0 || hp <= 0) hp = bodyHp;
-    }
+    uint8_t ownDead = 0;
+    const bool deadKnown = readU8(own + offsets::GameObj_deadFlag, ownDead);
+    const bool alive = deadKnown ? (ownDead & 1) == 0 : true;
 
-    if (hp > 0) g_hpSane = true;
-
-    bool wentDead = false;
-    if (g_hpSane && hp == 0)
-    {
-        const int32_t jx = g_hasSeenPos ? g_data.myX - g_lastSeenX : 0;
-        const int32_t jy = g_hasSeenPos ? g_data.myY - g_lastSeenY : 0;
-        if (jx * jx + jy * jy > 400) g_hpZeroStreak = 0;
-        else g_hpZeroStreak++;
-        wentDead = g_hpZeroStreak >= 2;
-    }
-    else
-    {
-        g_hpZeroStreak = 0;
-    }
-
-    g_data.myHp = hp > 0 ? hp : 0;
+    g_data.myHp = alive ? 1 : 0;
     g_lastSeenX = g_data.myX;
     g_lastSeenY = g_data.myY;
     g_hasSeenPos = true;
 
-    if (wentDead) markDead();
-    else markAlive(nowMs);
+    if (alive) markAlive(nowMs);
+    else markDead();
 
     int32_t enemyCount = 0;
 
