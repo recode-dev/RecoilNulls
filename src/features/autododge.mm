@@ -308,23 +308,6 @@ static void rcl_ad_fade_vel(const rcl_ad_hazard_t *h, float dt, float *vxOut, fl
     *vyOut = vy;
 }
 
-static int rcl_ad_in_aware(const rcl_ad_hazard_t *h, float mx, float my, float zoneSq)
-{
-    float dx;
-    float dy;
-
-    if (h->has_segment)
-    {
-        float d = rcl_ad_seg_dist(mx, my, h->ax, h->ay, h->bx, h->by);
-
-        return d * d <= zoneSq;
-    }
-
-    dx = h->x - mx;
-    dy = h->y - my;
-
-    return dx * dx + dy * dy <= zoneSq;
-}
 
 static float rcl_ad_kind_reach(const rcl_proj_t *p, float spd)
 {
