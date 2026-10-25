@@ -24,7 +24,6 @@ namespace
     constexpr size_t MAX_HARVESTED = 32;
     constexpr size_t MAX_INDICES = 16;
     constexpr size_t MAX_TEAMS = 16;
-    constexpr int32_t TEAM_LIMIT = 15;
 
     struct NameEntry
     {
