@@ -257,31 +257,6 @@ static int rcl_ad_my_shot(const rcl_proj_t *p, float mx, float my, float bodyR)
     return dNow > dSpawn;
 }
 
-static float rcl_ad_seg_dist(float px, float py, float ax, float ay, float bx, float by)
-{
-    float dx = bx - ax;
-    float dy = by - ay;
-    float len_sq = dx * dx + dy * dy;
-    float t;
-    float cx;
-    float cy;
-
-    t = len_sq < 0.000001f ? 0.0f : ((px - ax) * dx + (py - ay) * dy) / len_sq;
-
-    if (t < 0.0f)
-    {
-        t = 0.0f;
-    }
-    else if (t > 1.0f)
-    {
-        t = 1.0f;
-    }
-
-    cx = px - (ax + dx * t);
-    cy = py - (ay + dy * t);
-
-    return sqrtf(cx * cx + cy * cy);
-}
 
 static void rcl_ad_fade_vel(const rcl_ad_hazard_t *h, float dt, float *vxOut, float *vyOut)
 {
