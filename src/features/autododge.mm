@@ -32,9 +32,9 @@ namespace bs {
 
 constexpr double TICK_HZ      = 20.0;
 constexpr double DT           = 1.0 / TICK_HZ;
-constexpr double TILE_UNITS   = 300.0;
+[[maybe_unused]] constexpr double TILE_UNITS   = 300.0;
 constexpr double HITBOX_STD   = 120.0;
-constexpr double HITBOX_LARGE = 145.0;
+[[maybe_unused]] constexpr double HITBOX_LARGE = 145.0;
 constexpr double JOY_DEADZONE = 0.06;
 constexpr double INF          = std::numeric_limits<double>::infinity();
 

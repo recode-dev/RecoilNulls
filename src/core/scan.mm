@@ -1871,12 +1871,6 @@ static int32_t rcl_call1i(uintptr_t fn, uintptr_t self)
     return ((rcl_fn1i)fn)(self);
 }
 
-static float rcl_call1f(uintptr_t fn, uintptr_t self)
-{
-    if (!fn || !self) return 0.0f;
-
-    return ((rcl_fn1f)fn)(self);
-}
 
 
 
