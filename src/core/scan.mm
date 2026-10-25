@@ -839,6 +839,8 @@ uintptr_t rcl_manager_ptr = 0;
 uint64_t rcl_ticks_a = 0;
 
 float rcl_own_speed = 720.0f;
+
+float rcl_own_r = 0.0f;
 uint32_t rcl_own_hp = 0;
 
 int rcl_collect(uintptr_t manager, rcl_obj_t *out, int capacity)
