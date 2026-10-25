@@ -457,7 +457,7 @@ namespace
         const scanner::ScannerData &data = scanner::data();
         const int32_t myTeam = data.myTeamId;
         const float mx = (float)data.myX;
-        const float myY = (float)data.myY;
+        const float my = (float)data.myY;
         const float speed = ownProjectileSpeed();
         const float range = ownRange(speed);
 
