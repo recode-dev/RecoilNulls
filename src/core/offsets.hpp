@@ -16,11 +16,11 @@ namespace offsets
     inline constexpr uintptr_t AppState_state                                   = 0x50;
     inline constexpr uintptr_t AppState_scene                                   = 0x48;
     inline constexpr uintptr_t Scene_client                                     = 0x28;
-    inline constexpr uintptr_t Client_objects                                   = 0x1c;
+    inline constexpr uintptr_t Client_objects                                   = 0x28;
     inline constexpr uintptr_t Client_ownIndex                                  = 0xe0;
     inline constexpr uintptr_t Client_ownTeam                                   = 0xe4;
 
-    inline constexpr uintptr_t ObjectManager_objectsArray                       = 0x0;
+    inline constexpr uintptr_t ObjectManager_objectsArray                       = 0x18;
     inline constexpr uintptr_t ObjectManager_count                              = 0xc;
     inline constexpr uintptr_t ObjectManager_ptrStride                          = 0x8;
 

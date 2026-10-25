@@ -22,10 +22,7 @@ namespace
     bool bind(T &slot, uintptr_t offset)
     {
         if (g_base == 0 || offset == 0) return false;
-        const uintptr_t target = g_base + offset;
-        uint32_t probe = 0;
-        if (!readBytes(target, &probe, sizeof(probe))) return false;
-        slot = reinterpret_cast<T>(target);
+        slot = reinterpret_cast<T>(g_base + offset);
         return true;
     }
 }
