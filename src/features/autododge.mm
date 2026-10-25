@@ -61,6 +61,28 @@ static const float AD_MIN_POS = 50.0f;
 static const float AD_DEFAULT_SPEED = 720.0f;
 static const float AD_DEFAULT_RADIUS = 60.0f;
 
+typedef struct
+{
+    uintptr_t elem;
+    int32_t x;
+    int32_t y;
+    int32_t px;
+    int32_t py;
+    int32_t spawnX;
+    int32_t spawnY;
+    int32_t gid;
+    int32_t team;
+    uint64_t ms;
+    uint64_t pms;
+    int hasPrev;
+    float vx;
+    float vy;
+} ad_track_t;
+
+static ad_track_t g_track[AD_MAX_THREATS];
+static uintptr_t g_client = 0;
+static uintptr_t g_manager = 0;
+
 static ad_dir_t g_ring[AD_DIR_MAX];
 static int g_dirCount = 0;
 static int g_hasHeading = 0;
@@ -113,22 +135,241 @@ static void ad_clearHeading(void)
     g_holdUntil = 0;
 }
 
-static float ad_ballR(const rcl_proj_t *p)
+static uintptr_t ad_read_ptr(uintptr_t addr)
 {
-    return p->radius > 0.0f ? p->radius : 100.0f;
+    void *value = nullptr;
+
+    if (!rcl_read_ptr(addr, &value))
+    {
+        return 0;
+    }
+
+    return (uintptr_t)value;
 }
 
-static float ad_traveled(const rcl_proj_t *p)
+static int ad_valid_elem(uintptr_t elem)
 {
-    return ad_hypot((float)p->x - (float)p->spawnX, (float)p->y - (float)p->spawnY);
+    int32_t gid = 0;
+
+    if (!rcl_pointer_plausible(elem))
+    {
+        return 0;
+    }
+
+    gid = rcl_gid(elem, nullptr);
+
+    return gid > 0 && gid < 100000000;
 }
 
-static float ad_lifeLeft(const rcl_proj_t *p)
+static void ad_sync(uint64_t now)
 {
-    float maxRange = p->castRange > 0 ? (float)p->castRange : AD_RANGE_FALLBACK;
-    float left = maxRange - ad_traveled(p);
+    uintptr_t scene = 0;
+    uintptr_t client = 0;
+    uintptr_t manager = 0;
+    uintptr_t array = 0;
+    uintptr_t own = 0;
+    int32_t state = -1;
+    int32_t count = 0;
+    int32_t ownIndex = -1;
+    int32_t ownTeam = -1;
+    uint8_t dead = 0;
+    int seen[AD_MAX_THREATS];
+    int i = 0;
+    int k = 0;
 
-    return left > 0.0f ? left : 0.0f;
+    memset(seen, 0, sizeof(seen));
+
+    scene = rcl_scene_object;
+    if (!scene)
+    {
+        uintptr_t slot = (uintptr_t)rcl_read_global_ptr(RCL_STATE_RVA);
+
+        if (slot && rcl_read_int(slot + RCL_STATE_ENUM_OFF, &state) && state == 5)
+        {
+            scene = ad_read_ptr(slot + RCL_SCENE_OFF);
+        }
+    }
+    if (scene)
+    {
+        client = ad_read_ptr(scene + RCL_CLIENT_OFF);
+    }
+    if (!client && rcl_base)
+    {
+        uintptr_t mode = ((uintptr_t (*)(void))(rcl_base + RCL_GETBATTLE_RVA))();
+
+        if (rcl_pointer_plausible(mode))
+        {
+            client = mode;
+        }
+    }
+    if (!client)
+    {
+        return;
+    }
+
+    manager = ad_read_ptr(client + RCL_MGR_OFF);
+    if (!manager)
+    {
+        manager = ad_read_ptr(client + RCL_MODE_MANAGER_OFF);
+    }
+    if (!manager)
+    {
+        return;
+    }
+
+    array = ad_read_ptr(manager + RCL_MGR_ARRAY_OFF);
+    if (!array)
+    {
+        return;
+    }
+    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count <= 0 || count > 512)
+    {
+        return;
+    }
+
+    g_client = client;
+    g_manager = manager;
+
+    rcl_read_int(client + RCL_OWNIDX_OFF, &ownIndex);
+    if (rcl_read_int(client + RCL_OWNTEAM_OFF, &ownTeam) && ownTeam >= 0 && ownTeam <= 15)
+    {
+        rcl_own_team_b = ownTeam;
+    }
+
+    if (ownIndex >= 0 && ownIndex < count)
+    {
+        uintptr_t elem = ad_read_ptr(array + (uintptr_t)ownIndex * 8ULL);
+
+        if (elem && ad_valid_elem(elem))
+        {
+            own = elem;
+        }
+    }
+    if (!own)
+    {
+        for (i = 0; i < count && i < 512; i++)
+        {
+            uintptr_t elem = ad_read_ptr(array + (uintptr_t)i * 8ULL);
+            int32_t owner = -1;
+
+            if (!elem || !ad_valid_elem(elem))
+            {
+                continue;
+            }
+            if (!rcl_read_int(elem + RCL_OBJ_OWNERINDEX_OFF, &owner))
+            {
+                continue;
+            }
+            if (owner == ownIndex)
+            {
+                own = elem;
+                break;
+            }
+        }
+    }
+    if (!own)
+    {
+        return;
+    }
+
+    rcl_own_elem = own;
+    if (rcl_read_byte(own + (uintptr_t)RCL_OBJ_DEADFLAG_OFF, &dead))
+    {
+        rcl_dead = dead ? 1 : 0;
+    }
+
+    for (i = 0; i < count && i < 512; i++)
+    {
+        uintptr_t elem = ad_read_ptr(array + (uintptr_t)i * 8ULL);
+        int32_t gid = 0;
+        int32_t x = 0;
+        int32_t y = 0;
+        int32_t team = -1;
+        int slot = -1;
+
+        if (!elem || !rcl_pointer_plausible(elem))
+        {
+            continue;
+        }
+
+        gid = rcl_gid(elem, nullptr);
+        if (gid < 2000000)
+        {
+            continue;
+        }
+        if (!rcl_read_int(elem + RCL_OBJ_X_OFF, &x) || !rcl_read_int(elem + RCL_OBJ_Y_OFF, &y))
+        {
+            continue;
+        }
+        rcl_read_int(elem + RCL_OBJ_TEAM_OFF, &team);
+
+        for (k = 0; k < AD_MAX_THREATS; k++)
+        {
+            if (g_track[k].elem == elem && g_track[k].gid != 0)
+            {
+                slot = k;
+                break;
+            }
+        }
+        if (slot < 0)
+        {
+            for (k = 0; k < AD_MAX_THREATS; k++)
+            {
+                if (g_track[k].gid == 0)
+                {
+                    slot = k;
+                    break;
+                }
+            }
+        }
+        if (slot < 0)
+        {
+            continue;
+        }
+
+        if (g_track[slot].elem != elem || g_track[slot].gid == 0)
+        {
+            memset(&g_track[slot], 0, sizeof(g_track[slot]));
+            g_track[slot].elem = elem;
+            g_track[slot].spawnX = x;
+            g_track[slot].spawnY = y;
+            g_track[slot].px = x;
+            g_track[slot].py = y;
+            g_track[slot].pms = now;
+            g_track[slot].ms = now;
+            g_track[slot].hasPrev = 0;
+        }
+        else
+        {
+            g_track[slot].px = g_track[slot].x;
+            g_track[slot].py = g_track[slot].y;
+            g_track[slot].pms = g_track[slot].ms;
+            g_track[slot].ms = now;
+            g_track[slot].hasPrev = 1;
+
+            if (now > g_track[slot].pms)
+            {
+                float dt = (float)(now - g_track[slot].pms);
+
+                g_track[slot].vx = (float)(x - g_track[slot].px) * 1000.0f / dt;
+                g_track[slot].vy = (float)(y - g_track[slot].py) * 1000.0f / dt;
+            }
+        }
+
+        g_track[slot].x = x;
+        g_track[slot].y = y;
+        g_track[slot].gid = gid;
+        g_track[slot].team = team;
+        seen[slot] = 1;
+    }
+
+    for (i = 0; i < AD_MAX_THREATS; i++)
+    {
+        if (!seen[i])
+        {
+            g_track[i].gid = 0;
+        }
+    }
 }
 
 static int ad_collectLive(float myX, float myY, float myRadius, ad_threat_t *out, int cap)
@@ -138,24 +379,22 @@ static int ad_collectLive(float myX, float myY, float myRadius, ad_threat_t *out
     int count = 0;
     int i = 0;
 
-    for (i = 0; i < 16; i++)
+    for (i = 0; i < AD_MAX_THREATS; i++)
     {
-        const rcl_proj_t *p = &rcl_projs[i];
+        const ad_track_t *p = &g_track[i];
         float dx = 0.0f;
         float dy = 0.0f;
-        int indirect = 0;
         float vx = 0.0f;
         float vy = 0.0f;
         float spd = 0.0f;
-        int blob = 0;
-        float shotR = 0.0f;
+        float shotR = 100.0f;
         float rad = 0.0f;
         float ux = 0.0f;
         float uy = 0.0f;
-        int skipAlong = 0;
         float playerAlong = 0.0f;
         float left = 0.0f;
         float gap = 0.0f;
+        float traveled = 0.0f;
 
         if (!p->gid)
         {
@@ -173,27 +412,16 @@ static int ad_collectLive(float myX, float myY, float myRadius, ad_threat_t *out
             continue;
         }
 
-        indirect = p->isThrower != 0;
         vx = p->vx;
         vy = p->vy;
         spd = ad_hypot(vx, vy);
-        blob = !p->isBeam && !indirect && spd > 0.0f && spd < 1600.0f;
 
-        shotR = ad_ballR(p);
         rad = shotR + bodyR + AD_FIT_PAD + shotR * AD_FIT_GROW;
 
         if (spd >= 1.0f)
         {
             ux = vx / spd;
             uy = vy / spd;
-        }
-
-        skipAlong = blob || indirect;
-
-        if (!skipAlong && spd >= 1.0f)
-        {
-            float hitX = 0.0f;
-            float hitY = 0.0f;
 
             playerAlong = (myX - (float)p->x) * ux + (myY - (float)p->y) * uy;
             if (playerAlong < -50.0f)
@@ -201,16 +429,19 @@ static int ad_collectLive(float myX, float myY, float myRadius, ad_threat_t *out
                 continue;
             }
 
-            hitX = (float)p->x + ux * (playerAlong > 0.0f ? playerAlong : 0.0f);
-            hitY = (float)p->y + uy * (playerAlong > 0.0f ? playerAlong : 0.0f);
-
-            if (!rcl_wall_los((float)p->x, (float)p->y, hitX, hitY, RCL_WALL_BLOCKS_PROJECTILES))
             {
-                continue;
+                float hitX = (float)p->x + ux * (playerAlong > 0.0f ? playerAlong : 0.0f);
+                float hitY = (float)p->y + uy * (playerAlong > 0.0f ? playerAlong : 0.0f);
+
+                if (!rcl_wall_los((float)p->x, (float)p->y, hitX, hitY, RCL_WALL_BLOCKS_PROJECTILES))
+                {
+                    continue;
+                }
             }
         }
 
-        left = ad_lifeLeft(p);
+        traveled = ad_hypot((float)p->x - (float)p->spawnX, (float)p->y - (float)p->spawnY);
+        left = AD_RANGE_FALLBACK - traveled;
         if (left <= 10.0f)
         {
             continue;
@@ -222,15 +453,15 @@ static int ad_collectLive(float myX, float myY, float myRadius, ad_threat_t *out
             continue;
         }
 
-        if (!skipAlong && spd >= 1.0f && playerAlong > left + shotR)
+        if (spd >= 1.0f && playerAlong > left + shotR)
         {
             continue;
         }
 
         out[count].x = (float)p->x;
         out[count].y = (float)p->y;
-        out[count].vx = blob ? 0.0f : vx;
-        out[count].vy = blob ? 0.0f : vy;
+        out[count].vx = vx;
+        out[count].vy = vy;
         out[count].rad = rad;
         out[count].pathLen = left + shotR;
         out[count].left = left;
@@ -346,7 +577,7 @@ void rcl_autododge_reset(void)
 void rcl_autododge(void)
 {
     ad_threat_t hazards[AD_MAX_THREATS];
-    uintptr_t own = rcl_own_elem;
+    uintptr_t own = 0;
     uint64_t now = ad_now();
     uint64_t tickMs = 0;
     int32_t myXi = 0;
@@ -381,6 +612,16 @@ void rcl_autododge(void)
         ad_buildRing();
     }
 
+    tickMs = g_hasHeading ? AD_TICK_MS : AD_TICK_MS_IDLE;
+    if (now - g_lastTick < tickMs)
+    {
+        return;
+    }
+    g_lastTick = now;
+
+    ad_sync(now);
+    own = rcl_own_elem;
+
     if (!own || rcl_dead)
     {
         ad_clearHeading();
@@ -391,13 +632,6 @@ void rcl_autododge(void)
         g_lastOwn = own;
         ad_clearHeading();
     }
-
-    tickMs = g_hasHeading ? AD_TICK_MS : AD_TICK_MS_IDLE;
-    if (now - g_lastTick < tickMs)
-    {
-        return;
-    }
-    g_lastTick = now;
 
     if (!rcl_read_int(own + RCL_OBJ_X_OFF, &myXi) || !rcl_read_int(own + RCL_OBJ_Y_OFF, &myYi))
     {
