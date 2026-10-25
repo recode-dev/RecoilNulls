@@ -310,7 +310,7 @@ namespace
         }
         return raw;
     }
-
+}
 
 void autododge::setup()
 {

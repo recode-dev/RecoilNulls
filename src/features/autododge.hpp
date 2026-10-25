@@ -10,6 +10,8 @@ namespace autododge
         float reactionSpeed = 100.0f;
         int32_t directionPrecision = 48;
         int32_t safetyMargin = 25;
+        char ignoredBrawlers[16][24];
+        int32_t ignoredCount = 0;
     };
 
     void setup();

@@ -550,12 +550,9 @@ namespace
         for (size_t i = 0; i < MAX_LIVE; i++) g_live[i].used = false;
     }
 
-    void markDead(uint32_t now)
+    void markDead()
     {
-        if (!g_wasDead)
-        {
-            g_wasDead = true;
-        }
+        g_wasDead = true;
         g_data.myAlive = false;
         g_data.myHp = 0;
     }
@@ -859,7 +856,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 
     if (!tools::memory::plausible(own))
     {
-        markDead(nowMs);
+        markDead();
         g_data.ownCharacter = 0;
         g_data.battleModeClient = battleModeClient;
         g_data.myHp = 0;
@@ -964,7 +961,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
     g_lastSeenY = g_data.myY;
     g_hasSeenPos = true;
 
-    if (wentDead) markDead(nowMs);
+    if (wentDead) markDead();
     else markAlive(nowMs);
 
     int32_t enemyCount = 0;
