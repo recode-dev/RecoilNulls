@@ -590,6 +590,65 @@ static void rcl_bd_intent(float *ix, float *iy)
     rcl_bd_norm(rx, ry, ix, iy);
 }
 
+static float rcl_clampf(float value, float minimum, float maximum)
+{
+    if (value < minimum) return minimum;
+    if (value > maximum) return maximum;
+
+    return value;
+}
+
+static float rcl_lerpf(float start, float end, float fraction)
+{
+    return start + (end - start) * fraction;
+}
+
+static float rcl_distancef(float originX, float originY, float targetX, float targetY)
+{
+    float deltaX = targetX - originX;
+    float deltaY = targetY - originY;
+
+    return sqrtf(deltaX * deltaX + deltaY * deltaY);
+}
+
+static int rcl_swept_collision(float startX, float startY, float endX, float endY,
+                               float projStartX, float projStartY, float projEndX, float projEndY,
+                               float combinedRadius)
+{
+    float relativeX = startX - projStartX;
+    float relativeY = startY - projStartY;
+    float relativeVx = (endX - startX) - (projEndX - projStartX);
+    float relativeVy = (endY - startY) - (projEndY - projStartY);
+    float initialSeparation = relativeX * relativeX + relativeY * relativeY - combinedRadius * combinedRadius;
+    float relativeSpeedSquared = 0.0f;
+    float quadraticLinear = 0.0f;
+    float discriminant = 0.0f;
+    float sqrtDiscriminant = 0.0f;
+    float enterTime = 0.0f;
+    float exitTime = 0.0f;
+
+    if (initialSeparation <= 0.0f)
+    {
+        return 1;
+    }
+    relativeSpeedSquared = relativeVx * relativeVx + relativeVy * relativeVy;
+    if (relativeSpeedSquared == 0.0f)
+    {
+        return 0;
+    }
+    quadraticLinear = 2.0f * (relativeX * relativeVx + relativeY * relativeVy);
+    discriminant = quadraticLinear * quadraticLinear - 4.0f * relativeSpeedSquared * initialSeparation;
+    if (discriminant < 0.0f)
+    {
+        return 0;
+    }
+    sqrtDiscriminant = sqrtf(discriminant);
+    enterTime = (-quadraticLinear - sqrtDiscriminant) / (2.0f * relativeSpeedSquared);
+    exitTime = (-quadraticLinear + sqrtDiscriminant) / (2.0f * relativeSpeedSquared);
+
+    return !(exitTime < 0.0f || enterTime > 1.0f);
+}
+
 static int rcl_ad_impact_tick(const rcl_bd_threat_t *p, float mx, float my, float myR)
 {
     float r = myR + p->rad + RCL_BD_SAFETY_MARGIN * 2.5f;
@@ -610,17 +669,15 @@ static int rcl_ad_impact_tick(const rcl_bd_threat_t *p, float mx, float my, floa
 
     for (tick = 1; tick <= RCL_AD_MAX_TICKS; tick++)
     {
-        float travel = step * (float)tick;
-        float x = p->x + ux * travel;
-        float y = p->y + uy * travel;
-        float dx = mx - x;
-        float dy = my - y;
+        float fraction = (float)tick / (float)RCL_AD_MAX_TICKS;
+        float x = rcl_lerpf(p->x, p->x + ux * step * (float)RCL_AD_MAX_TICKS, fraction);
+        float y = rcl_lerpf(p->y, p->y + uy * step * (float)RCL_AD_MAX_TICKS, fraction);
 
         if (rcl_wall_is_blocked_at(x, y, RCL_WALL_BLOCKS_PROJECTILES))
         {
             return -1;
         }
-        if (dx * dx + dy * dy <= r * r)
+        if (rcl_distancef(x, y, mx, my) <= r)
         {
             return tick;
         }
@@ -694,16 +751,7 @@ static float rcl_ad_clamp_to_map(float v, int maxTiles)
     {
         return v;
     }
-    if (v < 0.0f)
-    {
-        return 0.0f;
-    }
-    if (v > maxV)
-    {
-        return maxV;
-    }
-
-    return v;
+    return rcl_clampf(v, 0.0f, maxV);
 }
 
 static void rcl_ad_clamp_target(float *tx, float *ty)
@@ -820,12 +868,31 @@ static float rcl_bdc_wall_cost(float mx, float my, float dx, float dy)
 static float rcl_bdc_score_dir(float dx, float dy, float mx, float my, float myR, float speed)
 {
     float score = 0.0f;
+    float stepLen = speed / RCL_AD_TICK_HZ;
+    float unitLen = sqrtf(dx * dx + dy * dy);
+    float endX = mx;
+    float endY = my;
     int i;
+
+    if (unitLen > 0.0f)
+    {
+        endX = mx + dx / unitLen * stepLen;
+        endY = my + dy / unitLen * stepLen;
+    }
 
     for (i = 0; i < rcl_bdc_sel_n; i++)
     {
         const rcl_bd_threat_t *p = &rcl_bd_threats[rcl_bdc_sel[i]];
         float r = myR + p->rad + RCL_BD_SAFETY_MARGIN;
+
+        if (rcl_swept_collision(mx, my, endX, endY,
+                                p->x, p->y,
+                                p->x + p->vx / RCL_AD_TICK_HZ,
+                                p->y + p->vy / RCL_AD_TICK_HZ,
+                                myR + p->rad))
+        {
+            return RCL_BDC_FAR;
+        }
         float vx = p->vx - dx * speed;
         float vy = p->vy - dy * speed;
         float px = p->x - mx;
