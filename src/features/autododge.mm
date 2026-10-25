@@ -79,11 +79,11 @@ static void rcl_dodge_speed_probe(void)
 #define RCL_AD_REACH 600.0f
 #define RCL_AD_WALL_BODY 240.0f
 #define RCL_AD_TICK_MS 16.0f
-#define RCL_AD_ENQUEUE_GAP_US 16000
 #define RCL_AD_FIT_PAD 0.0f
 #define RCL_AD_FIT_GROW 0.0f
 #define RCL_AD_RADIUS_FALLBACK 50.0f
 #define RCL_AD_TICK_MAX_MS 250.0f
+#define RCL_AD_NOMINAL_SPEED 3000.0f
 
 typedef struct
 {
@@ -399,6 +399,20 @@ static void rcl_ad_collect(float mx, float my, float myRadius, uint64_t nowMs)
             }
         }
 
+        if (vx == 0.0f && vy == 0.0f)
+        {
+            float hx = (float)(p->x - p->spawnX);
+            float hy = (float)(p->y - p->spawnY);
+            float hl = sqrtf(hx * hx + hy * hy);
+            float nominal = p->speed > 1.0f ? (float)p->speed : RCL_AD_NOMINAL_SPEED;
+
+            if (hl >= 1.0f)
+            {
+                vx = hx / hl * nominal;
+                vy = hy / hl * nominal;
+            }
+        }
+
         if (!rcl_ok(vx, -100000000.0f, 100000000.0f) || !rcl_ok(vy, -100000000.0f, 100000000.0f))
         {
             vx = 0.0f;
@@ -660,19 +674,9 @@ static void rcl_ad_clamp_target(float *tx, float *ty)
 
 static int rcl_ad_send_move(float tx, float ty, float mx, float my)
 {
-    static uint64_t lastEnqueue = 0;
-    uint64_t now = 0;
-
     rcl_ad_clamp_target(&tx, &ty);
 
     rcl_move_to((int32_t)tx, (int32_t)ty, mx, my);
-
-    now = rcl_us();
-    if (now && lastEnqueue && (now - lastEnqueue) < RCL_AD_ENQUEUE_GAP_US)
-    {
-        return 1;
-    }
-    lastEnqueue = now;
 
     return rcl_enqueue((int32_t)tx, (int32_t)ty);
 }

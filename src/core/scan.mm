@@ -2599,7 +2599,7 @@ void rcl_scan_world(void)
 
     for (i = 0; i < 16; i++)
     {
-        if (rcl_projs[i].team == rcl_own_team_b)
+        if (rcl_own_team_b >= 0 && rcl_projs[i].team >= 0 && rcl_projs[i].team == rcl_own_team_b)
         {
             rcl_projs[i].gid = 0;
         }
