@@ -127,7 +127,7 @@ static std::vector<V2> buildPath(const V2& start, double deg, int ticks,
     return p;
 }
 
-static V2 posAt(const std::vector<V2>& path, double t) {
+[[maybe_unused]] static V2 posAt(const std::vector<V2>& path, double t) {
     const int n = static_cast<int>(path.size());
     if (t <= 0.0) return path[0];
     if (t >= n - 1) return path[n - 1];
