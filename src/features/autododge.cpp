@@ -468,7 +468,7 @@ void autododge::update(uint32_t nowMs)
     const float myY = (float)scan.myY;
     if (fabsf(myX) < g_tune.MIN_POS && fabsf(myY) < g_tune.MIN_POS) return;
 
-    const float speed = scan.mySpeed > 0 ? (float)scan.mySpeed : 720.0f;
+    const float speed = scan.mySpeed > 0 ? (float)scan.mySpeed : FALLBACK_SPEED;
     const float myRadius = scan.myRadius > 0 ? (float)scan.myRadius : 60.0f;
     const float bodyRadius = myRadius + g_tune.SKIN;
 
