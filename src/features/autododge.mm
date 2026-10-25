@@ -376,6 +376,11 @@ void rcl_autododge(void)
 
     memset(&prevDir, 0, sizeof(prevDir));
 
+    if (g_dirCount == 0)
+    {
+        ad_buildRing();
+    }
+
     if (!own || rcl_dead)
     {
         ad_clearHeading();
