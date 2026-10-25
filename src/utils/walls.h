@@ -17,12 +17,12 @@ extern int rcl_h;
 #define RCL_WALL_MAX_TOTAL_TILES (RCL_WALL_MAX_MAP_TILES * RCL_WALL_MAX_MAP_TILES)
 #define RCL_WALL_RETRY_MS 2000
 
-uintptr_t rcl_map_object(void);
+
 int rcl_cell(int tx, int ty, int *proj, int *move);
 
 int rcl_wall_cache_w(void);
 int rcl_wall_cache_h(void);
-void rcl_wall_notify_battle_mode_changed(uint64_t now_ms);
+
 int rcl_wall_build(void);
 int rcl_wall_maybe_refresh(uint64_t now_ms);
 int rcl_wall_is_blocked_at(float x, float y, int mask);

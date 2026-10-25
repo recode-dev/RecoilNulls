@@ -13,7 +13,7 @@ extern int rcl_cand_seen;
 extern int32_t rcl_prev_x;
 extern int32_t rcl_prev_y;
 
-void rcl_candidates(uintptr_t ownElem, int *out);
+
 void rcl_autododge(void);
 void rcl_autododge_reset(void);
 

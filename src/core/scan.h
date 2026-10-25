@@ -439,11 +439,11 @@ extern int32_t rcl_last_x_a;
 extern int32_t rcl_last_y_a;
 
 int rcl_collect(uintptr_t manager, rcl_obj_t *out, int capacity);
-int rcl_small(long value);
-float rcl_as_float(uint32_t bits);
+
+
 uint64_t rcl_us(void);
 
-uintptr_t rcl_pair_base(void);
+
 
 #define RCL_COORD_SOFT 0
 #define RCL_NP_DUMPS 8
@@ -457,16 +457,16 @@ uintptr_t rcl_pair_base(void);
 #define RCL_AREA_TIME_MIN 1
 #define RCL_AREA_TIME_MAX 60000
 
-uintptr_t rcl_entry(uintptr_t rva);
-int rcl_is_prologue(uint32_t w);
-int rcl_is_term(uint32_t w);
+
+
+
 void rcl_load_function_starts(void);
-BOOL rcl_looks_like_start(uintptr_t address);
-const char *rcl_prologue_rule(uintptr_t address);
+
+
 BOOL rcl_start_boundary(const uint8_t *bytes, size_t offset);
-size_t rcl_start_index(uintptr_t address, BOOL *exact);
+
 BOOL rcl_start_word(uint32_t word);
-int rcl_word(uintptr_t address, uint32_t *out);
+
 
 #include "hook.h"
 
@@ -583,10 +583,10 @@ int rcl_battle_gate_fallback(int v63);
 int rcl_scan_allowed(uint64_t fired, uint64_t total);
 void rcl_start_timer(void);
 int rcl_state_tick(void);
-int rcl_vtable_is_data(uintptr_t vtable);
+
 
 void rcl_scan_world(void);
-int rcl_read_scstring(uintptr_t value, char *out, int capacity);
+
 void rcl_run_workload(void);
 void setup(void);
 void rcl_run_autododge(void);
@@ -706,40 +706,40 @@ extern rcl_proj_t rcl_projs[16];
 extern rcl_proj_death_t rcl_proj_deaths[16];
 extern int rcl_proj_death_n;
 
-int rcl_modesig_hit(uintptr_t at);
+
 void rcl_modesig_tick(void);
 int rcl_element_type(uintptr_t vt, uintptr_t *wordOut);
 int rcl_container_header(uintptr_t object, uintptr_t *arrayOut, int32_t *countOut, int32_t *capOut);
 int32_t rcl_gid_at(uintptr_t element, uintptr_t off);
 int32_t rcl_gid(uintptr_t element, int32_t *offOut);
 int rcl_container_score(uintptr_t container);
-int rcl_own_verdict(uintptr_t element);
+
 int rcl_scan_ready(int battle);
 void rcl_resolve_addresses(void);
 void rcl_locate_battle_mode(void);
-void rcl_read_map(uintptr_t mode);
+
 void rcl_gidless_scan(uintptr_t manager);
 uintptr_t rcl_list_gid_off(uintptr_t array, int32_t count);
 void rcl_proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
-void rcl_own_probe(void);
-int rcl_own_latch(const rcl_obj_t *objects, int usable, int *indexOut, const char **fromOut);
-int rcl_vt_ok(uintptr_t obj, uintptr_t *vtOut);
-int rcl_cand_ok(uintptr_t cand, const char **why, uintptr_t *vtOut);
+
+
+
+
 uintptr_t rcl_hop(uintptr_t base, int *whyOut);
 uintptr_t rcl_client(void);
-int rcl_own_by_min_gid(uintptr_t array, int32_t count, uintptr_t *elemOut, int32_t *gidOut);
-int rcl_own_from_list(const rcl_obj_t *objects, int usable, int *indexOut, const char **fromOut);
+
+
 void rcl_state_note(int state);
-int rcl_own_scan(void);
+
 int rcl_resolve_own_fallback(const rcl_obj_t *objects, int usable, int *indexOut,
                              const char **fromOut);
 int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int rosterUsable);
 int rcl_proj_vel(const rcl_proj_t *p, float *vxOut, float *vyOut);
 
 uintptr_t rcl_controller(void);
-uintptr_t rcl_manager_auto(void);
-int rcl_own(int32_t *xOut, int32_t *yOut);
-uint64_t rcl_read_u64(uintptr_t address);
+
+
+
 const char *rcl_header_reason(uintptr_t manager, int32_t *countOut, int32_t *capOut);
 uintptr_t rcl_coord_x_off(void);
 uintptr_t rcl_coord_y_off(void);
@@ -771,20 +771,20 @@ extern int rcl_prev_valid;
 extern int rcl_respawn_tick;
 extern int rcl_state_code;
 extern int rcl_team_trust;
-void rcl_clear_life(void);
-int rcl_life(uintptr_t ownElem, int32_t ownX, int32_t ownY);
-int rcl_own_from_slot(uintptr_t *objectOut, int32_t *gidOut);
-void rcl_own_index_probe(void);
-int rcl_own_ok(int32_t x, int32_t y);
+
+
+
+
+
 float rcl_own_radius(void);
 int rcl_own_side_spawn(int32_t sx, int32_t sy);
-void rcl_publish_own(uintptr_t elem, const char *from);
-int rcl_own_src_trusted(const char *from);
-int rcl_gid_count(const rcl_obj_t *objects, int usable, int32_t gid);
-int rcl_gid_shared(const rcl_obj_t *objects, int usable, int32_t gid);
-int rcl_resolve_own(const rcl_obj_t *objects, int usable, int *indexOut, const char **fromOut);
-int rcl_own_by_owner(const rcl_obj_t *objects, int usable, int *indexOut, const char **fromOut);
-void rcl_respawn_event(int32_t x, int32_t y, int32_t px, int32_t py);
+
+
+
+
+
+
+
 void rcl_roster(uintptr_t ownElem, int ownIndex, int ownTeam, const rcl_obj_t *objects, int usable);
 int rcl_team_at(const rcl_obj_t *objects, int index);
 
@@ -830,7 +830,7 @@ int rcl_element_ascii(uintptr_t element);
 
 #define SCAN_MAX 256
 
-int rcl_witness(int32_t *x, int32_t *y);
+
 
 #define rcl_in_drive rcl_in_move
 #define rcl_own_elem_2 rcl_own_elem_scan

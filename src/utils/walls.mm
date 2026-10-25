@@ -6,24 +6,7 @@ int rcl_w = 0;
 
 int rcl_h = 0;
 
-uintptr_t rcl_map_object(void)
-{
-    void *client = nullptr;
-    void *map = nullptr;
-    if (!rcl_scene_object)
-    {
-        return 0;
-    }
-    if (!rcl_read_ptr((uintptr_t)rcl_scene_object + RCL_MAP_BASE_OFF, &client) || !client)
-    {
-        return 0;
-    }
-    if (!rcl_read_ptr((uintptr_t)client + RCL_MAP_PTR_OFF, &map) || !map)
-    {
-        return 0;
-    }
-    return (uintptr_t)map;
-}
+
 
 int rcl_cell(int tx, int ty, int *proj, int *move)
 {
@@ -161,15 +144,7 @@ int rcl_wall_maybe_refresh(uint64_t now_ms)
     return 0;
 }
 
-void rcl_wall_notify_battle_mode_changed(uint64_t now_ms)
-{
-    rcl_wall_have = 0;
-    rcl_wall_w = 0;
-    rcl_wall_h = 0;
-    rcl_wall_dirty = 1;
-    rcl_wall_fail_ms = 0;
-    rcl_wall_maybe_refresh(now_ms);
-}
+
 
 int rcl_wall_is_blocked_at(float x, float y, int mask)
 {
