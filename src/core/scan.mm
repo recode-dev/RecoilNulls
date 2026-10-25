@@ -2064,28 +2064,6 @@ uint64_t rcl_ticks_b = 0;
 
 
 
-static void rcl_proj_velocity(void)
-{
-    int k = 0;
-
-    for (k = 0; k < 16; k++)
-    {
-        rcl_proj_t *p = &rcl_projs[k];
-        double dt = 0.0;
-
-        if (!p->hasPrev || p->qms <= p->pms)
-        {
-            continue;
-        }
-        dt = (double)(p->qms - p->pms) / 1000.0;
-        if (dt <= 0.0005 || dt > 0.3)
-        {
-            continue;
-        }
-        p->vx = (float)(((double)p->x - (double)p->px) / dt);
-        p->vy = (float)(((double)p->y - (double)p->py) / dt);
-    }
-}
 
 typedef uintptr_t (*rcl_fn1)(uintptr_t);
 typedef int32_t (*rcl_fn1i)(uintptr_t);
