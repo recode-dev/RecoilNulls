@@ -122,17 +122,7 @@ namespace
 
     bool readBytes(uintptr_t address, void *out, size_t size)
     {
-        if (address == 0 || out == nullptr || size == 0) return false;
-        if (!gum_memory_is_readable((gconstpointer)address, (gsize)size)) return false;
-        memcpy(out, (const void *)address, size);
-        return true;
-    }
-
-    bool writeBytes(uintptr_t address, const void *data, size_t size)
-    {
-        if (address == 0 || data == nullptr || size == 0) return false;
-        memcpy((void *)address, data, size);
-        return true;
+        return scanner::readBytes(address, out, size);
     }
 
     bool readU32(uintptr_t address, uint32_t &out)
@@ -559,22 +549,6 @@ namespace
         g_data.myAlive = true;
     }
 
-    int32_t ownTeamOf(uintptr_t bm, uintptr_t own)
-    {
-        int32_t team = -1;
-        if (functions::LogicBattleModeClient_getOwnPlayerTeam != nullptr)
-        {
-            team = (int32_t)functions::LogicBattleModeClient_getOwnPlayerTeam(bm);
-        }
-        if (team < 0 || team > TEAM_LIMIT)
-        {
-            const int32_t fallback = readObjectTeam(own);
-            if (fallback >= 0 && fallback <= TEAM_LIMIT) team = fallback;
-        }
-        if (team < 0 || team > TEAM_LIMIT) team = g_data.myTeamId >= 0 ? g_data.myTeamId : -1;
-        return team;
-    }
-
     void updateLiveProjectiles(uint32_t now)
     {
         g_data.projectileCount = 0;
@@ -848,6 +822,21 @@ void scanner::removeProjectile(uintptr_t projectile)
     record->used = false;
 }
 
+bool scanner::readBytes(uintptr_t address, void *out, size_t size)
+{
+    if (address == 0 || out == nullptr || size == 0) return false;
+    if (!gum_memory_is_readable((gconstpointer)address, (gsize)size)) return false;
+    memcpy(out, (const void *)address, size);
+    return true;
+}
+
+bool scanner::writeBytes(uintptr_t address, const void *data, size_t size)
+{
+    if (address == 0 || data == nullptr || size == 0) return false;
+    memcpy((void *)address, data, size);
+    return true;
+}
+
 bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 {
     if (g_base == 0 || battleModeClient == 0) return false;
@@ -855,12 +844,12 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
     uint32_t ownIndex = 0;
     uint32_t ownTeam = 0;
     uintptr_t objects = 0;
-    readU32(battleModeClient + offsets::Client_ownIndex, ownIndex);
-    readU32(battleModeClient + offsets::Client_ownTeam, ownTeam);
-    readPtr(battleModeClient + offsets::Client_objects, objects);
+    scanner::readBytes(battleModeClient + offsets::Client_ownIndex, &ownIndex, 4);
+    scanner::readBytes(battleModeClient + offsets::Client_ownTeam, &ownTeam, 4);
+    scanner::readBytes(battleModeClient + offsets::Client_objects, &objects, sizeof(objects));
 
     uintptr_t own = 0;
-    if (objects != 0) readPtr(objects + (size_t)ownIndex * 8, own);
+    if (objects != 0) scanner::readBytes(objects + (size_t)ownIndex * 8, &own, sizeof(own));
 
     if (own == 0)
     {
