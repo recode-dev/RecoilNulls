@@ -60,6 +60,7 @@ static const float AD_SEND_MIN_DIST = 8.0f;
 static const float AD_MIN_POS = 50.0f;
 static const float AD_DEFAULT_SPEED = 720.0f;
 static const float AD_DEFAULT_RADIUS = 60.0f;
+static const uint64_t AD_SYNC_MS = 8;
 
 typedef struct
 {
@@ -80,6 +81,7 @@ typedef struct
 } ad_track_t;
 
 static ad_track_t g_track[AD_MAX_THREATS];
+static uint64_t g_lastSync = 0;
 static uintptr_t g_client = 0;
 static uintptr_t g_manager = 0;
 
@@ -176,6 +178,12 @@ static void ad_sync(uint64_t now)
     int seen[AD_MAX_THREATS];
     int i = 0;
     int k = 0;
+
+    if (g_lastSync && (now - g_lastSync) < AD_SYNC_MS)
+    {
+        return;
+    }
+    g_lastSync = now;
 
     memset(seen, 0, sizeof(seen));
 
