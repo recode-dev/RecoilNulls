@@ -33,7 +33,7 @@ namespace
     SlotFn g_origTick = nullptr;
     IMP g_origRender = nullptr;
 
-    void pump_locked(uintptr_t client)
+    void pump(uintptr_t client)
     {
         if (g_base == 0) return;
 
@@ -65,7 +65,7 @@ namespace
     uint64_t tick(void *self, uint64_t a1, uint64_t a2, uint64_t a3,
                   uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
     {
-        pump_locked((uintptr_t)self);
+        pump((uintptr_t)self);
 
         if (g_origTick != nullptr) return g_origTick(self, a1, a2, a3, a4, a5, a6, a7);
 
@@ -74,9 +74,7 @@ namespace
 
     void render_hook(id self, SEL cmd)
     {
-        (void)self;
-
-        pump_locked(0);
+        pump(0);
 
         if (g_origRender != nullptr) ((void (*)(id, SEL))g_origRender)(self, cmd);
     }

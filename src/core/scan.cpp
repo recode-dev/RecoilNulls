@@ -26,6 +26,9 @@ namespace
     constexpr size_t MAX_INDICES = 16;
     constexpr size_t MAX_TEAMS = 16;
     constexpr uint32_t MAX_OBJECT_INDEX = 256;
+    constexpr int32_t DEFAULT_MOVE_SPEED = 720;
+    constexpr int32_t MIN_MOVE_SPEED = 300;
+    constexpr int32_t MAX_MOVE_SPEED = 3000;
     constexpr uint32_t APP_STATE_BATTLE = 5;
 
     struct NameEntry
@@ -949,7 +952,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
     if (functions::LogicGameObjectClient_getX != nullptr) g_data.myX = functions::LogicGameObjectClient_getX(self);
     if (functions::LogicGameObjectClient_getY != nullptr) g_data.myY = functions::LogicGameObjectClient_getY(self);
 
-    g_data.mySpeed = 720;
+    g_data.mySpeed = DEFAULT_MOVE_SPEED;
     const uintptr_t ownData = functions::LogicGameObjectClient_getData != nullptr
         ? functions::LogicGameObjectClient_getData(own)
         : 0;
@@ -963,7 +966,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
         if (functions::LogicCharacterData_getSpeed != nullptr)
         {
             const int32_t speed = (int32_t)functions::LogicCharacterData_getSpeed(ownData);
-            if (speed >= 300 && speed <= 3000) g_data.mySpeed = speed;
+            if (speed >= MIN_MOVE_SPEED && speed <= MAX_MOVE_SPEED) g_data.mySpeed = speed;
         }
         char name[NAME_CAP];
         if (readDataName(ownData, name) && name[0] != 0)

@@ -30,6 +30,9 @@ namespace
     constexpr float AIM_JITTER = 40.0f;
     constexpr int32_t HIST_SIZE = 8;
     constexpr int32_t TRACK_SLOTS = 32;
+    constexpr size_t PATH_BUFFER_SIZE = 0x40;
+    constexpr int32_t PATH_ENTRY_SIZE = 12;
+    constexpr float FAR_DISTANCE = 1e9f;
 
     struct Predicted
     {
@@ -68,7 +71,7 @@ namespace
     uint32_t g_rangeAt = 0;
     bool g_hooks = false;
     bool g_enabled = false;
-    uint8_t g_pathBuffer[0x40];
+    uint8_t g_pathBuffer[PATH_BUFFER_SIZE];
     uint32_t g_randomState = 0x9e3779b9u;
 
     bool readBytes(uintptr_t address, void *out, size_t size)
@@ -388,10 +391,10 @@ namespace
         if (begin == 0 || end == 0 || end <= begin) return false;
 
         const int64_t span = (int64_t)(end - begin);
-        const int32_t count = (int32_t)(span / 12);
+        const int32_t count = (int32_t)(span / PATH_ENTRY_SIZE);
         if (count < 2 || count > 64) return false;
 
-        const uintptr_t last = begin + (uintptr_t)((count - 1) * 12);
+        const uintptr_t last = begin + (uintptr_t)((count - 1) * PATH_ENTRY_SIZE);
         float px = 0.0f;
         float py = 0.0f;
         if (!readFloat(last + 4, px)) return false;
@@ -455,15 +458,15 @@ namespace
         const float range = ownRange(speed);
 
         const scanner::Enemy *best = nullptr;
-        float bestDistance = 1e9f;
+        float bestDistance = FAR_DISTANCE;
         Predicted bestPred = {};
 
         const scanner::Enemy *calm = nullptr;
-        float calmDistance = 1e9f;
+        float calmDistance = FAR_DISTANCE;
         Predicted calmPred = {};
 
         const scanner::Enemy *current = nullptr;
-        float currentDistance = 1e9f;
+        float currentDistance = FAR_DISTANCE;
 
         for (int32_t i = 0; i < data.enemyCount; i++)
         {

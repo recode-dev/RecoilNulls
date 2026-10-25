@@ -6,7 +6,8 @@
 
 namespace
 {
-    constexpr uintptr_t PAGE_MASK = ~(uintptr_t)0xFFF;
+    constexpr uintptr_t PAGE_SIZE = 0x1000;
+    constexpr uintptr_t PAGE_MASK = ~(PAGE_SIZE - 1);
 
     struct Region
     {
@@ -122,7 +123,7 @@ namespace
         if ((region.prot & VM_PROT_WRITE) == 0 && (region.maxprot & VM_PROT_WRITE) == 0) return false;
 
         const uintptr_t pageStart = region.start & PAGE_MASK;
-        const uintptr_t pageEnd = (region.end + 0xFFF) & PAGE_MASK;
+        const uintptr_t pageEnd = (region.end + PAGE_SIZE - 1) & PAGE_MASK;
 
         if ((region.prot & VM_PROT_WRITE) == 0)
         {
@@ -216,7 +217,7 @@ namespace tools::memory
     bool plausible(uintptr_t pointer)
     {
         if (pointer < MIN_ADDRESS) return false;
-        if ((pointer & 0x7) != 0) return false;
+        if ((pointer % alignof(uintptr_t)) != 0) return false;
 
         return readable(pointer, sizeof(uintptr_t));
     }

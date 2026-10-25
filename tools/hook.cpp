@@ -11,6 +11,7 @@ namespace
 {
     constexpr uintptr_t VA_LIMIT = 0x0000FFFFFFFFFFFFULL;
     constexpr size_t SCAN_CHUNK = 4096;
+    constexpr size_t PAGE_SIZE = 0x1000;
     constexpr int MAX_HOOKS = 32;
     constexpr int MAX_SLOTS = 64;
 
@@ -101,7 +102,7 @@ namespace
 
             if (!tools::memory::read(cursor, g_scanBuffer, want))
             {
-                cursor += 0x1000;
+                cursor += PAGE_SIZE;
                 continue;
             }
 

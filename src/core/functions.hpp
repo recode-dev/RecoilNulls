@@ -6,13 +6,9 @@
 namespace functions
 {
     bool init(uintptr_t base_address);
-    bool isInitialized();
     uintptr_t base();
 
     inline uintptr_t (*BattleMode_getInstance)() = nullptr;
-    inline uintptr_t (*LogicBattleModeClient_getOwnCharacter)(uintptr_t) = nullptr;
-    inline uint32_t (*LogicBattleModeClient_getOwnPlayerTeam)(uintptr_t) = nullptr;
-    inline int32_t (*LogicBattleModeClient_getOwnPlayerIndex)(uintptr_t) = nullptr;
     inline uintptr_t (*LogicBattleModeClient_getTileMap)(uintptr_t) = nullptr;
     inline void (*LogicBattleModeClient_setClientPredictionMoveTo)(uintptr_t, int32_t, int32_t, int32_t) = nullptr;
 

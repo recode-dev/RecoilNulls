@@ -24,9 +24,6 @@ bool functions::init(uintptr_t base_address)
     bool ok = base_address != 0;
 
     ok = bind(functions::BattleMode_getInstance, offsets::BattleMode_getInstance) && ok;
-    ok = bind(functions::LogicBattleModeClient_getOwnCharacter, offsets::LogicBattleModeClient_getOwnCharacter) && ok;
-    ok = bind(functions::LogicBattleModeClient_getOwnPlayerTeam, offsets::LogicBattleModeClient_getOwnPlayerTeam) && ok;
-    ok = bind(functions::LogicBattleModeClient_getOwnPlayerIndex, offsets::LogicBattleModeClient__getOwnPlayerIndex) && ok;
     ok = bind(functions::LogicBattleModeClient_getTileMap, offsets::LogicBattleModeClient__getTileMap) && ok;
     ok = bind(functions::LogicBattleModeClient_setClientPredictionMoveTo, offsets::LogicBattleModeClient_setClientPredictionMoveTo) && ok;
 
@@ -58,11 +55,6 @@ bool functions::init(uintptr_t base_address)
     ok = bind(functions::BattleScreen_calculateProjectilePath, offsets::BattleScreen__calculateProjectilePath) && ok;
 
     return ok;
-}
-
-bool functions::isInitialized()
-{
-    return g_base != 0 && functions::BattleMode_getInstance != nullptr;
 }
 
 uintptr_t functions::base()

@@ -9,14 +9,12 @@ namespace offsets
     inline constexpr uintptr_t BattleMode_objectManagerPtr                      = 0x28;
     inline constexpr uintptr_t BattleMode_clientInputManager                    = 0x58;
     inline constexpr uintptr_t BattleMode_hashKey                               = 0x60;
-    inline constexpr uintptr_t BattleMode_hashEnabled                           = 0x70;
     inline constexpr uintptr_t BattleMode_getInstance                           = 0x8c5130;
 
     inline constexpr uintptr_t AppState                                         = 0x1123e58;
     inline constexpr uintptr_t AppState_state                                   = 0x50;
     inline constexpr uintptr_t AppState_scene                                   = 0x48;
     inline constexpr uintptr_t Scene_client                                     = 0x28;
-    inline constexpr uintptr_t Client_objects                                   = 0x28;
     inline constexpr uintptr_t Client_ownIndex                                  = 0xe0;
     inline constexpr uintptr_t Client_ownTeam                                   = 0xe4;
 
@@ -80,12 +78,8 @@ namespace offsets
     inline constexpr uintptr_t ClientInputManager_addInput                      = 0x74675c;
 
     inline constexpr uintptr_t ScString_length                                  = 0x4;
-    inline constexpr uintptr_t ScString_data                                    = 0x8;
 
     inline constexpr uintptr_t LogicBattleModeClient_update                     = 0xac1ee8;
-    inline constexpr uintptr_t LogicBattleModeClient_getOwnCharacter            = 0xac3934;
-    inline constexpr uintptr_t LogicBattleModeClient_getOwnPlayerTeam           = 0xa7f47c;
-    inline constexpr uintptr_t LogicBattleModeClient__getOwnPlayerIndex         = 0x9cda04;
     inline constexpr uintptr_t LogicBattleModeClient__getTileMap                = 0x991440;
     inline constexpr uintptr_t LogicBattleModeClient_setClientPredictionMoveTo  = 0xac3a58;
 

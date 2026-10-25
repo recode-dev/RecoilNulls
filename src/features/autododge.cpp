@@ -86,8 +86,11 @@ namespace
     uint32_t g_holdUntil = 0;
     uint32_t g_lastDangerTs = 0;
     uint32_t g_lastTick = 0;
-    float g_lastSentX = 1e9f;
-    float g_lastSentY = 1e9f;
+    constexpr float SENTINEL = 1e9f;
+    constexpr float FALLBACK_SPEED = 720.0f;
+
+    float g_lastSentX = SENTINEL;
+    float g_lastSentY = SENTINEL;
     uint32_t g_lastSentAt = 0;
     uint32_t g_seenRespawns = 0;
 
@@ -371,8 +374,8 @@ void autododge::reset()
     clearHeading();
     g_lastDangerTs = 0;
     g_lastTick = 0;
-    g_lastSentX = 1e9f;
-    g_lastSentY = 1e9f;
+    g_lastSentX = SENTINEL;
+    g_lastSentY = SENTINEL;
     g_lastSentAt = 0;
     g_seenRespawns = (uint32_t)scanner::data().myRespawns;
 }
@@ -444,8 +447,8 @@ void autododge::update(uint32_t nowMs)
     {
         g_seenRespawns = scan.myRespawns;
         clearHeading();
-        g_lastSentX = 1e9f;
-        g_lastSentY = 1e9f;
+        g_lastSentX = SENTINEL;
+        g_lastSentY = SENTINEL;
         g_lastSentAt = 0;
         g_lastTick = 0;
         g_lastDangerTs = 0;
