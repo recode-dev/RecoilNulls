@@ -12,6 +12,8 @@
 
 namespace
 {
+    constexpr float DEFAULT_FIT_GROW = 0.5f;
+    constexpr float DEFAULT_FIT_PAD = 80.0f;
     constexpr int32_t MOVE_INPUT_TYPE = 2;
     constexpr float RANGE_FALLBACK = 2800.0f;
     constexpr int32_t MAX_DIRECTIONS = 128;
@@ -30,16 +32,11 @@ namespace
         float KEEP_BAND = 100.0f;
         float MOMENTUM = 55.0f;
         float ENGAGE = 100.0f;
-        uint32_t RELEASE_GRACE_MS = 80;
+        uint32_t RELEASE_GRACE_MS = 200;
         float WALL_HIT = 9000.0f;
         int32_t PROBE_N = 3;
         float PROBE_T = 0.35f;
         float WALL_BODY = 240.0f;
-        float BODY_PAD = 70.0f;
-        float BODY_HIT = 6000.0f;
-        uint32_t STOP_HOLD_MS = 120;
-        uint32_t STOP_REPEAT_MS = 60;
-        float STOP_MIN_DIST = 6.0f;
         uint32_t SEND_MIN_MS = 80;
         float SEND_MIN_DIST = 8.0f;
         float MIN_POS = 50.0f;
@@ -91,7 +88,6 @@ namespace
     float g_lastSentX = 1e9f;
     float g_lastSentY = 1e9f;
     uint32_t g_lastSentAt = 0;
-    uint32_t g_stopUntil = 0;
     uint32_t g_seenRespawns = 0;
 
     bool timeBefore(uint32_t a, uint32_t b)
@@ -198,20 +194,11 @@ namespace
             float vy = shot.vy;
             const float flown = traveled(shot);
 
-            if (shot.isBeam && flown > 120.0f)
-            {
-                const float speed = shot.speed > 0 ? (float)shot.speed : 1.0f;
-                vx = (float)(shot.x - shot.spawnX) / flown * speed;
-                vy = (float)(shot.y - shot.spawnY) / flown * speed;
-            }
-
             float spd = sqrtf(vx * vx + vy * vy);
-            const bool lockPath = shot.isBeam;
-            const bool slow = shot.speed > 0 && shot.speed < 1600;
-            const bool blob = !lockPath && !indirect && slow;
+            const bool blob = !shot.isBeam && !indirect && shot.speed > 0 && shot.speed < 1600;
 
             const float shotR = ballRadius(shot);
-            const float rad = shotR + bodyR;
+            const float rad = shotR + bodyR + DEFAULT_FIT_PAD + shotR * DEFAULT_FIT_GROW;
 
             float ux = 0.0f;
             float uy = 0.0f;
@@ -259,13 +246,14 @@ namespace
     float clearanceFor(const Hazard *hazards, int32_t count, float myX, float myY, float mvx, float mvy)
     {
         float minClear = 1e30f;
+        const float horizon = g_tune.HORIZON_S;
 
         for (int32_t i = 0; i < count; i++)
         {
             const Hazard &threat = hazards[i];
             const float spd = sqrtf(threat.vx * threat.vx + threat.vy * threat.vy);
 
-            float maxT = g_tune.HORIZON_S;
+            float maxT = horizon;
             if (spd > 1.0f)
             {
                 if (threat.left > 0.0f)
@@ -301,32 +289,6 @@ namespace
             if (clear < minClear) minClear = clear;
         }
         return minClear;
-    }
-
-    float bodyAhead(float myX, float myY, const Direction &dir, float speed, float bodyR)
-    {
-        const scanner::ScannerData &scan = scanner::data();
-        if (scan.teammateCount <= 0) return 0.0f;
-
-        const float reach = speed * g_tune.PROBE_T * (float)g_tune.PROBE_N + bodyR;
-        float raw = 0.0f;
-
-        for (int32_t i = 0; i < scan.teammateCount; i++)
-        {
-            const scanner::Teammate &mate = scan.teammates[i];
-            const float dx = (float)mate.x - myX;
-            const float dy = (float)mate.y - myY;
-            const float along = dx * dir.x + dy * dir.y;
-            if (along <= 0.0f || along > reach) continue;
-
-            const float perp = fabsf(dx * dir.y - dy * dir.x);
-            const float mateRadius = mate.radius > 0 ? (float)mate.radius : 60.0f;
-            const float limit = bodyR + mateRadius + g_tune.BODY_PAD;
-            if (perp >= limit) continue;
-
-            raw += g_tune.BODY_HIT * (1.0f - perp / limit);
-        }
-        return raw;
     }
 
     float wallAhead(float myX, float myY, const Direction &dir, float speed, float bodyR)
@@ -383,42 +345,6 @@ namespace
         g_headingIdx = -1;
         g_holdUntil = 0;
     }
-
-    void releaseMove(uint32_t nowMs)
-    {
-        const scanner::ScannerData &scan = scanner::data();
-        const uintptr_t logic = scan.battleModeClient;
-        if (logic == 0) return;
-
-        const float x = (float)scan.myX;
-        const float y = (float)scan.myY;
-        const float dx = x - g_lastSentX;
-        const float dy = y - g_lastSentY;
-        const bool nearLast = dx * dx + dy * dy <= g_tune.STOP_MIN_DIST * g_tune.STOP_MIN_DIST;
-        if (nearLast && (uint32_t)(nowMs - g_lastSentAt) < g_tune.STOP_REPEAT_MS) return;
-
-        g_lastSentX = x;
-        g_lastSentY = y;
-        g_lastSentAt = nowMs;
-        sendMove(logic, (int32_t)lroundf(x), (int32_t)lroundf(y));
-    }
-
-    void finishDodge(uint32_t nowMs)
-    {
-        if (g_heading.valid)
-        {
-            clearHeading();
-            g_stopUntil = nowMs + g_tune.STOP_HOLD_MS;
-            g_lastSentX = 1e9f;
-            g_lastSentY = 1e9f;
-            g_lastSentAt = 0;
-            releaseMove(nowMs);
-            return;
-        }
-
-        if (g_stopUntil != 0 && timeBefore(nowMs, g_stopUntil)) releaseMove(nowMs);
-        else g_stopUntil = 0;
-    }
 }
 
 void autododge::setup()
@@ -435,7 +361,6 @@ void autododge::reset()
     g_lastSentX = 1e9f;
     g_lastSentY = 1e9f;
     g_lastSentAt = 0;
-    g_stopUntil = 0;
     g_seenRespawns = (uint32_t)scanner::data().myRespawns;
 }
 
@@ -506,7 +431,6 @@ void autododge::update(uint32_t nowMs)
     {
         g_seenRespawns = scan.myRespawns;
         clearHeading();
-        g_stopUntil = 0;
         g_lastSentX = 1e9f;
         g_lastSentY = 1e9f;
         g_lastSentAt = 0;
@@ -517,14 +441,7 @@ void autododge::update(uint32_t nowMs)
     if (!scan.myAlive)
     {
         clearHeading();
-        g_stopUntil = 0;
         return;
-    }
-
-    if (g_stopUntil != 0)
-    {
-        if (timeBefore(nowMs, g_stopUntil)) releaseMove(nowMs);
-        else g_stopUntil = 0;
     }
 
     const uint32_t tickMs = g_heading.valid ? g_tune.TICK_MS : g_tune.TICK_MS_IDLE;
@@ -545,7 +462,7 @@ void autododge::update(uint32_t nowMs)
 
     if (hazardCount == 0)
     {
-        if (g_heading.valid && (uint32_t)(nowMs - g_lastDangerTs) > g_tune.RELEASE_GRACE_MS) finishDodge(nowMs);
+        if (g_heading.valid && (uint32_t)(nowMs - g_lastDangerTs) > g_tune.RELEASE_GRACE_MS) clearHeading();
         return;
     }
 
@@ -555,7 +472,7 @@ void autododge::update(uint32_t nowMs)
 
     if (!inDanger && (!g_heading.valid || (uint32_t)(nowMs - g_lastDangerTs) > g_tune.RELEASE_GRACE_MS))
     {
-        finishDodge(nowMs);
+        if (g_heading.valid) clearHeading();
         return;
     }
 
@@ -571,7 +488,6 @@ void autododge::update(uint32_t nowMs)
         const Direction &dir = g_ring[i];
         float score = clearanceFor(g_hazards, hazardCount, myX, myY, speed * dir.x, speed * dir.y);
         score -= wallAhead(myX, myY, dir, speed, g_tune.WALL_BODY);
-        score -= bodyAhead(myX, myY, dir, speed, g_tune.WALL_BODY);
         if (prevDir != nullptr) score += g_tune.MOMENTUM * (dir.x * prevDir->x + dir.y * prevDir->y);
 
         if (i == prevIdx) prevScore = score;
@@ -604,7 +520,7 @@ void autododge::update(uint32_t nowMs)
 
     if (chosenScore <= stayClear)
     {
-        finishDodge(nowMs);
+        if (g_heading.valid) clearHeading();
         return;
     }
 
@@ -614,8 +530,8 @@ void autododge::update(uint32_t nowMs)
     g_heading.x = chosen.x;
     g_heading.y = chosen.y;
 
-    const float targetX = myX + chosen.x * g_tune.REACH;
-    const float targetY = myY + chosen.y * g_tune.REACH;
+    const float targetX = roundf(myX + chosen.x * g_tune.REACH);
+    const float targetY = roundf(myY + chosen.y * g_tune.REACH);
 
     const float ddx = targetX - g_lastSentX;
     const float ddy = targetY - g_lastSentY;

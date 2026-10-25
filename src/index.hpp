@@ -11,6 +11,6 @@ namespace module
     namespace state
     {
         inline bool autododge = true;
-        inline bool aimbot = true;
+        inline bool autoaim = true;
     }
 }

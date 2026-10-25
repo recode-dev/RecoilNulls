@@ -4,7 +4,7 @@
 #include <cmath>
 #include <frida-gum.h>
 
-#include "aimbot.hpp"
+#include "autoaim.hpp"
 #include "../core/offsets.hpp"
 #include "../core/functions.hpp"
 #include "../core/scanner.hpp"
@@ -58,6 +58,8 @@ namespace
     scanner::Enemy g_target;
     bool g_hasTarget = false;
     uintptr_t g_targetPtr = 0;
+    int32_t g_aimX = 0;
+    int32_t g_aimY = 0;
     float g_projectileSpeed = SPEED_FALLBACK;
     uint32_t g_speedAt = 0;
     bool g_ownBeam = false;
@@ -455,14 +457,18 @@ namespace
         const scanner::ScannerData &data = scanner::data();
         const int32_t myTeam = data.myTeamId;
         const float mx = (float)data.myX;
-        const float my = (float)data.myY;
+        const float myY = (float)data.myY;
         const float speed = ownProjectileSpeed();
         const float range = ownRange(speed);
 
         const scanner::Enemy *best = nullptr;
         float bestDistance = 1e9f;
+        Predicted bestPred = {};
+
         const scanner::Enemy *calm = nullptr;
         float calmDistance = 1e9f;
+        Predicted calmPred = {};
+
         const scanner::Enemy *current = nullptr;
         float currentDistance = 1e9f;
 
@@ -485,11 +491,13 @@ namespace
             {
                 calmDistance = distance;
                 calm = &data.enemies[i];
+                calmPred = predicted;
             }
             if (distance < bestDistance)
             {
                 bestDistance = distance;
                 best = &data.enemies[i];
+                bestPred = predicted;
             }
             if (g_hasTarget && enemy.gid == g_target.gid)
             {
@@ -502,20 +510,38 @@ namespace
         {
             best = calm;
             bestDistance = calmDistance;
+            bestPred = calmPred;
         }
 
+        const scanner::Enemy *pick = nullptr;
+        Predicted pred = {};
         if (current != nullptr && best != nullptr && currentDistance <= bestDistance * STICKY_MARGIN)
         {
-            return current;
+            pick = current;
+            pred = (current->gid == best->gid) ? bestPred : sample(current->gid, (float)current->x, (float)current->y, current->moveSpeed, now);
+        }
+        else
+        {
+            pick = best;
+            pred = bestPred;
         }
 
-        return best;
+        if (pick == nullptr) return nullptr;
+
+        const Solution aim = solve(mx, my, pred, speed, range);
+        if (!aim.valid) return nullptr;
+
+        g_aimX = aim.x;
+        g_aimY = aim.y;
+        return pick;
     }
 
     void clearTarget()
     {
         g_hasTarget = false;
         g_targetPtr = 0;
+        g_aimX = 0;
+        g_aimY = 0;
         memset(&g_target, 0, sizeof(g_target));
     }
 
@@ -605,7 +631,7 @@ namespace
         G_IMPLEMENT_INTERFACE(GUM_TYPE_INVOCATION_LISTENER, skill_listener_iface_init))
 }
 
-void aimbot::setupAimbot(uintptr_t baseAddress)
+void autoaim::setupAutoaim(uintptr_t baseAddress)
 {
     if (g_hooks) return;
     if (baseAddress == 0) return;
@@ -627,7 +653,7 @@ void aimbot::setupAimbot(uintptr_t baseAddress)
     g_hooks = true;
 }
 
-void aimbot::updateAimbot(bool enabled)
+void autoaim::updateAutoaim(bool enabled)
 {
     g_enabled = enabled;
     if (!enabled)
@@ -655,13 +681,13 @@ void aimbot::updateAimbot(bool enabled)
     g_targetPtr = pick->ptr;
 }
 
-void aimbot::resetAimbot()
+void autoaim::resetAutoaim()
 {
     clearTarget();
     memset(g_track, 0, sizeof(g_track));
 }
 
-bool aimbot::hasTarget()
+bool autoaim::hasTarget()
 {
     return g_hasTarget && g_targetPtr != 0;
 }
