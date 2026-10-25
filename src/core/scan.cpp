@@ -187,6 +187,28 @@ namespace
         return readBytes(address, &out, sizeof(out));
     }
 
+    const char *ownerNameByIndex(int32_t ownerIndex)
+    {
+        if (ownerIndex < 0) return "";
+        if (ownerIndex == g_data.myPlayerIndex && g_data.myBrawlerName[0] != 0) return g_data.myBrawlerName;
+
+        for (int32_t i = 0; i < g_data.enemyCount; i++)
+        {
+            const Enemy &enemy = g_data.enemies[i];
+            if (enemy.playerIndex == ownerIndex && enemy.brawlerName[0] != 0) return enemy.brawlerName;
+        }
+
+        return "";
+    }
+
+    uint32_t readGid(uintptr_t object)
+    {
+        uint32_t gid = 0;
+        readU32(object + offsets::GameObj_gid, gid);
+
+        return gid;
+    }
+
     void copyName(const char *src, char *out)
     {
         size_t i = 0;
