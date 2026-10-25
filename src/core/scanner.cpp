@@ -639,23 +639,48 @@ uintptr_t scanner::getBattleMode()
 {
     if (g_base == 0) return 0;
     
+    // Try primary AppState offset
     uintptr_t appState = 0;
-    // Read the AppState pointer from 0x1123e58
-    if (!scanner::readBytes(g_base + 0x1123e58, &appState, sizeof(appState)) || appState == 0) return 0;
+    const uintptr_t appStatePtr = g_base + 0x1123e58;
+    
+    if (scanner::readBytes(appStatePtr, &appState, sizeof(appState)) && appState > 0x100000000)
+    {
+        uint32_t state = 0;
+        if (scanner::readBytes(appState + 0x50, &state, 4) && state == 5)
+        {
+            uintptr_t scene = 0;
+            if (scanner::readBytes(appState + 0x48, &scene, sizeof(scene)) && scene > 0x100000000)
+            {
+                uintptr_t client = 0;
+                if (scanner::readBytes(scene + 0x28, &client, sizeof(client)) && client > 0x100000000)
+                {
+                    return client;
+                }
+            }
+        }
+    }
 
-    // Check state == 5 at +0x50
-    uint32_t state = 0;
-    if (!scanner::readBytes(appState + 0x50, &state, 4) || state != 5) return 0;
+    // Try secondary AppState offset
+    appState = 0;
+    const uintptr_t appStatePtr2 = g_base + 0x1127e58;
+    if (scanner::readBytes(appStatePtr2, &appState, sizeof(appState)) && appState > 0x100000000)
+    {
+        uint32_t state = 0;
+        if (scanner::readBytes(appState + 0x50, &state, 4) && state == 5)
+        {
+            uintptr_t scene = 0;
+            if (scanner::readBytes(appState + 0x48, &scene, sizeof(scene)) && scene > 0x100000000)
+            {
+                uintptr_t client = 0;
+                if (scanner::readBytes(scene + 0x28, &client, sizeof(client)) && client > 0x100000000)
+                {
+                    return client;
+                }
+            }
+        }
+    }
 
-    // Get scene from +0x48
-    uintptr_t scene = 0;
-    if (!scanner::readBytes(appState + 0x48, &scene, sizeof(scene)) || scene == 0) return 0;
-
-    // Get client from scene +0x28
-    uintptr_t client = 0;
-    if (!scanner::readBytes(scene + 0x28, &client, sizeof(client)) || client == 0) return 0;
-
-    return client;
+    return 0;
 }
 
 void scanner::reset()
@@ -842,26 +867,35 @@ bool scanner::writeBytes(uintptr_t address, const void *data, size_t size)
 
 bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 {
-    if (g_base == 0 || battleModeClient == 0) return false;
+    if (g_base == 0 || battleModeClient == 0 || battleModeClient < 0x100000000) return false;
     
+    // Safety check for vtable
+    uintptr_t vtable = 0;
+    if (!scanner::readBytes(battleModeClient, &vtable, sizeof(vtable)) || vtable < 0x100000000) return false;
+
     uint32_t ownIndex = 0;
     uint32_t ownTeam = 0;
     uintptr_t objMgr = 0;
     
-    // Direct read from client
+    // Use very safe reads
     if (!scanner::readBytes(battleModeClient + offsets::Client_ownIndex, &ownIndex, 4)) return false;
+    if (ownIndex > 100) return false; // Increased sanity limit
+    
     if (!scanner::readBytes(battleModeClient + offsets::Client_ownTeam, &ownTeam, 4)) return false;
+    if (ownTeam > 32) return false;
+
     // ObjectManager at client + 0x28
-    if (!scanner::readBytes(battleModeClient + 0x28, &objMgr, sizeof(objMgr)) || objMgr == 0) return false;
+    if (!scanner::readBytes(battleModeClient + 0x28, &objMgr, sizeof(objMgr)) || objMgr < 0x100000000) return false;
 
     // Objects array at manager + 0x18
     uintptr_t objects = 0;
-    if (!scanner::readBytes(objMgr + 0x18, &objects, sizeof(objects)) || objects == 0) return false;
+    if (!scanner::readBytes(objMgr + 0x18, &objects, sizeof(objects)) || objects < 0x100000000) return false;
 
     // Own character at objects[ownIndex]
     uintptr_t own = 0;
-    if (!scanner::readBytes(objects + (size_t)ownIndex * 8, &own, sizeof(own)) || own == 0)
+    if (!scanner::readBytes(objects + (size_t)ownIndex * 8, &own, sizeof(own)) || own < 0x100000000)
     {
+        // ... (rest of the death handling)
         markDead(nowMs);
         g_data.ownCharacter = 0;
         g_data.battleModeClient = battleModeClient;

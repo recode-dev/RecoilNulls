@@ -10,6 +10,9 @@
 #include "features/autododge.hpp"
 #include "features/autoaim.hpp"
 
+#include <pthread.h>
+#include <unistd.h>
+
 namespace
 {
     bool g_installed = false;
@@ -85,10 +88,13 @@ namespace
     static void update_listener_on_enter(GumInvocationListener *listener, GumInvocationContext *context)
     {
         (void)listener;
-        (void)context;
-
-        const uintptr_t battleMode = scanner::getBattleMode();
+        
+        // Use argument[0] as battleMode pointer
+        const uintptr_t battleMode = (uintptr_t)gum_invocation_context_get_nth_argument(context, 0);
         if (battleMode == 0) return;
+
+        // Verify state == 5 to ensure we are in a real battle
+        if (scanner::getBattleMode() == 0) return;
 
         const uint32_t now = scanner::nowMs();
 
@@ -129,17 +135,20 @@ bool module::install()
 
     const uintptr_t base = findBase();
     if (base == 0) return false;
-    if (!functions::init(base)) return false;
+    
+    functions::init(base);
 
     g_base = base;
     scanner::init(base);
-    scanner::enableProjectileTracking();
-    walls::watchTileChanges(base);
-    autododge::setup();
-    autoaim::setupAutoaim(base);
+    // DO NOT enable tracking here - wait for battle
+    // scanner::enableProjectileTracking(); 
+    // walls::watchTileChanges(base);
+    // autododge::setup();
+    // autoaim::setupAutoaim(base);
 
     GumInterceptor *interceptor = gum_interceptor_obtain();
     g_updateListener = reinterpret_cast<UpdateListener *>(g_object_new(update_listener_get_type(), NULL));
+    
     const GumAttachReturn attachResult = gum_interceptor_attach(interceptor,
         GSIZE_TO_POINTER(base + offsets::LogicBattleModeClient_update),
         GUM_INVOCATION_LISTENER(g_updateListener),
@@ -161,7 +170,18 @@ uintptr_t module::baseAddress()
     return g_base;
 }
 
+extern "C" void *install_thread(void *arg)
+{
+    (void)arg;
+    // Wait for the game to stabilize
+    sleep(12);
+    module::install();
+    return NULL;
+}
+
 __attribute__((constructor)) static void module_entry()
 {
-    module::install();
+    pthread_t thread;
+    pthread_create(&thread, NULL, install_thread, NULL);
+    pthread_detach(thread);
 }
