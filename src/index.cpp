@@ -85,6 +85,7 @@ namespace
     static void update_listener_on_enter(GumInvocationListener *listener, GumInvocationContext *context)
     {
         (void)listener;
+        (void)context;
 
         const uintptr_t battleMode = scanner::getBattleMode();
         if (battleMode == 0) return;

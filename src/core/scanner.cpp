@@ -131,7 +131,6 @@ namespace
     bool writeBytes(uintptr_t address, const void *data, size_t size)
     {
         if (address == 0 || data == nullptr || size == 0) return false;
-        if (!gum_memory_is_writable((gpointer)address, (gsize)size)) return false;
         memcpy((void *)address, data, size);
         return true;
     }
