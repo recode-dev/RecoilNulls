@@ -141,6 +141,11 @@ int rcl_enqueue_skill(int x, int y, int type, void *skillData)
     {
         return 0;
     }
+    if (!rcl_addr_readable(ctorFn, 4) || !rcl_addr_readable(inputFn, 4) ||
+        !rcl_addr_readable(battleFn, 4))
+    {
+        return 0;
+    }
     battle = ((void *(*)(void))battleFn)();
     if (!rcl_object_plausible(battle))
     {

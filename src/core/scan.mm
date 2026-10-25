@@ -1926,6 +1926,7 @@ void rcl_scan_world(void)
         rcl_own_x = 0;
         rcl_own_y = 0;
         rcl_dead = 1;
+        rcl_coord_ok = 0;
         rcl_dbg.stage = 1;
         return;
     }
@@ -1985,6 +1986,7 @@ void rcl_scan_world(void)
 
         /* never gate the dodge on hp: the field is only informative here */
         rcl_dead = 0;
+        rcl_coord_ok = 1;
     }
     else
     {
