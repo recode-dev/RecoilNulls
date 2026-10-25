@@ -1430,3 +1430,45 @@ void rcl_autododge(void)
 
     rcl_active = rcl_ad_update((float)ownX, (float)ownY);
 }
+
+float rcl_own_radius(void)
+{
+    if (rcl_own_r > 1.0f)
+    {
+        float r = rcl_own_r;
+
+        if (r > RCL_OWN_RADIUS_MAX)
+        {
+            r = RCL_OWN_RADIUS_MAX;
+        }
+        if (r < RCL_OWN_RADIUS_MIN)
+        {
+            r = RCL_OWN_RADIUS_MIN;
+        }
+
+        return r;
+    }
+
+    return 120.0f;
+}
+
+int rcl_proj_vel(const rcl_proj_t *p, float *vxOut, float *vyOut)
+{
+    float dt = 0.0f;
+
+    if (!p->elem || !p->hasPrev)
+    {
+        return 0;
+    }
+
+    dt = (float)(p->qms - p->pms);
+    if (dt < RCL_AD_TICK_MS || dt > RCL_AD_TICK_MAX_MS)
+    {
+        dt = RCL_AD_TICK_MS;
+    }
+
+    *vxOut = (float)(p->x - p->px) * 1000.0f / dt;
+    *vyOut = (float)(p->y - p->py) * 1000.0f / dt;
+
+    return 1;
+}
