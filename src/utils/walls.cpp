@@ -14,8 +14,6 @@ namespace
     constexpr int32_t MAX_MAP_TILES = 120;
     constexpr size_t MAX_TOTAL_TILES = (size_t)MAX_MAP_TILES * MAX_MAP_TILES;
     constexpr uint32_t RETRY_MS = 2000;
-    constexpr float TRACE_STEP = 40.0f;
-    constexpr float TRACE_BACKOFF = 75.0f;
     constexpr size_t CHUNK_POINTERS = 512;
     constexpr size_t TYPE_CACHE_SIZE = 32;
 
@@ -178,16 +176,6 @@ void walls::maybeRefreshWallCache(uintptr_t battleMode, uint32_t now)
     g_lastFailedTs = now;
 }
 
-int32_t walls::getWallCacheW()
-{
-    return g_width;
-}
-
-int32_t walls::getWallCacheH()
-{
-    return g_height;
-}
-
 bool walls::losCheck(float wx0, float wy0, float wx1, float wy1, uint8_t checkBit)
 {
     if (!g_valid) return true;
@@ -230,39 +218,6 @@ bool walls::losCheck(float wx0, float wy0, float wx1, float wy1, uint8_t checkBi
     }
 
     return true;
-}
-
-float walls::traceWallHit(float wx, float wy, float dirX, float dirY, float maxDist, uint8_t checkBit)
-{
-    if (!g_valid || maxDist <= 0.0f) return maxDist;
-
-    const int32_t width = g_width;
-    const int32_t height = g_height;
-    if (width <= 0 || height <= 0) return maxDist;
-
-    float dist = 0.0f;
-    while (dist < maxDist)
-    {
-        dist += TRACE_STEP;
-        if (dist > maxDist) dist = maxDist;
-
-        const int32_t tx = (int32_t)((wx + dirX * dist) / TILE_SIZE);
-        const int32_t ty = (int32_t)((wy + dirY * dist) / TILE_SIZE);
-
-        if (tx < 0 || tx >= width || ty < 0 || ty >= height)
-        {
-            const float backed = dist - TRACE_BACKOFF;
-            return backed > 0.0f ? backed : 0.0f;
-        }
-
-        if ((g_grid[ty * width + tx] & checkBit) != 0)
-        {
-            const float backed = dist - TRACE_BACKOFF;
-            return backed > 0.0f ? backed : 0.0f;
-        }
-    }
-
-    return maxDist;
 }
 
 bool walls::isBlockedAt(float wx, float wy, uint8_t checkBit)

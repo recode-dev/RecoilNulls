@@ -630,8 +630,3 @@ void autoaim::resetAutoaim()
     clearTarget();
     memset(g_track, 0, sizeof(g_track));
 }
-
-bool autoaim::hasTarget()
-{
-    return g_hasTarget && g_targetPtr != 0;
-}

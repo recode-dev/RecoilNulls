@@ -1,5 +1,4 @@
 #include <cstdint>
-#include <cstddef>
 #include <cstring>
 #include <cmath>
 
@@ -312,56 +311,6 @@ namespace
         return raw;
     }
 
-    float clampToMap(float value, int32_t maxTiles)
-    {
-        const float limit = (float)maxTiles * walls::TILE_SIZE - 1.0f;
-        if (limit <= 0.0f) return value;
-        if (value < 0.0f) return 0.0f;
-        if (value > limit) return limit;
-        return value;
-    }
-
-    void writeMoveInput(uintptr_t clientInput, uintptr_t, void *ctx)
-    {
-        const MoveInput *input = static_cast<const MoveInput *>(ctx);
-        *(int32_t *)(clientInput + offsets::ClientInput_x) = input->x;
-        *(int32_t *)(clientInput + offsets::ClientInput_y) = input->y;
-    }
-
-    bool sendMove(uintptr_t logic, int32_t tx, int32_t ty)
-    {
-        if (logic == 0) return false;
-
-        const scanner::ScannerData &scan = scanner::data();
-        if (scan.ownCharacter != 0)
-        {
-            uint32_t valX = (uint32_t)tx;
-            uint32_t valY = (uint32_t)ty;
-            uint32_t valFlag = 1;
-            tools::memory::write(scan.ownCharacter + offsets::LogicCharacterClient_predictionX, &valX, 4);
-            tools::memory::write(scan.ownCharacter + offsets::LogicCharacterClient_predictionY, &valY, 4);
-            tools::memory::write(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags1, &valFlag, 4);
-            tools::memory::write(scan.ownCharacter + offsets::LogicCharacterClient_predictionFlags2, &valFlag, 4);
-        }
-
-        if (functions::LogicBattleModeClient_setClientPredictionMoveTo != nullptr)
-        {
-            functions::LogicBattleModeClient_setClientPredictionMoveTo(logic, tx, ty, 1);
-        }
-
-        MoveInput input;
-        input.x = tx;
-        input.y = ty;
-        return sendCommand(MOVE_INPUT_TYPE, writeMoveInput, &input);
-    }
-
-    void clearHeading()
-    {
-        g_heading.valid = false;
-        g_headingIdx = -1;
-        g_holdUntil = 0;
-    }
-}
 
 void autododge::setup()
 {
@@ -378,64 +327,6 @@ void autododge::reset()
     g_lastSentY = SENTINEL;
     g_lastSentAt = 0;
     g_seenRespawns = (uint32_t)scanner::data().myRespawns;
-}
-
-void autododge::configure(const Options &options)
-{
-    float reactionSpeed = options.reactionSpeed;
-    if (reactionSpeed < 0.0f) reactionSpeed = 0.0f;
-    if (reactionSpeed > 100.0f) reactionSpeed = 100.0f;
-    g_options.reactionSpeed = reactionSpeed;
-
-    int32_t precision = options.directionPrecision;
-    if (precision < 8) precision = 8;
-    if (precision > 128) precision = 128;
-    g_options.directionPrecision = precision;
-
-    int32_t margin = options.safetyMargin;
-    if (margin < 0) margin = 0;
-    if (margin > 120) margin = 120;
-    g_options.safetyMargin = margin;
-
-    int32_t count = options.ignoredCount;
-    if (count < 0) count = 0;
-    if (count > 16) count = 16;
-    g_options.ignoredCount = count;
-
-    for (int32_t i = 0; i < count; i++)
-    {
-        strncpy(g_options.ignoredBrawlers[i], options.ignoredBrawlers[i], 23);
-        g_options.ignoredBrawlers[i][23] = 0;
-    }
-
-    syncTuning();
-}
-
-bool autododge::dodgeDir(float &x, float &y)
-{
-    if (!g_heading.valid) return false;
-    x = g_heading.x;
-    y = g_heading.y;
-    return true;
-}
-
-bool autododge::clampTarget(float tx, float ty, float &outX, float &outY)
-{
-    const int32_t width = walls::getWallCacheW();
-    const int32_t height = walls::getWallCacheH();
-
-    outX = tx;
-    outY = ty;
-    if (width <= 0 || height <= 0) return false;
-
-    outX = clampToMap(tx, width);
-    outY = clampToMap(ty, height);
-    return true;
-}
-
-bool autododge::sendBattleMove(uintptr_t logic, float tx, float ty)
-{
-    return sendMove(logic, (int32_t)lroundf(tx), (int32_t)lroundf(ty));
 }
 
 void autododge::update(uint32_t nowMs)

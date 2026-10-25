@@ -109,11 +109,7 @@ namespace
     size_t g_enemyTeamCount = 0;
 
     LiveProjectile g_live[MAX_LIVE];
-    Teammate g_teammates[MAX_TEAMMATES];
     Enemy g_enemies[MAX_ENEMIES];
-
-    Destroyed g_destroyedBuf[MAX_DESTROYED];
-    int32_t g_destroyedCount = 0;
 
     uint8_t g_batch[MAX_OBJECTS * 8];
 
@@ -554,24 +550,11 @@ namespace
         for (size_t i = 0; i < MAX_LIVE; i++) g_live[i].used = false;
     }
 
-    void pushDestroyed(LiveProjectile &record)
-    {
-        if (g_destroyedCount >= MAX_DESTROYED) return;
-        Destroyed &slot = g_destroyedBuf[g_destroyedCount++];
-        strncpy(slot.name, record.name, NAME_CAP - 1);
-        slot.name[NAME_CAP - 1] = 0;
-        slot.spawnX = record.spawnX;
-        slot.spawnY = record.spawnY;
-        slot.x = record.lastX;
-        slot.y = record.lastY;
-    }
-
     void markDead(uint32_t now)
     {
         if (!g_wasDead)
         {
             g_wasDead = true;
-            g_data.myDeadAt = now;
         }
         g_data.myAlive = false;
         g_data.myHp = 0;
@@ -584,7 +567,6 @@ namespace
             g_wasDead = false;
             g_data.myRespawns++;
             g_data.myRespawnAt = now;
-            g_data.myDeadAt = 0;
         }
         g_data.myAlive = true;
     }
@@ -708,7 +690,6 @@ void scanner::reset()
     g_friendlyCount = 0;
     g_teamOfIndexCount = 0;
     g_enemyTeamCount = 0;
-    g_destroyedCount = 0;
     g_hpSane = false;
     g_wasDead = false;
     g_hasSeenPos = false;
@@ -725,33 +706,17 @@ void scanner::reset()
     g_data.myPlayerIndex = -1;
     g_data.myHp = 0;
     g_data.myAlive = false;
-    g_data.myDeadAt = 0;
     g_data.myRespawnAt = 0;
     g_data.myRespawns = 0;
     g_data.myBrawlerName[0] = 0;
-    g_data.teammateCount = 0;
     g_data.enemyCount = 0;
     g_data.projectileCount = 0;
-    g_data.destroyedCount = 0;
     g_data.lastUpdate = 0;
 }
 
 const scanner::ScannerData &scanner::data()
 {
     return g_data;
-}
-
-scanner::OwnStatus scanner::ownStatus(uint32_t nowMs)
-{
-    OwnStatus status;
-    status.alive = g_data.myAlive;
-    status.hp = g_data.myHp;
-    status.deadMs = g_data.myDeadAt > 0 && nowMs > g_data.myDeadAt ? nowMs - g_data.myDeadAt : 0;
-    status.respawns = g_data.myRespawns;
-    status.respawnAgeMs = g_data.myRespawnAt > 0
-        ? (int32_t)(nowMs > g_data.myRespawnAt ? nowMs - g_data.myRespawnAt : 0)
-        : -1;
-    return status;
 }
 
 bool scanner::isFriendlyOwner(int32_t ownerIndex, int32_t team)
@@ -862,7 +827,6 @@ void scanner::removeProjectile(uintptr_t projectile)
     LiveProjectile *record = findLive(gid);
     if (record == nullptr) return;
 
-    if (!scanner::isFriendlyOwner(record->ownerIndex, record->ownerTeam)) pushDestroyed(*record);
     record->used = false;
 }
 
@@ -899,12 +863,8 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
         g_data.ownCharacter = 0;
         g_data.battleModeClient = battleModeClient;
         g_data.myHp = 0;
-        g_data.teammateCount = 0;
-        g_data.enemyCount = 0;
+            g_data.enemyCount = 0;
 
-        g_data.destroyedCount = g_destroyedCount;
-        if (g_destroyedCount > 0) memcpy(g_data.destroyed, g_destroyedBuf, (size_t)g_destroyedCount * sizeof(Destroyed));
-        g_destroyedCount = 0;
 
         if (autododge)
         {
@@ -1007,7 +967,6 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
     if (wentDead) markDead(nowMs);
     else markAlive(nowMs);
 
-    int32_t teammateCount = 0;
     int32_t enemyCount = 0;
 
     const uintptr_t projectileVtable = g_base + offsets::Vtable_projectileData;
@@ -1063,26 +1022,6 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
                     {
                         addFriendlyIndex(index);
                         setIndexTeam(index, team);
-                    }
-                    if (index >= 0 && index != g_data.myPlayerIndex && teammateCount < MAX_TEAMMATES)
-                    {
-                        const uintptr_t teammateBody = bodyOf(object);
-                        int32_t radius = 0;
-                        if (functions::LogicCharacterData_getCollisionRadius != nullptr)
-                        {
-                            radius = (int32_t)functions::LogicCharacterData_getCollisionRadius(data);
-                        }
-                        if (radius > 0 && radius <= 400)
-                        {
-                            Teammate &slot = g_teammates[teammateCount++];
-                            slot.playerIndex = index;
-                            slot.x = functions::LogicGameObjectClient_getX != nullptr
-                                ? functions::LogicGameObjectClient_getX(teammateBody) : 0;
-                            slot.y = functions::LogicGameObjectClient_getY != nullptr
-                                ? functions::LogicGameObjectClient_getY(teammateBody) : 0;
-                            slot.radius = radius;
-                            slot.teamId = team;
-                        }
                     }
                     continue;
                 }
@@ -1157,9 +1096,6 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
         }
     }
 
-    g_data.teammateCount = teammateCount;
-    if (teammateCount > 0) memcpy(g_data.teammates, g_teammates, (size_t)teammateCount * sizeof(Teammate));
-
     g_data.enemyCount = enemyCount;
     if (enemyCount > 0) memcpy(g_data.enemies, g_enemies, (size_t)enemyCount * sizeof(Enemy));
 
@@ -1187,9 +1123,6 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
         g_nameCount = keep;
     }
 
-    g_data.destroyedCount = g_destroyedCount;
-    if (g_destroyedCount > 0) memcpy(g_data.destroyed, g_destroyedBuf, (size_t)g_destroyedCount * sizeof(Destroyed));
-    g_destroyedCount = 0;
 
     if (autododge)
     {
