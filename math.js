@@ -1,9 +1,13 @@
 function ofIterator(obj) { return obj[Symbol.iterator](); }
+
 function inIterator(obj) { return Object.keys(obj)[Symbol.iterator](); }
+
 function ofStep(it) { const r = it.next(); return [r.value, r.done]; }
+
 function inStep(it) { const r = it.next(); return [r.value, r.done]; }
+
 function getBestPath(arg0, arg1, {mathBindings}) {
-  let pathByAngle, v0, v1, v10, v2, v3, v4, v5, v6, v7, v9;
+  let v0, v1, v10, v2, v3, v4, v5, v6, v7, v9, pathByAngle;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -155,8 +159,9 @@ function getBestPath(arg0, arg1, {mathBindings}) {
     }
   }
 }
+
 function getPathDamage({capturedValue0, capturedValue1, capturedValue2, capturedValue3}) {
-  let v0, v1, v2;
+  let v1, v2, v0;
   function function_d63f5d05__d63f5d05827a34eb(input = {}) {
   const BattleCache1 = BattleCache;
   const CurrentPosition2 = BattleCache1["CurrentPosition"];
@@ -183,7 +188,7 @@ function getPathDamage({capturedValue0, capturedValue1, capturedValue2, captured
   const propertyValue18 = capturedValue317[0];
   const capturedValue319 = capturedValue3;
   const propertyValue20 = capturedValue319[1];
-  const callResult21 = Reflect.apply(getDistance12, MathUtil11, [propertyValue14, propertyValue16, propertyValue18, propertyValue20]);
+  const callResult21 = getDistance12.call(MathUtil11, propertyValue14, propertyValue16, propertyValue18, propertyValue20);
   v2 = callResult21;
   const localValue222 = v2;
   const localValue123 = v1;
@@ -238,7 +243,7 @@ function getPathDamage({capturedValue0, capturedValue1, capturedValue2, captured
   const propertyValue52 = capturedValue351[0];
   const capturedValue353 = capturedValue3;
   const propertyValue54 = capturedValue353[1];
-  const callResult55 = Reflect.apply(getDistance46, MathUtil45, [propertyValue48, propertyValue50, propertyValue52, propertyValue54]);
+  const callResult55 = getDistance46.call(MathUtil45, propertyValue48, propertyValue50, propertyValue52, propertyValue54);
   v2 = callResult55;
   const localValue256 = v2;
   const localValue157 = v1;
@@ -270,9 +275,10 @@ function getPathDamage({capturedValue0, capturedValue1, capturedValue2, captured
   }
   }
   }
-  const metadata57 = {"id":"f_d65a89009a961e44","bindings":["getPathDamage"],"argumentCount":2,"variableCount":33,"constants":[],"closures":[{"flags":9,"variableIndex":1320,"atom":0,"name":""},{"flags":13,"variableIndex":1182,"atom":0,"name":""},{"flags":1,"variableIndex":6,"atom":0,"name":""}]};
 }
+
 function getPathDamageBounded(startPosition, endPosition, projectileStart, projectileEnd, combinedRadius) {
+  let discriminant, enterTime, exitTime, initialSeparation, quadraticLinear, relativeSpeedSquared, relativeVelocityX, relativeVelocityY, relativeX, relativeY, sqrtDiscriminant;
   function checkSweptCollision__7b14b1912d56a4ae(input = {}) {
   const startPosition1 = startPosition;
   const propertyValue2 = startPosition1[0];
@@ -360,7 +366,7 @@ function getPathDamageBounded(startPosition, endPosition, projectileStart, proje
   const Math73 = Math;
   const sqrt74 = Math73["sqrt"];
   const discriminant75 = discriminant;
-  const callResult76 = Reflect.apply(sqrt74, Math73, [discriminant75]);
+  const callResult76 = sqrt74.call(Math73, discriminant75);
   sqrtDiscriminant = callResult76;
   const quadraticLinear77 = quadraticLinear;
   const result78 = -quadraticLinear77;
@@ -422,10 +428,10 @@ function getPathDamageBounded(startPosition, endPosition, projectileStart, proje
   return result111;
   }
   }
-  const metadata37 = {"id":"f_7d06d20742aded15","bindings":["getPathDamageBounded"],"argumentCount":3,"variableCount":33,"constants":[],"closures":[{"flags":9,"variableIndex":1320,"atom":0,"name":""},{"flags":13,"variableIndex":1182,"atom":0,"name":""},{"flags":1,"variableIndex":6,"atom":0,"name":""}]};
 }
+
 function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
-  let v0, v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v3, v4, v5, v6, v7, v8, v9;
+  let v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v3, v4, v5, v6, v7, v8, v9, v0;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -682,6 +688,7 @@ function getStillDamage(arg0, arg1, arg2, {dodgePlanner, mathBindings}) {
     }
   }
 }
+
 function getStillDamageOriginal(arg0, arg1) {
   let v0;
   function getAngleDifference__c9b274443706cbf2(input = {}) {
@@ -691,7 +698,7 @@ function getStillDamageOriginal(arg0, arg1) {
   const argument14 = arg1;
   const result5 = argument03 - argument14;
   const result6 = result5 % 360;
-  const callResult7 = Reflect.apply(abs2, Math1, [result6]);
+  const callResult7 = abs2.call(Math1, result6);
   v0 = callResult7;
   const localValue08 = v0;
   const result9 = localValue08 > 180;
@@ -704,10 +711,10 @@ function getStillDamageOriginal(arg0, arg1) {
   return result12;
   }
   }
-  const metadata54 = {"id":"f_caf0bb77709b156f","bindings":["getStillDamageOriginal"],"argumentCount":3,"variableCount":20,"constants":[],"closures":[{"flags":9,"variableIndex":1320,"atom":0,"name":""},{"flags":13,"variableIndex":1182,"atom":0,"name":""},{"flags":1,"variableIndex":6,"atom":0,"name":""}]};
 }
+
 function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
-  let v0, v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v2, v20, v3, v4, v5, v6, v7, v8, v9;
+  let v1, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v2, v20, v3, v4, v5, v6, v7, v8, v9, v0;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -927,8 +934,9 @@ function getDamage(arg0, {configuration, dodgePlanner, mathBindings}) {
     }
   }
 }
+
 function getProjectilePathPoint({capturedValue0, capturedValue1, capturedValue2, capturedValue3}) {
-  let v0, v1;
+  let v1, v0;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -1009,8 +1017,9 @@ function getProjectilePathPoint({capturedValue0, capturedValue1, capturedValue2,
     }
   }
 }
+
 function getProjectileTicks(arg0, arg1, arg2, arg3, arg4, {mathBindings, dodgePlanner}) {
-  let radians, v0, v10, v11, v12, v13, v3, v4, v6, v7, v8, v9;
+  let v0, v10, v11, v12, v13, v3, v4, v6, v7, v8, v9, radians;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -1061,8 +1070,9 @@ function getProjectileTicks(arg0, arg1, arg2, arg3, arg4, {mathBindings, dodgePl
     }
   }
 }
+
 function getProjectilePosition(arg0, {capturedValue0, capturedValue1, capturedValue2, capturedValue3}) {
-  let v0, v1, v2, v3, v4;
+  let v1, v2, v3, v4, v0;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -1161,8 +1171,9 @@ function getProjectilePosition(arg0, {capturedValue0, capturedValue1, capturedVa
     }
   }
 }
+
 function getGroupedProjectiles(arg0) {
-  let v0, v1, v2, v3, v4, v5, v6, v7;
+  let v1, v2, v3, v4, v5, v6, v7, v0;
   const stack = [];
   let pc = 0;
   while (true) {
@@ -1218,20 +1229,167 @@ function getGroupedProjectiles(arg0) {
     }
   }
 }
-function getDamageOnlyWithOneProj() {
+
+function getDamageOnlyWithOneProj({capturedValue0}) {
   let v0;
-  function hasResult__8402448478f7e9dd(input = {}) {
   v0 = this;
   const localValue01 = v0;
-  const completed2 = localValue01["completed"];
-  const result3 = completed2 !== null;
-  return result3;
-  }
-  const metadata39 = {"id":"f_8b1613f8ca3533fa","bindings":["getDamageOnlyWithOneProj"],"argumentCount":0,"variableCount":1,"constants":[],"closures":[{"flags":13,"variableIndex":7,"atom":0,"name":""}]};
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const DamageOnlyWithOneProj6 = LogicProjectileData5["DamageOnlyWithOneProj"];
+  const callResult7 = add3.call(instance2, DamageOnlyWithOneProj6);
+  const readU88 = callResult7["readU8"];
+  const callResult9 = readU88.call(callResult7);
+  const result10 = !callResult9;
+  const result11 = !result10;
+  return result11;
 }
-function getMaxRange({capturedValue0}) {
+
+function getMaxRange(arg0, {capturedValue0}) {
+  let v1, v2, v0;
+  const capturedValue01 = capturedValue0;
+  const argument02 = arg0;
+  const propertyValue3 = capturedValue01[argument02];
+  if (propertyValue3) {
+  v0 = propertyValue3;
+  const localValue04 = v0;
+  const Range5 = localValue04["Range"];
+  if (Range5) {
+  v1 = Range5;
+  const localValue16 = v1;
+  const result7 = !localValue16;
+  if (!result7) {
+  const localValue18 = v1;
+  v2 = localValue18;
+  const localValue29 = v2;
+  return localValue29;
+  } else {
+  return undefined;
+  }
+  } else {
+  const GlobalCache10 = GlobalCache;
+  const CastingRanges11 = GlobalCache10["CastingRanges"];
+  const argument012 = arg0;
+  const propertyValue13 = CastingRanges11[argument012];
+  if (propertyValue13) {
+  v1 = propertyValue13;
+  const localValue114 = v1;
+  const result15 = !localValue114;
+  if (!result15) {
+  const localValue116 = v1;
+  v2 = localValue116;
+  const localValue217 = v2;
+  return localValue217;
+  } else {
+  return undefined;
+  }
+  } else {
+  const localValue018 = v0;
+  const ProjectileRange19 = localValue018["ProjectileRange"];
+  if (!ProjectileRange19) {
+  v1 = ProjectileRange19;
+  const localValue120 = v1;
+  const result21 = !localValue120;
+  if (!result21) {
+  const localValue122 = v1;
+  v2 = localValue122;
+  const localValue223 = v2;
+  return localValue223;
+  } else {
+  return undefined;
+  }
+  } else {
+  const GlobalCache24 = GlobalCache;
+  const CastingRanges25 = GlobalCache24["CastingRanges"];
+  const localValue026 = v0;
+  const ProjectileRange27 = localValue026["ProjectileRange"];
+  const propertyValue28 = CastingRanges25[ProjectileRange27];
+  v1 = propertyValue28;
+  const localValue129 = v1;
+  const result30 = !localValue129;
+  if (!result30) {
+  const localValue131 = v1;
+  v2 = localValue131;
+  const localValue232 = v2;
+  return localValue232;
+  } else {
+  return undefined;
+  }
+  }
+  }
+  }
+  } else {
+  const objectValue33 = {};
+  v0 = objectValue33;
+  const localValue034 = v0;
+  const Range35 = localValue034["Range"];
+  if (Range35) {
+  v1 = Range35;
+  const localValue136 = v1;
+  const result37 = !localValue136;
+  if (!result37) {
+  const localValue138 = v1;
+  v2 = localValue138;
+  const localValue239 = v2;
+  return localValue239;
+  } else {
+  return undefined;
+  }
+  } else {
+  const GlobalCache40 = GlobalCache;
+  const CastingRanges41 = GlobalCache40["CastingRanges"];
+  const argument042 = arg0;
+  const propertyValue43 = CastingRanges41[argument042];
+  if (propertyValue43) {
+  v1 = propertyValue43;
+  const localValue144 = v1;
+  const result45 = !localValue144;
+  if (!result45) {
+  const localValue146 = v1;
+  v2 = localValue146;
+  const localValue247 = v2;
+  return localValue247;
+  } else {
+  return undefined;
+  }
+  } else {
+  const localValue048 = v0;
+  const ProjectileRange49 = localValue048["ProjectileRange"];
+  if (!ProjectileRange49) {
+  v1 = ProjectileRange49;
+  const localValue150 = v1;
+  const result51 = !localValue150;
+  if (!result51) {
+  const localValue152 = v1;
+  v2 = localValue152;
+  const localValue253 = v2;
+  return localValue253;
+  } else {
+  return undefined;
+  }
+  } else {
+  const GlobalCache54 = GlobalCache;
+  const CastingRanges55 = GlobalCache54["CastingRanges"];
+  const localValue056 = v0;
+  const ProjectileRange57 = localValue056["ProjectileRange"];
+  const propertyValue58 = CastingRanges55[ProjectileRange57];
+  v1 = propertyValue58;
+  const localValue159 = v1;
+  const result60 = !localValue159;
+  if (!result60) {
+  const localValue161 = v1;
+  v2 = localValue161;
+  const localValue262 = v2;
+  return localValue262;
+  } else {
+  return undefined;
+}
+}}}}}
+
+function getConstantFlyTime({capturedValue0}) {
   let v0;
-  function getConstantFlyTime__72e19c8c0bb67b6a(input = {}) {
   v0 = this;
   const localValue01 = v0;
   const instance2 = localValue01["instance"];
@@ -1239,64 +1397,15 @@ function getMaxRange({capturedValue0}) {
   const capturedValue04 = capturedValue0;
   const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
   const ConstantFlyTime6 = LogicProjectileData5["ConstantFlyTime"];
-  const callResult7 = Reflect.apply(add3, instance2, [ConstantFlyTime6]);
+  const callResult7 = add3.call(instance2, ConstantFlyTime6);
   const readU88 = callResult7["readU8"];
-  const callResult9 = Reflect.apply(readU88, callResult7, []);
+  const callResult9 = readU88.call(callResult7);
   return callResult9;
-  }
-  const metadata32 = {"id":"f_7360abf0f0b60b37","bindings":["getMaxRange"],"argumentCount":1,"variableCount":3,"constants":[],"closures":[{"flags":13,"variableIndex":1174,"atom":0,"name":""}]};
 }
-function getConstantFlyTime({capturedValue0}) {
-  let v0;
-  function getPassesEnvironment__6dace8431da70dd2(input = {}) {
-  v0 = this;
-  const localValue01 = v0;
-  const instance2 = localValue01["instance"];
-  const add3 = instance2["add"];
-  const capturedValue04 = capturedValue0;
-  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
-  const PiercesEnvironment6 = LogicProjectileData5["PiercesEnvironment"];
-  const callResult7 = Reflect.apply(add3, instance2, [PiercesEnvironment6]);
-  const readU88 = callResult7["readU8"];
-  const callResult9 = Reflect.apply(readU88, callResult7, []);
-  const result10 = !callResult9;
-  const result11 = !result10;
-  if (result11) {
-  return result11;
-  } else {
-  const localValue012 = v0;
-  const instance13 = localValue012["instance"];
-  const add14 = instance13["add"];
-  const capturedValue015 = capturedValue0;
-  const LogicProjectileData16 = capturedValue015["LogicProjectileData"];
-  const PiercesEnvironmentLikeButter17 = LogicProjectileData16["PiercesEnvironmentLikeButter"];
-  const callResult18 = Reflect.apply(add14, instance13, [PiercesEnvironmentLikeButter17]);
-  const readU819 = callResult18["readU8"];
-  const callResult20 = Reflect.apply(readU819, callResult18, []);
-  const result21 = !callResult20;
-  const result22 = !result21;
-  if (result22) {
-  return result22;
-  } else {
-  const localValue023 = v0;
-  const instance24 = localValue023["instance"];
-  const add25 = instance24["add"];
-  const capturedValue026 = capturedValue0;
-  const LogicProjectileData27 = capturedValue026["LogicProjectileData"];
-  const PassesEnvironment28 = LogicProjectileData27["PassesEnvironment"];
-  const callResult29 = Reflect.apply(add25, instance24, [PassesEnvironment28]);
-  const readU830 = callResult29["readU8"];
-  const callResult31 = Reflect.apply(readU830, callResult29, []);
-  const result32 = !callResult31;
-  const result33 = !result32;
-  return result33;
-  }
-  }
-  }
-  const metadata31 = {"id":"f_72e19c8c0bb67b6a","bindings":["getConstantFlyTime"],"argumentCount":0,"variableCount":1,"constants":[],"closures":[{"flags":13,"variableIndex":7,"atom":0,"name":""}]};
-}
+
 function getCollisionRadius({capturedValue0}) {
   let v0;
+  v0 = this;
   const localValue01 = v0;
   const instance2 = localValue01["instance"];
   const add3 = instance2["add"];
@@ -1308,87 +1417,65 @@ function getCollisionRadius({capturedValue0}) {
   const callResult9 = readInt8.call(callResult7);
   return callResult9;
 }
-function getBoomerangType(arg0, {capturedValue0, capturedValue1}) {
-  function function_a6c866cd__a6c866cdf0918a97(input = {}) {
-  const capturedValue01 = capturedValue0;
-  const failed2 = capturedValue01["failed"];
-  const capturedValue13 = capturedValue1;
-  const argument04 = arg0;
-  const callResult5 = Reflect.apply(failed2, capturedValue01, [capturedValue13, argument04]);
-  return callResult5;
-  }
-  const metadata50 = {"id":"f_acf3b3f1e9e6ef6a","bindings":["getBoomerangType"],"argumentCount":0,"variableCount":1,"constants":[],"closures":[{"flags":13,"variableIndex":7,"atom":0,"name":""}]};
+
+function getBoomerangType({capturedValue0}) {
+  let v0;
+  v0 = this;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const BoomerangType6 = LogicProjectileData5["BoomerangType"];
+  const callResult7 = add3.call(instance2, BoomerangType6);
+  const readInt8 = callResult7["readInt"];
+  const callResult9 = readInt8.call(callResult7);
+  return callResult9;
 }
-function getMirrored(arg0, arg1) {
-  let v0, v1, v2, v4;
-  function getDynamicDamage__9f7f4eb6bb728899(input = {}) {
-  v4 = this;
-  const BattleCache1 = BattleCache;
-  const TickPosition2 = BattleCache1["TickPosition"];
-  if (TickPosition2) {
-  v0 = TickPosition2;
-  const BattleCache3 = BattleCache;
-  const CurrentSpeed4 = BattleCache3["CurrentSpeed"];
-  v1 = CurrentSpeed4;
-  const localValue15 = v1;
-  const result6 = localValue15 / 20;
-  v2 = result6;
-  const localValue47 = v4;
-  const getPathByAngle8 = localValue47["getPathByAngle"];
-  const localValue09 = v0;
-  const argument010 = arg0;
-  const localValue211 = v2;
-  const callResult12 = Reflect.apply(getPathByAngle8, localValue47, [localValue09, argument010, localValue211]);
-  pathByAngle = callResult12;
-  const localValue413 = v4;
-  const getPathDamage14 = localValue413["getPathDamage"];
-  const pathByAngle15 = pathByAngle;
-  const argument116 = arg1;
-  const callResult17 = Reflect.apply(getPathDamage14, localValue413, [pathByAngle15, argument116]);
-  return callResult17;
-  } else {
-  const BattleCache18 = BattleCache;
-  const ServerPosition19 = BattleCache18["ServerPosition"];
-  v0 = ServerPosition19;
-  const BattleCache20 = BattleCache;
-  const CurrentSpeed21 = BattleCache20["CurrentSpeed"];
-  v1 = CurrentSpeed21;
-  const localValue122 = v1;
-  const result23 = localValue122 / 20;
-  v2 = result23;
-  const localValue424 = v4;
-  const getPathByAngle25 = localValue424["getPathByAngle"];
-  const localValue026 = v0;
-  const argument027 = arg0;
-  const localValue228 = v2;
-  const callResult29 = Reflect.apply(getPathByAngle25, localValue424, [localValue026, argument027, localValue228]);
-  pathByAngle = callResult29;
-  const localValue430 = v4;
-  const getPathDamage31 = localValue430["getPathDamage"];
-  const pathByAngle32 = pathByAngle;
-  const argument133 = arg1;
-  const callResult34 = Reflect.apply(getPathDamage31, localValue430, [pathByAngle32, argument133]);
-  return callResult34;
-  }
-  }
-  const metadata48 = {"id":"f_a45a34d7c4b6bd89","bindings":["getMirrored"],"argumentCount":0,"variableCount":0,"constants":[],"closures":[{"flags":13,"variableIndex":8,"atom":0,"name":""}]};
+
+function getMirrored({capturedValue0}) {
+  const base1 = base;
+  const add2 = base1["add"];
+  const capturedValue03 = capturedValue0;
+  const Mirrored4 = capturedValue03["Mirrored"];
+  const callResult5 = add2.call(base1, Mirrored4);
+  const readU86 = callResult5["readU8"];
+  const callResult7 = readU86.call(callResult5);
+  return callResult7;
 }
-function isBouncing() {
-  let v2;
-  function isIndirect__447fe9a2bdd36ab1(input = {}) {
+
+function isBouncing({capturedValue0}) {
+  let v0;
+  v0 = this;
+  const localValue01 = v0;
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const Bouncing6 = LogicProjectileData5["Bouncing"];
+  const callResult7 = add3.call(instance2, Bouncing6);
+  const readU88 = callResult7["readU8"];
+  const callResult9 = readU88.call(callResult7);
+  const result10 = !callResult9;
+  const result11 = !result10;
+  return result11;
+}
+
+function isIndirect() {
+  let chargeType, projectile, v2;
   v2 = this;
   const localValue21 = v2;
   const getChargeType2 = localValue21["getChargeType"];
-  const callResult3 = Reflect.apply(getChargeType2, localValue21, []);
+  const callResult3 = getChargeType2.call(localValue21);
   chargeType = callResult3;
   const localValue24 = v2;
   const getProjectile5 = localValue24["getProjectile"];
-  const callResult6 = Reflect.apply(getProjectile5, localValue24, []);
+  const callResult6 = getProjectile5.call(localValue24);
   projectile = callResult6;
   const projectile7 = projectile;
   const instance8 = projectile7["instance"];
   const isNull9 = instance8["isNull"];
-  const callResult10 = Reflect.apply(isNull9, instance8, []);
+  const callResult10 = isNull9.call(instance8);
   const result11 = !callResult10;
   if (!result11) {
   const chargeType12 = chargeType;
@@ -1399,10 +1486,10 @@ function isBouncing() {
   } else {
   const localValue214 = v2;
   const getProjectile15 = localValue214["getProjectile"];
-  const callResult16 = Reflect.apply(getProjectile15, localValue214, []);
+  const callResult16 = getProjectile15.call(localValue214);
   const instance17 = callResult16["instance"];
   const isNull18 = instance17["isNull"];
-  const callResult19 = Reflect.apply(isNull18, instance17, []);
+  const callResult19 = isNull18.call(instance17);
   return callResult19;
   }
   } else {
@@ -1414,10 +1501,10 @@ function isBouncing() {
   } else {
   const localValue222 = v2;
   const getProjectile23 = localValue222["getProjectile"];
-  const callResult24 = Reflect.apply(getProjectile23, localValue222, []);
+  const callResult24 = getProjectile23.call(localValue222);
   const instance25 = callResult24["instance"];
   const isNull26 = instance25["isNull"];
-  const callResult27 = Reflect.apply(isNull26, instance25, []);
+  const callResult27 = isNull26.call(instance25);
   return callResult27;
   }
   } else {
@@ -1429,10 +1516,10 @@ function isBouncing() {
   } else {
   const localValue230 = v2;
   const getProjectile31 = localValue230["getProjectile"];
-  const callResult32 = Reflect.apply(getProjectile31, localValue230, []);
+  const callResult32 = getProjectile31.call(localValue230);
   const instance33 = callResult32["instance"];
   const isNull34 = instance33["isNull"];
-  const callResult35 = Reflect.apply(isNull34, instance33, []);
+  const callResult35 = isNull34.call(instance33);
   return callResult35;
   }
   } else {
@@ -1444,10 +1531,10 @@ function isBouncing() {
   } else {
   const localValue238 = v2;
   const getProjectile39 = localValue238["getProjectile"];
-  const callResult40 = Reflect.apply(getProjectile39, localValue238, []);
+  const callResult40 = getProjectile39.call(localValue238);
   const instance41 = callResult40["instance"];
   const isNull42 = instance41["isNull"];
-  const callResult43 = Reflect.apply(isNull42, instance41, []);
+  const callResult43 = isNull42.call(instance41);
   return callResult43;
   }
   } else {
@@ -1458,10 +1545,10 @@ function isBouncing() {
   } else {
   const localValue246 = v2;
   const getProjectile47 = localValue246["getProjectile"];
-  const callResult48 = Reflect.apply(getProjectile47, localValue246, []);
+  const callResult48 = getProjectile47.call(localValue246);
   const instance49 = callResult48["instance"];
   const isNull50 = instance49["isNull"];
-  const callResult51 = Reflect.apply(isNull50, instance49, []);
+  const callResult51 = isNull50.call(instance49);
   return callResult51;
   }
   }
@@ -1471,7 +1558,7 @@ function isBouncing() {
   } else {
   const projectile52 = projectile;
   const getIndirect53 = projectile52["getIndirect"];
-  const callResult54 = Reflect.apply(getIndirect53, projectile52, []);
+  const callResult54 = getIndirect53.call(projectile52);
   if (!callResult54) {
   const chargeType55 = chargeType;
   const result56 = chargeType55 == 20;
@@ -1481,10 +1568,10 @@ function isBouncing() {
   } else {
   const localValue257 = v2;
   const getProjectile58 = localValue257["getProjectile"];
-  const callResult59 = Reflect.apply(getProjectile58, localValue257, []);
+  const callResult59 = getProjectile58.call(localValue257);
   const instance60 = callResult59["instance"];
   const isNull61 = instance60["isNull"];
-  const callResult62 = Reflect.apply(isNull61, instance60, []);
+  const callResult62 = isNull61.call(instance60);
   return callResult62;
   }
   } else {
@@ -1496,10 +1583,10 @@ function isBouncing() {
   } else {
   const localValue265 = v2;
   const getProjectile66 = localValue265["getProjectile"];
-  const callResult67 = Reflect.apply(getProjectile66, localValue265, []);
+  const callResult67 = getProjectile66.call(localValue265);
   const instance68 = callResult67["instance"];
   const isNull69 = instance68["isNull"];
-  const callResult70 = Reflect.apply(isNull69, instance68, []);
+  const callResult70 = isNull69.call(instance68);
   return callResult70;
   }
   } else {
@@ -1511,10 +1598,10 @@ function isBouncing() {
   } else {
   const localValue273 = v2;
   const getProjectile74 = localValue273["getProjectile"];
-  const callResult75 = Reflect.apply(getProjectile74, localValue273, []);
+  const callResult75 = getProjectile74.call(localValue273);
   const instance76 = callResult75["instance"];
   const isNull77 = instance76["isNull"];
-  const callResult78 = Reflect.apply(isNull77, instance76, []);
+  const callResult78 = isNull77.call(instance76);
   return callResult78;
   }
   } else {
@@ -1526,10 +1613,10 @@ function isBouncing() {
   } else {
   const localValue281 = v2;
   const getProjectile82 = localValue281["getProjectile"];
-  const callResult83 = Reflect.apply(getProjectile82, localValue281, []);
+  const callResult83 = getProjectile82.call(localValue281);
   const instance84 = callResult83["instance"];
   const isNull85 = instance84["isNull"];
-  const callResult86 = Reflect.apply(isNull85, instance84, []);
+  const callResult86 = isNull85.call(instance84);
   return callResult86;
   }
   } else {
@@ -1540,10 +1627,10 @@ function isBouncing() {
   } else {
   const localValue289 = v2;
   const getProjectile90 = localValue289["getProjectile"];
-  const callResult91 = Reflect.apply(getProjectile90, localValue289, []);
+  const callResult91 = getProjectile90.call(localValue289);
   const instance92 = callResult91["instance"];
   const isNull93 = instance92["isNull"];
-  const callResult94 = Reflect.apply(isNull93, instance92, []);
+  const callResult94 = isNull93.call(instance92);
   return callResult94;
   }
   }
@@ -1555,36 +1642,29 @@ function isBouncing() {
   const result96 = !arrayValue95;
   const result97 = !result96;
   return result97;
-  }
-  }
-  }
-  const metadata19 = {"id":"f_467cc9b1b326e089","bindings":["isBouncing"],"argumentCount":0,"variableCount":1,"constants":[],"closures":[{"flags":13,"variableIndex":7,"atom":0,"name":""}]};
 }
-function isIndirect(arg0) {
+}}
+
+function getIndirect({capturedValue0}) {
   let v0;
-  function findStoredTouch__422d016251b7bfd4(input = {}) {
   v0 = this;
   const localValue01 = v0;
-  const touches2 = localValue01["touches"];
-  const find3 = touches2["find"];
-  const callback4 = frame.makeClosure(0, {args, locals, refs, frame});
-  const callResult5 = Reflect.apply(find3, touches2, [callback4]);
-  return callResult5;
-  }
-  const metadata18 = {"id":"f_447fe9a2bdd36ab1","bindings":["isIndirect"],"argumentCount":0,"variableCount":3,"constants":[],"closures":[]};
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
+  const capturedValue04 = capturedValue0;
+  const LogicProjectileData5 = capturedValue04["LogicProjectileData"];
+  const Indirect6 = LogicProjectileData5["Indirect"];
+  const callResult7 = add3.call(instance2, Indirect6);
+  const readInt8 = callResult7["readInt"];
+  const callResult9 = readInt8.call(callResult7);
+  const result10 = !callResult9;
+  const result11 = !result10;
+  return result11;
 }
-function getIndirect(arg0, {capturedValue0}) {
-  function function_585f09dc__585f09dc40aa32b7_1(input = {}) {
-  const capturedValue01 = capturedValue0;
-  const report2 = capturedValue01["report"];
-  const argument03 = arg0;
-  const callResult4 = Reflect.apply(report2, capturedValue01, [argument03]);
-  return callResult4;
-  }
-  const metadata26 = {"id":"f_614284f07145d36c","bindings":["getIndirect"],"argumentCount":0,"variableCount":1,"constants":[],"closures":[{"flags":13,"variableIndex":7,"atom":0,"name":""}]};
-}
+
 function getPassesEnvironment({capturedValue0}) {
   let v0;
+  v0 = this;
   const localValue01 = v0;
   const instance2 = localValue01["instance"];
   const add3 = instance2["add"];
@@ -1625,38 +1705,29 @@ function getPassesEnvironment({capturedValue0}) {
   const result32 = !callResult31;
   const result33 = !result32;
   return result33;
-  }
-  }
 }
-function getSpawnAreaEffectObject() {
-  let v1;
-  function isCharacterPositionBased__7979a8197aa93304(input = {}) {
-  v1 = this;
-  const localValue11 = v1;
-  const getBaseName2 = localValue11["getBaseName"];
-  const callResult3 = Reflect.apply(getBaseName2, localValue11, []);
-  baseName = callResult3;
-  const baseName4 = baseName;
-  const includes5 = baseName4["includes"];
-  const callResult6 = Reflect.apply(includes5, baseName4, ["Circling"]);
-  if (callResult6) {
-  return callResult6;
-  } else {
-  const baseName7 = baseName;
-  const result8 = baseName7 == "AxeJugglerProjectile2";
-  if (result8) {
-  return result8;
-  } else {
-  const baseName9 = baseName;
-  const result10 = baseName9 == "AxeJugglerOverchargedProjectile2";
-  return result10;
-  }
-  }
-  }
-  const metadata35 = {"id":"f_7ade4e006c02f6fc","bindings":["getSpawnAreaEffectObject"],"argumentCount":0,"variableCount":1,"constants":[],"closures":[{"flags":9,"variableIndex":31,"atom":0,"name":""},{"flags":13,"variableIndex":7,"atom":0,"name":""}]};
+}}
+
+function getSpawnAreaEffectObject({capturedValue0, capturedValue1}) {
+  let v0;
+  v0 = this;
+  const capturedValue01 = capturedValue0;
+  const localValue02 = v0;
+  const instance3 = localValue02["instance"];
+  const add4 = instance3["add"];
+  const capturedValue15 = capturedValue1;
+  const LogicProjectileData6 = capturedValue15["LogicProjectileData"];
+  const SpawnAreaEffectObject7 = LogicProjectileData6["SpawnAreaEffectObject"];
+  const callResult8 = add4.call(instance3, SpawnAreaEffectObject7);
+  const readPointer9 = callResult8["readPointer"];
+  const callResult10 = readPointer9.call(callResult8);
+  const callResult11 = Reflect.construct(capturedValue01, [callResult10], capturedValue01);
+  return callResult11;
 }
+
 function getSteeringLifeTime({capturedValue0}) {
   let v0;
+  v0 = this;
   const localValue01 = v0;
   const instance2 = localValue01["instance"];
   const add3 = instance2["add"];
@@ -1668,20 +1739,22 @@ function getSteeringLifeTime({capturedValue0}) {
   const callResult9 = readInt8.call(callResult7);
   return callResult9;
 }
+
 function getTotalDelta({capturedValue0}) {
   let v0;
-  function isDoNotRotateClip__e5ae9c59d3377742(input = {}) {
   v0 = this;
   const localValue01 = v0;
-  const getRendering2 = localValue01["getRendering"];
-  const callResult3 = Reflect.apply(getRendering2, localValue01, []);
+  const instance2 = localValue01["instance"];
+  const add3 = instance2["add"];
   const capturedValue04 = capturedValue0;
-  const DO_NOT_ROTATE_THE_CLIP5 = capturedValue04["DO_NOT_ROTATE_THE_CLIP"];
-  const result6 = callResult3 === DO_NOT_ROTATE_THE_CLIP5;
-  return result6;
-  }
-  const metadata61 = {"id":"f_e5e993a2b087b379","bindings":["getTotalDelta"],"argumentCount":0,"variableCount":1,"constants":[],"closures":[{"flags":13,"variableIndex":7,"atom":0,"name":""}]};
+  const LogicProjectile5 = capturedValue04["LogicProjectile"];
+  const TotalDelta6 = LogicProjectile5["TotalDelta"];
+  const callResult7 = add3.call(instance2, TotalDelta6);
+  const readInt8 = callResult7["readInt"];
+  const callResult9 = readInt8.call(callResult7);
+  return callResult9;
 }
+
 function getAngleDifference(arg0, arg1) {
   let v0;
   const Math1 = Math;
@@ -1691,6 +1764,7 @@ function getAngleDifference(arg0, arg1) {
   const result5 = argument03 - argument14;
   const result6 = result5 % 360;
   const callResult7 = abs2.call(Math1, result6);
+  v0 = callResult7;
   const localValue08 = v0;
   const result9 = localValue08 > 180;
   if (!result9) {
@@ -1700,8 +1774,9 @@ function getAngleDifference(arg0, arg1) {
   const localValue011 = v0;
   const result12 = 360 - localValue011;
   return result12;
-  }
 }
+}
+
 function getRadians(arg0) {
   const argument01 = arg0;
   const Math2 = Math;
@@ -1710,60 +1785,33 @@ function getRadians(arg0) {
   const result5 = argument01 * result4;
   return result5;
 }
-function getDegreesToPoint(arg0, {captured_getInstance}) {
-  let v0, v4;
-  function isOwn__4933eeb947b62798(input = {}) {
-  const argument01 = arg0;
-  const result2 = argument01 < 0;
-  if (!result2) {
-  const captured_getInstance3 = captured_getInstance;
-  const callResult4 = Reflect.construct(captured_getInstance3, [], captured_getInstance3);
-  v0 = callResult4;
-  const localValue05 = v0;
-  const getLogicPlayer6 = localValue05["getLogicPlayer"];
-  const argument07 = arg0;
-  const callResult8 = Reflect.apply(getLogicPlayer6, localValue05, [argument07]);
-  logicPlayer = callResult8;
-  const localValue09 = v0;
-  const getOwnPlayerIndex10 = localValue09["getOwnPlayerIndex"];
-  const callResult11 = Reflect.apply(getOwnPlayerIndex10, localValue09, []);
-  ownPlayerIndex = callResult11;
-  const logicPlayer12 = logicPlayer;
-  const getPlayerIndex13 = logicPlayer12["getPlayerIndex"];
-  const callResult14 = Reflect.apply(getPlayerIndex13, logicPlayer12, []);
-  playerIndex = callResult14;
-  const ownPlayerIndex15 = ownPlayerIndex;
-  const playerIndex16 = playerIndex;
-  const result17 = ownPlayerIndex15 == playerIndex16;
-  v4 = result17;
-  const localValue418 = v4;
-  const result19 = !localValue418;
-  if (!result19) {
-  const arrayValue20 = [];
-  const result21 = !arrayValue20;
-  const result22 = !result21;
-  return result22;
-  } else {
-  const arrayValue23 = [];
-  const result24 = !arrayValue23;
-  return result24;
-  }
-  } else {
-  const arrayValue25 = [];
-  const result26 = !arrayValue25;
-  return result26;
-  }
-  }
-  const metadata21 = {"id":"f_4e4c4943cd1b3f84","bindings":["getDegreesToPoint"],"argumentCount":4,"variableCount":1,"constants":[],"closures":[]};
+
+function getDegreesToPoint(arg0, arg1, arg2, arg3) {
+  let v0;
+  v0 = this;
+  const localValue01 = v0;
+  const getDegrees2 = localValue01["getDegrees"];
+  const localValue03 = v0;
+  const getRadiansBetweenPoints4 = localValue03["getRadiansBetweenPoints"];
+  const argument05 = arg0;
+  const argument16 = arg1;
+  const argument27 = arg2;
+  const argument38 = arg3;
+  const callResult9 = getRadiansBetweenPoints4.call(localValue03, argument05, argument16, argument27, argument38);
+  const callResult10 = getDegrees2.call(localValue01, callResult9);
+  return callResult10;
 }
+
 function getDistance(originX, originY, targetX, targetY) {
-  let v0, v1;
+  let v1, v0;
   const targetX1 = targetX;
   const originX2 = originX;
   const result3 = targetX1 - originX2;
+  v0 = result3;
   const targetY4 = targetY;
   const originY5 = originY;
   const result6 = targetY4 - originY5;
+  v1 = result6;
   const Math7 = Math;
   const sqrt8 = Math7["sqrt"];
   const localValue09 = v0;
@@ -1776,40 +1824,178 @@ function getDistance(originX, originY, targetX, targetY) {
   const callResult16 = sqrt8.call(Math7, result15);
   return callResult16;
 }
-function checkSweptCollision({capturedValue0, capturedValue1}) {
-  let v0;
-  function getSpawnAreaEffectObject__7ade4e006c02f6fc(input = {}) {
-  v0 = this;
-  const capturedValue01 = capturedValue0;
-  const localValue02 = v0;
-  const instance3 = localValue02["instance"];
-  const add4 = instance3["add"];
-  const capturedValue15 = capturedValue1;
-  const LogicProjectileData6 = capturedValue15["LogicProjectileData"];
-  const SpawnAreaEffectObject7 = LogicProjectileData6["SpawnAreaEffectObject"];
-  const callResult8 = Reflect.apply(add4, instance3, [SpawnAreaEffectObject7]);
-  const readPointer9 = callResult8["readPointer"];
-  const callResult10 = Reflect.apply(readPointer9, callResult8, []);
-  const callResult11 = Reflect.construct(capturedValue01, [callResult10], capturedValue01);
-  return callResult11;
+
+function checkSweptCollision(startPosition, endPosition, projectileStart, projectileEnd, combinedRadius) {
+  let discriminant, enterTime, exitTime, initialSeparation, quadraticLinear, relativeSpeedSquared, relativeVelocityX, relativeVelocityY, relativeX, relativeY, sqrtDiscriminant;
+  const startPosition1 = startPosition;
+  const propertyValue2 = startPosition1[0];
+  const projectileStart3 = projectileStart;
+  const propertyValue4 = projectileStart3[0];
+  const result5 = propertyValue2 - propertyValue4;
+  relativeX = result5;
+  const startPosition6 = startPosition;
+  const propertyValue7 = startPosition6[1];
+  const projectileStart8 = projectileStart;
+  const propertyValue9 = projectileStart8[1];
+  const result10 = propertyValue7 - propertyValue9;
+  relativeY = result10;
+  const endPosition11 = endPosition;
+  const propertyValue12 = endPosition11[0];
+  const startPosition13 = startPosition;
+  const propertyValue14 = startPosition13[0];
+  const result15 = propertyValue12 - propertyValue14;
+  const projectileEnd16 = projectileEnd;
+  const propertyValue17 = projectileEnd16[0];
+  const projectileStart18 = projectileStart;
+  const propertyValue19 = projectileStart18[0];
+  const result20 = propertyValue17 - propertyValue19;
+  const result21 = result15 - result20;
+  relativeVelocityX = result21;
+  const endPosition22 = endPosition;
+  const propertyValue23 = endPosition22[1];
+  const startPosition24 = startPosition;
+  const propertyValue25 = startPosition24[1];
+  const result26 = propertyValue23 - propertyValue25;
+  const projectileEnd27 = projectileEnd;
+  const propertyValue28 = projectileEnd27[1];
+  const projectileStart29 = projectileStart;
+  const propertyValue30 = projectileStart29[1];
+  const result31 = propertyValue28 - propertyValue30;
+  const result32 = result26 - result31;
+  relativeVelocityY = result32;
+  const relativeX33 = relativeX;
+  const relativeX34 = relativeX;
+  const result35 = relativeX33 * relativeX34;
+  const relativeY36 = relativeY;
+  const relativeY37 = relativeY;
+  const result38 = relativeY36 * relativeY37;
+  const result39 = result35 + result38;
+  const combinedRadius40 = combinedRadius;
+  const combinedRadius41 = combinedRadius;
+  const result42 = combinedRadius40 * combinedRadius41;
+  const result43 = result39 - result42;
+  initialSeparation = result43;
+  const initialSeparation44 = initialSeparation;
+  const result45 = initialSeparation44 <= 0;
+  if (!result45) {
+  const relativeVelocityX46 = relativeVelocityX;
+  const relativeVelocityX47 = relativeVelocityX;
+  const result48 = relativeVelocityX46 * relativeVelocityX47;
+  const relativeVelocityY49 = relativeVelocityY;
+  const relativeVelocityY50 = relativeVelocityY;
+  const result51 = relativeVelocityY49 * relativeVelocityY50;
+  const result52 = result48 + result51;
+  relativeSpeedSquared = result52;
+  const relativeSpeedSquared53 = relativeSpeedSquared;
+  const result54 = relativeSpeedSquared53 == 0;
+  if (!result54) {
+  const relativeX55 = relativeX;
+  const relativeVelocityX56 = relativeVelocityX;
+  const result57 = relativeX55 * relativeVelocityX56;
+  const relativeY58 = relativeY;
+  const relativeVelocityY59 = relativeVelocityY;
+  const result60 = relativeY58 * relativeVelocityY59;
+  const result61 = result57 + result60;
+  const result62 = 2 * result61;
+  quadraticLinear = result62;
+  const quadraticLinear63 = quadraticLinear;
+  const quadraticLinear64 = quadraticLinear;
+  const result65 = quadraticLinear63 * quadraticLinear64;
+  const relativeSpeedSquared66 = relativeSpeedSquared;
+  const result67 = 4 * relativeSpeedSquared66;
+  const initialSeparation68 = initialSeparation;
+  const result69 = result67 * initialSeparation68;
+  const result70 = result65 - result69;
+  discriminant = result70;
+  const discriminant71 = discriminant;
+  const result72 = discriminant71 < 0;
+  if (!result72) {
+  const Math73 = Math;
+  const sqrt74 = Math73["sqrt"];
+  const discriminant75 = discriminant;
+  const callResult76 = sqrt74.call(Math73, discriminant75);
+  sqrtDiscriminant = callResult76;
+  const quadraticLinear77 = quadraticLinear;
+  const result78 = -quadraticLinear77;
+  const sqrtDiscriminant79 = sqrtDiscriminant;
+  const result80 = result78 - sqrtDiscriminant79;
+  const relativeSpeedSquared81 = relativeSpeedSquared;
+  const result82 = 2 * relativeSpeedSquared81;
+  const result83 = result80 / result82;
+  enterTime = result83;
+  const quadraticLinear84 = quadraticLinear;
+  const result85 = -quadraticLinear84;
+  const sqrtDiscriminant86 = sqrtDiscriminant;
+  const result87 = result85 + sqrtDiscriminant86;
+  const relativeSpeedSquared88 = relativeSpeedSquared;
+  const result89 = 2 * relativeSpeedSquared88;
+  const result90 = result87 / result89;
+  exitTime = result90;
+  const exitTime91 = exitTime;
+  const result92 = exitTime91 < 0;
+  if (result92) {
+  if (!result92) {
+  const arrayValue93 = [];
+  const result94 = !arrayValue93;
+  const result95 = !result94;
+  return result95;
+  } else {
+  const arrayValue96 = [];
+  const result97 = !arrayValue96;
+  return result97;
   }
-  const metadata36 = {"id":"f_7b14b1912d56a4ae","bindings":["checkSweptCollision"],"argumentCount":5,"variableCount":11,"constants":[],"closures":[]};
+  } else {
+  const enterTime98 = enterTime;
+  const result99 = enterTime98 > 1;
+  if (!result99) {
+  const arrayValue100 = [];
+  const result101 = !arrayValue100;
+  const result102 = !result101;
+  return result102;
+  } else {
+  const arrayValue103 = [];
+  const result104 = !arrayValue103;
+  return result104;
+  }
+  }
+  } else {
+  const arrayValue105 = [];
+  const result106 = !arrayValue105;
+  return result106;
+  }
+  } else {
+  const arrayValue107 = [];
+  const result108 = !arrayValue107;
+  return result108;
+  }
+  } else {
+  const arrayValue109 = [];
+  const result110 = !arrayValue109;
+  const result111 = !result110;
+  return result111;
 }
+}
+
 function getDynamicDamage(arg0, arg1) {
-  let v0, v1, v2, v4;
+  let pathByAngle, v1, v2, v4, v0;
+  v4 = this;
   const BattleCache1 = BattleCache;
   const TickPosition2 = BattleCache1["TickPosition"];
   if (TickPosition2) {
+  v0 = TickPosition2;
   const BattleCache3 = BattleCache;
   const CurrentSpeed4 = BattleCache3["CurrentSpeed"];
+  v1 = CurrentSpeed4;
   const localValue15 = v1;
   const result6 = localValue15 / 20;
+  v2 = result6;
   const localValue47 = v4;
   const getPathByAngle8 = localValue47["getPathByAngle"];
   const localValue09 = v0;
   const argument010 = arg0;
   const localValue211 = v2;
   const callResult12 = getPathByAngle8.call(localValue47, localValue09, argument010, localValue211);
+  pathByAngle = callResult12;
   const localValue413 = v4;
   const getPathDamage14 = localValue413["getPathDamage"];
   const pathByAngle15 = pathByAngle;
@@ -1819,94 +2005,70 @@ function getDynamicDamage(arg0, arg1) {
   } else {
   const BattleCache18 = BattleCache;
   const ServerPosition19 = BattleCache18["ServerPosition"];
+  v0 = ServerPosition19;
   const BattleCache20 = BattleCache;
   const CurrentSpeed21 = BattleCache20["CurrentSpeed"];
+  v1 = CurrentSpeed21;
   const localValue122 = v1;
   const result23 = localValue122 / 20;
+  v2 = result23;
   const localValue424 = v4;
   const getPathByAngle25 = localValue424["getPathByAngle"];
   const localValue026 = v0;
   const argument027 = arg0;
   const localValue228 = v2;
   const callResult29 = getPathByAngle25.call(localValue424, localValue026, argument027, localValue228);
+  pathByAngle = callResult29;
   const localValue430 = v4;
   const getPathDamage31 = localValue430["getPathDamage"];
   const pathByAngle32 = pathByAngle;
   const argument133 = arg1;
   const callResult34 = getPathDamage31.call(localValue430, pathByAngle32, argument133);
   return callResult34;
-  }
 }
+}
+
 function hasResult() {
   let v0;
+  v0 = this;
   const localValue01 = v0;
   const completed2 = localValue01["completed"];
   const result3 = completed2 !== null;
   return result3;
 }
-function isCharacterPositionBased(arg0, {captured_getInstance, captured_45_FRIENDLY_FIRE}) {
-  let v0, v4;
-  function isOwnTeam__783de06f8ce503f7(input = {}) {
-  const argument01 = arg0;
-  const result2 = argument01 < 0;
-  if (!result2) {
-  const captured_getInstance3 = captured_getInstance;
-  const callResult4 = Reflect.construct(captured_getInstance3, [], captured_getInstance3);
-  v0 = callResult4;
-  const localValue05 = v0;
-  const getEventModifier6 = localValue05["getEventModifier"];
-  const captured_45_FRIENDLY_FIRE7 = captured_45_FRIENDLY_FIRE;
-  const FRIENDLY_FIRE8 = captured_45_FRIENDLY_FIRE7["FRIENDLY_FIRE"];
-  const callResult9 = Reflect.apply(getEventModifier6, localValue05, [FRIENDLY_FIRE8]);
-  if (!callResult9) {
-  const localValue010 = v0;
-  const getLogicPlayer11 = localValue010["getLogicPlayer"];
-  const argument012 = arg0;
-  const callResult13 = Reflect.apply(getLogicPlayer11, localValue010, [argument012]);
-  logicPlayer = callResult13;
-  const localValue014 = v0;
-  const getOwnPlayerTeam15 = localValue014["getOwnPlayerTeam"];
-  const callResult16 = Reflect.apply(getOwnPlayerTeam15, localValue014, []);
-  ownPlayerTeam = callResult16;
-  const logicPlayer17 = logicPlayer;
-  const getPlayerTeam18 = logicPlayer17["getPlayerTeam"];
-  const callResult19 = Reflect.apply(getPlayerTeam18, logicPlayer17, []);
-  playerTeam = callResult19;
-  const ownPlayerTeam20 = ownPlayerTeam;
-  const playerTeam21 = playerTeam;
-  const result22 = ownPlayerTeam20 == playerTeam21;
-  v4 = result22;
-  const localValue423 = v4;
-  const result24 = !localValue423;
-  if (!result24) {
-  const arrayValue25 = [];
-  const result26 = !arrayValue25;
-  const result27 = !result26;
-  return result27;
+
+function isCharacterPositionBased() {
+  let baseName, v1;
+  v1 = this;
+  const localValue11 = v1;
+  const getBaseName2 = localValue11["getBaseName"];
+  const callResult3 = getBaseName2.call(localValue11);
+  baseName = callResult3;
+  const baseName4 = baseName;
+  const includes5 = baseName4["includes"];
+  const callResult6 = includes5.call(baseName4, "Circling");
+  if (callResult6) {
+  return callResult6;
   } else {
-  const arrayValue28 = [];
-  const result29 = !arrayValue28;
-  return result29;
-  }
+  const baseName7 = baseName;
+  const result8 = baseName7 == "AxeJugglerProjectile2";
+  if (result8) {
+  return result8;
   } else {
-  const arrayValue30 = [];
-  const result31 = !arrayValue30;
-  return result31;
-  }
-  } else {
-  const arrayValue32 = [];
-  const result33 = !arrayValue32;
-  return result33;
-  }
-  }
-  const metadata34 = {"id":"f_7979a8197aa93304","bindings":["isCharacterPositionBased"],"argumentCount":0,"variableCount":2,"constants":[],"closures":[]};
+  const baseName9 = baseName;
+  const result10 = baseName9 == "AxeJugglerOverchargedProjectile2";
+  return result10;
 }
+}}
+
 function f64Sqrt(arg0, {capturedValue0, capturedValue1}) {
-  let v0, v1;
+  let v1, v0;
+  v1 = this;
   const capturedValue01 = capturedValue0;
   const get2 = capturedValue01["get"];
   const localValue13 = v1;
   const callResult4 = get2.call(capturedValue01, localValue13);
+  v0 = callResult4;
   const localValue05 = v0;
   if (localValue05) {
   const localValue06 = v0;
@@ -1922,11 +2084,14 @@ function f64Sqrt(arg0, {capturedValue0, capturedValue1}) {
   const localValue114 = v1;
   const ORDER15 = localValue114["ORDER"];
   const callResult16 = capturedValue113.call(undefined, ORDER15);
+  v0 = callResult16;
   const callResult17 = set11.call(capturedValue010, localValue112, callResult16);
   const localValue018 = v0;
   const localValue119 = v1;
   const argument020 = arg0;
   const callResult21 = localValue018.call(undefined, localValue119, argument020);
   return callResult21;
-  }
+}
+
+
 }

@@ -2081,6 +2081,7 @@ void rcl_scan_world(void)
     uintptr_t manager = 0;
     uintptr_t array = 0;
     uintptr_t own = 0;
+    uintptr_t localClient = 0;
     void *value = nullptr;
     int32_t count = 0;
     int32_t ownIndex = -1;
@@ -2094,11 +2095,6 @@ void rcl_scan_world(void)
     }
     lastScanUs = nowUs;
 
-    manager = rcl_tick_object;
-    array = rcl_tick_array;
-    count = rcl_tick_count;
-
-    if (!manager || !array || count <= 0)
     {
         uintptr_t slot = (uintptr_t)rcl_read_global_ptr(RCL_STATE_RVA);
         uintptr_t scene = 0;
@@ -2110,40 +2106,50 @@ void rcl_scan_world(void)
         {
             scene = (uintptr_t)value;
         }
-        if (!scene)
+        if (scene && rcl_read_ptr(scene + RCL_CLIENT_OFF, &value) && value)
         {
-            return;
-        }
-        rcl_scene_object = scene;
+            client = (uintptr_t)value;
+            localClient = client;
+            rcl_scene_object = scene;
 
-        if (!rcl_read_ptr(scene + RCL_CLIENT_OFF, &value) || !value)
-        {
-            return;
+            if (rcl_read_ptr(client + RCL_MGR_OFF, &value) && value)
+            {
+                manager = (uintptr_t)value;
+                if (rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) && value)
+                {
+                    array = (uintptr_t)value;
+                    if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) ||
+                        count <= 0 || count > RCL_COUNT_MAX)
+                    {
+                        manager = 0;
+                        array = 0;
+                        count = 0;
+                    }
+                }
+            }
         }
-        client = (uintptr_t)value;
+    }
 
-        if (!rcl_read_ptr(client + RCL_MGR_OFF, &value) || !value)
-        {
-            return;
-        }
-        manager = (uintptr_t)value;
+    if (!manager || !array || count <= 0)
+    {
+        manager = rcl_tick_object;
+        array = rcl_tick_array;
+        count = rcl_tick_count;
+    }
 
-        if (!rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) || !value)
-        {
-            return;
-        }
-        array = (uintptr_t)value;
-
-        if (!rcl_read_int(manager + RCL_MGR_COUNT_OFF, &count) || count <= 0 || count > RCL_COUNT_MAX)
-        {
-            return;
-        }
+    if (!manager || !array || count <= 0)
+    {
+        return;
     }
     rcl_manager_ptr = manager;
 
     {
         uintptr_t client = rcl_client();
 
+        if (!client)
+        {
+            client = localClient;
+        }
         if (client)
         {
             rcl_read_int(client + RCL_OWNIDX_OFF, &ownIndex);
@@ -2152,10 +2158,6 @@ void rcl_scan_world(void)
                 rcl_own_team_b = ownTeam;
                 rcl_own_team_seen = 1;
             }
-        }
-        else if (rcl_own_team_b >= 0)
-        {
-            ownTeam = rcl_own_team_b;
         }
     }
 
@@ -2191,9 +2193,16 @@ void rcl_scan_world(void)
     }
     if (!own)
     {
-        rcl_proj_scan(manager, count, nullptr, 0);
-        rcl_proj_velocity();
-        return;
+        if (rcl_own_elem && rcl_pointer_plausible(rcl_own_elem))
+        {
+            own = rcl_own_elem;
+        }
+        else
+        {
+            rcl_proj_scan(manager, count, nullptr, 0);
+            rcl_proj_velocity();
+            return;
+        }
     }
 
     rcl_own_elem = own;
