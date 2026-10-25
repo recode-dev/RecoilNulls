@@ -25,7 +25,7 @@ namespace
     constexpr size_t MAX_HARVESTED = 32;
     constexpr size_t MAX_INDICES = 16;
     constexpr size_t MAX_TEAMS = 16;
-    constexpr uintptr_t ADDRESS_MIN = 0x100000000ULL;
+    constexpr uint32_t MAX_OBJECT_INDEX = 256;
     constexpr uint32_t APP_STATE_BATTLE = 5;
 
     struct NameEntry
@@ -149,7 +149,7 @@ namespace
         }
 
         uintptr_t data = 0;
-        for (size_t i = 0; i < 8; i++) data |= (uintptr_t)head[4 + i] << (8 * i);
+        memcpy(&data, head + 4, sizeof(data));
         if (data == 0) return 0;
 
         if (!tools::memory::read(data, out, want)) return 0;
@@ -679,7 +679,7 @@ uintptr_t scanner::getBattleMode()
 
     uintptr_t appState = 0;
     if (!readBytes(g_base + offsets::AppState, &appState, sizeof(appState))) return 0;
-    if (appState < ADDRESS_MIN) return 0;
+    if (!tools::memory::plausible(appState)) return 0;
 
     uint32_t state = 0;
     if (!readBytes(appState + offsets::AppState_state, &state, sizeof(state))) return 0;
@@ -687,11 +687,11 @@ uintptr_t scanner::getBattleMode()
 
     uintptr_t scene = 0;
     if (!readBytes(appState + offsets::AppState_scene, &scene, sizeof(scene))) return 0;
-    if (scene < ADDRESS_MIN) return 0;
+    if (!tools::memory::plausible(scene)) return 0;
 
     uintptr_t client = 0;
     if (!readBytes(scene + offsets::Scene_client, &client, sizeof(client))) return 0;
-    if (client < ADDRESS_MIN) return 0;
+    if (!tools::memory::plausible(client)) return 0;
 
     return client;
 }
@@ -865,15 +865,15 @@ void scanner::removeProjectile(uintptr_t projectile)
 
 bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 {
-    if (g_base == 0 || battleModeClient < ADDRESS_MIN) return false;
+    if (g_base == 0 || !tools::memory::plausible(battleModeClient)) return false;
 
     uintptr_t vtable = 0;
     if (!readBytes(battleModeClient, &vtable, sizeof(vtable))) return false;
-    if (vtable < ADDRESS_MIN) return false;
+    if (!tools::memory::plausible(vtable)) return false;
 
     uint32_t ownIndex = 0;
     if (!readBytes(battleModeClient + offsets::Client_ownIndex, &ownIndex, sizeof(ownIndex))) return false;
-    if (ownIndex >= (uint32_t)MAX_OBJECTS) return false;
+    if (ownIndex >= MAX_OBJECT_INDEX) return false;
 
     uint32_t ownTeam = 0;
     if (!readBytes(battleModeClient + offsets::Client_ownTeam, &ownTeam, sizeof(ownTeam))) return false;
@@ -881,16 +881,16 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 
     uintptr_t manager = 0;
     if (!readBytes(battleModeClient + offsets::BattleMode_objectManagerPtr, &manager, sizeof(manager))) return false;
-    if (manager < ADDRESS_MIN) return false;
+    if (!tools::memory::plausible(manager)) return false;
 
     uintptr_t objects = 0;
     if (!readBytes(manager + offsets::ObjectManager_objectsArray, &objects, sizeof(objects))) return false;
-    if (objects < ADDRESS_MIN) return false;
+    if (!tools::memory::plausible(objects)) return false;
 
     uintptr_t own = 0;
     if (!readBytes(objects + (size_t)ownIndex * sizeof(uintptr_t), &own, sizeof(own))) return false;
 
-    if (own < ADDRESS_MIN)
+    if (!tools::memory::plausible(own))
     {
         markDead(nowMs);
         g_data.ownCharacter = 0;

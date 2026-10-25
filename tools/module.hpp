@@ -4,7 +4,6 @@
 
 namespace module
 {
-
     bool install(uintptr_t base);
 
     namespace state

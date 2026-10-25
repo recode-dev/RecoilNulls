@@ -5,9 +5,18 @@
 
 namespace
 {
-    tools::swizzle::Entry g_targets[tools::swizzle::MAX_TARGETS];
+    struct Entry
+    {
+        Class cls;
+        SEL sel;
+        IMP original;
+        bool classMethod;
+        bool used;
+    };
 
-    tools::swizzle::Entry *entry_alloc(Class cls, SEL sel, bool classMethod)
+    Entry g_targets[tools::swizzle::MAX_TARGETS];
+
+    Entry *entry_alloc(Class cls, SEL sel, bool classMethod)
     {
         for (int i = 0; i < tools::swizzle::MAX_TARGETS; i++)
         {
@@ -66,8 +75,6 @@ namespace tools::swizzle
             if (previous == nullptr) continue;
 
             entry->original = previous;
-            entry->replacement = (IMP)targets[i].replacement;
-            entry->control = targets[i].control;
 
             if (originals != nullptr) originals[i] = (void *)previous;
 
@@ -84,7 +91,6 @@ namespace tools::swizzle
         target.sel = sel;
         target.classMethod = classMethod;
         target.replacement = replacement;
-        target.control = 0;
 
         void *originals[1] = { nullptr };
         const int armed = tools::swizzle::install(&target, 1, originals);
@@ -113,32 +119,5 @@ namespace tools::swizzle
         }
 
         return restored;
-    }
-
-    bool armed(const char *cls, const char *sel)
-    {
-        if (cls == nullptr || sel == nullptr) return false;
-
-        const Class found = tools::objc::find_class(cls);
-        if (found == nullptr) return false;
-
-        for (int i = 0; i < MAX_TARGETS; i++)
-        {
-            if (!g_targets[i].used) continue;
-            if (g_targets[i].cls != found) continue;
-            if (strcmp(sel_getName(g_targets[i].sel), sel) != 0) continue;
-
-            return true;
-        }
-
-        return false;
-    }
-
-    const Entry *entry_at(int index)
-    {
-        if (index < 0 || index >= MAX_TARGETS) return nullptr;
-        if (!g_targets[index].used) return nullptr;
-
-        return &g_targets[index];
     }
 }

@@ -82,6 +82,26 @@ namespace
         return true;
     }
 
+    bool owns(uintptr_t base, uintptr_t address)
+    {
+        if (base == 0 || address == 0) return false;
+
+        bool inside = false;
+
+        walk_segments(base, [&](const struct segment_command_64 *, uintptr_t start, uintptr_t end) -> bool
+        {
+            if (address >= start && address < end)
+            {
+                inside = true;
+                return false;
+            }
+
+            return true;
+        });
+
+        return inside;
+    }
+
     const char *file_name(const char *path)
     {
         if (path == nullptr) return "";
@@ -95,34 +115,6 @@ namespace
 
 namespace tools::image
 {
-    void enumerate(Visitor visitor, void *user)
-    {
-        if (visitor == nullptr) return;
-
-        uint32_t count = _dyld_image_count();
-        if (count > MAX_IMAGES) count = MAX_IMAGES;
-
-        for (uint32_t i = 0; i < count; i++)
-        {
-            const struct mach_header_64 *header =
-                (const struct mach_header_64 *)_dyld_get_image_header(i);
-            if (header == nullptr) continue;
-
-            const char *path = _dyld_get_image_name(i);
-
-            Module module;
-            module.base = (uintptr_t)header;
-            module.size = 0;
-            module.path = path != nullptr ? path : "";
-
-            uintptr_t start = 0;
-            uintptr_t end = 0;
-            if (tools::image::range_for(module.base, start, end)) module.size = end - start;
-
-            if (!visitor(module, user)) return;
-        }
-    }
-
     bool enumerate_segments(uintptr_t base, SegmentVisitor visitor, void *user)
     {
         if (visitor == nullptr) return false;
@@ -177,73 +169,9 @@ namespace tools::image
             if (header == nullptr) continue;
 
             const uintptr_t base = (uintptr_t)header;
-            if (tools::image::owns(base, address)) return base;
+            if (owns(base, address)) return base;
         }
 
         return 0;
-    }
-
-    uintptr_t slide_for(uintptr_t base)
-    {
-        const struct mach_header_64 *header = header_of(base);
-        if (header == nullptr) return 0;
-
-        uintptr_t textVmaddr = 0;
-        bool haveText = false;
-
-        walk_segments(base, [&](const struct segment_command_64 *seg, uintptr_t, uintptr_t)
-        {
-            if (strcmp(seg->segname, "__TEXT") != 0) return true;
-            textVmaddr = (uintptr_t)seg->vmaddr;
-            haveText = true;
-            return false;
-        });
-
-        if (!haveText) return 0;
-        return base - textVmaddr;
-    }
-
-    bool range_for(uintptr_t base, uintptr_t &start, uintptr_t &end)
-    {
-        uintptr_t low = 0;
-        uintptr_t high = 0;
-
-        const bool walked = walk_segments(base, [&](const struct segment_command_64 *, uintptr_t s, uintptr_t e)
-        {
-            if (e <= s) return true;
-            if (low == 0 || s < low) low = s;
-            if (e > high) high = e;
-            return true;
-        });
-
-        if (!walked || low == 0 || high <= low) return false;
-
-        start = low;
-        end = high;
-        return true;
-    }
-
-    bool owns(uintptr_t base, uintptr_t address)
-    {
-        if (base == 0 || address == 0) return false;
-
-        bool inside = false;
-
-        walk_segments(base, [&](const struct segment_command_64 *, uintptr_t s, uintptr_t e)
-        {
-            if (address >= s && address < e)
-            {
-                inside = true;
-                return false;
-            }
-            return true;
-        });
-
-        return inside;
-    }
-
-    bool in_image(uintptr_t address)
-    {
-        return tools::image::base_for(address) != 0;
     }
 }

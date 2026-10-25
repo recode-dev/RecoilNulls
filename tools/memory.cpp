@@ -7,7 +7,14 @@
 namespace
 {
     constexpr uintptr_t PAGE_MASK = ~(uintptr_t)0xFFF;
-    constexpr uintptr_t LOWEST_PLAUSIBLE = 0x100000000ULL;
+
+    struct Region
+    {
+        uintptr_t start;
+        uintptr_t end;
+        int prot;
+        int maxprot;
+    };
 
     uintptr_t g_regionStart = 0;
     uintptr_t g_regionEnd = 0;
@@ -20,7 +27,7 @@ namespace
     int g_windowSaved = 0;
     bool g_windowOpen = false;
 
-    bool region_query(uintptr_t address, tools::memory::Region &out)
+    bool region_query(uintptr_t address, Region &out)
     {
         if (address == 0) return false;
 
@@ -46,10 +53,11 @@ namespace
         out.end = (uintptr_t)region + (uintptr_t)size;
         out.prot = (int)info.protection;
         out.maxprot = (int)info.max_protection;
+
         return true;
     }
 
-    bool region_cached(uintptr_t address, tools::memory::Region &out)
+    bool region_cached(uintptr_t address, Region &out)
     {
         if (g_regionValid && address >= g_regionStart && address < g_regionEnd)
         {
@@ -57,10 +65,11 @@ namespace
             out.end = g_regionEnd;
             out.prot = g_regionProt;
             out.maxprot = g_regionMax;
+
             return true;
         }
 
-        tools::memory::Region fresh;
+        Region fresh;
         if (!region_query(address, fresh))
         {
             g_regionValid = false;
@@ -74,6 +83,7 @@ namespace
         g_regionValid = true;
 
         out = fresh;
+
         return true;
     }
 
@@ -103,7 +113,7 @@ namespace
         g_windowOpen = false;
     }
 
-    bool window_open(uintptr_t address, const tools::memory::Region &region)
+    bool window_open(uintptr_t address, const Region &region)
     {
         if (g_windowOpen && address >= g_windowStart && address < g_windowEnd) return true;
         if (g_windowOpen) window_close();
@@ -147,11 +157,6 @@ namespace
 
 namespace tools::memory
 {
-    bool region_of(uintptr_t address, Region &out)
-    {
-        return region_cached(address, out);
-    }
-
     bool readable(uintptr_t address, size_t size)
     {
         if (address == 0 || size == 0) return false;
@@ -159,18 +164,6 @@ namespace tools::memory
         Region region;
         if (!region_cached(address, region)) return false;
         if ((region.prot & VM_PROT_READ) == 0) return false;
-
-        return (address + size) <= region.end;
-    }
-
-    bool writable(uintptr_t address, size_t size)
-    {
-        if (address == 0 || size == 0) return false;
-
-        Region region;
-        if (!region_cached(address, region)) return false;
-        if (region.prot & VM_PROT_EXECUTE) return false;
-        if ((region.maxprot & VM_PROT_WRITE) == 0) return false;
 
         return (address + size) <= region.end;
     }
@@ -208,6 +201,7 @@ namespace tools::memory
         if (size == sizeof(check))
         {
             if (!read(address, &check, sizeof(check))) return false;
+
             return check == *(const uintptr_t *)data;
         }
 
@@ -219,11 +213,11 @@ namespace tools::memory
         window_close();
     }
 
-    bool plausible(uintptr_t pointer, size_t size)
+    bool plausible(uintptr_t pointer)
     {
-        if (pointer < LOWEST_PLAUSIBLE) return false;
+        if (pointer < MIN_ADDRESS) return false;
         if ((pointer & 0x7) != 0) return false;
 
-        return readable(pointer, size);
+        return readable(pointer, sizeof(uintptr_t));
     }
 }

@@ -61,19 +61,6 @@ namespace tools::objc
         return objc_lookUpClass(name);
     }
 
-    Method find_method(Class cls, const char *selector, bool classMethod)
-    {
-        return lookup(cls, selector, classMethod);
-    }
-
-    IMP implementation(Class cls, const char *selector, bool classMethod)
-    {
-        Method method = lookup(cls, selector, classMethod);
-        if (method == nullptr) return nullptr;
-
-        return method_getImplementation(method);
-    }
-
     IMP swap(Class cls, const char *selector, IMP replacement, bool classMethod)
     {
         if (cls == nullptr || selector == nullptr || replacement == nullptr) return nullptr;
@@ -111,11 +98,4 @@ namespace tools::objc
         return true;
     }
 
-    const char *type_encoding(Class cls, const char *selector, bool classMethod)
-    {
-        Method method = lookup(cls, selector, classMethod);
-        if (method == nullptr) return nullptr;
-
-        return method_getTypeEncoding(method);
-    }
 }

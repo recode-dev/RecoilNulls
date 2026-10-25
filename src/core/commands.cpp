@@ -6,7 +6,7 @@
 #include "offsets.hpp"
 #include "functions.hpp"
 #include "commands.hpp"
-#include "../utils/crypto.hpp"
+#include "../../tools/crypto.hpp"
 
 namespace
 {

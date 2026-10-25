@@ -8,7 +8,7 @@
 #include "../tools/image.hpp"
 #include "../tools/memory.hpp"
 #include "../tools/swizzle.hpp"
-#include "module.hpp"
+#include "../tools/module.hpp"
 #include "core/offsets.hpp"
 #include "core/functions.hpp"
 #include "core/scan.hpp"
@@ -21,7 +21,6 @@ namespace
     constexpr uint32_t POLL_INTERVAL_MS = 500;
     constexpr uint32_t POLL_LIMIT = 1200;
     constexpr uint32_t PUMP_MIN_GAP_MS = 4;
-    constexpr uintptr_t ADDRESS_MIN = 0x100000000ULL;
 
     using SlotFn = uint64_t (*)(void *, uint64_t, uint64_t, uint64_t,
                                 uint64_t, uint64_t, uint64_t, uint64_t);
@@ -45,7 +44,7 @@ namespace
         if (g_lastPump != 0 && (now - g_lastPump) < PUMP_MIN_GAP_MS) return;
         g_lastPump = now;
 
-        if (client < ADDRESS_MIN) client = battle;
+        if (!tools::memory::plausible(client)) client = battle;
 
         if (client != g_lastBattle)
         {

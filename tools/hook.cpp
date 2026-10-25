@@ -11,29 +11,30 @@ namespace
 {
     constexpr uintptr_t VA_LIMIT = 0x0000FFFFFFFFFFFFULL;
     constexpr size_t SCAN_CHUNK = 4096;
+    constexpr int MAX_HOOKS = 32;
+    constexpr int MAX_SLOTS = 64;
 
-    char g_error[256];
-    bool g_verbose = false;
-
-    tools::hook::Entry g_hooks[tools::hook::MAX_HOOKS];
-    uintptr_t g_scanBuffer[SCAN_CHUNK / sizeof(uintptr_t)];
-
-    tools::hook::Entry *entry_find(uintptr_t target)
+    struct Entry
     {
-        for (int i = 0; i < tools::hook::MAX_HOOKS; i++)
+        uintptr_t target;
+        uintptr_t replacement;
+        uintptr_t slots[MAX_SLOTS];
+        int count;
+        bool used;
+    };
+
+    Entry g_hooks[MAX_HOOKS];
+    uintptr_t g_scanBuffer[SCAN_CHUNK / sizeof(uintptr_t)];
+    char g_error[256];
+
+    Entry *entry_alloc(uintptr_t target)
+    {
+        for (int i = 0; i < MAX_HOOKS; i++)
         {
             if (g_hooks[i].used && g_hooks[i].target == target) return &g_hooks[i];
         }
 
-        return nullptr;
-    }
-
-    tools::hook::Entry *entry_alloc(uintptr_t target)
-    {
-        tools::hook::Entry *existing = entry_find(target);
-        if (existing != nullptr) return existing;
-
-        for (int i = 0; i < tools::hook::MAX_HOOKS; i++)
+        for (int i = 0; i < MAX_HOOKS; i++)
         {
             if (g_hooks[i].used) continue;
 
@@ -47,19 +48,6 @@ namespace
         return nullptr;
     }
 
-    void note(const char *format, ...)
-    {
-        if (!g_verbose) return;
-
-        char line[256];
-        va_list args;
-        va_start(args, format);
-        vsnprintf(line, sizeof(line), format, args);
-        va_end(args);
-
-        fprintf(stderr, "[hook] %s\n", line);
-    }
-
     bool slot_matches(uintptr_t value, uintptr_t needle)
     {
         if (needle == 0) return false;
@@ -68,13 +56,31 @@ namespace
         return (value & VA_LIMIT) == needle;
     }
 
+    bool prologue_ok(uintptr_t address)
+    {
+        uint32_t word = 0;
+        if (!tools::memory::read(address, &word, sizeof(word))) return false;
+
+        if ((word & 0xFFC003FFu) == 0xD10003FFu) return true;
+        if ((word & 0xFF4003E0u) == 0xA90003E0u) return true;
+        if ((word & 0xFF4003E0u) == 0xA80003E0u) return true;
+        if (word == 0xD503237Fu) return true;
+        if (word == 0xD503245Fu) return true;
+        if (word == 0xD65F03C0u) return true;
+        if (word == 0x910003FDu) return true;
+        if ((word & 0xFF000000u) == 0x14000000u) return true;
+        if ((word & 0x9F000000u) == 0x10000000u) return true;
+
+        return false;
+    }
+
     struct ScanState
     {
         uintptr_t needle;
         uintptr_t replacement;
         bool dryRun;
         int hits;
-        uintptr_t slots[tools::hook::MAX_SLOTS_PER_HOOK];
+        uintptr_t slots[MAX_SLOTS];
     };
 
     bool scan_segment(const tools::image::Segment &segment, void *user)
@@ -108,25 +114,18 @@ namespace
 
                 if (state->dryRun)
                 {
-                    if (state->hits < tools::hook::MAX_SLOTS_PER_HOOK) state->slots[state->hits] = slot;
+                    if (state->hits < MAX_SLOTS) state->slots[state->hits] = slot;
                     state->hits++;
                     continue;
                 }
 
-                if (state->hits >= tools::hook::MAX_SLOTS_PER_HOOK) continue;
+                if (state->hits >= MAX_SLOTS) continue;
 
-                if (!tools::memory::write(slot, &state->replacement, sizeof(state->replacement)))
-                {
-                    note("slot %p refused write", (void *)slot);
-                    continue;
-                }
+                if (!tools::memory::write(slot, &state->replacement, sizeof(state->replacement))) continue;
 
                 uintptr_t check = 0;
-                if (!tools::memory::read(slot, &check, sizeof(check)) || check != state->replacement)
-                {
-                    note("slot %p did not take", (void *)slot);
-                    continue;
-                }
+                if (!tools::memory::read(slot, &check, sizeof(check))) continue;
+                if (check != state->replacement) continue;
 
                 state->slots[state->hits] = slot;
                 state->hits++;
@@ -149,14 +148,8 @@ namespace
 
         tools::image::enumerate_segments(imageBase, scan_segment, &state);
 
-        int stored = 0;
-        int limit = state.hits < capacity ? state.hits : capacity;
-
-        for (int i = 0; i < limit; i++)
-        {
-            slots[i] = state.slots[i];
-            stored++;
-        }
+        int stored = state.hits < capacity ? state.hits : capacity;
+        for (int i = 0; i < stored; i++) slots[i] = state.slots[i];
 
         return state.hits;
     }
@@ -164,11 +157,6 @@ namespace
 
 namespace tools::hook
 {
-    void set_verbose(bool enabled)
-    {
-        g_verbose = enabled;
-    }
-
     void set_error(const char *format, ...)
     {
         va_list args;
@@ -182,126 +170,58 @@ namespace tools::hook
         return g_error;
     }
 
-    uint32_t site_hash(uintptr_t address)
-    {
-        uint8_t bytes[16];
-
-        if (!tools::memory::read(address, bytes, sizeof(bytes))) return 0;
-
-        uint32_t hash = 0x811C9DC5u;
-        for (size_t i = 0; i < sizeof(bytes); i++)
-        {
-            hash ^= (uint32_t)bytes[i];
-            hash *= 0x01000193u;
-        }
-
-        return hash;
-    }
-
-    bool prologue_ok(uintptr_t address)
-    {
-        uint32_t word = 0;
-        if (!tools::memory::read(address, &word, sizeof(word))) return false;
-
-        if ((word & 0xFFC003FFu) == 0xD10003FFu) return true;
-
-        if ((word & 0xFF4003E0u) == 0xA90003E0u) return true;
-        if ((word & 0xFF4003E0u) == 0xA80003E0u) return true;
-
-        if (word == 0xD503237Fu) return true;
-        if (word == 0xD503245Fu) return true;
-
-        if (word == 0xD65F03C0u) return true;
-
-        if (word == 0x910003FDu) return true;
-
-        if ((word & 0xFF000000u) == 0x14000000u) return true;
-
-        if ((word & 0x9F000000u) == 0x10000000u) return true;
-
-        return false;
-    }
-
-    int probe(uintptr_t target)
-    {
-        if (target == 0) return 0;
-
-        const uintptr_t imageBase = tools::image::base_for(target);
-        if (imageBase == 0) return 0;
-
-        uintptr_t slots[MAX_SLOTS_PER_HOOK];
-        return scan_image(imageBase, target, 0, true, slots, MAX_SLOTS_PER_HOOK);
-    }
-
     void *install(uintptr_t imageBase, uintptr_t rva, void *replacement)
     {
-        Spec spec;
-        spec.rva = rva;
-        spec.replacement = replacement;
-        spec.siteHash = 0;
-        spec.control = 0;
+        if (imageBase == 0 || rva == 0 || replacement == nullptr) return nullptr;
 
-        void *originals[1] = { nullptr };
-        const int installed = tools::hook::install(imageBase, &spec, 1, originals);
+        const uintptr_t target = imageBase + rva;
 
-        return installed > 0 ? originals[0] : nullptr;
-    }
+        uintptr_t found[MAX_SLOTS];
+        const int available = scan_image(imageBase, target, 0, true, found, MAX_SLOTS);
 
-    int install(uintptr_t imageBase, const Spec *specs, int count, void **originals)
-    {
-        if (imageBase == 0 || specs == nullptr || count <= 0) return 0;
-
-        int installed = 0;
-
-        for (int i = 0; i < count && i < MAX_HOOKS; i++)
+        if (available <= 0)
         {
-            if (originals != nullptr) originals[i] = nullptr;
+            set_error("no pointer slot references %p", (void *)target);
+            return nullptr;
+        }
 
-            if (specs[i].rva == 0 || specs[i].replacement == nullptr) continue;
+        if (available > MAX_SLOTS)
+        {
+            set_error("%d slots reference %p, refusing", available, (void *)target);
+            return nullptr;
+        }
 
-            const uintptr_t target = imageBase + specs[i].rva;
+        if (!prologue_ok(target))
+        {
+            set_error("%p does not look like a function entry", (void *)target);
+            return nullptr;
+        }
 
-            if (specs[i].siteHash != 0)
-            {
-                const uint32_t actual = site_hash(target);
-                if (actual != specs[i].siteHash)
-                {
+        Entry *entry = entry_alloc(target);
+        if (entry == nullptr)
+        {
+            set_error("hook table exhausted");
+            return nullptr;
+        }
 
-                    continue;
-                }
-            }
+        const int written = scan_image(imageBase, target, (uintptr_t)replacement, false, found, MAX_SLOTS);
+        if (written <= 0)
+        {
+            set_error("no slot accepted the replacement for %p", (void *)target);
+            return nullptr;
+        }
 
-            const int slots = probe(target);
-            if (slots <= 0) continue;
-            if (slots > MAX_SLOTS_PER_HOOK) continue;
-            if (!prologue_ok(target)) continue;
+        entry->replacement = (uintptr_t)replacement;
 
-            Entry *entry = entry_alloc(target);
-            if (entry == nullptr) continue;
-
-            uintptr_t found[MAX_SLOTS_PER_HOOK];
-            const int written = scan_image(imageBase, target, (uintptr_t)specs[i].replacement, false,
-                                           found, MAX_SLOTS_PER_HOOK);
-
-            if (written <= 0) continue;
-
-            entry->replacement = (uintptr_t)specs[i].replacement;
-            entry->control = specs[i].control;
-
-            for (int s = 0; s < written && s < MAX_SLOTS_PER_HOOK && entry->count < MAX_SLOTS_PER_HOOK; s++)
-            {
-                entry->slots[entry->count] = found[s];
-                entry->count++;
-            }
-
-            if (originals != nullptr) originals[i] = (void *)target;
-
-            installed++;
+        for (int i = 0; i < written && i < MAX_SLOTS && entry->count < MAX_SLOTS; i++)
+        {
+            entry->slots[entry->count] = found[i];
+            entry->count++;
         }
 
         tools::memory::close_windows();
 
-        return installed;
+        return (void *)target;
     }
 
     int uninstall()
@@ -326,13 +246,5 @@ namespace tools::hook
         tools::memory::close_windows();
 
         return removed;
-    }
-
-    void *original(uintptr_t target)
-    {
-        Entry *entry = entry_find(target);
-        if (entry == nullptr) return nullptr;
-
-        return (void *)entry->target;
     }
 }
