@@ -2233,13 +2233,14 @@ void rcl_scan_world(void)
 
         rcl_read_int(object + (uintptr_t)RCL_OBJ_TEAM_OFF, &team);
 
-        if (!rcl_read_ptr(data, &vtableRaw) || !vtableRaw) continue;
+        gid = rcl_call1i(rcl_addr_getgid, object);
+        rcl_read_ptr(data, &vtableRaw);
         dataVtable = (uintptr_t)vtableRaw;
-        if (dataVtable != projectileVtable) continue;
+
+        if (dataVtable != projectileVtable && gid < 2000000) continue;
         if (team == ownTeam) continue;
         if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_X_OFF, &x)) continue;
         if (!rcl_read_int(object + (uintptr_t)RCL_OBJ_Y_OFF, &y)) continue;
-        gid = rcl_call1i(rcl_addr_getgid, object);
 
         rcl_proj_store(object, data, team, gid, x, y);
 
