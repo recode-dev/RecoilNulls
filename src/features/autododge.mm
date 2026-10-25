@@ -1403,30 +1403,76 @@ static int rcl_ad_update(float mx, float my)
 
 void rcl_autododge(void)
 {
+    rcl_obj_t objects[64];
+    int usable = 0;
+    int ownIndex = -1;
+    int32_t ownTeam = 0;
     int ownX = 0;
     int ownY = 0;
+    int32_t count = 0;
+    const char *ownFrom = "none";
 
-    if (!rcl_base || !rcl_own_elem || !rcl_manager_ptr)
+    if (!rcl_base || !rcl_manager_ptr)
     {
         return;
     }
 
-    rcl_read_int(rcl_own_elem + (uintptr_t)RCL_OBJ_X_OFF, &ownX);
-    rcl_read_int(rcl_own_elem + (uintptr_t)RCL_OBJ_Y_OFF, &ownY);
+    memset(objects, 0, sizeof(objects));
 
-    rcl_own_elem_2 = rcl_own_elem;
-    rcl_own_team_a = rcl_own_team_b;
+    rcl_read_int(rcl_manager_ptr + RCL_MGR_COUNT_OFF, &count);
+
+    usable = rcl_collect(rcl_manager_ptr, objects, 64);
+
+    if (usable < RCL_MIN_USABLE_2)
+    {
+        return;
+    }
+
+    rcl_own_scan();
+
+    if (!rcl_own_latch(objects, usable, &ownIndex, &ownFrom) &&
+        !rcl_resolve_own(objects, usable, &ownIndex, &ownFrom))
+    {
+        return;
+    }
+
+    if (ownIndex < 0 || ownIndex >= usable || ownIndex >= 64)
+    {
+        return;
+    }
+
+    rcl_publish_own(objects[ownIndex].object, ownFrom);
+
+    ownTeam = (rcl_team_off == (int)RCL_OBJ_TEAM_OFF) ? objects[ownIndex].teamOld : objects[ownIndex].teamNew;
+    ownX = objects[ownIndex].x;
+    ownY = objects[ownIndex].y;
+
+    rcl_own_elem_2 = objects[ownIndex].object;
+    rcl_own_team_a = (int)ownTeam;
+
+    if (ownTeam >= 0 && ownTeam <= 15)
+    {
+        rcl_own_team_seen = 1;
+        rcl_own_team_b = (int)ownTeam;
+    }
 
     if (rcl_dead)
     {
         rcl_bdc_forget();
+
         return;
     }
-    if (rcl_life(rcl_own_elem, ownX, ownY))
+
+    if (rcl_life(objects[ownIndex].object, ownX, ownY))
     {
         rcl_bdc_forget();
+
         return;
     }
+
+    rcl_roster(objects[ownIndex].object, ownIndex, (int)ownTeam, objects, usable);
+
+    rcl_proj_scan(rcl_manager_ptr, count, objects, usable);
 
     rcl_active = rcl_ad_update((float)ownX, (float)ownY);
 }
