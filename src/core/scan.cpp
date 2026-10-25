@@ -13,9 +13,6 @@ using namespace scanner;
 
 namespace
 {
-    constexpr int32_t CASTING_RANGE_SCALE = 100;
-    constexpr int32_t SKILL_SLOT_MAX = 8;
-    constexpr int32_t PROJ_INDEX_MAX = 4;
     constexpr int32_t MAX_OBJECTS = 1200;
     constexpr uint32_t PROJECTILE_TIMEOUT_MS = 800;
     constexpr size_t MAX_LIVE = 64;
@@ -26,8 +23,6 @@ namespace
     constexpr uint32_t MAX_OBJECT_INDEX = 256;
     constexpr int32_t DEFAULT_RADIUS = 60;
     constexpr int32_t DEFAULT_MOVE_SPEED = 720;
-    constexpr int32_t MIN_MOVE_SPEED = 300;
-    constexpr int32_t MAX_MOVE_SPEED = 3000;
     constexpr uint32_t APP_STATE_BATTLE = 5;
 
     struct NameEntry
@@ -209,18 +204,6 @@ namespace
         return gid;
     }
 
-    void copyName(const char *src, char *out)
-    {
-        size_t i = 0;
-        while (i + 1 < NAME_CAP && src[i] != 0)
-        {
-            char c = src[i];
-            if (c >= 'a' && c <= 'z') c = (char)(c - 32);
-            out[i] = c;
-            i++;
-        }
-        out[i] = 0;
-    }
 
 
     bool readProjectileName(uintptr_t data, char *out)
@@ -337,37 +320,7 @@ namespace
 
 
 
-    const char *cachedName(uint32_t gid, bool &found)
-    {
-        for (size_t i = 0; i < g_nameCount; i++)
-        {
-            if (g_names[i].gid == gid)
-            {
-                found = true;
-                return g_names[i].name;
-            }
-        }
-        found = false;
-        return "";
-    }
 
-    void storeName(uint32_t gid, const char *name)
-    {
-        for (size_t i = 0; i < g_nameCount; i++)
-        {
-            if (g_names[i].gid == gid)
-            {
-                strncpy(g_names[i].name, name, NAME_CAP - 1);
-                g_names[i].name[NAME_CAP - 1] = 0;
-                return;
-            }
-        }
-        if (g_nameCount >= MAX_NAMES) return;
-        g_names[g_nameCount].gid = gid;
-        strncpy(g_names[g_nameCount].name, name, NAME_CAP - 1);
-        g_names[g_nameCount].name[NAME_CAP - 1] = 0;
-        g_nameCount++;
-    }
 
     void rememberCharacter(int32_t index, uintptr_t character);
 
