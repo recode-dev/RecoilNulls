@@ -1972,17 +1972,19 @@ void rcl_scan_world(void)
             rcl_own_y = y;
         }
 
-        if (rcl_read_int(own + (uintptr_t)RCL_OBJ_HP_OFF, &hp))
+        if (rcl_read_int(own + (uintptr_t)RCL_OBJ_HP_OFF, &hp) && hp >= 0 && hp < 1000000)
         {
             rcl_own_ok_hp = 1;
-            rcl_own_hp = (uint32_t)(hp > 0 ? hp : 0);
-            rcl_dead = (hp > 0) ? 0 : 1;
+            rcl_own_hp = (uint32_t)hp;
         }
         else
         {
             rcl_own_ok_hp = 0;
-            rcl_dead = 0;
+            rcl_own_hp = 0;
         }
+
+        /* never gate the dodge on hp: the field is only informative here */
+        rcl_dead = 0;
     }
     else
     {
