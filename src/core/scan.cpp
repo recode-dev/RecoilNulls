@@ -636,6 +636,103 @@ void scanner::removeProjectile(uintptr_t projectile)
     record->used = false;
 }
 
+    constexpr uintptr_t MANAGER_ROUTE_LEGACY_OFF = 0x28;
+
+    enum ManagerRoute
+    {
+        ROUTE_CLIENT = 0,
+        ROUTE_INSTANCE = 1,
+        ROUTE_LEGACY = 2,
+        ROUTE_COUNT = 3
+    };
+
+    ManagerRoute g_route = ROUTE_CLIENT;
+
+    bool managerRead(uintptr_t client, ManagerRoute route, uintptr_t &manager)
+    {
+        uintptr_t address = 0;
+
+        if (route == ROUTE_LEGACY)
+        {
+            address = client + MANAGER_ROUTE_LEGACY_OFF;
+        }
+        else if (route == ROUTE_INSTANCE)
+        {
+            if (functions::BattleMode_getInstance == nullptr) return false;
+
+            const uintptr_t instance = functions::BattleMode_getInstance();
+            if (!mapped(instance)) return false;
+
+            address = instance + offsets::BattleMode_objectManagerPtr;
+        }
+        else
+        {
+            address = client + offsets::BattleMode_objectManagerPtr;
+        }
+
+        if (!readPtr(address, manager)) return false;
+
+        return mapped(manager);
+    }
+
+    bool objectsSane(uintptr_t manager, uintptr_t &array, uint32_t &count)
+    {
+        if (!readPtr(manager + offsets::ObjectManager_objectsArray, array)) return false;
+        if (!readU32(manager + offsets::ObjectManager_count, count)) return false;
+        if (array == 0 || count == 0 || count > (uint32_t)MAX_OBJECTS) return false;
+
+        const uint32_t probe = count < 8 ? count : 8;
+        for (uint32_t i = 0; i < probe; i++)
+        {
+            uintptr_t element = 0;
+            if (!readPtr(array + (size_t)i * sizeof(uintptr_t), element)) continue;
+            if (mapped(element)) return true;
+        }
+
+        return false;
+    }
+
+    bool resolveObjects(uintptr_t client, uintptr_t &array, uint32_t &count)
+    {
+        uintptr_t manager = 0;
+
+        if (managerRead(client, g_route, manager) && objectsSane(manager, array, count)) return true;
+
+        for (int route = 0; route < ROUTE_COUNT; route++)
+        {
+            if ((ManagerRoute)route == g_route) continue;
+            if (!managerRead(client, (ManagerRoute)route, manager)) continue;
+            if (!objectsSane(manager, array, count)) continue;
+
+            g_route = (ManagerRoute)route;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool resolveOwn(uintptr_t array, uint32_t count, int32_t ownIndex, uintptr_t &own)
+    {
+        own = 0;
+        if (ownIndex >= 0 && (uint32_t)ownIndex < count)
+        {
+            if (readPtr(array + (size_t)ownIndex * sizeof(uintptr_t), own) && mapped(own)) return true;
+        }
+
+        for (uint32_t i = 0; i < count; i++)
+        {
+            uintptr_t candidate = 0;
+            if (!readPtr(array + (size_t)i * sizeof(uintptr_t), candidate)) continue;
+            if (!mapped(candidate)) continue;
+            if (readOwnerIndex(candidate) != ownIndex) continue;
+
+            own = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
 bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 {
     if (g_base == 0) return false;
@@ -649,25 +746,18 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
     if (!readBytes(battleModeClient + offsets::Client_ownTeam, &ownTeam, sizeof(ownTeam))) return false;
     if (ownTeam >= (uint32_t)MAX_TEAMS) return false;
 
-    uintptr_t manager = 0;
-    if (!readBytes(battleModeClient + offsets::BattleMode_objectManagerPtr, &manager, sizeof(manager))) return false;
-    if (!tools::memory::plausible(manager)) return false;
-
     uintptr_t objects = 0;
-    if (!readBytes(manager + offsets::ObjectManager_objectsArray, &objects, sizeof(objects))) return false;
-    if (!tools::memory::plausible(objects)) return false;
+    uint32_t count = 0;
+    if (!resolveObjects(battleModeClient, objects, count)) return false;
 
     uintptr_t own = 0;
-    if (!readBytes(objects + (size_t)ownIndex * sizeof(uintptr_t), &own, sizeof(own))) return false;
-
-    if (!tools::memory::plausible(own))
+    if (!resolveOwn(objects, count, (int32_t)ownIndex, own))
     {
         markDead();
         g_data.ownCharacter = 0;
         g_data.battleModeClient = battleModeClient;
         g_data.myHp = 0;
-            g_data.enemyCount = 0;
-
+        g_data.enemyCount = 0;
 
         if (autododge)
         {
@@ -678,6 +768,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
             clearLive();
             g_data.projectileCount = 0;
         }
+
         g_data.lastUpdate = nowMs;
         return true;
     }
@@ -734,15 +825,7 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 
     int32_t enemyCount = 0;
 
-    uintptr_t objectManager = 0;
-    if (readPtr(battleModeClient + offsets::BattleMode_objectManagerPtr, objectManager) && objectManager != 0)
     {
-        uintptr_t objects = 0;
-        uint32_t count = 0;
-        readPtr(objectManager + offsets::ObjectManager_objectsArray, objects);
-        readU32(objectManager + offsets::ObjectManager_count, count);
-
-        if (objects != 0 && count > 0 && count <= (uint32_t)MAX_OBJECTS)
         {
             const size_t stride = offsets::ObjectManager_ptrStride;
             const size_t bytes = (size_t)count * stride;

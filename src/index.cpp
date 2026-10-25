@@ -108,7 +108,8 @@ bool module::install(uintptr_t base)
     g_origTick = reinterpret_cast<SlotFn>(
         tools::hook::install(base, offsets::LogicBattleModeClient_update, reinterpret_cast<void *>(&tick)));
 
-    if (g_origTick == nullptr)
+    g_origRender = (IMP)tools::swizzle::install("MetalView", "render", (void *)&render_hook);
+    if (g_origRender == nullptr)
     {
         g_origRender = (IMP)tools::swizzle::install("NullView", "render", (void *)&render_hook);
     }
