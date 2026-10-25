@@ -140,7 +140,6 @@ namespace
                                 uint64_t, uint64_t, uint64_t, uint64_t);
 
     SlotFn g_origSetData = nullptr;
-    bool g_watchInstalled = false;
 
     // Any tile mutation invalidates the cached grid; the actual rebuild happens
     // on the next tick so we never walk the map from inside the setter.
