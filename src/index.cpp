@@ -20,7 +20,6 @@ namespace
     constexpr uint32_t POLL_INTERVAL_MS = 500;
     constexpr uint32_t POLL_LIMIT = 1200;
     constexpr uint32_t PUMP_MIN_GAP_MS = 4;
-    constexpr uint32_t DRIVE_INTERVAL_US = 8000;
 
     using SlotFn = uint64_t (*)(void *, uint64_t, uint64_t, uint64_t,
                                 uint64_t, uint64_t, uint64_t, uint64_t);
@@ -77,18 +76,6 @@ namespace
         if (g_origRender != nullptr) ((void (*)(id, SEL))g_origRender)(self, cmd);
     }
 
-    void *drive_thread(void *)
-    {
-        for (;;)
-        {
-            if (g_installed) pump(0);
-
-            usleep(DRIVE_INTERVAL_US);
-        }
-
-        return nullptr;
-    }
-
     void *poll_thread(void *)
     {
         for (uint32_t tickIndex = 0; tickIndex < POLL_LIMIT; tickIndex++)
@@ -142,11 +129,5 @@ __attribute__((constructor)) static void module_entry()
     if (pthread_create(&poll, nullptr, poll_thread, nullptr) == 0)
     {
         pthread_detach(poll);
-    }
-
-    pthread_t drive;
-    if (pthread_create(&drive, nullptr, drive_thread, nullptr) == 0)
-    {
-        pthread_detach(drive);
     }
 }
