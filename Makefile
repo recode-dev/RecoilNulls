@@ -15,7 +15,7 @@ RECOIL_HARDEN_FLAGS := -Os -fvisibility=hidden -fvisibility-inlines-hidden -ffun
 RECOIL_LINK_HARDEN := -Wl,-dead_strip -Wl,-x -Wl,-S -Wl,-exported_symbols_list,/dev/null
 
 Recoil_CCFLAGS := -std=c++17 -fno-exceptions -fno-rtti $(RECOIL_WARNING_FLAGS) $(RECOIL_HARDEN_FLAGS) $(RECOIL_INCLUDE_FLAGS)
-Recoil_LDFLAGS := $(RECOIL_LINK_HARDEN) -Wl,-undefined,dynamic_lookup
+Recoil_LDFLAGS := $(RECOIL_LINK_HARDEN)
 Recoil_FRAMEWORKS := Foundation
 
 include $(THEOS_MAKE_PATH)/tweak.mk
