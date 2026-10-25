@@ -6,7 +6,6 @@ BOOL rcl_setup_done = NO;
 
 __thread BOOL rcl_inside_hook = NO;
 
-int rcl_dump_np = 0;
 
 BOOL rcl_mode_strong = NO;
 
@@ -242,25 +241,6 @@ BOOL rcl_writable(uintptr_t address, size_t length)
     return cursor >= end;
 }
 
-void rcl_note(uintptr_t, const void *src, size_t length, int)
-{
-    int n = rcl_at;
-    uint32_t value = 0;
-    if (n < 0)
-    {
-        n = 0;
-    }
-    if (n >= 24)
-    {
-        n = 0;
-    }
-    if (src && length)
-    {
-        size_t take = length < sizeof(value) ? length : sizeof(value);
-        memcpy(&value, src, take);
-    }
-    rcl_at = (n + 1) % 24;
-}
 
 BOOL rcl_write_bytes(uintptr_t address, const void *src, size_t length)
 {
@@ -274,10 +254,8 @@ BOOL rcl_write_bytes(uintptr_t address, const void *src, size_t length)
     }
     if (1 && !rcl_writable(address, length))
     {
-        rcl_note(address, src, length, 1);
         return NO;
     }
-    rcl_note(address, src, length, 0);
     memcpy((void *)address, src, length);
     return YES;
 }
@@ -862,7 +840,6 @@ void poll_for_game(int tick)
 
 uintptr_t rcl_base = 0;
 
-uint64_t rcl_ticks_a = 0;
 
 uintptr_t rcl_manager_ptr = 0;
 
@@ -948,40 +925,6 @@ int rcl_collect(uintptr_t manager, rcl_obj_t *out, int capacity)
         if (entry.gid >= 2000000)
         {
             rcl_proj_track(entry.object, vtRva, entry.gid, entry.teamOld);
-            if (rcl_dump_np < RCL_NP_DUMPS)
-            {
-                int32_t npX = 0;
-                int32_t npY = 0;
-                int32_t np70 = 0;
-                int32_t np74 = 0;
-                float npFx = 0.0f;
-                float npFy = 0.0f;
-                float npF70 = 0.0f;
-                float npF74 = 0.0f;
-                void *np38 = nullptr;
-                rcl_dump_np++;
-                rcl_read_int(entry.object + RCL_OBJ_X_OFF, &npX);
-                rcl_read_int(entry.object + RCL_OBJ_Y_OFF, &npY);
-                rcl_read_int(entry.object + RCL_OFF, &np70);
-                rcl_read_int(entry.object + RCL_OFF + 4ULL, &np74);
-                rcl_read_ptr(entry.object + RCL_NP_PTR_OFF, &np38);
-                if (!rcl_read_float(entry.object + RCL_OBJ_X_OFF, &npFx))
-                {
-                    npFx = 0.0f;
-                }
-                if (!rcl_read_float(entry.object + RCL_OBJ_Y_OFF, &npFy))
-                {
-                    npFy = 0.0f;
-                }
-                if (!rcl_read_float(entry.object + RCL_OFF, &npF70))
-                {
-                    npF70 = 0.0f;
-                }
-                if (!rcl_read_float(entry.object + RCL_OFF + 4ULL, &npF74))
-                {
-                    npF74 = 0.0f;
-                }
-            }
             continue;
         }
         if (entry.gid == 0 && !rcl_gidless)
@@ -1020,225 +963,6 @@ float rcl_as_float(uint32_t bits)
     return view.f;
 }
 
-void rcl_discriminate(uintptr_t manager)
-{
-    rcl_obj_t objects[64];
-    uint32_t words[RCL_ELEMS][RCL_ELEM_WORDS];
-    int usable = 0;
-    int n = 0;
-    int teamOff = -1;
-    int coordOff = -1;
-    int intPairOff = -1;
-    int floatPairOff = -1;
-    memset(objects, 0, sizeof(objects));
-    memset(words, 0, sizeof(words));
-    usable = rcl_collect(manager, objects, 64);
-    if (usable == 0)
-    {
-        return;
-    }
-    if (usable == 1)
-    {
-        return;
-    }
-    n = (usable < RCL_ELEMS) ? usable : RCL_ELEMS;
-    for (int i = 0; i < n; i++)
-    {
-        if (!rcl_read_bytes(objects[i].object, words[i], sizeof(words[i])))
-        {
-            return;
-        }
-    }
-    for (int w = 0; w < RCL_ELEM_WORDS; w++)
-    {
-        int distinct = 0;
-        int allSmall = 1;
-        int allTiny = 1;
-        int64_t minV = 0;
-        int64_t maxV = 0;
-        for (int i = 0; i < n; i++)
-        {
-            int32_t value = (int32_t)words[i][w];
-            int seen = 0;
-            for (int j = 0; j < i; j++)
-            {
-                if (words[j][w] == words[i][w])
-                {
-                    seen = 1;
-                    break;
-                }
-            }
-            if (!seen)
-            {
-                distinct++;
-            }
-            if (i == 0)
-            {
-                minV = value;
-                maxV = value;
-            }
-            if (value < minV)
-            {
-                minV = value;
-            }
-            if (value > maxV)
-            {
-                maxV = value;
-            }
-            if (!rcl_small(value))
-            {
-                allSmall = 0;
-            }
-            if (value < 0 || value > 15)
-            {
-                allTiny = 0;
-            }
-        }
-        if (distinct <= 1)
-        {
-            continue;
-        }
-        if (teamOff < 0 && allTiny && distinct >= 2 && distinct <= RCL_TEAM_MAX)
-        {
-            teamOff = w * 4;
-        }
-        if (coordOff < 0 && allSmall && distinct == n)
-        {
-            coordOff = w * 4;
-        }
-    }
-    if (teamOff == (int)RCL_OBJ_X_OFF || teamOff == (int)RCL_OBJ_Y_OFF)
-    {
-        teamOff = -1;
-    }
-    {
-        int order[RCL_ELEM_WORDS];
-        int orderCount = 0;
-        int defaultWord = (int)(RCL_OBJ_X_OFF / 4);
-        if (defaultWord >= 0 && defaultWord + 1 < RCL_ELEM_WORDS)
-        {
-            order[orderCount++] = defaultWord;
-        }
-        for (int w = 0; w + 1 < RCL_ELEM_WORDS; w++)
-        {
-            if (w != defaultWord)
-            {
-                order[orderCount++] = w;
-            }
-        }
-        for (int k = 0; k < orderCount && intPairOff < 0; k++)
-        {
-            int w = order[k];
-            int ok = 1;
-            int dx = 0;
-            int dy = 0;
-            if (teamOff >= 0 && (w * 4 == teamOff || (w + 1) * 4 == teamOff))
-            {
-                continue;
-            }
-            for (int i = 0; i < n && ok; i++)
-            {
-                if (!rcl_small((int32_t)words[i][w]))
-                {
-                    ok = 0;
-                }
-                if (!rcl_small((int32_t)words[i][w + 1]))
-                {
-                    ok = 0;
-                }
-            }
-            if (!ok)
-            {
-                continue;
-            }
-            for (int i = 0; i < n; i++)
-            {
-                int seenX = 0;
-                int seenY = 0;
-                for (int j = 0; j < i; j++)
-                {
-                    if (words[j][w] == words[i][w])
-                    {
-                        seenX = 1;
-                    }
-                    if (words[j][w + 1] == words[i][w + 1])
-                    {
-                        seenY = 1;
-                    }
-                }
-                if (!seenX)
-                {
-                    dx++;
-                }
-                if (!seenY)
-                {
-                    dy++;
-                }
-            }
-            if (dx == n && dy == n)
-            {
-                intPairOff = w * 4;
-            }
-        }
-    }
-    for (int w = 0; w + 1 < RCL_ELEM_WORDS && floatPairOff < 0; w++)
-    {
-        int ok = 1;
-        int anyNonZero = 0;
-        int distinctPairs = 0;
-        int seenAny = 0;
-        float fx = 0.0f;
-        float fy = 0.0f;
-        if (teamOff >= 0 && (w * 4 == teamOff || (w + 1) * 4 == teamOff))
-        {
-            continue;
-        }
-        for (int i = 0; i < n; i++)
-        {
-            float ax = rcl_as_float(words[i][w]);
-            float ay = rcl_as_float(words[i][w + 1]);
-            int seen = 0;
-            if (ax <= -RCL_FLOAT_MAX || ax >= RCL_FLOAT_MAX)
-            {
-                ok = 0;
-            }
-            if (ay <= -RCL_FLOAT_MAX || ay >= RCL_FLOAT_MAX)
-            {
-                ok = 0;
-            }
-            if (words[i][w] != 0 || words[i][w + 1] != 0)
-            {
-                anyNonZero = 1;
-            }
-            if (i == 0)
-            {
-                fx = ax;
-                fy = ay;
-            }
-            for (int j = 0; j < i; j++)
-            {
-                if (words[j][w] == words[i][w] && words[j][w + 1] == words[i][w + 1])
-                {
-                    seen = 1;
-                    break;
-                }
-            }
-            if (!seen)
-            {
-                distinctPairs++;
-                if (i > 0)
-                {
-                    seenAny = 1;
-                }
-            }
-        }
-        if (!ok || !anyNonZero || !seenAny)
-        {
-            continue;
-        }
-        floatPairOff = w * 4;
-    }
-}
 
 uint64_t rcl_us(void)
 {
@@ -1258,13 +982,9 @@ uint64_t rcl_us(void)
     return (t / (uint64_t)tb.denom) * (uint64_t)tb.numer / 1000ULL;
 }
 
-int rcl_logs_a = 0;
 
-int rcl_seeded = 0;
 
-int32_t rcl_last_x_a = 0;
 
-int32_t rcl_last_y_a = 0;
 
 uintptr_t rcl_pair_base(void)
 {
@@ -1578,19 +1298,14 @@ size_t rcl_starts_count = 0;
 
 uintptr_t rcl_setpred = 0;
 
-int rcl_live_objs = 0;
 
-int rcl_live_teams = 0;
 
-int rcl_fb_on = 0;
 
-unsigned long long rcl_obj_prev = 0;
 
 uintptr_t rcl_site = 0;
 
 int rcl_site_state = -1;
 
-int rcl_scan_armed = -1;
 
 volatile uint32_t rcl_seq = 0;
 
@@ -1674,7 +1389,6 @@ void rcl_tick_begin(void)
     rcl_tick_count = c;
 }
 
-uint64_t rcl_idle_start = 0;
 
 static const uint32_t rcl_slot_site_hash[34] = {
     0x7744a9f0u, 0xd8ef9922u, 0x00000000u, 0x00000000u,
@@ -1738,7 +1452,6 @@ void rcl_slot_hooks_install(void)
 
 const int rcl_object_slots[3] = {2, 3, 4};
 
-uint64_t rcl_slot_hits[34] = {0};
 
 int rcl_pub_logs = 0;
 
@@ -1781,7 +1494,6 @@ rcl_slot_fn_t rcl_slot_orig[34] = {nullptr};
 uint64_t rcl_slot_repl_0(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                          uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(0, a0, a1);
     if (rcl_slot_orig[0])
     {
         return rcl_slot_orig[0](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1792,7 +1504,6 @@ uint64_t rcl_slot_repl_0(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
 uint64_t rcl_slot_repl_1(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                          uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(1, a0, a1);
     if (rcl_slot_orig[1])
     {
         return rcl_slot_orig[1](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1803,7 +1514,6 @@ uint64_t rcl_slot_repl_1(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
 uint64_t rcl_slot_repl_2(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                          uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(2, a0, a1);
     if (rcl_slot_orig[2])
     {
         return rcl_slot_orig[2](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1814,7 +1524,6 @@ uint64_t rcl_slot_repl_2(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
 uint64_t rcl_slot_repl_3(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                          uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(3, a0, a1);
     if (rcl_slot_orig[3])
     {
         return rcl_slot_orig[3](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1825,7 +1534,6 @@ uint64_t rcl_slot_repl_3(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
 uint64_t rcl_slot_repl_4(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                          uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(4, a0, a1);
     if (rcl_slot_orig[4])
     {
         return rcl_slot_orig[4](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1836,7 +1544,6 @@ uint64_t rcl_slot_repl_4(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
 uint64_t rcl_slot_repl_5(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                          uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(5, a0, a1);
     if (rcl_slot_orig[5])
     {
         return rcl_slot_orig[5](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1847,7 +1554,6 @@ uint64_t rcl_slot_repl_5(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
 uint64_t rcl_slot_repl_6(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                          uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(6, a0, a1);
     if (rcl_slot_orig[6])
     {
         return rcl_slot_orig[6](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1858,7 +1564,6 @@ uint64_t rcl_slot_repl_6(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
 uint64_t rcl_slot_repl_7(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                          uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(7, a0, a1);
     if (rcl_slot_orig[7])
     {
         return rcl_slot_orig[7](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1869,7 +1574,6 @@ uint64_t rcl_slot_repl_7(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
 uint64_t rcl_slot_repl_8(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                          uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(8, a0, a1);
     if (rcl_slot_orig[8])
     {
         return rcl_slot_orig[8](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1880,7 +1584,6 @@ uint64_t rcl_slot_repl_8(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
 uint64_t rcl_slot_repl_9(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                          uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(9, a0, a1);
     if (rcl_slot_orig[9])
     {
         return rcl_slot_orig[9](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1891,7 +1594,6 @@ uint64_t rcl_slot_repl_9(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
 uint64_t rcl_slot_repl_10(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(10, a0, a1);
     if (rcl_slot_orig[10])
     {
         return rcl_slot_orig[10](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1902,7 +1604,6 @@ uint64_t rcl_slot_repl_10(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_11(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(11, a0, a1);
     if (rcl_slot_orig[11])
     {
         return rcl_slot_orig[11](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1913,7 +1614,6 @@ uint64_t rcl_slot_repl_11(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_12(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(12, a0, a1);
     if (rcl_slot_orig[12])
     {
         return rcl_slot_orig[12](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1924,7 +1624,6 @@ uint64_t rcl_slot_repl_12(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_13(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(13, a0, a1);
     if (rcl_slot_orig[13])
     {
         return rcl_slot_orig[13](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1935,7 +1634,6 @@ uint64_t rcl_slot_repl_13(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_14(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(14, a0, a1);
     if (rcl_slot_orig[14])
     {
         return rcl_slot_orig[14](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1946,7 +1644,6 @@ uint64_t rcl_slot_repl_14(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_15(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(15, a0, a1);
     if (rcl_slot_orig[15])
     {
         return rcl_slot_orig[15](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1957,7 +1654,6 @@ uint64_t rcl_slot_repl_15(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_16(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(16, a0, a1);
     if (rcl_slot_orig[16])
     {
         return rcl_slot_orig[16](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1968,7 +1664,6 @@ uint64_t rcl_slot_repl_16(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_17(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(17, a0, a1);
     if (rcl_slot_orig[17])
     {
         return rcl_slot_orig[17](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1979,7 +1674,6 @@ uint64_t rcl_slot_repl_17(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_18(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(18, a0, a1);
     if (rcl_slot_orig[18])
     {
         return rcl_slot_orig[18](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -1990,7 +1684,6 @@ uint64_t rcl_slot_repl_18(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_19(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(19, a0, a1);
     if (rcl_slot_orig[19])
     {
         return rcl_slot_orig[19](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2001,7 +1694,6 @@ uint64_t rcl_slot_repl_19(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_20(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(20, a0, a1);
     if (rcl_slot_orig[20])
     {
         return rcl_slot_orig[20](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2012,7 +1704,6 @@ uint64_t rcl_slot_repl_20(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_21(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(21, a0, a1);
     if (rcl_slot_orig[21])
     {
         return rcl_slot_orig[21](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2023,7 +1714,6 @@ uint64_t rcl_slot_repl_21(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_22(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(22, a0, a1);
     if (rcl_slot_orig[22])
     {
         return rcl_slot_orig[22](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2034,7 +1724,6 @@ uint64_t rcl_slot_repl_22(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_23(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(23, a0, a1);
     if (rcl_slot_orig[23])
     {
         return rcl_slot_orig[23](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2045,7 +1734,6 @@ uint64_t rcl_slot_repl_23(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_24(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(24, a0, a1);
     if (rcl_slot_orig[24])
     {
         return rcl_slot_orig[24](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2056,7 +1744,6 @@ uint64_t rcl_slot_repl_24(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_25(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(25, a0, a1);
     if (rcl_slot_orig[25])
     {
         return rcl_slot_orig[25](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2067,7 +1754,6 @@ uint64_t rcl_slot_repl_25(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_26(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(26, a0, a1);
     if (rcl_slot_orig[26])
     {
         return rcl_slot_orig[26](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2078,7 +1764,6 @@ uint64_t rcl_slot_repl_26(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_27(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(27, a0, a1);
     if (rcl_slot_orig[27])
     {
         return rcl_slot_orig[27](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2089,7 +1774,6 @@ uint64_t rcl_slot_repl_27(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_28(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(28, a0, a1);
     if (rcl_slot_orig[28])
     {
         return rcl_slot_orig[28](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2100,7 +1784,6 @@ uint64_t rcl_slot_repl_28(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_29(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(29, a0, a1);
     if (rcl_slot_orig[29])
     {
         return rcl_slot_orig[29](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2111,7 +1794,6 @@ uint64_t rcl_slot_repl_29(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_30(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(30, a0, a1);
     if (rcl_slot_orig[30])
     {
         return rcl_slot_orig[30](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2122,7 +1804,6 @@ uint64_t rcl_slot_repl_30(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint6
 uint64_t rcl_slot_repl_31(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
                           uint64_t a6, uint64_t a7)
 {
-    rcl_slot_note(31, a0, a1);
     if (rcl_slot_orig[31])
     {
         return rcl_slot_orig[31](a0, a1, a2, a3, a4, a5, a6, a7);
@@ -2189,42 +1870,8 @@ const rcl_hook_t rcl_slot_specs[34] = {
     {RVA_BATTLESCREEN__UPDATEMOVEMENT, (void *)rcl_slot_repl_33, 0},
 };
 
-void rcl_slot_note(int index, void *self, uint64_t arg1)
-{
-    if (index < 0 || index >= 34)
-    {
-        return;
-    }
-    rcl_slot_hits[index]++;
-    if (!rcl_slot_object[index] && self)
-    {
-        rcl_slot_object[index] = (uintptr_t)self;
-    }
-    if (!rcl_slot_arg[index] && arg1)
-    {
-        rcl_slot_arg[index] = (uintptr_t)arg1;
-    }
-}
 
-uint64_t rcl_hook_dispatches(void)
-{
-    uint64_t total = 0;
-    for (int i = 0; i < 34; i++)
-    {
-        total += rcl_slot_hits[i];
-    }
-    return total;
-}
 
-uint64_t rcl_object_dispatches(void)
-{
-    uint64_t total = 0;
-    for (int i = 0; i < 3; i++)
-    {
-        total += rcl_slot_hits[rcl_object_slots[i]];
-    }
-    return total;
-}
 int rcl_vtable_is_data(uintptr_t vtable)
 {
     const char *segment = rcl_image_segment_name(vtable);
@@ -2373,39 +2020,7 @@ int rcl_state_tick(void)
     return 1;
 }
 
-int rcl_scan_allowed(uint64_t fired, uint64_t)
-{
-    if (fired > 0)
-    {
-        rcl_idle_start = 0;
-        return 1;
-    }
-    if (rcl_idle_start == 0)
-    {
-        rcl_idle_start = rcl_ticks_b;
-    }
-    if ((rcl_ticks_b - rcl_idle_start) < RCL_IDLE_RETRY_TICKS)
-    {
-        return 0;
-    }
-    rcl_idle_start = rcl_ticks_b;
-    return 1;
-}
 
-int rcl_battle_gate_fallback(int v63)
-{
-    int liveEnough = (rcl_live_objs >= RCL_LIVE_OBJ_MIN && rcl_live_teams >= RCL_LIVE_TEAM_MIN);
-    rcl_fb_on = (v63 || liveEnough) ? 1 : 0;
-    if (!rcl_fb_on)
-    {
-        return 0;
-    }
-    if (v63)
-    {
-        return 1;
-    }
-    return 1;
-}
 
 void rcl_start_timer(void)
 {
@@ -2424,27 +2039,8 @@ void rcl_start_timer(void)
                               (uint64_t)(0.25 * NSEC_PER_SEC));
     dispatch_source_set_event_handler(timer, ^{
       rcl_slot_pump();
-      int scene = rcl_state_tick();
-      int gate = rcl_battle_gate(scene);
-      int battle = gate || scene;
-      int fallback = rcl_battle_gate_fallback(battle);
-      int ready = rcl_scan_ready(battle || fallback);
-      int needScan = !scene && !rcl_players_object;
-      if (needScan != rcl_scan_armed)
-      {
-          rcl_scan_armed = needScan;
-      }
-      if (needScan && ready &&
-          rcl_scan_allowed((unsigned long long)rcl_object_dispatches(), rcl_hook_dispatches()))
-      {
-          rcl_locate_battle_mode();
-      }
-      rcl_modesig_tick();
+      rcl_state_tick();
       rcl_ticks_b++;
-      if ((rcl_ticks_b % RCL_HB_TICKS) == 0)
-      {
-          rcl_hb_sig_prev = rcl_modesig_hits;
-      }
     });
     dispatch_resume(timer);
     rcl_scan_timer = timer;
@@ -2452,33 +2048,9 @@ void rcl_start_timer(void)
 
 uint64_t rcl_ticks_b = 0;
 
-int rcl_hb_sig_prev = 0;
 
-int rcl_battle_active = 0;
 
-int rcl_battle_last_tick = 0;
 
-int rcl_battle_gate(int scene)
-{
-    unsigned long long objFired = rcl_object_dispatches();
-    int objGrew = objFired > rcl_obj_prev;
-    int sigGrew = rcl_modesig_hits > rcl_hb_sig_prev;
-    int sceneGrew = scene ? 1 : 0;
-    rcl_obj_prev = objFired;
-    if (sigGrew || objGrew || sceneGrew)
-    {
-        rcl_battle_last_tick = (int)rcl_ticks_b;
-        if (!rcl_battle_active)
-        {
-            rcl_battle_active = 1;
-        }
-    }
-    else if (rcl_battle_active && ((int)rcl_ticks_b - rcl_battle_last_tick) >= RCL_QUIET_SECS)
-    {
-        rcl_battle_active = 0;
-    }
-    return rcl_battle_active;
-}
 
 static void rcl_proj_velocity(void)
 {
@@ -2699,7 +2271,6 @@ int rcl_hop_chosen = -1;
 
 int rcl_hop_sticky = 0;
 
-int rcl_modesig_hits = 0;
 
 uintptr_t rcl_scan_container = 0;
 
@@ -2753,67 +2324,6 @@ int rcl_modesig_hit(uintptr_t at)
     return 1;
 }
 
-void rcl_modesig_tick(void)
-{
-    uintptr_t found = 0;
-    if (rcl_scene_object)
-    {
-        return;
-    }
-    if (!rcl_battle_active && (rcl_ticks_b % RCL_QUIET_BUCKET_TICKS) != 0)
-    {
-        return;
-    }
-    for (int i = 0; i < rcl_objhit_count && !found; i++)
-    {
-        if (rcl_modesig_hit(rcl_objhits[i].at))
-        {
-            found = rcl_objhits[i].at;
-        }
-    }
-    if (!found)
-    {
-        return;
-    }
-    if (rcl_sig_last == found)
-    {
-        rcl_sig_ticks++;
-    }
-    else
-    {
-        rcl_sig_last = found;
-        rcl_sig_ticks = 1;
-    }
-    if (rcl_sig_ticks < RCL_MODESIG_TICKS)
-    {
-        return;
-    }
-    {
-        void *vt = nullptr;
-        void *mgr = nullptr;
-        int32_t ec = 0;
-        int32_t m124 = 0;
-        int32_t count = 0;
-        int32_t cap = 0;
-        rcl_modesig_hits++;
-        rcl_scene_object = found;
-        rcl_battle_last_tick = (int)rcl_ticks_b;
-        rcl_read_ptr(found, &vt);
-        rcl_read_ptr(found + RCL_MODE_MANAGER_OFF, &mgr);
-        rcl_read_int(found + RCL_MODE_EC_OFF, &ec);
-        rcl_read_int(found + RCL_MODE_MODEVAR_OFF, &m124);
-        rcl_read_int((uintptr_t)mgr + RCL_MGR_COUNT_OFF, &count);
-        rcl_read_int((uintptr_t)mgr + RCL_MGR_CAP_OFF, &cap);
-        if (count >= 2 && cap >= count && cap <= 4096)
-        {
-            void *mgrArray = nullptr;
-            if (rcl_read_ptr((uintptr_t)mgr + RCL_MGR_ARRAY_OFF, &mgrArray) && mgrArray)
-            {
-                rcl_publish((uintptr_t)mgr, (uintptr_t)mgrArray, count, cap, "modesig");
-            }
-        }
-    }
-}
 
 int rcl_element_type(uintptr_t vt, uintptr_t *wordOut)
 {
@@ -3083,22 +2593,6 @@ int rcl_container_score(uintptr_t container)
     score += posOk * RCL_POS_BONUS + posDistinct * RCL_DIST_BONUS;
     return score;
 }
-int rcl_scan_ready(int battle)
-{
-    if (rcl_ticks_b < RCL_SCAN_FLOOR_TICKS)
-    {
-        return 0;
-    }
-    if (battle || rcl_scene_object)
-    {
-        return 1;
-    }
-    if (rcl_ticks_b < RCL_SCAN_FALLBACK_TICKS)
-    {
-        return 0;
-    }
-    return (rcl_ticks_b % RCL_QUIET_BUCKET_TICKS) == 0;
-}
 
 void rcl_resolve_addresses(void)
 {
@@ -3144,9 +2638,7 @@ void rcl_locate_battle_mode(void)
     }
 }
 
-int rcl_probe_done = 0;
 
-uintptr_t rcl_probe_object = 0;
 
 uint64_t rcl_probe_last_ms = 0;
 
@@ -3956,7 +3448,6 @@ uintptr_t rcl_controller(void)
     }
     return client;
 }
-int rcl_signal_logs = 0;
 
 void rcl_death_signals(uintptr_t ownElem, int32_t, int32_t)
 {
@@ -4007,14 +3498,6 @@ void rcl_death_signals(uintptr_t ownElem, int32_t, int32_t)
     rcl_signal_logs++;
 }
 
-void rcl_alive(int32_t, int32_t)
-{
-    if (!rcl_dead)
-    {
-        return;
-    }
-    rcl_dead = 0;
-}
 
 uint64_t rcl_read_u64(uintptr_t address)
 {
@@ -4102,160 +3585,7 @@ uintptr_t rcl_coord_y_off(void)
 
 rcl_trail_t rcl_trail[8];
 
-void rcl_probe(uintptr_t manager, uintptr_t mode, int)
-{
-    rcl_obj_t objects[64];
-    int usable = 0;
-    int inRange = 0;
-    int distinct = 0;
-    int teamsOld[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    int teamsNew[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    int distinctOld = 0;
-    int distinctNew = 0;
-    memset(objects, 0, sizeof(objects));
-    rcl_probe_done = 1;
-    if (mode)
-    {
-        rcl_read_map(mode);
-    }
-    usable = rcl_collect(manager, objects, 64);
-    for (int i = 0; i < usable; i++)
-    {
-        if (objects[i].x > -1000000 && objects[i].x < 1000000 && objects[i].y > -1000000 &&
-            objects[i].y < 1000000)
-        {
-            inRange++;
-        }
-        if (objects[i].teamOld >= 0 && objects[i].teamOld < 8)
-        {
-            teamsOld[objects[i].teamOld] = 1;
-        }
-        if (objects[i].teamNew >= 0 && objects[i].teamNew < 8)
-        {
-            teamsNew[objects[i].teamNew] = 1;
-        }
-        {
-            int seen = 0;
-            for (int j = 0; j < i; j++)
-            {
-                if (objects[j].x == objects[i].x && objects[j].y == objects[i].y)
-                {
-                    seen = 1;
-                    break;
-                }
-            }
-            if (!seen)
-            {
-                distinct++;
-            }
-        }
-    }
-    for (int i = 0; i < 8; i++)
-    {
-        if (teamsOld[i])
-        {
-            distinctOld++;
-        }
-        if (teamsNew[i])
-        {
-            distinctNew++;
-        }
-    }
-    rcl_team_off = (int)RCL_OBJ_TEAM_OFF;
-    rcl_coord_usable = usable;
-    {
-        int unique = 0;
-        for (int i = 0; i < usable; i++)
-        {
-            int seen = 0;
-            for (int j = 0; j < i; j++)
-            {
-                if (objects[j].gid == objects[i].gid)
-                {
-                    seen = 1;
-                    break;
-                }
-            }
-            if (!seen)
-            {
-                unique++;
-            }
-        }
-    }
-    rcl_coord_ok = (usable >= 2 && inRange == usable && distinct >= 2 &&
-                    (distinctOld >= 2 || distinctNew >= 2))
-                       ? 1
-                       : 0;
-    {
-        int back = 0;
-        int backRead = 0;
-        for (int i = 0; i < usable; i++)
-        {
-            void *backPtr = nullptr;
-            if (!rcl_read_ptr(objects[i].object + RCL_ELEM_BACK_OFF, &backPtr))
-            {
-                continue;
-            }
-            backRead++;
-            if ((uintptr_t)backPtr == manager)
-            {
-                back++;
-            }
-        }
-    }
-}
 
-void rcl_paircal(void)
-{
-    uintptr_t ctrl = rcl_pair_base();
-    int32_t ownX = 0;
-    int32_t ownY = 0;
-    int32_t px = 0;
-    int32_t py = 0;
-    int dx = 0;
-    int dy = 0;
-    float pLen = 0.0f;
-    float mLen = 0.0f;
-    if ((rcl_ticks_a % 60) != 0)
-    {
-        return;
-    }
-    if (rcl_logs_a >= RCL_LOGS_a)
-    {
-        return;
-    }
-    if (!ctrl)
-    {
-        return;
-    }
-    if (!rcl_own(&ownX, &ownY))
-    {
-        return;
-    }
-    if (!rcl_read_int(ctrl + RCL_CTRL_RAW_X_OFF, &px))
-    {
-        return;
-    }
-    if (!rcl_read_int(ctrl + RCL_CTRL_RAW_Y_OFF, &py))
-    {
-        return;
-    }
-    if (rcl_seeded)
-    {
-        dx = (int)(ownX - rcl_last_x_a);
-        dy = (int)(ownY - rcl_last_y_a);
-    }
-    rcl_seeded = 1;
-    rcl_last_x_a = ownX;
-    rcl_last_y_a = ownY;
-    pLen = sqrtf((float)(px * px + py * py));
-    mLen = sqrtf((float)(dx * dx + dy * dy));
-    if (pLen < 1.0f || mLen < 1.0f)
-    {
-        return;
-    }
-    rcl_logs_a++;
-}
 
 uintptr_t rcl_scene_object = 0;
 
