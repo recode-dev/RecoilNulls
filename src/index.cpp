@@ -37,8 +37,8 @@ namespace
     {
         if (g_base == 0) return;
 
-        if (!tools::memory::plausible(client)) client = scanner::getBattleMode();
-        if (!tools::memory::plausible(client)) return;
+        if (!scanner::isObject(client)) client = scanner::getBattleMode();
+        if (!scanner::isObject(client)) return;
 
         const uint32_t now = scanner::nowMs();
         if (g_lastPump != 0 && (now - g_lastPump) < PUMP_MIN_GAP_MS) return;

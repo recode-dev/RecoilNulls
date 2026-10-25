@@ -171,6 +171,22 @@ namespace
         return readBytes(address, &out, sizeof(out));
     }
 
+    constexpr uintptr_t IMAGE_SPAN = 0x4000000;
+
+    bool inImage(uintptr_t pointer)
+    {
+        return pointer >= g_base && pointer < g_base + IMAGE_SPAN;
+    }
+
+    bool mapped(uintptr_t object)
+    {
+        uintptr_t vtable = 0;
+        if (object == 0) return false;
+        if (!readPtr(object, vtable)) return false;
+
+        return inImage(vtable);
+    }
+
     bool readS32(uintptr_t address, int32_t &out)
     {
         return readBytes(address, &out, sizeof(out));
@@ -197,7 +213,7 @@ namespace
     bool readDataName(uintptr_t data, char *out)
     {
         out[0] = 0;
-        if (data == 0) return false;
+        if (!mapped(data)) return false;
 
         uintptr_t namePtr = 0;
         if (!readPtr(data + offsets::HeroData_namePtr, namePtr)) return false;
@@ -215,7 +231,7 @@ namespace
     bool readProjectileName(uintptr_t data, char *out)
     {
         out[0] = 0;
-        if (data == 0) return false;
+        if (!mapped(data)) return false;
 
         if (functions::LogicData_getName != nullptr)
         {
@@ -430,7 +446,7 @@ namespace
 
     void harvestSkillData(uintptr_t skillData)
     {
-        if (skillData == 0) return;
+        if (!mapped(skillData)) return;
         if (functions::LogicSkillData_getCastingRange == nullptr) return;
         if (functions::LogicSkillData_getProjectileData == nullptr) return;
 
@@ -449,7 +465,7 @@ namespace
 
     bool harvestCharacter(uintptr_t character)
     {
-        if (character == 0) return false;
+        if (!mapped(character)) return false;
         bool found = false;
 
         if (functions::LogicCharacterClient_getWeaponSkill != nullptr)
@@ -577,7 +593,7 @@ namespace
             LiveProjectile &live = g_live[i];
             if (!live.used) continue;
 
-            if (live.ptr == 0 || now - live.lastSeenAt > PROJECTILE_TIMEOUT_MS)
+            if (live.ptr == 0 || !mapped(live.ptr) || now - live.lastSeenAt > PROJECTILE_TIMEOUT_MS)
             {
                 live.used = false;
                 continue;
@@ -649,6 +665,11 @@ namespace
     }
 }
 
+bool scanner::isObject(uintptr_t pointer)
+{
+    return mapped(pointer);
+}
+
 void scanner::init(uintptr_t base)
 {
     g_base = base;
@@ -674,6 +695,7 @@ uintptr_t scanner::getBattleMode()
     uintptr_t client = 0;
     if (!readBytes(scene + offsets::Scene_client, &client, sizeof(client))) return 0;
     if (!tools::memory::plausible(client)) return 0;
+    if (!mapped(client)) return 0;
 
     return client;
 }
@@ -731,12 +753,12 @@ bool scanner::isFriendlyOwner(int32_t ownerIndex, int32_t team)
 
 void scanner::captureProjectile(uintptr_t projectile, uintptr_t data, int32_t ownerTeamOverride, bool hasOverride, uint32_t nowMs)
 {
-    if (projectile == 0) return;
-    if (data == 0 && functions::LogicGameObjectClient_getData != nullptr)
+    if (!mapped(projectile)) return;
+    if (data == 0 && mapped(projectile) && functions::LogicGameObjectClient_getData != nullptr)
     {
         data = functions::LogicGameObjectClient_getData(projectile);
     }
-    if (data == 0) return;
+    if (!mapped(data)) return;
     if (functions::LogicGameObjectClient_getGlobalID == nullptr) return;
 
     const uint32_t gid = functions::LogicGameObjectClient_getGlobalID(projectile);
@@ -817,6 +839,7 @@ void scanner::captureProjectile(uintptr_t projectile, uintptr_t data, int32_t ow
 
 void scanner::removeProjectile(uintptr_t projectile)
 {
+    if (!mapped(projectile)) return;
     if (projectile == 0) return;
     if (functions::LogicGameObjectClient_getGlobalID == nullptr) return;
 
@@ -829,11 +852,8 @@ void scanner::removeProjectile(uintptr_t projectile)
 
 bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
 {
-    if (g_base == 0 || !tools::memory::plausible(battleModeClient)) return false;
-
-    uintptr_t vtable = 0;
-    if (!readBytes(battleModeClient, &vtable, sizeof(vtable))) return false;
-    if (!tools::memory::plausible(vtable)) return false;
+    if (g_base == 0) return false;
+    if (!mapped(battleModeClient)) return false;
 
     uint32_t ownIndex = 0;
     if (!readBytes(battleModeClient + offsets::Client_ownIndex, &ownIndex, sizeof(ownIndex))) return false;
@@ -906,14 +926,17 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
     rememberCharacter(g_data.myPlayerIndex, own);
 
     const uintptr_t self = bodyOf(own);
-    if (functions::LogicGameObjectClient_getX != nullptr) g_data.myX = functions::LogicGameObjectClient_getX(self);
-    if (functions::LogicGameObjectClient_getY != nullptr) g_data.myY = functions::LogicGameObjectClient_getY(self);
+    if (mapped(self))
+    {
+        if (functions::LogicGameObjectClient_getX != nullptr) g_data.myX = functions::LogicGameObjectClient_getX(self);
+        if (functions::LogicGameObjectClient_getY != nullptr) g_data.myY = functions::LogicGameObjectClient_getY(self);
+    }
 
     g_data.mySpeed = DEFAULT_MOVE_SPEED;
-    const uintptr_t ownData = functions::LogicGameObjectClient_getData != nullptr
+    const uintptr_t ownData = (mapped(own) && functions::LogicGameObjectClient_getData != nullptr)
         ? functions::LogicGameObjectClient_getData(own)
         : 0;
-    if (ownData != 0)
+    if (mapped(ownData))
     {
         if (functions::LogicCharacterData_getCollisionRadius != nullptr)
         {
@@ -993,12 +1016,12 @@ bool scanner::update(uintptr_t battleModeClient, uint32_t nowMs, bool autododge)
                 {
                     continue;
                 }
-                if (object == 0) continue;
+                if (!mapped(object)) continue;
 
                 const uintptr_t data = functions::LogicGameObjectClient_getData != nullptr
                     ? functions::LogicGameObjectClient_getData(object)
                     : 0;
-                if (data == 0) continue;
+                if (!mapped(data)) continue;
 
                 const int32_t team = readObjectTeam(object);
 

@@ -71,6 +71,7 @@ namespace scanner
     };
 
     void init(uintptr_t base);
+    bool isObject(uintptr_t pointer);
     uintptr_t getBattleMode();
     void reset();
     void enableProjectileTracking();

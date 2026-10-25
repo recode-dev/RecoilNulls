@@ -331,15 +331,15 @@ namespace
         g_speedAt = now;
 
         const scanner::ScannerData &data = scanner::data();
-        if (data.ownCharacter == 0) return g_projectileSpeed;
+        if (!scanner::isObject(data.ownCharacter)) return g_projectileSpeed;
         if (functions::LogicCharacterClient_getWeaponSkill == nullptr) return g_projectileSpeed;
         if (functions::LogicSkillData_getProjectileData == nullptr) return g_projectileSpeed;
 
         const uintptr_t skill = functions::LogicCharacterClient_getWeaponSkill(data.ownCharacter);
-        if (skill == 0) return g_projectileSpeed;
+        if (!scanner::isObject(skill)) return g_projectileSpeed;
 
         const uintptr_t projectileData = functions::LogicSkillData_getProjectileData(skill, 0);
-        if (projectileData == 0) return g_projectileSpeed;
+        if (!scanner::isObject(projectileData)) return g_projectileSpeed;
 
         uint32_t raw = 0;
         if (readU32(projectileData + offsets::ProjectileData_speed, raw))
@@ -419,7 +419,7 @@ namespace
         const uintptr_t sampleTarget = g_target.body != 0 ? g_target.body : g_target.ptr;
         int32_t bx = 0;
         int32_t by = 0;
-        if (functions::LogicGameObjectClient_getX != nullptr && sampleTarget != 0)
+        if (functions::LogicGameObjectClient_getX != nullptr && scanner::isObject(sampleTarget))
         {
             bx = functions::LogicGameObjectClient_getX(sampleTarget);
             by = functions::LogicGameObjectClient_getY(sampleTarget);
@@ -432,7 +432,7 @@ namespace
         Solution aim = solve((float)data.myX, (float)data.myY, predicted, speed, ownRange(speed));
         if (!aim.valid) return false;
 
-        if (data.battleScreen != 0 && data.ownCharacter != 0 &&
+        if (scanner::isObject(data.battleScreen) && scanner::isObject(data.ownCharacter) &&
             functions::LogicCharacterClient_getWeaponSkill != nullptr)
         {
             const uintptr_t skill = functions::LogicCharacterClient_getWeaponSkill(data.ownCharacter);
