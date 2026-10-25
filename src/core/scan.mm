@@ -2643,6 +2643,8 @@ void rcl_run_autododge(void)
 
 static uint64_t rcl_work_us = 0;
 
+static dispatch_source_t rcl_hot_timer = nullptr;
+
 static void rcl_objc_body(void)
 {
     uint64_t now = 0;
@@ -2651,7 +2653,7 @@ static void rcl_objc_body(void)
         return;
     }
     now = rcl_us();
-    if (now && rcl_work_us && (now - rcl_work_us) < 500)
+    if (now && rcl_work_us && (now - rcl_work_us) < RCL_WORK_GAP_US)
     {
         return;
     }
@@ -2659,6 +2661,31 @@ static void rcl_objc_body(void)
     rcl_inside_hook = YES;
     rcl_run_workload();
     rcl_inside_hook = NO;
+}
+
+static void rcl_start_hot_timer(void)
+{
+    dispatch_queue_t queue = nullptr;
+    dispatch_source_t timer = nullptr;
+    uint64_t interval = 0;
+
+    if (rcl_hot_timer)
+    {
+        return;
+    }
+    queue = dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0);
+    timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
+    if (!timer)
+    {
+        return;
+    }
+    interval = (uint64_t)(RCL_HOT_INTERVAL_US * NSEC_PER_USEC);
+    dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, 0), interval, 0);
+    dispatch_source_set_event_handler(timer, ^{
+      rcl_objc_body();
+    });
+    dispatch_resume(timer);
+    rcl_hot_timer = timer;
 }
 
 void setup(void)
@@ -2674,6 +2701,7 @@ void setup(void)
     rcl_objc_arm(rcl_base, "NullView", "render", rcl_objc_body);
     rcl_slot_hooks_install();
     rcl_start_timer();
+    rcl_start_hot_timer();
 }
 
 int rcl_prev_state = -1;

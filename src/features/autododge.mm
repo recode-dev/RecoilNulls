@@ -79,6 +79,7 @@ static void rcl_dodge_speed_probe(void)
 #define RCL_AD_REACH 600.0f
 #define RCL_AD_WALL_BODY 240.0f
 #define RCL_AD_TICK_MS 16.0f
+#define RCL_AD_ENQUEUE_GAP_US 16000
 #define RCL_AD_FIT_PAD 0.0f
 #define RCL_AD_FIT_GROW 0.0f
 #define RCL_AD_RADIUS_FALLBACK 50.0f
@@ -659,9 +660,19 @@ static void rcl_ad_clamp_target(float *tx, float *ty)
 
 static int rcl_ad_send_move(float tx, float ty, float mx, float my)
 {
+    static uint64_t lastEnqueue = 0;
+    uint64_t now = 0;
+
     rcl_ad_clamp_target(&tx, &ty);
 
     rcl_move_to((int32_t)tx, (int32_t)ty, mx, my);
+
+    now = rcl_us();
+    if (now && lastEnqueue && (now - lastEnqueue) < RCL_AD_ENQUEUE_GAP_US)
+    {
+        return 1;
+    }
+    lastEnqueue = now;
 
     return rcl_enqueue((int32_t)tx, (int32_t)ty);
 }
