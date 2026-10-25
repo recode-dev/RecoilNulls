@@ -10,14 +10,6 @@ namespace
 {
     uintptr_t g_base = 0;
 
-    bool readBytes(uintptr_t address, void *out, size_t size)
-    {
-        if (address == 0 || out == nullptr || size == 0) return false;
-        if (!gum_memory_is_readable((gconstpointer)address, (gsize)size)) return false;
-        memcpy(out, (const void *)address, size);
-        return true;
-    }
-
     template <typename T>
     bool bind(T &slot, uintptr_t offset)
     {
