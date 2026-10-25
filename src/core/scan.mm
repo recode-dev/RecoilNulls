@@ -304,21 +304,7 @@ uintptr_t rcl_callable(uintptr_t rva)
     {
         return 0;
     }
-    if (!rcl_image_text_contains(rcl_base, address))
-    {
-        return 0;
-    }
-    BOOL exact = NO;
-    rcl_start_index(address, &exact);
-    if (exact)
-    {
-        return address;
-    }
-    if (rcl_looks_like_start(address))
-    {
-        return address;
-    }
-    return 0;
+    return address;
 }
 BOOL rcl_copy(uintptr_t source, void *destination, size_t length)
 {
@@ -2509,10 +2495,8 @@ void rcl_scan_world(void)
         rcl_own_team_seen = 1;
     }
 
-    if (rcl_read_byte(own + (uintptr_t)RCL_OBJ_DEADFLAG_OFF, &dead))
-    {
-        rcl_dead = dead ? 1 : 0;
-    }
+    rcl_dead = 0;
+    (void)dead;
 
     ownData = rcl_call1(rcl_addr_getdata, own);
     if (rcl_pointer_plausible(ownData))
@@ -2524,8 +2508,9 @@ void rcl_scan_world(void)
         if (speed > 1.0f) rcl_own_speed = speed;
     }
 
-    manager = rcl_manager_auto();
-    if (!manager) return;
+    if (!rcl_read_ptr(client + RCL_MODE_MANAGER_OFF, &value) || !value) return;
+    manager = (uintptr_t)value;
+    rcl_manager_ptr = manager;
 
     if (!rcl_read_ptr(manager + RCL_MGR_ARRAY_OFF, &value) || !value) return;
     array = (uintptr_t)value;
