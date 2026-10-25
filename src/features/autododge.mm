@@ -106,7 +106,6 @@ typedef struct
 #define RCL_AD_CAP_MAX 16
 
 static rcl_ad_hazard_t rcl_ad_hazards[RCL_AD_HAZARD_MAX];
-static rcl_hazard_t rcl_ad_caps[RCL_AD_CAP_MAX];
 static float rcl_ad_ring[RCL_AD_DIR_COUNT][2];
 static int rcl_ad_dir_built = 0;
 static int rcl_ad_hazard_n = 0;
@@ -380,19 +379,12 @@ static void rcl_ad_collect(float mx, float my, float myRadius, uint64_t nowMs)
     float zoneSq = RCL_AD_AWARE * RCL_AD_AWARE;
     float bodyR = myRadius + RCL_AD_SKIN;
     int i;
-    int c;
 
     rcl_ad_hazard_n = 0;
-
-    for (i = 0; i < rcl_proj_death_n && i < 16; i++)
-    {
-        rcl_note_burst_death(&rcl_proj_deaths[i]);
-    }
 
     for (i = 0; i < 16; i++)
     {
         const rcl_proj_t *p = &rcl_projs[i];
-        int shaped = 0;
         int lockPath = 0;
         int blob = 0;
         float vx = 0.0f;
@@ -424,55 +416,6 @@ static void rcl_ad_collect(float mx, float my, float myRadius, uint64_t nowMs)
         }
 
         if (rcl_ad_shielded(p, mx, my))
-        {
-            continue;
-        }
-
-        shaped = rcl_shape_hazards(p, nowMs, rcl_ad_caps, RCL_AD_CAP_MAX);
-
-        for (c = 0; c < shaped; c++)
-        {
-            const rcl_hazard_t *cap = &rcl_ad_caps[c];
-            float until = (cap->t1 - (float)nowMs) / 1000.0f;
-            rcl_ad_hazard_t *h = nullptr;
-
-            if (until <= 0.0f)
-            {
-                continue;
-            }
-            if (rcl_ad_hazard_n >= RCL_AD_HAZARD_MAX)
-            {
-                break;
-            }
-
-            h = &rcl_ad_hazards[rcl_ad_hazard_n];
-
-            memset(h, 0, sizeof(*h));
-
-            h->rad = cap->radius;
-            h->has_segment = cap->has_segment;
-            h->name = p->name ? p->name : cap->name;
-
-            if (cap->has_segment)
-            {
-                h->ax = cap->ax;
-                h->ay = cap->ay;
-                h->bx = cap->bx;
-                h->by = cap->by;
-            }
-            else
-            {
-                h->x = cap->x;
-                h->y = cap->y;
-            }
-
-            if (rcl_ad_in_aware(h, mx, my, zoneSq))
-            {
-                rcl_ad_hazard_n++;
-            }
-        }
-
-        if (shaped > 0 && rcl_blocks_linear(p->name))
         {
             continue;
         }
