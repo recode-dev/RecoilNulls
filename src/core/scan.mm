@@ -2475,10 +2475,12 @@ static int rcl_mgr_probe(uintptr_t manager, uintptr_t *arrayOut, int32_t *countO
     for (i = 0; i < count && i < 12; i++)
     {
         void *element = nullptr;
+        void *vtableRaw = nullptr;
         uintptr_t vtable = 0;
 
         if (!rcl_read_ptr((uintptr_t)raw + (uintptr_t)i * 8ULL, &element) || !element) continue;
-        if (!rcl_read_ptr((uintptr_t)element, &vtable) || !vtable) continue;
+        if (!rcl_read_ptr((uintptr_t)element, &vtableRaw) || !vtableRaw) continue;
+        vtable = (uintptr_t)vtableRaw;
         if (vtable < rcl_base || vtable >= rcl_base + 0x2000000ULL) continue;
         good++;
     }
