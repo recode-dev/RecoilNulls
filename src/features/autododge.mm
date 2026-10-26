@@ -17,17 +17,6 @@ int rcl_cand_now[3];
 
 int rcl_cand_seen = 0;
 
-
-#include <vector>
-#include <optional>
-#include <cmath>
-#include <algorithm>
-#include <limits>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 namespace bs {
 
 constexpr double TICK_HZ      = 20.0;
@@ -124,7 +113,7 @@ static std::optional<double> sweep(const V2& p0, const V2& p1, double rP,
     return enter;
 }
 
-static int clampTick(int v, int maxTick) {
+[[maybe_unused]] static int clampTick(int v, int maxTick) {
     return std::max(0, std::min(v, maxTick));
 }
 
@@ -217,7 +206,7 @@ static std::optional<double> hitTick(const std::vector<V2>& path,
     return best;
 }
 
-static double clearanceAt(const V2& pos, const Projectile& pr, double charRadius) {
+[[maybe_unused]] static double clearanceAt(const V2& pos, const Projectile& pr, double charRadius) {
     if (pr.ticks.empty() && pr.speed <= 0.0) return INF;
     const double R = charRadius + pr.radius;
     const int maxTick = static_cast<int>(pr.ticks.size()) - 1;
@@ -262,7 +251,7 @@ static double clearanceContinuous(const std::vector<V2>& path,
     return minClear;
 }
 
-static double wallPenalty(const std::vector<V2>& path, const std::vector<Wall>& walls, double bodyR) {
+[[maybe_unused]] static double wallPenalty(const std::vector<V2>& path, const std::vector<Wall>& walls, double bodyR) {
     double penalty = 0.0;
     for (size_t i = 0; i + 1 < path.size(); ++i) {
         for (const auto& w : walls) {
@@ -461,76 +450,176 @@ static DodgeResult bestDodge(const V2& pos,
 
 namespace
 {
-    constexpr int RCL_BS_TICKS = 30;
-    constexpr int RCL_BS_DELAY_TICKS = 2;
-    constexpr int RCL_BS_MAX_PROJ = 6;
-    constexpr int RCL_BS_MAX_WALLS = 40;
-    constexpr float RCL_BS_PROJ_ZONE = 3200.0f;
-    constexpr float RCL_BS_WALL_ZONE = 900.0f;
-    constexpr float RCL_BS_MIN_RADIUS = 45.0f;
-    constexpr double RCL_BS_REACH = 800.0;
+    constexpr int AD_DIRS = 64;
+    constexpr float AD_SAFETY = 28.0f;
+    constexpr float AD_T_URGENT = 0.9f;
+    constexpr float AD_T_FIELD = 1.8f;
+    constexpr float AD_FIELD_RADIUS = 275.0f;
+    constexpr float AD_PERP = 2.4f;
+    constexpr float AD_AWAY = 1.0f;
+    constexpr float AD_INTENT = 1.2f;
+    constexpr float AD_CHAR_SPEED = 720.0f;
+    constexpr float AD_MAX_DIST = 5000.0f;
+    constexpr uint64_t AD_PERIOD_MS = 20;
 
-    // the core is heavy and the battle tick is 20 Hz: 30 Hz is plenty
-    constexpr uint64_t RCL_BS_PERIOD_MS = 33;
-
-    double g_angle = 0.0;
-    int g_have_angle = 0;
-    int g_solved = 0;
-    int g_was_active = 0;
-    uint64_t g_last_solve_ms = 0;
-    uint64_t g_last_send_ms = 0;
-    int g_last_sent = 0;
-    double g_sent_angle = 0.0;
-    int g_sent_once = 0;
-    uintptr_t g_tilemap_fn = 0;
-    int g_tilemap_tried = 0;
-    rcl_dbg_t g_last_dbg;
-
-    void rcl_bs_push(float mx, float my, double angleDeg)
+    struct ad_proj
     {
-        double rad = angleDeg * M_PI / 180.0;
-        double tx = round((double)mx + cos(rad) * RCL_BS_REACH);
-        double ty = round((double)my + sin(rad) * RCL_BS_REACH);
+        float x;
+        float y;
+        float dx;
+        float dy;
+        float speed;
+        float radius;
+    };
 
-        rcl_dbg.dx = (float)cos(rad);
-        rcl_dbg.dy = (float)sin(rad);
-        rcl_dbg.tx = (float)tx;
-        rcl_dbg.ty = (float)ty;
+    ad_proj g_ad[16];
+    int g_ad_n = 0;
 
-        rcl_move_to((int32_t)tx, (int32_t)ty, mx, my);
+    float g_dirx[AD_DIRS];
+    float g_diry[AD_DIRS];
+    int g_dir_init = 0;
+
+    float g_last_dir_x = 0.0f;
+    float g_last_dir_y = 0.0f;
+    uint64_t g_last_dir_ms = 0;
+
+    uint64_t g_ad_solve_ms = 0;
+    int g_ad_active = 0;
+
+    void ad_dirs_init(void)
+    {
+        if (g_dir_init) return;
+        for (int i = 0; i < AD_DIRS; i++)
+        {
+            float a = (float)(M_PI * 2.0 * (double)i / (double)AD_DIRS);
+
+            g_dirx[i] = cosf(a);
+            g_diry[i] = sinf(a);
+        }
+        g_dir_init = 1;
     }
 
-    void rcl_bs_bind_map(void)
+    void ad_norm(float x, float y, float *ox, float *oy)
     {
-        uintptr_t client = 0;
-        uintptr_t map = 0;
+        float len = sqrtf(x * x + y * y);
 
-        if (!g_tilemap_fn && !g_tilemap_tried)
+        if (len < 1e-6f)
         {
-            g_tilemap_tried = 1;
-            g_tilemap_fn = rcl_entry_callable(RCL_TILEMAP_GET_RVA);
-        }
-        if (!g_tilemap_fn)
-        {
+            *ox = 1.0f;
+            *oy = 0.0f;
             return;
         }
+        *ox = x / len;
+        *oy = y / len;
+    }
 
-        client = rcl_controller();
-        if (!client)
+    int ad_check_danger(float mx, float my, float mr)
+    {
+        for (int i = 0; i < g_ad_n; i++)
         {
-            return;
-        }
+            const ad_proj *p = &g_ad[i];
+            float r = mr + p->radius + AD_SAFETY * 2.5f;
+            float dx = mx - p->x;
+            float dy = my - p->y;
+            float vx = p->dx * p->speed;
+            float vy = p->dy * p->speed;
+            float c1 = 0.0f;
+            float c2 = 0.0f;
 
-        map = ((uintptr_t (*)(uintptr_t))g_tilemap_fn)(client);
-        if (map && ((map & 7ULL) == 0) && rcl_pointer_plausible(map))
-        {
-            rcl_wall_bind(map);
+            if (dx * dx + dy * dy <= r * r) return 1;
 
-            if (!rcl_wall_ready())
+            c1 = dx * vx + dy * vy;
+            if (c1 <= 0.0f) continue;
+
+            c2 = vx * vx + vy * vy;
+            if (c2 <= 0.0f) continue;
+
             {
-                (void)rcl_wall_build();
+                float t = c1 / c2;
+
+                if (t <= AD_T_FIELD)
+                {
+                    float cxp = p->x + vx * t;
+                    float cyp = p->y + vy * t;
+                    float ex = mx - cxp;
+                    float ey = my - cyp;
+
+                    if (ex * ex + ey * ey <= r * r) return 1;
+                }
             }
         }
+        return 0;
+    }
+
+    float ad_threat_score(float dx, float dy, float mx, float my, float mr, float ix, float iy)
+    {
+        float score = 0.0f;
+
+        for (int i = 0; i < g_ad_n; i++)
+        {
+            const ad_proj *p = &g_ad[i];
+            float r = mr + p->radius + AD_SAFETY;
+            float vx = p->dx * p->speed - dx * AD_CHAR_SPEED;
+            float vy = p->dy * p->speed - dy * AD_CHAR_SPEED;
+            float ex = p->x - mx;
+            float ey = p->y - my;
+            float a = vx * vx + vy * vy;
+            float b = 2.0f * (ex * vx + ey * vy);
+            float c = ex * ex + ey * ey;
+            float minD2 = c;
+            float danger = 0.0f;
+
+            if (a > 1e-6f)
+            {
+                float t = -b / (2.0f * a);
+
+                if (t > 0.0f && t <= AD_T_FIELD) minD2 = c + b * t + a * t * t;
+                else if (t > AD_T_FIELD) minD2 = c + b * AD_T_FIELD + a * AD_T_FIELD * AD_T_FIELD;
+            }
+            if (minD2 < 0.0f) minD2 = 0.0f;
+
+            danger = (minD2 < r * r) ? 2500.0f : (r * r) / (minD2 > 50.0f ? minD2 : 50.0f);
+            score += danger;
+        }
+
+        if (ix != 0.0f || iy != 0.0f) score -= (dx * ix + dy * iy) * AD_INTENT * 15.0f;
+
+        if (g_last_dir_ms && (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0) - g_last_dir_ms < 400)
+        {
+            score -= (dx * g_last_dir_x + dy * g_last_dir_y) * 45.0f;
+        }
+
+        return score;
+    }
+
+    int ad_vel_unsafe(float dx, float dy, float mx, float my, float mr)
+    {
+        for (int i = 0; i < g_ad_n; i++)
+        {
+            const ad_proj *p = &g_ad[i];
+            float r = mr + p->radius + AD_SAFETY;
+            float vx = p->dx * p->speed - dx * AD_CHAR_SPEED;
+            float vy = p->dy * p->speed - dy * AD_CHAR_SPEED;
+            float ex = p->x - mx;
+            float ey = p->y - my;
+            float a = vx * vx + vy * vy;
+            float b = 2.0f * (ex * vx + ey * vy);
+            float c = ex * ex + ey * ey - r * r;
+            float disc = 0.0f;
+
+            if (c < 0.0f) return 1;
+            if (a <= 1e-6f) continue;
+
+            disc = b * b - 4.0f * a * c;
+            if (disc < 0.0f) continue;
+
+            {
+                float t1 = (-b - sqrtf(disc)) / (2.0f * a);
+
+                if (t1 > 0.0f && t1 <= AD_T_FIELD) return 1;
+            }
+        }
+        return 0;
     }
 }
 
@@ -549,83 +638,188 @@ float rcl_own_radius(void)
     return (float)bs::HITBOX_STD;
 }
 
-static std::vector<bs::Projectile> rcl_bs_projectiles(float mx, float my)
+static void ad_collect(float mx, float my)
 {
-    std::vector<bs::Projectile> out;
-
-    out.reserve(RCL_BS_MAX_PROJ);
+    g_ad_n = 0;
 
     for (int i = 0; i < 16; i++)
     {
         const rcl_proj_t *p = &rcl_projs[i];
         float dx = 0.0f;
         float dy = 0.0f;
-        float spd = 0.0f;
-        bs::Projectile q;
+        float len = 0.0f;
+        float ex = 0.0f;
+        float ey = 0.0f;
 
         if (!p->elem) continue;
         if (p->team >= 0 && p->team == rcl_own_team_b) continue;
-
-        dx = (float)p->x - mx;
-        dy = (float)p->y - my;
-        if (dx * dx + dy * dy > RCL_BS_PROJ_ZONE * RCL_BS_PROJ_ZONE) continue;
-
-        spd = sqrtf(p->vx * p->vx + p->vy * p->vy);
-        if (spd < 1.0f) continue;
-
-        q.id = i;
-        q.radius = (p->radius > RCL_BS_MIN_RADIUS) ? (double)p->radius : (double)RCL_BS_MIN_RADIUS;
-        q.indirect = (p->isThrower != 0);
-        q.speed = (double)spd;
-        q.vx = (double)p->vx;
-        q.vy = (double)p->vy;
-        q.spawnX = (double)p->spawnX;
-        q.spawnY = (double)p->spawnY;
-        q.castRange = 0.0;
-        q.areaRadius = (p->spawnAreaRadius > 0) ? (double)p->spawnAreaRadius : 0.0;
-        q.areaTicks = (p->spawnAreaRadius > 0 && p->spawnAreaActiveTime > 0)
-                          ? (p->spawnAreaActiveTime / 50)
-                          : 0;
-        q.deathTick = -1;
-
-        q.ticks.resize(RCL_BS_TICKS + 1);
-        for (int k = 0; k <= RCL_BS_TICKS; k++)
         {
-            q.ticks[k] = bs::V2((double)p->x + (double)p->vx * bs::DT * (double)k,
-                                (double)p->y + (double)p->vy * bs::DT * (double)k);
+            int32_t deadFlag = 0;
+
+            if (rcl_read_int(p->elem + (uintptr_t)RCL_PROJ_DEAD_OFF, &deadFlag) && deadFlag != 0)
+            {
+                continue;
+            }
         }
 
-        out.push_back(std::move(q));
+        ex = (float)p->x - mx;
+        ey = (float)p->y - my;
+        if (ex * ex + ey * ey > AD_MAX_DIST * AD_MAX_DIST) continue;
 
-        if ((int)out.size() >= RCL_BS_MAX_PROJ) break;
+        len = sqrtf(p->vx * p->vx + p->vy * p->vy);
+        if (len < 1.0f) continue;
+
+        dx = p->vx / len;
+        dy = p->vy / len;
+
+        g_ad[g_ad_n].x = (float)p->x;
+        g_ad[g_ad_n].y = (float)p->y;
+        g_ad[g_ad_n].dx = dx;
+        g_ad[g_ad_n].dy = dy;
+        g_ad[g_ad_n].speed = len;
+        g_ad[g_ad_n].radius = (p->radius > 20.0f) ? p->radius : 45.0f;
+        g_ad_n++;
+
+        if (g_ad_n >= 16) break;
     }
-
-    return out;
 }
 
-static std::vector<bs::Wall> rcl_bs_walls(float mx, float my)
+static int ad_urgent(float mx, float my, float mr, float ix, float iy, float *ox, float *oy)
 {
-    float raw[RCL_BS_MAX_WALLS * 4];
-    std::vector<bs::Wall> out;
+    float cx[32];
+    float cy[32];
     int n = 0;
+    int urgent = 0;
+    int best = 0;
+    float bestScore = 1e18f;
 
-    rcl_bs_bind_map();
+    for (int i = 0; i < g_ad_n && n < 32; i++)
+    {
+        const ad_proj *p = &g_ad[i];
+        float dx = mx - p->x;
+        float dy = my - p->y;
+        float vx = p->dx * p->speed;
+        float vy = p->dy * p->speed;
+        float c1 = dx * vx + dy * vy;
+        float c2 = 0.0f;
+        float t = 0.0f;
+        float r = 0.0f;
+        float awx = 0.0f;
+        float awy = 0.0f;
 
-    n = rcl_walls_near(mx, my, RCL_BS_WALL_ZONE, raw, RCL_BS_MAX_WALLS);
-    out.reserve((size_t)(n > 0 ? n : 0));
+        if (c1 <= 0.0f) continue;
+        c2 = vx * vx + vy * vy;
+        if (c2 <= 0.0f) continue;
+
+        t = c1 / c2;
+        if (t > AD_T_URGENT) continue;
+
+        {
+            float px = p->x + vx * t;
+            float py = p->y + vy * t;
+            float ex = mx - px;
+            float ey = my - py;
+
+            r = mr + p->radius + AD_SAFETY;
+            if (ex * ex + ey * ey > r * r) continue;
+        }
+
+        urgent++;
+        ad_norm(dx, dy, &awx, &awy);
+
+        {
+            float nx = 0.0f;
+            float ny = 0.0f;
+
+            ad_norm(-p->dy * AD_PERP + awx * AD_AWAY + ix * 0.6f,
+                    p->dx * AD_PERP + awy * AD_AWAY + iy * 0.6f, &nx, &ny);
+            cx[n] = nx;
+            cy[n] = ny;
+            n++;
+
+            ad_norm(p->dy * AD_PERP + awx * AD_AWAY + ix * 0.6f,
+                    -p->dx * AD_PERP + awy * AD_AWAY + iy * 0.6f, &nx, &ny);
+            cx[n] = nx;
+            cy[n] = ny;
+            n++;
+        }
+    }
+
+    if (urgent == 0) return 0;
+
+    ad_dirs_init();
+    for (int i = 0; i < 16 && n < 32; i++)
+    {
+        cx[n] = g_dirx[i * (AD_DIRS / 16)];
+        cy[n] = g_diry[i * (AD_DIRS / 16)];
+        n++;
+    }
 
     for (int i = 0; i < n; i++)
     {
-        bs::Wall w;
+        float s = ad_threat_score(cx[i], cy[i], mx, my, mr, ix, iy);
 
-        w.x = (double)raw[i * 4 + 0];
-        w.y = (double)raw[i * 4 + 1];
-        w.w = (double)raw[i * 4 + 2];
-        w.h = (double)raw[i * 4 + 3];
-        out.push_back(w);
+        if (s < bestScore)
+        {
+            bestScore = s;
+            best = i;
+        }
     }
 
-    return out;
+    *ox = cx[best];
+    *oy = cy[best];
+    return urgent;
+}
+
+static void ad_best_dir(float mx, float my, float mr, float ix, float iy, float *ox, float *oy)
+{
+    int best = 0;
+    float bestScore = 1e18f;
+
+    ad_dirs_init();
+
+    for (int i = 0; i < AD_DIRS; i++)
+    {
+        float s = ad_threat_score(g_dirx[i], g_diry[i], mx, my, mr, ix, iy);
+
+        if (s < bestScore)
+        {
+            bestScore = s;
+            best = i;
+        }
+    }
+
+    *ox = g_dirx[best];
+    *oy = g_diry[best];
+}
+
+static void ad_apply_vo(float *dx, float *dy, float mx, float my, float mr, float ix, float iy)
+{
+    int best = 0;
+    float bestScore = 1e18f;
+    int safe = 0;
+
+    if (!ad_vel_unsafe(*dx, *dy, mx, my, mr)) return;
+
+    ad_dirs_init();
+    for (int i = 0; i < AD_DIRS; i++)
+    {
+        float s = 0.0f;
+
+        if (ad_vel_unsafe(g_dirx[i], g_diry[i], mx, my, mr)) continue;
+        safe = 1;
+        s = ad_threat_score(g_dirx[i], g_diry[i], mx, my, mr, ix, iy);
+        if (s < bestScore)
+        {
+            bestScore = s;
+            best = i;
+        }
+    }
+
+    if (!safe) return;
+
+    *dx = g_dirx[best];
+    *dy = g_diry[best];
 }
 
 void rcl_autododge(void)
@@ -633,20 +827,15 @@ void rcl_autododge(void)
     uint64_t now = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
     float mx = 0.0f;
     float my = 0.0f;
-    float radius = 0.0f;
-    double speed = 0.0;
-    double angle = 0.0;
+    float mr = 0.0f;
+    float dirX = 0.0f;
+    float dirY = 0.0f;
+    int flip = 1;
     int sent = 0;
 
     if (!rcl_base) return;
-
-    /* the solver is expensive and the battle tick is 20 Hz: solve on a fixed cadence */
-    if (g_solved && now > g_last_solve_ms && (now - g_last_solve_ms) < RCL_BS_PERIOD_MS)
-    {
-        rcl_dbg = g_last_dbg;
-        return;
-    }
-    g_last_solve_ms = now;
+    if (now > g_ad_solve_ms && (now - g_ad_solve_ms) < AD_PERIOD_MS) return;
+    g_ad_solve_ms = now;
 
     rcl_dbg.hazards = 0;
     rcl_dbg.threats = 0;
@@ -655,158 +844,86 @@ void rcl_autododge(void)
     rcl_dbg.sent = 0;
     rcl_dbg.thn = 0;
     rcl_dbg.note[0] = 0;
-    g_last_dbg = rcl_dbg;
 
-    if (!rcl_own_elem)
+    if (!rcl_own_elem || rcl_dead)
     {
-        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no own elem");
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no own");
         rcl_active = 0;
-        g_last_dbg = rcl_dbg;
-        return;
-    }
-    if (rcl_dead)
-    {
-        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "dead");
-        rcl_active = 0;
-        g_last_dbg = rcl_dbg;
         return;
     }
 
     mx = (float)rcl_own_x;
     my = (float)rcl_own_y;
-
     if (mx == 0.0f && my == 0.0f)
     {
-        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no own pos");
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no pos");
         rcl_active = 0;
-        g_last_dbg = rcl_dbg;
         return;
     }
 
-    radius = rcl_own_radius();
-    speed = (double)rcl_own_speed;
-    if (speed < 1.0) speed = 720.0;
+    mr = rcl_own_radius();
+    flip = (rcl_own_team_b == 1) ? -1 : 1;
 
     rcl_dbg.px = mx;
     rcl_dbg.py = my;
-    rcl_dbg.radius = radius;
-    rcl_dbg.speed = (float)speed;
+    rcl_dbg.radius = mr;
+    rcl_dbg.speed = rcl_own_speed;
 
-    g_solved = 1;
+    ad_collect(mx, my);
+    rcl_dbg.hazards = g_ad_n;
 
-    if (!rcl_manager_ptr || rcl_manager_count_v <= 0)
+    if (g_ad_n == 0)
     {
-        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no manager");
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no projectiles");
         rcl_active = 0;
-        g_last_dbg = rcl_dbg;
+        g_ad_active = 0;
         return;
     }
 
+    if (!ad_check_danger(mx, my, mr))
     {
-        rcl_obj_t objects[64];
-        int usable = rcl_collect(rcl_manager_ptr, objects, 64);
-
-        if (usable > 0)
-        {
-            rcl_roster(rcl_own_elem, rcl_own_index_v, rcl_own_team_b, objects, usable);
-        }
-
-        rcl_proj_scan(rcl_manager_ptr, rcl_manager_count_v, objects, usable);
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "safe n=%d", g_ad_n);
+        rcl_active = 0;
+        g_ad_active = 0;
+        return;
     }
 
+    rcl_dbg.danger = 1;
+
+    if (ad_urgent(mx, my, mr, 0.0f, 0.0f, &dirX, &dirY))
     {
-        std::vector<bs::Projectile> ps = rcl_bs_projectiles(mx, my);
-        std::vector<bs::Wall> walls = rcl_bs_walls(mx, my);
-        bs::DodgeResult res;
-
-        rcl_dbg.hazards = (int)ps.size();
-        rcl_dbg.threats = (int)ps.size();
-
-        if (ps.empty())
-        {
-            snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no projectiles");
-            rcl_active = 0;
-            rcl_moving = 0;
-            g_have_angle = 0;
-            g_was_active = 0;
-            g_last_dbg = rcl_dbg;
-
-            return;
-        }
-
-        res = bs::bestDodge(bs::V2((double)mx, (double)my), speed, ps, walls, (double)radius,
-                            RCL_BS_DELAY_TICKS, g_have_angle ? g_angle : 0.0);
-
-        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note),
-                 "dmg=%.0f first=%.1f clear=%.0f wall=%.0f nw=%d", res.eval.dmg, res.eval.first,
-                 res.eval.clear, res.eval.wallPenalty, (int)walls.size());
-
-        rcl_dbg.ix = (float)res.eval.dmg;
-        rcl_dbg.iy = (float)res.eval.first;
-
-        angle = res.angle;
-        g_angle = angle;
-        g_have_angle = 1;
-
-        if (res.deadzone)
-        {
-            /* release the prediction target once, then leave the stick alone */
-            if (g_was_active)
-            {
-                rcl_move_to((int32_t)mx, (int32_t)my, mx, my);
-                (void)rcl_enqueue((int32_t)mx, (int32_t)my);
-                g_was_active = 0;
-            }
-
-            rcl_active = 1;
-            rcl_moving = 0;
-            rcl_dbg.danger = 0;
-            rcl_dbg.sent = 0;
-            g_last_dbg = rcl_dbg;
-
-            return;
-        }
-
-        g_was_active = 1;
-        rcl_dbg.danger = 1;
-
-        /* do not machine-gun new targets: keep walking unless the answer really moved */
-        if (!g_sent_once || bs::angDiff(angle, g_sent_angle) > 12.0 ||
-            (now > g_last_send_ms && (now - g_last_send_ms) >= 100))
-        {
-            int32_t tx = (int32_t)round((double)mx + cos(angle * M_PI / 180.0) * RCL_BS_REACH);
-            int32_t ty = (int32_t)round((double)my + sin(angle * M_PI / 180.0) * RCL_BS_REACH);
-
-            rcl_bs_push(mx, my, angle);
-            sent = rcl_enqueue(tx, ty);
-
-            g_sent_angle = angle;
-            g_last_send_ms = now;
-            g_sent_once = 1;
-            g_last_sent = sent;
-        }
-        else
-        {
-            sent = g_last_sent;
-        }
-
-        rcl_dbg.dirs = 1;
-        rcl_active = 1;
-        rcl_moving = sent;
-        rcl_dbg.sent = sent;
-        g_last_dbg = rcl_dbg;
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "urgent n=%d", g_ad_n);
     }
+    else
+    {
+        ad_best_dir(mx, my, mr, 0.0f, 0.0f, &dirX, &dirY);
+        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "field n=%d", g_ad_n);
+    }
+
+    ad_apply_vo(&dirX, &dirY, mx, my, mr, 0.0f, 0.0f);
+
+    g_last_dir_x = dirX;
+    g_last_dir_y = dirY;
+    g_last_dir_ms = now;
+
+    sent = rcl_joystick_aim(dirX, dirY, flip);
+
+    g_ad_active = 1;
+    rcl_active = 1;
+    rcl_moving = sent;
+    rcl_dbg.dirs = 1;
+    rcl_dbg.sent = sent;
+    rcl_dbg.dx = dirX;
+    rcl_dbg.dy = dirY;
+    rcl_dbg.tx = mx + dirX * AD_FIELD_RADIUS;
+    rcl_dbg.ty = my + dirY * AD_FIELD_RADIUS;
 }
 
 void rcl_autododge_reset(void)
 {
-    g_angle = 0.0;
-    g_have_angle = 0;
-    g_solved = 0;
-    g_was_active = 0;
-    g_last_solve_ms = 0;
-    g_last_send_ms = 0;
-    g_sent_once = 0;
+    g_ad_solve_ms = 0;
+    g_ad_active = 0;
+    g_last_dir_ms = 0;
     rcl_active = 0;
     rcl_moving = 0;
 }
