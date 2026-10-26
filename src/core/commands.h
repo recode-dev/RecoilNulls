@@ -1,6 +1,5 @@
 #ifndef RECOIL_CORE_COMMANDS_H
 #define RECOIL_CORE_COMMANDS_H
-#include "./offsets.h"
 #include <stdint.h>
 #define RCL_MSG_SIZE 0x48
 #define RCL_MSG_SLACK 0x58

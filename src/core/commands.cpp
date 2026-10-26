@@ -1,10 +1,10 @@
-#include "offsets.h"
-#include "scan.h"
 #include "commands.h"
 #include "../utils/crypto.h"
+#include "offsets.h"
+#include "scan.h"
 #include <malloc/malloc.h>
-#if RCL_CI_HASH_INNER_MASK_RVA && RCL_CI_HASH_OUTER_MASK_RVA && RCL_BM_HASH_ENABLED_OFF &&         \
-    RCL_BM_HASH_KEY_OFF
+#if RCL_CI_HASH_INNER_MASK_RVA && RCL_CI_HASH_OUTER_MASK_RVA &&                \
+    RCL_BM_HASH_ENABLED_OFF && RCL_BM_HASH_KEY_OFF
 #define RCL_CI_SIGNING_ON 1
 #else
 #define RCL_CI_SIGNING_ON 0
@@ -28,21 +28,25 @@ int rcl_ci_load_constants(void)
     }
     for (i = 0; i < (int)RCL_CI_TABLE_TYPES; i++)
     {
-        if (!rcl_read_bytes(rcl_base + RCL_CI_TYPE_TABLE_RVA + (uintptr_t)i * 4ULL,
+        if (!rcl_read_bytes(rcl_base + RCL_CI_TYPE_TABLE_RVA +
+                                (uintptr_t)i * 4ULL,
                             &rcl_ci_table[i], sizeof(uint32_t)))
         {
             return 0;
         }
     }
-    if (!rcl_read_bytes(rcl_base + RCL_CI_TYPE_FALLBACK_RVA, &rcl_ci_fallback, sizeof(uint32_t)))
+    if (!rcl_read_bytes(rcl_base + RCL_CI_TYPE_FALLBACK_RVA, &rcl_ci_fallback,
+                        sizeof(uint32_t)))
     {
         return 0;
     }
-    if (!rcl_read_bytes(rcl_base + RCL_CI_HASH_INNER_MASK_RVA, rcl_ci_inner, 0x10))
+    if (!rcl_read_bytes(rcl_base + RCL_CI_HASH_INNER_MASK_RVA, rcl_ci_inner,
+                        0x10))
     {
         return 0;
     }
-    if (!rcl_read_bytes(rcl_base + RCL_CI_HASH_OUTER_MASK_RVA, rcl_ci_outer, 0x10))
+    if (!rcl_read_bytes(rcl_base + RCL_CI_HASH_OUTER_MASK_RVA, rcl_ci_outer,
+                        0x10))
     {
         return 0;
     }
@@ -60,7 +64,8 @@ uint32_t rcl_ci_sign(void *ci, void *battle)
     {
         return 0;
     }
-    if (!rcl_read_bytes((uintptr_t)battle + RCL_BM_HASH_ENABLED_OFF, &enabled, 1))
+    if (!rcl_read_bytes((uintptr_t)battle + RCL_BM_HASH_ENABLED_OFF, &enabled,
+                        1))
     {
         return 0;
     }
@@ -80,8 +85,10 @@ uint32_t rcl_ci_sign(void *ci, void *battle)
     {
         return 0;
     }
-    token = rcl_ci_compute_token(key, cmd, rcl_ci_table, rcl_ci_fallback, rcl_ci_inner, rcl_ci_outer);
-    if (!rcl_write_bytes((uintptr_t)ci + RCL_CI_TOKEN_OFF, &token, sizeof(token)))
+    token = rcl_ci_compute_token(key, cmd, rcl_ci_table, rcl_ci_fallback,
+                                 rcl_ci_inner, rcl_ci_outer);
+    if (!rcl_write_bytes((uintptr_t)ci + RCL_CI_TOKEN_OFF, &token,
+                         sizeof(token)))
     {
         return 0;
     }
@@ -153,7 +160,8 @@ int rcl_enqueue_skill(int x, int y, int type, void *skillData)
     }
     {
         void *mgrInner = nullptr;
-        if (!rcl_read_ptr((uintptr_t)mgr + RCL_CI_MGR_QUEUE_OFF, &mgrInner) || !mgrInner)
+        if (!rcl_read_ptr((uintptr_t)mgr + RCL_CI_MGR_QUEUE_OFF, &mgrInner) ||
+            !mgrInner)
         {
             return 0;
         }
@@ -174,8 +182,8 @@ int rcl_enqueue_skill(int x, int y, int type, void *skillData)
     rcl_write_bytes((uintptr_t)msg + RCL_Y_OFF, &vy, sizeof(vy));
     if (skillData && rcl_ptr_is_heap(skillData))
     {
-        rcl_write_bytes((uintptr_t)msg + (uintptr_t)OFF_CLIENTINPUT_SKILLDATA, &skillData,
-                        sizeof(skillData));
+        rcl_write_bytes((uintptr_t)msg + (uintptr_t)OFF_CLIENTINPUT_SKILLDATA,
+                        &skillData, sizeof(skillData));
     }
     rcl_ci_sign(msg, battle);
     if (type == (int)RCL_TYPE_MOVE)
@@ -242,7 +250,8 @@ void *rcl_msg_alloc(void)
             return mem;
         }
     }
-    if (rcl_base && rcl_read_ptr(rcl_base + RCL_ALLOC_GOT_RVA, (void **)&got) && got)
+    if (rcl_base && rcl_read_ptr(rcl_base + RCL_ALLOC_GOT_RVA, (void **)&got) &&
+        got)
     {
         mem = ((void *(*)(size_t))got)(size);
         if (rcl_msg_ok(mem, size))
@@ -260,7 +269,8 @@ void *rcl_manager(void)
         return nullptr;
     }
     static uintptr_t c_battle = 0;
-    uintptr_t battleFn = rcl_callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
+    uintptr_t battleFn =
+        rcl_callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
     void *battle = nullptr;
     void *mgr = nullptr;
     if (!battleFn)

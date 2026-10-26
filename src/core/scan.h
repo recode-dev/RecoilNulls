@@ -11,9 +11,9 @@
 #ifndef NSEC_PER_USEC
 #define NSEC_PER_USEC 1000ull
 #endif
-#include <string.h>
-#include <mach/mach.h>
 #include <dispatch/dispatch.h>
+#include <mach/mach.h>
+#include <string.h>
 typedef struct
 {
     uintptr_t at;
@@ -22,8 +22,9 @@ typedef struct
     int32_t team;
     int dead;
 } rcl_objhit_t;
-typedef uint64_t (*rcl_slot_fn_t)(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4,
-                                  uint64_t a5, uint64_t a6, uint64_t a7);
+typedef uint64_t (*rcl_slot_fn_t)(void *a0, uint64_t a1, uint64_t a2,
+                                  uint64_t a3, uint64_t a4, uint64_t a5,
+                                  uint64_t a6, uint64_t a7);
 typedef struct
 {
     uintptr_t manager;
@@ -44,10 +45,10 @@ typedef struct
     uint8_t dead;
     uint8_t activeFlag;
 } rcl_obj_t;
+#include <CoreFoundation/CFDate.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <objc/runtime.h>
-#include <CoreFoundation/CFDate.h>
 extern uintptr_t rcl_base;
 extern const char *rcl_image_names[4];
 extern uintptr_t *rcl_starts;
@@ -87,8 +88,9 @@ extern dispatch_source_t rcl_scan_timer;
 extern rcl_trail_t rcl_trail[8];
 extern int rcl_trail_count;
 extern uintptr_t rcl_own_elem_scan;
-BOOL rcl_query_region(uintptr_t address, vm_prot_t *protection, vm_prot_t *maxProtection,
-                      mach_vm_size_t *regionSize, uintptr_t *regionStart);
+BOOL rcl_query_region(uintptr_t address, vm_prot_t *protection,
+                      vm_prot_t *maxProtection, mach_vm_size_t *regionSize,
+                      uintptr_t *regionStart);
 BOOL rcl_addr_writable(uintptr_t address, size_t length);
 BOOL rcl_read_bytes(uintptr_t address, void *out, size_t length);
 BOOL rcl_pointer_plausible(uintptr_t value);
@@ -96,7 +98,6 @@ BOOL rcl_read_byte(uintptr_t address, uint8_t *out);
 BOOL rcl_read_int(uintptr_t address, int32_t *out);
 BOOL rcl_read_float(uintptr_t address, float *out);
 BOOL rcl_writable(uintptr_t address, size_t length);
-void rcl_note(uintptr_t address, const void *src, size_t length, int denied);
 BOOL rcl_write_bytes(uintptr_t address, const void *src, size_t length);
 BOOL rcl_read_ptr(uintptr_t address, void **out);
 void *rcl_read_global_ptr(uintptr_t rva);
@@ -160,8 +161,9 @@ static inline BOOL rcl_addr_readable(uintptr_t address, size_t length)
         vm_region_basic_info_data_64_t info;
         mach_msg_type_number_t infoCount = VM_REGION_BASIC_INFO_COUNT_64;
         mach_port_t objectName = MACH_PORT_NULL;
-        kern_return_t kr = vm_region_64(mach_task_self(), &region, &size, VM_REGION_BASIC_INFO_64,
-                                        (vm_region_info_t)&info, &infoCount, &objectName);
+        kern_return_t kr = vm_region_64(
+            mach_task_self(), &region, &size, VM_REGION_BASIC_INFO_64,
+            (vm_region_info_t)&info, &infoCount, &objectName);
         if (objectName != MACH_PORT_NULL)
         {
             mach_port_deallocate(mach_task_self(), objectName);
@@ -187,8 +189,9 @@ static inline BOOL rcl_read_word(uintptr_t address, uint32_t *out)
     }
     uint32_t value = 0;
     vm_size_t got = 0;
-    kern_return_t kr = vm_read_overwrite(mach_task_self(), (vm_address_t)address, sizeof(value),
-                                         (vm_address_t)&value, &got);
+    kern_return_t kr =
+        vm_read_overwrite(mach_task_self(), (vm_address_t)address,
+                          sizeof(value), (vm_address_t)&value, &got);
     if (kr != KERN_SUCCESS || got != sizeof(value))
     {
         return NO;
@@ -211,7 +214,8 @@ static inline uintptr_t rcl_image_slide(uintptr_t imageBase)
     {
         return 0;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)imageBase;
+    const struct mach_header_64 *header =
+        (const struct mach_header_64 *)imageBase;
     if (!rcl_addr_readable(imageBase, sizeof(struct mach_header_64)))
     {
         return 0;
@@ -236,7 +240,8 @@ static inline uintptr_t rcl_image_slide(uintptr_t imageBase)
         {
             return 0;
         }
-        const struct load_command *command = (const struct load_command *)cursor;
+        const struct load_command *command =
+            (const struct load_command *)cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             return 0;
@@ -251,7 +256,8 @@ static inline uintptr_t rcl_image_slide(uintptr_t imageBase)
             {
                 return 0;
             }
-            const struct segment_command_64 *segment = (const struct segment_command_64 *)command;
+            const struct segment_command_64 *segment =
+                (const struct segment_command_64 *)command;
             if (strcmp(segment->segname, "__TEXT") == 0)
             {
                 return imageBase - (uintptr_t)segment->vmaddr;
@@ -261,15 +267,17 @@ static inline uintptr_t rcl_image_slide(uintptr_t imageBase)
     }
     return 0;
 }
-static inline BOOL rcl_image_segment_contains(uintptr_t imageBase, uintptr_t address,
-                                              BOOL requireExec, uintptr_t *outStart,
-                                              uintptr_t *outEnd, uint32_t *outProt)
+static inline BOOL
+rcl_image_segment_contains(uintptr_t imageBase, uintptr_t address,
+                           BOOL requireExec, uintptr_t *outStart,
+                           uintptr_t *outEnd, uint32_t *outProt)
 {
     if (!imageBase || !address)
     {
         return NO;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)imageBase;
+    const struct mach_header_64 *header =
+        (const struct mach_header_64 *)imageBase;
     if (!rcl_addr_readable(imageBase, sizeof(struct mach_header_64)))
     {
         return NO;
@@ -295,7 +303,8 @@ static inline BOOL rcl_image_segment_contains(uintptr_t imageBase, uintptr_t add
         {
             return NO;
         }
-        const struct load_command *command = (const struct load_command *)cursor;
+        const struct load_command *command =
+            (const struct load_command *)cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             return NO;
@@ -310,12 +319,14 @@ static inline BOOL rcl_image_segment_contains(uintptr_t imageBase, uintptr_t add
             {
                 return NO;
             }
-            const struct segment_command_64 *segment = (const struct segment_command_64 *)command;
+            const struct segment_command_64 *segment =
+                (const struct segment_command_64 *)command;
             uintptr_t start = (uintptr_t)segment->vmaddr + slide;
             uintptr_t end = start + (uintptr_t)segment->vmsize;
             if (address >= start && address < end)
             {
-                BOOL executable = (segment->initprot & VM_PROT_EXECUTE) ? YES : NO;
+                BOOL executable =
+                    (segment->initprot & VM_PROT_EXECUTE) ? YES : NO;
                 if (requireExec && !executable)
                 {
                     return NO;
@@ -339,12 +350,14 @@ static inline BOOL rcl_image_segment_contains(uintptr_t imageBase, uintptr_t add
     }
     return NO;
 }
-static inline BOOL rcl_image_text_contains(uintptr_t imageBase, uintptr_t address)
+static inline BOOL rcl_image_text_contains(uintptr_t imageBase,
+                                           uintptr_t address)
 {
     uintptr_t start = 0;
     uintptr_t end = 0;
     uint32_t prot = 0;
-    if (!rcl_image_segment_contains(imageBase, address, NO, &start, &end, &prot))
+    if (!rcl_image_segment_contains(imageBase, address, NO, &start, &end,
+                                    &prot))
     {
         return NO;
     }
@@ -454,9 +467,6 @@ void rcl_load_function_starts(void);
 BOOL rcl_start_boundary(const uint8_t *bytes, size_t offset);
 BOOL rcl_start_word(uint32_t word);
 #include "hook.h"
-void rcl_slot_note(int index, void *self, uint64_t arg1);
-uint64_t rcl_hook_dispatches(void);
-uint64_t rcl_object_dispatches(void);
 extern int rcl_fb_on;
 extern uint64_t rcl_idle_start;
 extern int rcl_live_objs;
@@ -477,77 +487,78 @@ extern uintptr_t rcl_tick_array;
 extern int32_t rcl_tick_count;
 extern uintptr_t rcl_tick_object;
 extern const int rcl_object_slots[3];
-void rcl_publish(uintptr_t object, uintptr_t array, int32_t count, int32_t cap, const char *why);
+void rcl_publish(uintptr_t object, uintptr_t array, int32_t count, int32_t cap,
+                 const char *why);
 void rcl_slot_hooks_install(void);
 void rcl_slot_pump(void);
-uint64_t rcl_slot_repl_0(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                         uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_1(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                         uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_10(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_11(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_12(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_13(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_14(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_15(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_16(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_17(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_18(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_19(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_2(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                         uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_20(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_21(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_22(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_23(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_24(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_25(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_26(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_27(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_28(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_29(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_3(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                         uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_30(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_31(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_32(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_33(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                          uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_4(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                         uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_5(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                         uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_6(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                         uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_7(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                         uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_8(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                         uint64_t a6, uint64_t a7);
-uint64_t rcl_slot_repl_9(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5,
-                         uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_0(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                         uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_1(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                         uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_10(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_11(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_12(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_13(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_14(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_15(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_16(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_17(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_18(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_19(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_2(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                         uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_20(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_21(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_22(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_23(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_24(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_25(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_26(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_27(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_28(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_29(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_3(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                         uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_30(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_31(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_32(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_33(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_4(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                         uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_5(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                         uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_6(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                         uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_7(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                         uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_8(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                         uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
+uint64_t rcl_slot_repl_9(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                         uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7);
 int rcl_snapshot(uintptr_t *objectOut, uintptr_t *arrayOut, int32_t *countOut);
 void rcl_tick_begin(void);
 extern uintptr_t rcl_slot_object[34];
@@ -557,10 +568,7 @@ extern uintptr_t rcl_slot_adopted;
 extern int rcl_battle_active;
 extern int rcl_battle_last_tick;
 extern int rcl_hb_sig_prev;
-int rcl_battle_gate(int scene);
 extern uint64_t rcl_ticks_b;
-int rcl_battle_gate_fallback(int v63);
-int rcl_scan_allowed(uint64_t fired, uint64_t total);
 void rcl_start_timer(void);
 int rcl_state_tick(void);
 void rcl_scan_world(void);
@@ -674,26 +682,28 @@ typedef struct
 extern rcl_proj_t rcl_projs[16];
 extern rcl_proj_death_t rcl_proj_deaths[16];
 extern int rcl_proj_death_n;
-void rcl_modesig_tick(void);
 int rcl_element_type(uintptr_t vt, uintptr_t *wordOut);
-int rcl_container_header(uintptr_t object, uintptr_t *arrayOut, int32_t *countOut, int32_t *capOut);
+int rcl_container_header(uintptr_t object, uintptr_t *arrayOut,
+                         int32_t *countOut, int32_t *capOut);
 int32_t rcl_gid_at(uintptr_t element, uintptr_t off);
 int32_t rcl_gid(uintptr_t element, int32_t *offOut);
 int rcl_container_score(uintptr_t container);
-int rcl_scan_ready(int battle);
 void rcl_resolve_addresses(void);
 void rcl_locate_battle_mode(void);
 void rcl_gidless_scan(uintptr_t manager);
 uintptr_t rcl_list_gid_off(uintptr_t array, int32_t count);
-void rcl_proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
+void rcl_proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid,
+                    int32_t team);
 uintptr_t rcl_hop(uintptr_t base, int *whyOut);
 uintptr_t rcl_client(void);
 void rcl_state_note(int state);
-int rcl_resolve_own_fallback(const rcl_obj_t *objects, int usable, int *indexOut,
-                             const char **fromOut);
-int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int rosterUsable);
+int rcl_resolve_own_fallback(const rcl_obj_t *objects, int usable,
+                             int *indexOut, const char **fromOut);
+int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster,
+                  int rosterUsable);
 uintptr_t rcl_controller(void);
-const char *rcl_header_reason(uintptr_t manager, int32_t *countOut, int32_t *capOut);
+const char *rcl_header_reason(uintptr_t manager, int32_t *countOut,
+                              int32_t *capOut);
 uintptr_t rcl_coord_x_off(void);
 uintptr_t rcl_coord_y_off(void);
 int rcl_ctrl_bounds(uintptr_t base, int32_t *wOut, int32_t *hOut);
@@ -722,9 +732,9 @@ extern int rcl_prev_valid;
 extern int rcl_respawn_tick;
 extern int rcl_state_code;
 extern int rcl_team_trust;
-float rcl_own_radius(void);
 int rcl_own_side_spawn(int32_t sx, int32_t sy);
-void rcl_roster(uintptr_t ownElem, int ownIndex, int ownTeam, const rcl_obj_t *objects, int usable);
+void rcl_roster(uintptr_t ownElem, int ownIndex, int ownTeam,
+                const rcl_obj_t *objects, int usable);
 int rcl_team_at(const rcl_obj_t *objects, int index);
 #define RCL_CLUSTER 10000.0f
 #define RCL_GIDLESS 1

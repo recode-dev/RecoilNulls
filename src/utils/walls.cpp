@@ -17,7 +17,8 @@ int rcl_cell(int tx, int ty, int *proj, int *move)
     {
         return 0;
     }
-    if (!rcl_read_ptr(rcl_tiles + (uintptr_t)(ty * rcl_w + tx) * (uintptr_t)RCL_TILE_PTR_STRIDE,
+    if (!rcl_read_ptr(rcl_tiles + (uintptr_t)(ty * rcl_w + tx) *
+                                      (uintptr_t)RCL_TILE_PTR_STRIDE,
                       &tile))
     {
         return 0;
@@ -48,14 +49,8 @@ static int rcl_wall_have = 0;
 static uintptr_t rcl_wall_map = 0;
 static int rcl_wall_dirty = 1;
 static uint64_t rcl_wall_fail_ms = 0;
-int rcl_wall_cache_w(void)
-{
-    return rcl_wall_w;
-}
-int rcl_wall_cache_h(void)
-{
-    return rcl_wall_h;
-}
+int rcl_wall_cache_w(void) { return rcl_wall_w; }
+int rcl_wall_cache_h(void) { return rcl_wall_h; }
 void rcl_wall_bind(uintptr_t tileMap)
 {
     void *tiles = nullptr;
@@ -85,7 +80,8 @@ void rcl_wall_bind(uintptr_t tileMap)
     {
         return;
     }
-    if (!rcl_read_ptr(tileMap + (uintptr_t)RCL_TILEMAP_ARRAY_OFF, &tiles) || !tiles)
+    if (!rcl_read_ptr(tileMap + (uintptr_t)RCL_TILEMAP_ARRAY_OFF, &tiles) ||
+        !tiles)
     {
         return;
     }
@@ -98,10 +94,7 @@ void rcl_wall_bind(uintptr_t tileMap)
         rcl_wall_have = 0;
     }
 }
-int rcl_wall_ready(void)
-{
-    return rcl_wall_have;
-}
+int rcl_wall_ready(void) { return rcl_wall_have; }
 int rcl_walls_near(float x, float y, float radius, float *out, int max)
 {
     int x0 = 0;
@@ -119,15 +112,20 @@ int rcl_walls_near(float x, float y, float radius, float *out, int max)
     y0 = (int)((y - radius) / RCL_WALL_TILE_SIZE);
     x1 = (int)((x + radius) / RCL_WALL_TILE_SIZE);
     y1 = (int)((y + radius) / RCL_WALL_TILE_SIZE);
-    if (x0 < 0) x0 = 0;
-    if (y0 < 0) y0 = 0;
-    if (x1 >= rcl_wall_w) x1 = rcl_wall_w - 1;
-    if (y1 >= rcl_wall_h) y1 = rcl_wall_h - 1;
+    if (x0 < 0)
+        x0 = 0;
+    if (y0 < 0)
+        y0 = 0;
+    if (x1 >= rcl_wall_w)
+        x1 = rcl_wall_w - 1;
+    if (y1 >= rcl_wall_h)
+        y1 = rcl_wall_h - 1;
     for (ty = y0; ty <= y1 && n < max; ty++)
     {
         for (tx = x0; tx <= x1 && n < max; tx++)
         {
-            if (!(rcl_wall_grid[ty * rcl_wall_w + tx] & RCL_WALL_BLOCKS_MOVEMENT))
+            if (!(rcl_wall_grid[ty * rcl_wall_w + tx] &
+                  RCL_WALL_BLOCKS_MOVEMENT))
             {
                 continue;
             }
@@ -327,7 +325,8 @@ int rcl_wall_los(float ax, float ay, float bx, float by, int mask)
     }
     return 1;
 }
-float rcl_wall_trace(float x, float y, float dx, float dy, float max_dist, int mask)
+float rcl_wall_trace(float x, float y, float dx, float dy, float max_dist,
+                     int mask)
 {
     float dist = 0.0f;
     if (!rcl_wall_have || max_dist <= 0.0f)

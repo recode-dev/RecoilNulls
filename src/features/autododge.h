@@ -1,6 +1,5 @@
 #ifndef RECOIL_FEATURES_AUTODODGE_AUTODODGE_H
 #define RECOIL_FEATURES_AUTODODGE_AUTODODGE_H
-#include "../core/offsets.h"
 #include <stdint.h>
 extern __thread int rcl_in_move;
 extern int32_t rcl_pl_mine[12];
