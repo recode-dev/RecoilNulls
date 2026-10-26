@@ -10,15 +10,23 @@
 #include <stdio.h>
 
 // --- Constants ---
-const float SAFETY_MARGIN = 28.0f;
-const float T_URGENT      = 0.9f;
-const float T_FIELD       = 1.8f;
-const float FIELD_RADIUS  = 275.0f;
-const int N_DIRECTIONS    = 64;
-const float PERP_WEIGHT   = 2.4f;
-const float AWAY_WEIGHT   = 1.0f;
-const float INTENT_WEIGHT = 1.2f;
-static float CHAR_SPEED   = 720.0f;
+static const float SAFETY_MARGIN = 28.0f;
+static const float T_URGENT      = 0.9f;
+static const float T_FIELD       = 1.8f;
+static const float FIELD_RADIUS  = 275.0f;
+static const int N_DIRECTIONS    = 64;
+static const float MAX_DIST_SQ   = 5000.0f * 5000.0f;
+static const uint32_t STALE_MS   = 450;
+static const float PERP_WEIGHT   = 2.4f;
+static const float AWAY_WEIGHT   = 1.0f;
+static const float INTENT_WEIGHT = 1.2f;
+static float CHAR_SPEED          = 720.0f;
+
+#define RCL_JOY_CENTER_X 0x9d8
+#define RCL_JOY_CENTER_Y 0x9dc
+#define RCL_JOY_TARGET_X 0x9d0
+#define RCL_JOY_TARGET_Y 0x9d4
+#define RCL_JOY_DRAGGING 0xee8
 
 // --- Types ---
 struct V2 {
@@ -37,7 +45,7 @@ struct Projectile {
 
 // --- State ---
 static std::map<int, Projectile> g_proj_cache;
-static V2 SAMPLES[64];
+static V2 SAMPLES[N_DIRECTIONS];
 static bool g_samples_init = false;
 static V2 g_lastSafeDir(0, 0);
 static uint64_t g_lastSafeDirTime = 0;
@@ -52,7 +60,7 @@ static V2 normalize(float x, float y) {
 static void initSamples() {
     if (g_samples_init) return;
     for (int i = 0; i < N_DIRECTIONS; i++) {
-        float angle = (2.0f * M_PI * i) / N_DIRECTIONS;
+        float angle = (2.0f * (float)M_PI * (float)i) / (float)N_DIRECTIONS;
         SAMPLES[i] = V2(cosf(angle), sinf(angle));
     }
     g_samples_init = true;
@@ -60,16 +68,21 @@ static void initSamples() {
 
 static std::vector<V2> getDirectionSamples(int n) {
     if (n == N_DIRECTIONS) {
-        std::vector<V2> out(SAMPLES, SAMPLES + N_DIRECTIONS);
-        return out;
+        return std::vector<V2>(SAMPLES, SAMPLES + N_DIRECTIONS);
     }
     std::vector<V2> out;
     out.reserve(n);
     for (int i = 0; i < n; i++) {
-        float angle = (2.0f * M_PI * i) / n;
+        float angle = (2.0f * (float)M_PI * (float)i) / (float)n;
         out.push_back(V2(cosf(angle), sinf(angle)));
     }
     return out;
+}
+
+static int32_t rcl_call1i_local(uintptr_t fn, uintptr_t self) {
+    if (!fn || !self) return 0;
+    typedef int32_t (*fn_t)(uintptr_t);
+    return ((fn_t)rcl_callable(fn - rcl_base))(self);
 }
 
 // --- Core Logic ---
@@ -96,7 +109,7 @@ static bool isUrgentThreat(const Projectile& p, float myX, float myY, float myRa
     return (ddx * ddx + ddy * ddy) <= r * r;
 }
 
-static float threatScore(V2 dir, float myX, float myY, float myRadius, V2 intentDir, V2 lastSafeDir, uint64_t lastSafeDirAgeMs) {
+static float threatScore(V2 dir, float myX, float myY, float myRadius, V2 intentDir, uint64_t now) {
     float score = 0;
 
     for (auto const& [id, p] : g_proj_cache) {
@@ -131,8 +144,8 @@ static float threatScore(V2 dir, float myX, float myY, float myRadius, V2 intent
         score -= dotIntent * INTENT_WEIGHT * 15.0f;
     }
 
-    if ((lastSafeDir.x != 0 || lastSafeDir.y != 0) && lastSafeDirAgeMs < 400) {
-        float dotInertia = dir.x * lastSafeDir.x + dir.y * lastSafeDir.y;
+    if ((g_lastSafeDir.x != 0 || g_lastSafeDir.y != 0) && (now - g_lastSafeDirTime) < 400) {
+        float dotInertia = dir.x * g_lastSafeDir.x + dir.y * g_lastSafeDir.y;
         score -= dotInertia * 45.0f;
     }
 
@@ -175,31 +188,30 @@ static V2 getUrgentDodgeDir(float myX, float myY, float myRadius, V2 intentDir, 
         V2 away = normalize(myX - p.x, myY - p.y);
         V2 perp1 = normalize(-p.dirY, p.dirX);
         V2 perp2 = normalize(p.dirY, -p.dirX);
-        float intentW = 0.6f;
+        
+        float intentX = (intentDir.x != 0 || intentDir.y != 0) ? intentDir.x * 0.6f : 0.0f;
+        float intentY = (intentDir.x != 0 || intentDir.y != 0) ? intentDir.y * 0.6f : 0.0f;
 
-        // Formula: perp*2.4 + away*1.0 + intent*0.6
         candidates.push_back(normalize(
-            perp1.x * PERP_WEIGHT + away.x * AWAY_WEIGHT + intentDir.x * intentW,
-            perp1.y * PERP_WEIGHT + away.y * AWAY_WEIGHT + intentDir.y * intentW
+            perp1.x * PERP_WEIGHT + away.x * AWAY_WEIGHT + intentX,
+            perp1.y * PERP_WEIGHT + away.y * AWAY_WEIGHT + intentY
         ));
         candidates.push_back(normalize(
-            perp2.x * PERP_WEIGHT + away.x * AWAY_WEIGHT + intentDir.x * intentW,
-            perp2.y * PERP_WEIGHT + away.y * AWAY_WEIGHT + intentDir.y * intentW
+            perp2.x * PERP_WEIGHT + away.x * AWAY_WEIGHT + intentX,
+            perp2.y * PERP_WEIGHT + away.y * AWAY_WEIGHT + intentY
         ));
     }
 
     if (urgentCount == 0) return V2(0, 0);
 
-    // Add 16 uniform samples as fallback
     std::vector<V2> samples = getDirectionSamples(16);
     candidates.insert(candidates.end(), samples.begin(), samples.end());
 
     V2 best = candidates[0];
     float bestScore = 1e18f;
-    uint64_t age = now - g_lastSafeDirTime;
 
     for (const auto& c : candidates) {
-        float s = threatScore(c, myX, myY, myRadius, intentDir, g_lastSafeDir, age);
+        float s = threatScore(c, myX, myY, myRadius, intentDir, now);
         if (s < bestScore) {
             bestScore = s;
             best = c;
@@ -211,10 +223,9 @@ static V2 getUrgentDodgeDir(float myX, float myY, float myRadius, V2 intentDir, 
 static V2 chooseBestDirection(float myX, float myY, float myRadius, V2 intentDir, uint64_t now) {
     V2 best = (intentDir.x != 0 || intentDir.y != 0) ? intentDir : SAMPLES[0];
     float bestScore = 1e18f;
-    uint64_t age = now - g_lastSafeDirTime;
 
     for (int i = 0; i < N_DIRECTIONS; i++) {
-        float s = threatScore(SAMPLES[i], myX, myY, myRadius, intentDir, g_lastSafeDir, age);
+        float s = threatScore(SAMPLES[i], myX, myY, myRadius, intentDir, now);
         if (s < bestScore) {
             bestScore = s;
             best = SAMPLES[i];
@@ -229,12 +240,11 @@ static V2 applyVO(V2 dir, float myX, float myY, float myRadius, V2 intentDir, ui
     V2 best = dir;
     float bestScore = 1e18f;
     bool foundSafe = false;
-    uint64_t age = now - g_lastSafeDirTime;
 
     for (int i = 0; i < N_DIRECTIONS; i++) {
         if (isVelocityUnsafe(SAMPLES[i], myX, myY, myRadius)) continue;
         foundSafe = true;
-        float s = threatScore(SAMPLES[i], myX, myY, myRadius, intentDir, g_lastSafeDir, age);
+        float s = threatScore(SAMPLES[i], myX, myY, myRadius, intentDir, now);
         if (s < bestScore) {
             bestScore = s;
             best = SAMPLES[i];
@@ -260,7 +270,9 @@ static bool checkDanger(float myX, float myY, float myRadius) {
                 if (tHit <= T_FIELD) {
                     float cx = p.x + vx * tHit;
                     float cy = p.y + vy * tHit;
-                    if ((myX - cx) * (myX - cx) + (myY - cy) * (myY - cy) <= r * r) return true;
+                    float ddx = myX - cx;
+                    float ddy = myY - cy;
+                    if (ddx * ddx + ddy * ddy <= r * r) return true;
                 }
             }
         }
@@ -295,12 +307,12 @@ void rcl_autododge(void) {
     float my = (float)rcl_own_y;
     float myRadius = rcl_own_radius();
 
-    // 1. Dynamic speed
+    // 1. Dynamic speed (from data + 0x1c4)
     {
-        uintptr_t def = 0;
-        if (rcl_read_ptr(rcl_own_elem + RCL_ELEM_DEF_OFF, (void**)&def) && def) {
+        uintptr_t data = 0;
+        if (rcl_read_ptr(rcl_own_elem + RCL_ELEM_DEF_OFF, (void**)&data) && data) {
             uint32_t readSpd = 0;
-            if (rcl_read_int(def + 0x1c4, (int32_t*)&readSpd)) {
+            if (rcl_read_int(data + 0x1c4, (int32_t*)&readSpd)) {
                 if (readSpd >= 300 && readSpd <= 8500) {
                     CHAR_SPEED = (float)readSpd;
                 }
@@ -308,67 +320,70 @@ void rcl_autododge(void) {
         }
     }
 
-    // 2. Projectile Scan & Filter
+    // 2. Projectile Scan & Filter (FULL SCAN using manager array)
     {
-        // analyzeProjectiles equivalent
         std::map<int, bool> seen;
-        for (int i = 0; i < 16; i++) {
-            rcl_proj_t* p = &rcl_projs[i];
-            if (!p->elem) continue;
+        if (rcl_manager_array_ptr && rcl_manager_count_v > 0) {
+            for (int i = 0; i < rcl_manager_count_v; i++) {
+                uintptr_t objPtr = 0;
+                if (!rcl_read_ptr(rcl_manager_array_ptr + (uintptr_t)i * 8ULL, (void**)&objPtr) || !objPtr) continue;
 
-            // VTABLE check
-            void* vtable = nullptr;
-            if (!rcl_read_ptr(p->elem, &vtable) || !vtable) continue;
-            if ((uintptr_t)vtable - rcl_base != RCL_CLASS_PROJ_RVA) continue;
+                uintptr_t dataPtr = 0;
+                if (!rcl_read_ptr(objPtr + RCL_ELEM_DEF_OFF, (void**)&dataPtr) || !dataPtr) continue;
 
-            // LogicProjectileData VTABLE check
-            void* def = nullptr;
-            if (!rcl_read_ptr(p->elem + RCL_ELEM_DEF_OFF, &def) || !def) continue;
-            void* defVt = nullptr;
-            if (!rcl_read_ptr((uintptr_t)def, &defVt) || !defVt) continue;
-            if ((uintptr_t)defVt - rcl_base != RCL_VTABLE_PROJ_DATA_RVA) continue;
+                uintptr_t dataVtable = 0;
+                if (!rcl_read_ptr(dataPtr, (void**)&dataVtable) || !dataVtable) continue;
+                if (dataVtable - rcl_base != RCL_VTABLE_PROJ_DATA_RVA) continue;
 
-            // Team check
-            if (p->team >= 0 && p->team == rcl_own_team_b) continue;
+                int32_t teamId = -1;
+                if (!rcl_read_int(objPtr + 64, &teamId) || teamId == rcl_own_team_b) continue;
 
-            // Distance check
-            float distSq = (float)(p->x - mx) * (p->x - mx) + (float)(p->y - my) * (p->y - my);
-            if (distSq > 5000.0f * 5000.0f) continue;
+                int32_t px_i = 0, py_i = 0;
+                if (!rcl_read_int(objPtr + RCL_OBJ_X_OFF, &px_i) || !rcl_read_int(objPtr + RCL_OBJ_Y_OFF, &py_i)) continue;
+                float px = (float)px_i;
+                float py = (float)py_i;
+                float dx_dist = px - mx;
+                float dy_dist = py - my;
+                if (dx_dist * dx_dist + dy_dist * dy_dist > MAX_DIST_SQ) continue;
 
-            // Dead flag
-            uint32_t dead = 0;
-            if (!rcl_read_int(p->elem + 208, (int32_t*)&dead) || dead != 0) continue;
+                uint32_t deadFlag = 0;
+                if (!rcl_read_int(objPtr + 208, (int32_t*)&deadFlag) || deadFlag != 0) continue;
 
-            int pid = p->gid;
-            seen[pid] = true;
-            Projectile& state = g_proj_cache[pid];
-            float px = (float)p->x;
-            float py = (float)p->y;
+                int pid = rcl_gid(objPtr, nullptr);
+                if (pid == 0) continue;
+                seen[pid] = true;
 
-            if (state.lastSeen == 0) {
-                // First appearance
-                state.dirX = cosf(p->angle);
-                state.dirY = sinf(p->angle);
-            } else {
-                float ddx = px - state.x;
-                float ddy = py - state.y;
-                float len = sqrtf(ddx * ddx + ddy * ddy);
-                if (len > 6.0f) {
-                    state.dirX = ddx / len;
-                    state.dirY = ddy / len;
+                Projectile& state = g_proj_cache[pid];
+                float speed = (float)rcl_call1i_local(rcl_base + RVA_LOGICPROJECTILEDATA_GETSPEED, dataPtr);
+                if (speed <= 0) speed = 1200.0f;
+                float radius = (float)rcl_call1i_local(rcl_base + RVA_LOGICPROJECTILEDATA_GETRADIUS, dataPtr);
+                if (radius <= 0) radius = 8.0f;
+
+                if (state.lastSeen == 0) {
+                    float angle = 0.0f;
+                    rcl_read_float(objPtr + 0xb8, &angle);
+                    state.dirX = cosf(angle);
+                    state.dirY = sinf(angle);
+                } else {
+                    float ddx = px - state.x;
+                    float ddy = py - state.y;
+                    float len = sqrtf(ddx * ddx + ddy * ddy);
+                    if (len > 6.0f) {
+                        state.dirX = ddx / len;
+                        state.dirY = ddy / len;
+                    }
                 }
+                state.x = px;
+                state.y = py;
+                state.speed = speed;
+                state.radius = radius;
+                state.lastSeen = now;
+                state.id = pid;
             }
-            state.x = px;
-            state.y = py;
-            state.speed = p->speed;
-            state.radius = p->radius;
-            state.lastSeen = now;
-            state.id = pid;
         }
 
-        // Garbage collection
         for (auto it = g_proj_cache.begin(); it != g_proj_cache.end(); ) {
-            if (seen.find(it->first) == seen.end() || now - it->second.lastSeen > 450) {
+            if (seen.find(it->first) == seen.end() || now - it->second.lastSeen > STALE_MS) {
                 it = g_proj_cache.erase(it);
             } else {
                 ++it;
@@ -376,17 +391,17 @@ void rcl_autododge(void) {
         }
     }
 
-    // 3. Joystick Intent
+    // 3. Joystick Intent (to weight dodges toward intent)
     V2 intentDir(0, 0);
     uintptr_t js = rcl_battlescreen();
     if (js) {
         uint8_t dragging = 0;
         if (rcl_read_byte(js + RCL_JOY_DRAGGING, &dragging) && dragging) {
-            float cx, cy, tx, ty;
+            float cx = 0, cy = 0, curX = 0, curY = 0;
             if (rcl_read_float(js + RCL_JOY_CENTER_X, &cx) && rcl_read_float(js + RCL_JOY_CENTER_Y, &cy) &&
-                rcl_read_float(js + RCL_JOY_TARGET_X, &tx) && rcl_read_float(js + RCL_JOY_TARGET_Y, &ty)) {
-                float dx = tx - cx;
-                float dy = ty - cy;
+                rcl_read_float(js + RCL_JOY_TARGET_X, &curX) && rcl_read_float(js + RCL_JOY_TARGET_Y, &curY)) {
+                float dx = curX - cx;
+                float dy = curY - cy;
                 if (dx * dx + dy * dy > 900.0f) {
                     intentDir = normalize(dx, dy);
                 }
@@ -414,7 +429,7 @@ void rcl_autododge(void) {
     g_lastSafeDir = safeDir;
     g_lastSafeDirTime = now;
 
-    // 5. Emit
+    // 5. Emit (via rcl_enqueue with team flip for world-space targets)
     float angle = atan2f(safeDir.y, safeDir.x);
     float teamFlip = (rcl_own_team_b == 1) ? -1.0f : 1.0f;
     float reach = 800.0f;
@@ -427,7 +442,7 @@ void rcl_autododge(void) {
     rcl_active = 1;
     rcl_moving = sent;
 
-    // Debug
+    // Debug Output
     rcl_dbg.px = mx;
     rcl_dbg.py = my;
     rcl_dbg.dx = safeDir.x;
