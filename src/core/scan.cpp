@@ -1,18 +1,17 @@
-#import <Foundation/Foundation.h>
-#import <mach/mach.h>
-#import <mach/vm_map.h>
-#import <mach/mach_time.h>
-#import <mach-o/dyld.h>
-#import <mach-o/loader.h>
-#import <dispatch/dispatch.h>
-#import <math.h>
-#import <stdint.h>
-#import <stdio.h>
-#import <stdlib.h>
-#import <string.h>
+#include <mach/mach.h>
+#include <mach/vm_map.h>
+#include <mach/mach_time.h>
+#include <mach-o/dyld.h>
+#include <mach-o/loader.h>
+#include <dispatch/dispatch.h>
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #if __has_include(<ptrauth.h>)
-#import <ptrauth.h>
+#include <ptrauth.h>
 #endif
 
 #include "offsets.h"

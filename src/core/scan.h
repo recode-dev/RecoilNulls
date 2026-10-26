@@ -4,6 +4,19 @@
 #include "./offsets.h"
 
 #include <stdint.h>
+
+/* Dispatch time units are provided by mach/clock_types.h in ObjC builds;
+   define them defensively now that Foundation is no longer included. */
+#ifndef NSEC_PER_SEC
+#define NSEC_PER_SEC 1000000000ull
+#endif
+#ifndef NSEC_PER_MSEC
+#define NSEC_PER_MSEC 1000000ull
+#endif
+#ifndef NSEC_PER_USEC
+#define NSEC_PER_USEC 1000ull
+#endif
+
 #include <string.h>
 #include <mach/mach.h>
 #include <dispatch/dispatch.h>
@@ -42,9 +55,9 @@ typedef struct
     uint8_t activeFlag;
 } rcl_obj_t;
 
-#import <mach-o/dyld.h>
-#import <mach-o/loader.h>
-#import <objc/runtime.h>
+#include <mach-o/dyld.h>
+#include <mach-o/loader.h>
+#include <objc/runtime.h>
 
 extern uintptr_t rcl_base;
 

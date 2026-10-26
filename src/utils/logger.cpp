@@ -1,5 +1,4 @@
-#import <Foundation/Foundation.h>
-#import <dispatch/dispatch.h>
+#include <dispatch/dispatch.h>
 
 #include "../core/scan.h"
 #include "../features/autododge.h"
@@ -43,20 +42,16 @@ namespace
     const char *document_path(void)
     {
         static char resolved[1024];
-        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+        const char *home = getenv("HOME");
 
         resolved[0] = 0;
-        if (paths != nil && [paths count] > 0)
+        if (home != nullptr)
         {
-            const char *dir = [[paths objectAtIndex:0] UTF8String];
-
-            if (dir != nullptr) snprintf(resolved, sizeof(resolved), "%s", dir);
+            snprintf(resolved, sizeof(resolved), "%s/Documents", home);
         }
         if (resolved[0] == 0)
         {
-            const char *home = getenv("HOME");
-
-            if (home != nullptr) snprintf(resolved, sizeof(resolved), "%s/Documents", home);
+            snprintf(resolved, sizeof(resolved), "%s", "/tmp");
         }
 
         return resolved;

@@ -12,8 +12,8 @@
 #define RCL_OBJC_WANTED_MAX 4
 
 typedef struct {
-    __unsafe_unretained Class cls;
-    __unsafe_unretained Class wanted[RCL_OBJC_WANTED_MAX];
+    Class cls;
+    Class wanted[RCL_OBJC_WANTED_MAX];
     int wantedCount;
     SEL sel;
     IMP original;
