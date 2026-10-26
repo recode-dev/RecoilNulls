@@ -1936,6 +1936,19 @@ static int32_t call1i(uintptr_t fn, uintptr_t self)
     if (!fn || !self) return 0;
     return ((fn1i)fn)(self);
 }
+static uintptr_t call1u(uintptr_t fn, uintptr_t self)
+{
+    if (!fn || !self) return 0;
+    return ((uintptr_t(*)(uintptr_t))fn)(self);
+}
+static BOOL obj_ok(uintptr_t p)
+{
+    uintptr_t vt = 0;
+    if (!pointer_plausible(p) || !base) return NO;
+    if (!read_ptr(p, (void**)&vt) || !pointer_plausible(vt)) return NO;
+    uintptr_t rva = vt - base;
+    return (rva >= DC_RVA_LO && rva < DC_RVA_LO + DC_RVA_SIZE) ? YES : NO;
+}
 float call1f(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self) return 0.0f;
@@ -2634,6 +2647,35 @@ uintptr_t client(void)
         return 0;
     }
     return (uintptr_t)clientPtr;
+}
+float own_cast_range(void)
+{
+    static float cached = 0.0f;
+    static uint64_t stamp = 0;
+    uint64_t now = us();
+    uintptr_t weapon = 0;
+    int32_t tiles = 0;
+    if (stamp != 0 && now - stamp < 500000ULL)
+    {
+        return cached;
+    }
+    stamp = now;
+    if (!own_elem || !addr_weaponskill || !addr_castrange)
+    {
+        return cached;
+    }
+    if (!obj_ok(own_elem))
+    {
+        return cached;
+    }
+    weapon = call1u(addr_weaponskill, own_elem);
+    if (!obj_ok(weapon))
+    {
+        return cached;
+    }
+    tiles = call1i(addr_castrange, weapon);
+    cached = tiles > 0 ? (float)tiles * CASTING_RANGE_SCALE : 0.0f;
+    return cached;
 }
 void state_note(int state)
 {
