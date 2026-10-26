@@ -48,6 +48,7 @@ uintptr_t addr_projbeam = 0;
 uintptr_t addr_castrange = 0;
 uintptr_t addr_skilldata = 0;
 uintptr_t addr_weaponskill = 0;
+uintptr_t addr_skillat = 0;
 volatile int at = 0;
 uintptr_t slot_object[34] = {0};
 uintptr_t slot_arg[34] = {0};
@@ -1945,6 +1946,11 @@ static uintptr_t call1u(uintptr_t fn, uintptr_t self)
     if (!fn || !self) return 0;
     return ((uintptr_t(*)(uintptr_t))fn)(self);
 }
+static uintptr_t call2u(uintptr_t fn, uintptr_t self, int32_t arg)
+{
+    if (!fn || !self) return 0;
+    return ((uintptr_t(*)(uintptr_t, int32_t))fn)(self, arg);
+}
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
 int32_t own_x = 0;
@@ -2425,6 +2431,7 @@ void resolve_addresses(void)
     addr_castrange = callable(RVA_LOGICSKILLDATA_GETCASTRANGE);
     addr_skilldata = callable(RVA_LOGICSKILLCLIENT_GETDATA);
     addr_weaponskill = callable(RVA_LOGICCHARACTERCLIENT_GETWEAPONSKILL);
+    addr_skillat = callable(RVA_LOGICCHARACTERCLIENT_GETSKILLAT);
     if (!addr_readable(addr_battlescreen, sizeof(void*)))
     {
         addr_battlescreen = 0;
@@ -2640,22 +2647,44 @@ uintptr_t client(void)
 }
 float own_cast_range(void)
 {
-    uintptr_t charClient = client();
-    if (!charClient || !addr_weaponskill || !addr_skilldata || !addr_castrange)
+    static float cached = 0.0f;
+    static uint64_t stamp = 0;
+    int slot = 0;
+    int hyper = 0;
+    int32_t best = 0;
+    uint64_t now = us();
+    if (stamp != 0 && now - stamp < 500000ULL)
     {
-        return 0.0f;
+        return cached;
     }
-    uintptr_t skillClient = call1u(addr_weaponskill, charClient);
-    if (!skillClient)
+    stamp = now;
+    if (!own_elem || !addr_skillat || !addr_skilldata || !addr_castrange)
     {
-        return 0.0f;
+        return cached;
     }
-    uintptr_t skillData = call1u(addr_skilldata, skillClient);
-    if (!skillData)
+    for (slot = 0; slot < SKILL_SLOT_MAX; slot++)
     {
-        return 0.0f;
+        uintptr_t skill = call2u(addr_skillat, own_elem, slot);
+        if (!pointer_plausible(skill))
+        {
+            continue;
+        }
+        for (hyper = 0; hyper < 2; hyper++)
+        {
+            uintptr_t data = call2u(addr_skilldata, skill, hyper);
+            if (!pointer_plausible(data))
+            {
+                continue;
+            }
+            int32_t tiles = call1i(addr_castrange, data);
+            if (tiles > best)
+            {
+                best = tiles;
+            }
+        }
     }
-    return call1f(addr_castrange, skillData);
+    cached = (float)best * CASTING_RANGE_SCALE;
+    return cached;
 }
 void state_note(int state)
 {
