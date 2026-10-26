@@ -10,9 +10,9 @@
 #include <stdio.h>
 
 // --- Constants ---
-static const float SAFETY_MARGIN = 28.0f;
-static const float T_URGENT      = 0.9f;
-static const float T_FIELD       = 1.8f;
+static const float SAFETY_MARGIN = 80.0f;
+static const float T_URGENT      = 1.5f;
+static const float T_FIELD       = 3.0f;
 static const int N_DIRECTIONS    = 64;
 static const float MAX_DIST_SQ   = 5000.0f * 5000.0f;
 static const uint32_t STALE_MS   = 450;
