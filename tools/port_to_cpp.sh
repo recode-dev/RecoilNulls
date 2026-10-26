@@ -153,7 +153,18 @@ def rewrite_nsec(text):
     return text[:end] + "\n" + NSEC_GUARD + text[end:]
 
 
-TRANSFORMS = (rewrite_imports, rewrite_unsafe, rewrite_logger, rewrite_nsec)
+def rewrite_cfdate(text):
+    if "RECOIL_SCAN_SCAN_H" not in text or "CFDate.h" in text:
+        return text
+    anchor = "#include <objc/runtime.h>"
+    pos = text.find(anchor)
+    if pos < 0:
+        return text
+    end = pos + len(anchor)
+    return text[:end] + "\n\n/* CFAbsoluteTimeGetCurrent lives in CoreFoundation, a C API. */\n#include <CoreFoundation/CFDate.h>" + text[end:]
+
+
+TRANSFORMS = (rewrite_imports, rewrite_unsafe, rewrite_logger, rewrite_nsec, rewrite_cfdate)
 
 targets = []
 for base in ("src", "tools"):
@@ -250,7 +261,7 @@ Recoil_CCFLAGS := -std=c++17 -fblocks -Wall -Wextra $(RECOIL_INCLUDE_FLAGS)
 
 # Foundation stays linked only so libobjc (used by tools/objc.cpp) resolves;
 # no Objective-C source remains in the tweak.
-Recoil_FRAMEWORKS := Foundation
+Recoil_FRAMEWORKS := Foundation CoreFoundation
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 MAKEFILE

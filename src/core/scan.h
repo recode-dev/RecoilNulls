@@ -59,6 +59,9 @@ typedef struct
 #include <mach-o/loader.h>
 #include <objc/runtime.h>
 
+/* CFAbsoluteTimeGetCurrent lives in CoreFoundation, a C API. */
+#include <CoreFoundation/CFDate.h>
+
 extern uintptr_t rcl_base;
 
 extern const char *rcl_image_names[4];
