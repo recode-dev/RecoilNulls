@@ -259,7 +259,7 @@ BOOL rcl_write_bytes(uintptr_t address, const void *src, size_t length)
     {
         return NO;
     }
-    if (1 && !rcl_writable(address, length))
+    if (!rcl_writable(address, length))
     {
         return NO;
     }
@@ -2862,7 +2862,7 @@ int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int
                 seenCls[seenClsN++] = vtRva;
             }
         }
-        if (1 && vtRva != (uintptr_t)RCL_CLASS_PROJ_RVA)
+        if (gid == 0 && vtRva != (uintptr_t)RCL_CLASS_PROJ_RVA)
         {
             continue;
         }

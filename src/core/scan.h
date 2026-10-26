@@ -789,7 +789,7 @@ int rcl_own_side_spawn(int32_t sx, int32_t sy);
 void rcl_roster(uintptr_t ownElem, int ownIndex, int ownTeam, const rcl_obj_t *objects, int usable);
 int rcl_team_at(const rcl_obj_t *objects, int index);
 
-#define RCL_CLUSTER 700.0f
+#define RCL_CLUSTER 10000.0f
 #define RCL_GIDLESS 1
 #define RCL_POS_BONUS 8
 #define RCL_DIST_BONUS 6
@@ -797,8 +797,8 @@ int rcl_team_at(const rcl_obj_t *objects, int index);
 #define RCL_SOFT_MIN_POS 2
 #define RCL_SOFT_MIN_DIST 2
 #define RCL_LOGS_a 12
-#define RCL_ATTRIB_R (700.0f * 700.0f)
-#define RCL_ATTRIB_MARGIN 1.5f
+#define RCL_ATTRIB_R (1200.0f * 1200.0f)
+#define RCL_ATTRIB_MARGIN 1.2f
 #define RCL_RESPAWN_JUMP 1200
 #define RCL_RESPAWN_VISIBLE 90
 #define RCL_HOLD_FRAMES 10

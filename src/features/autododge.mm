@@ -49,7 +49,6 @@ struct Threat {
 };
 
 struct ProjectileState {
-    float x, y;
     float dirX, dirY;
     float speed;
     float radius;
@@ -60,7 +59,6 @@ struct ProjectileState {
     float castRange;
     bool isIndirect;
     bool isBeam;
-    int id;
 };
 
 
@@ -71,7 +69,6 @@ int rcl_moving = 0;
 
 static std::map<int, ProjectileState> g_proj_cache;
 static std::vector<V2> g_ring;
-static V2 g_heading(0, 0);
 static int g_headingIdx = -1;
 static uint64_t g_holdUntil = 0;
 static uint64_t g_lastDangerTs = 0;
@@ -142,7 +139,6 @@ static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR) {
 }
 
 static void clearHeading() {
-    g_heading = V2(0, 0);
     g_headingIdx = -1;
     g_holdUntil = 0;
 }
@@ -167,6 +163,9 @@ void rcl_autododge(void) {
     uint32_t tickMs = (g_headingIdx >= 0) ? TUNE.TICK_MS : TUNE.TICK_MS_IDLE;
     if (now - g_lastTick < tickMs) return;
     g_lastTick = now;
+
+    rcl_dbg.sent = 0;
+    rcl_dbg.thn = 0;
 
     buildRing();
 
@@ -211,7 +210,10 @@ void rcl_autododge(void) {
                 uintptr_t dataVtable = 0;
                 if (!rcl_read_ptr(dataPtr, (void**)&dataVtable) || !dataVtable) continue;
                 if (!rcl_pointer_plausible(dataVtable)) continue;
-                if (dataVtable - rcl_base != RCL_VTABLE_PROJ_DATA_RVA) continue;
+                
+                int pid = rcl_gid(objPtr, nullptr);
+                bool isProj = (pid >= 2000000) || (dataVtable - rcl_base == RCL_VTABLE_PROJ_DATA_RVA);
+                if (!isProj || pid == 0) continue;
 
                 int32_t teamId = -1;
                 if (!rcl_read_int(objPtr + 64, &teamId) || teamId == rcl_own_team_b) continue;
@@ -227,13 +229,10 @@ void rcl_autododge(void) {
                 uint32_t deadFlag = 0;
                 if (!rcl_read_int(objPtr + 208, (int32_t*)&deadFlag) || deadFlag != 0) continue;
 
-                int pid = rcl_gid(objPtr, nullptr);
-                if (pid == 0) continue;
                 seen[pid] = true;
 
                 ProjectileState& state = g_proj_cache[pid];
                 if (state.lastSeen == 0) {
-                    state.id = pid;
                     state.spawnX = px;
                     state.spawnY = py;
                     state.sampleX = px;
@@ -294,8 +293,6 @@ void rcl_autododge(void) {
                     }
                 }
 
-                state.x = px;
-                state.y = py;
                 state.lastSeen = now;
                 if (rcl_addr_projradius) {
                     state.radius = (float)rcl_call1i_local(rcl_addr_projradius, dataPtr);
@@ -405,7 +402,6 @@ void rcl_autododge(void) {
 
     V2 chosen = g_ring[chosenIdx];
     g_headingIdx = chosenIdx;
-    g_heading = chosen;
 
     int32_t tx = (int32_t)roundf(mx + chosen.x * TUNE.REACH);
     int32_t ty = (int32_t)roundf(my + chosen.y * TUNE.REACH);
@@ -421,6 +417,7 @@ void rcl_autododge(void) {
         g_lastSentAt = now;
         rcl_move_to(tx, ty, mx, my);
         rcl_enqueue(tx, ty);
+        rcl_dbg.sent = 1;
     }
 
     rcl_active = 1;
