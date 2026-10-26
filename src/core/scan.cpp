@@ -18,7 +18,7 @@
 #include "objc.h"
 #include "offsets.h"
 #include "scan.h"
-#include <frida-gum.h>
+#include "gum_boot.h"
 const char* image_names[2] = {"Nulls Brawl", nullptr};
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
@@ -157,7 +157,7 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    if (!gum_memory_is_readable((gconstpointer)address, (gsize)length))
+    if (!addr_readable(address, length))
     {
         return NO;
     }
@@ -300,7 +300,7 @@ BOOL copy(uintptr_t source, void* destination, size_t length)
     {
         return NO;
     }
-    if (!gum_memory_is_readable((gconstpointer)source, (gsize)length))
+    if (!addr_readable(source, length))
     {
         return NO;
     }
@@ -475,6 +475,39 @@ static gboolean game_module_cb(GumModule* module, gpointer userData)
     *(uintptr_t*)userData = (uintptr_t)range->base_address;
     return FALSE;
 }
+static BOOL find_game_image_dyld(uintptr_t* out_base)
+{
+    uint32_t count = _dyld_image_count();
+    uint32_t i = 0;
+    if (count > 8192)
+    {
+        count = 8192;
+    }
+    for (i = 0; i < count; i++)
+    {
+        const char* path = _dyld_get_image_name(i);
+        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
+        if (!path || !imageBase)
+        {
+            continue;
+        }
+        if (!contains_ci(path, "nulls"))
+        {
+            continue;
+        }
+        if (!strstr(path, ".app"))
+        {
+            continue;
+        }
+        if (!valid_header(imageBase))
+        {
+            continue;
+        }
+        *out_base = imageBase;
+        return YES;
+    }
+    return NO;
+}
 BOOL find_game_image(uintptr_t* out_base)
 {
     uintptr_t found = 0;
@@ -482,13 +515,12 @@ BOOL find_game_image(uintptr_t* out_base)
     {
         return NO;
     }
-    gum_process_enumerate_modules(game_module_cb, &found);
-    if (!found)
+    if (gum_enumerate_modules(game_module_cb, &found) && found)
     {
-        return NO;
+        *out_base = found;
+        return YES;
     }
-    *out_base = found;
-    return YES;
+    return find_game_image_dyld(out_base);
 }
 uintptr_t owner = 0;
 int wired = 0;
@@ -796,12 +828,6 @@ uintptr_t strip_ptr(uintptr_t value)
 }
 void poll_for_game(int tick)
 {
-    static int gum_ready = 0;
-    if (!gum_ready)
-    {
-        gum_init_embedded();
-        gum_ready = 1;
-    }
     if (setup_done)
     {
         return;

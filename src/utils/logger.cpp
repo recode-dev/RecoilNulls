@@ -86,6 +86,10 @@ void dump_header(void)
     uint32_t i = 0;
     uintptr_t found = 0;
     line("\n########## recoil header ##########\n");
+    if (gum_last_error()[0])
+    {
+        line("gum=FAIL %s\n", gum_last_error());
+    }
     line("base=%p setup=%d ticks=%llu rate=%d/s\n",
          (void*)base,
          (int)setup_done,
