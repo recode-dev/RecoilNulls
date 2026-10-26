@@ -220,6 +220,9 @@ void autododge(void)
                 if (!read_ptr(dataPtr, (void**)&dataVtable) || !dataVtable)
                     continue;
                 if (!pointer_plausible(dataVtable)) continue;
+                uintptr_t vtRva = dataVtable - base;
+                if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
+                    continue;
                 int pid = gid(objPtr, nullptr);
                 bool isProj = (pid >= 2000000) ||
                               (dataVtable - base == VTABLE_PROJ_DATA_RVA);
