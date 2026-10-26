@@ -1,14 +1,14 @@
-#ifndef RECOIL_FEATURES_AUTODODGE_AUTODODGE_H
-#define RECOIL_FEATURES_AUTODODGE_AUTODODGE_H
+#ifndef FEATURES_AUTODODGE_AUTODODGE_H
+#define FEATURES_AUTODODGE_AUTODODGE_H
 #include <stdint.h>
-extern __thread int rcl_in_move;
-extern int32_t rcl_pl_mine[12];
-extern int rcl_active;
-extern int rcl_moving;
-extern int rcl_cand_now[3];
-extern int rcl_cand_seen;
-extern int32_t rcl_prev_x;
-extern int32_t rcl_prev_y;
-void rcl_autododge(void);
-void rcl_autododge_reset(void);
+extern __thread int in_move;
+extern int32_t pl_mine[12];
+extern int active;
+extern int moving;
+extern int cand_now[3];
+extern int cand_seen;
+extern int32_t prev_x;
+extern int32_t prev_y;
+void autododge(void);
+void autododge_reset(void);
 #endif

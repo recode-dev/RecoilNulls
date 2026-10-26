@@ -135,7 +135,7 @@ typedef struct
 } hook_ptr_entry_t;
 static hook_ptr_entry_t g_ptr_hooks[HOOK_PTR_ENTRIES];
 static hook_ptr_entry_t *hook_pointer_find(uintptr_t target);
-uintptr_t rcl_hook_image_base(uintptr_t address)
+uintptr_t hook_image_base(uintptr_t address)
 {
     uint32_t count = _dyld_image_count();
     if (count > 8192)
@@ -591,7 +591,7 @@ static int hook_pointer_install(uintptr_t target, uintptr_t replacement)
         hook_set_error("pointer hook table exhausted (%d)", HOOK_PTR_ENTRIES);
         return 0;
     }
-    uintptr_t imageBase = rcl_hook_image_base(target);
+    uintptr_t imageBase = hook_image_base(target);
     if (!imageBase)
     {
         hook_set_error("pointer hook: no image owns %p", (void *)target);
@@ -637,7 +637,7 @@ static int hook_probe(uintptr_t target)
 {
     if (!target)
         return -1;
-    uintptr_t imageBase = rcl_hook_image_base(target);
+    uintptr_t imageBase = hook_image_base(target);
     if (!imageBase)
         return -1;
     uintptr_t slots[HOOK_PTR_SLOTS];
@@ -645,7 +645,7 @@ static int hook_probe(uintptr_t target)
                                       HOOK_PTR_SLOTS, true);
     return hits;
 }
-static bool rcl_install(void *target, void *replacement)
+static bool install(void *target, void *replacement)
 {
     if (!target || !replacement)
     {
@@ -657,7 +657,7 @@ static bool rcl_install(void *target, void *replacement)
     uintptr_t repl = strip_fn(replacement);
     return hook_pointer_install(addr, repl) > 0;
 }
-static bool rcl_remove(void *target)
+static bool remove(void *target)
 {
     if (!target)
         return false;
@@ -675,7 +675,7 @@ static bool rcl_remove(void *target)
     hook_write_window_close();
     return restored;
 }
-static void *rcl_original_ptr(void *target)
+static void *original_ptr(void *target)
 {
     if (!target)
         return NULL;
@@ -707,8 +707,8 @@ static bool hook_prologue_ok(uintptr_t address)
         return true;
     return false;
 }
-int rcl_hooks_install(uintptr_t imageBase, const rcl_hook_t *hooks, int count,
-                      void **originals)
+int hooks_install(uintptr_t imageBase, const hook_t *hooks, int count,
+                  void **originals)
 {
     int installed = 0;
     if (!imageBase || !hooks || count <= 0)
@@ -723,27 +723,27 @@ int rcl_hooks_install(uintptr_t imageBase, const rcl_hook_t *hooks, int count,
             continue;
         target = imageBase + hooks[i].rva;
         slots = hook_probe(target);
-        if (slots <= 0 || slots > RCL_HOOK_SLOTS_MAX)
+        if (slots <= 0 || slots > HOOK_SLOTS_MAX)
             continue;
         if (!hook_prologue_ok(target))
             continue;
-        if (!rcl_install((void *)target, hooks[i].replacement))
+        if (!install((void *)target, hooks[i].replacement))
             continue;
         if (originals)
-            originals[i] = rcl_original_ptr((void *)target);
+            originals[i] = original_ptr((void *)target);
         installed++;
     }
     hook_write_window_close();
     return installed;
 }
-int rcl_hooks_uninstall(void)
+int hooks_uninstall(void)
 {
     int removed = 0;
     for (int i = 0; i < HOOK_PTR_ENTRIES; i++)
     {
         if (!g_ptr_hooks[i].used)
             continue;
-        if (rcl_remove((void *)g_ptr_hooks[i].target))
+        if (remove((void *)g_ptr_hooks[i].target))
             removed++;
     }
     hook_write_window_close();

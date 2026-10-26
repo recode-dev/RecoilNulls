@@ -3,59 +3,56 @@
 #include "offsets.h"
 #include "scan.h"
 #include <malloc/malloc.h>
-#if RCL_CI_HASH_INNER_MASK_RVA && RCL_CI_HASH_OUTER_MASK_RVA &&                \
-    RCL_BM_HASH_ENABLED_OFF && RCL_BM_HASH_KEY_OFF
-#define RCL_CI_SIGNING_ON 1
+#if CI_HASH_INNER_MASK_RVA && CI_HASH_OUTER_MASK_RVA && BM_HASH_ENABLED_OFF && \
+    BM_HASH_KEY_OFF
+#define CI_SIGNING_ON 1
 #else
-#define RCL_CI_SIGNING_ON 0
+#define CI_SIGNING_ON 0
 #endif
-static uint32_t rcl_ci_table[RCL_CI_TABLE_TYPES];
-static uint32_t rcl_ci_fallback = 0;
-static uint8_t rcl_ci_inner[0x10];
-static uint8_t rcl_ci_outer[0x10];
-static int rcl_ci_ready = 0;
-static int rcl_msg_ok(void *ptr, size_t size);
-int rcl_ci_load_constants(void)
+static uint32_t ci_table[CI_TABLE_TYPES];
+static uint32_t ci_fallback = 0;
+static uint8_t ci_inner[0x10];
+static uint8_t ci_outer[0x10];
+static int ci_ready = 0;
+static int msg_ok(void *ptr, size_t size);
+int ci_load_constants(void)
 {
     int i = 0;
-    if (rcl_ci_ready)
+    if (ci_ready)
     {
         return 1;
     }
-    if (!rcl_base)
+    if (!base)
     {
         return 0;
     }
-    for (i = 0; i < (int)RCL_CI_TABLE_TYPES; i++)
+    for (i = 0; i < (int)CI_TABLE_TYPES; i++)
     {
-        if (!rcl_read_bytes(rcl_base + RCL_CI_TYPE_TABLE_RVA +
-                                (uintptr_t)i * 4ULL,
-                            &rcl_ci_table[i], sizeof(uint32_t)))
+        if (!read_bytes(base + CI_TYPE_TABLE_RVA + (uintptr_t)i * 4ULL,
+                        &ci_table[i], sizeof(uint32_t)))
         {
             return 0;
         }
     }
-    if (!rcl_read_bytes(rcl_base + RCL_CI_TYPE_FALLBACK_RVA, &rcl_ci_fallback,
-                        sizeof(uint32_t)))
+    if (!read_bytes(base + CI_TYPE_FALLBACK_RVA, &ci_fallback,
+                    sizeof(uint32_t)))
     {
         return 0;
     }
-    if (!rcl_read_bytes(rcl_base + RCL_CI_HASH_INNER_MASK_RVA, rcl_ci_inner,
-                        0x10))
+    if (!read_bytes(base + CI_HASH_INNER_MASK_RVA, ci_inner, 0x10))
     {
         return 0;
     }
-    if (!rcl_read_bytes(rcl_base + RCL_CI_HASH_OUTER_MASK_RVA, rcl_ci_outer,
-                        0x10))
+    if (!read_bytes(base + CI_HASH_OUTER_MASK_RVA, ci_outer, 0x10))
     {
         return 0;
     }
-    rcl_ci_ready = 1;
+    ci_ready = 1;
     return 1;
 }
-uint32_t rcl_ci_sign(void *ci, void *battle)
+uint32_t ci_sign(void *ci, void *battle)
 {
-#if RCL_CI_SIGNING_ON
+#if CI_SIGNING_ON
     uint8_t key[0x10];
     uint8_t cmd[0x10];
     uint8_t enabled = 0;
@@ -64,8 +61,7 @@ uint32_t rcl_ci_sign(void *ci, void *battle)
     {
         return 0;
     }
-    if (!rcl_read_bytes((uintptr_t)battle + RCL_BM_HASH_ENABLED_OFF, &enabled,
-                        1))
+    if (!read_bytes((uintptr_t)battle + BM_HASH_ENABLED_OFF, &enabled, 1))
     {
         return 0;
     }
@@ -73,22 +69,21 @@ uint32_t rcl_ci_sign(void *ci, void *battle)
     {
         return 0;
     }
-    if (!rcl_ci_load_constants())
+    if (!ci_load_constants())
     {
         return 0;
     }
-    if (!rcl_read_bytes((uintptr_t)battle + RCL_BM_HASH_KEY_OFF, key, 0x10))
+    if (!read_bytes((uintptr_t)battle + BM_HASH_KEY_OFF, key, 0x10))
     {
         return 0;
     }
-    if (!rcl_read_bytes((uintptr_t)ci + RCL_CI_TOKEN_READ_OFF, cmd, 0x10))
+    if (!read_bytes((uintptr_t)ci + CI_TOKEN_READ_OFF, cmd, 0x10))
     {
         return 0;
     }
-    token = rcl_ci_compute_token(key, cmd, rcl_ci_table, rcl_ci_fallback,
-                                 rcl_ci_inner, rcl_ci_outer);
-    if (!rcl_write_bytes((uintptr_t)ci + RCL_CI_TOKEN_OFF, &token,
-                         sizeof(token)))
+    token =
+        ci_compute_token(key, cmd, ci_table, ci_fallback, ci_inner, ci_outer);
+    if (!write_bytes((uintptr_t)ci + CI_TOKEN_OFF, &token, sizeof(token)))
     {
         return 0;
     }
@@ -99,19 +94,19 @@ uint32_t rcl_ci_sign(void *ci, void *battle)
     return 0;
 #endif
 }
-int rcl_enqueue_type(int x, int y, int type)
+int enqueue_type(int x, int y, int type)
 {
-    return rcl_enqueue_skill(x, y, type, nullptr);
+    return enqueue_skill(x, y, type, nullptr);
 }
-static uintptr_t rcl_callable_cached(uintptr_t *cache, uintptr_t rva)
+static uintptr_t callable_cached(uintptr_t *cache, uintptr_t rva)
 {
     if (!*cache)
     {
-        *cache = rcl_entry_callable(rva);
+        *cache = entry_callable(rva);
     }
     return *cache;
 }
-static int rcl_ptr_is_heap(const void *p)
+static int ptr_is_heap(const void *p)
 {
     if (!p || ((uintptr_t)p & 7ULL))
     {
@@ -119,7 +114,7 @@ static int rcl_ptr_is_heap(const void *p)
     }
     return malloc_zone_from_ptr((void *)p) != NULL;
 }
-int rcl_enqueue_skill(int x, int y, int type, void *skillData)
+int enqueue_skill(int x, int y, int type, void *skillData)
 {
     uintptr_t ctorFn = 0;
     uintptr_t inputFn = 0;
@@ -129,87 +124,84 @@ int rcl_enqueue_skill(int x, int y, int type, void *skillData)
     void *battle = nullptr;
     void *mgr = nullptr;
     void *msg = nullptr;
-    if (!rcl_coord_ok || rcl_dead)
+    if (!coord_ok || dead)
     {
         return 0;
     }
     static uintptr_t c_ctor = 0;
     static uintptr_t c_input = 0;
     static uintptr_t c_battle = 0;
-    ctorFn = rcl_callable_cached(&c_ctor, RCL_MSGCTOR_RVA);
-    inputFn = rcl_callable_cached(&c_input, RCL_ADDINPUT_RVA);
-    battleFn = rcl_callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
+    ctorFn = callable_cached(&c_ctor, MSGCTOR_RVA);
+    inputFn = callable_cached(&c_input, ADDINPUT_RVA);
+    battleFn = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
     if (!inputFn || !ctorFn || !battleFn)
     {
         return 0;
     }
-    if (!rcl_addr_readable(ctorFn, 4) || !rcl_addr_readable(inputFn, 4) ||
-        !rcl_addr_readable(battleFn, 4))
+    if (!addr_readable(ctorFn, 4) || !addr_readable(inputFn, 4) ||
+        !addr_readable(battleFn, 4))
     {
         return 0;
     }
     battle = ((void *(*)(void))battleFn)();
-    if (!rcl_object_plausible(battle))
+    if (!object_plausible(battle))
     {
         return 0;
     }
-    mgr = rcl_manager();
+    mgr = manager();
     if (!mgr)
     {
         return 0;
     }
     {
         void *mgrInner = nullptr;
-        if (!rcl_read_ptr((uintptr_t)mgr + RCL_CI_MGR_QUEUE_OFF, &mgrInner) ||
+        if (!read_ptr((uintptr_t)mgr + CI_MGR_QUEUE_OFF, &mgrInner) ||
             !mgrInner)
         {
             return 0;
         }
     }
-    if (RCL_QUEUE_GUARD_MGR && !rcl_manager_shape((uintptr_t)mgr))
+    if (QUEUE_GUARD_MGR && !manager_shape((uintptr_t)mgr))
     {
         return 0;
     }
-    msg = rcl_msg_alloc();
-    if (!rcl_msg_ok(msg, (size_t)RCL_MSG_SIZE + (size_t)RCL_MSG_SLACK))
+    msg = msg_alloc();
+    if (!msg_ok(msg, (size_t)MSG_SIZE + (size_t)MSG_SLACK))
     {
         return 0;
     }
-    memset(msg, 0, (size_t)RCL_MSG_SIZE + (size_t)RCL_MSG_SLACK);
-    ((void (*)(void *, int))ctorFn)(msg, RCL_TYPE_MOVE);
-    rcl_write_bytes((uintptr_t)msg + RCL_TYPE_OFF, &type, sizeof(type));
-    rcl_write_bytes((uintptr_t)msg + RCL_X_OFF, &vx, sizeof(vx));
-    rcl_write_bytes((uintptr_t)msg + RCL_Y_OFF, &vy, sizeof(vy));
-    if (skillData && rcl_ptr_is_heap(skillData))
+    memset(msg, 0, (size_t)MSG_SIZE + (size_t)MSG_SLACK);
+    ((void (*)(void *, int))ctorFn)(msg, TYPE_MOVE);
+    write_bytes((uintptr_t)msg + TYPE_OFF, &type, sizeof(type));
+    write_bytes((uintptr_t)msg + X_OFF, &vx, sizeof(vx));
+    write_bytes((uintptr_t)msg + Y_OFF, &vy, sizeof(vy));
+    if (skillData && ptr_is_heap(skillData))
     {
-        rcl_write_bytes((uintptr_t)msg + (uintptr_t)OFF_CLIENTINPUT_SKILLDATA,
-                        &skillData, sizeof(skillData));
+        write_bytes((uintptr_t)msg + (uintptr_t)OFF_CLIENTINPUT_SKILLDATA,
+                    &skillData, sizeof(skillData));
     }
-    rcl_ci_sign(msg, battle);
-    if (type == (int)RCL_TYPE_MOVE)
+    ci_sign(msg, battle);
+    if (type == (int)TYPE_MOVE)
     {
-        (void)rcl_pred_set(x, y);
+        (void)pred_set(x, y);
     }
     ((void (*)(void *, void *))inputFn)(mgr, msg);
     return 1;
 }
-int rcl_enqueue(int x, int y)
+int enqueue(int x, int y) { return enqueue_type(x, y, (int)TYPE_MOVE); }
+uintptr_t entry_callable(uintptr_t rva)
 {
-    return rcl_enqueue_type(x, y, (int)RCL_TYPE_MOVE);
-}
-uintptr_t rcl_entry_callable(uintptr_t rva)
-{
-    if (!rcl_base || !rva)
+    if (!base || !rva)
     {
         return 0;
     }
-    if (!rcl_callable(rva))
+    if (!callable(rva))
     {
         return 0;
     }
-    return rcl_base + rva;
+    return base + rva;
 }
-static int rcl_msg_ok(void *ptr, size_t size)
+static int msg_ok(void *ptr, size_t size)
 {
     if (!ptr)
     {
@@ -219,24 +211,24 @@ static int rcl_msg_ok(void *ptr, size_t size)
     {
         return 0;
     }
-    if (!rcl_addr_readable((uintptr_t)ptr, size))
+    if (!addr_readable((uintptr_t)ptr, size))
     {
         return 0;
     }
-    if (!rcl_addr_writable((uintptr_t)ptr, size))
+    if (!addr_writable((uintptr_t)ptr, size))
     {
         return 0;
     }
     return 1;
 }
-void *rcl_msg_alloc(void)
+void *msg_alloc(void)
 {
-    uintptr_t stub = rcl_entry_callable(RCL_ALLOC_RVA);
+    uintptr_t stub = entry_callable(ALLOC_RVA);
     uintptr_t got = 0;
-    size_t size = (size_t)RCL_MSG_SIZE + (size_t)RCL_MSG_SLACK;
+    size_t size = (size_t)MSG_SIZE + (size_t)MSG_SLACK;
     void *mem = nullptr;
     mem = malloc(size);
-    if (rcl_msg_ok(mem, size))
+    if (msg_ok(mem, size))
     {
         memset(mem, 0, size);
         return mem;
@@ -244,17 +236,16 @@ void *rcl_msg_alloc(void)
     if (stub)
     {
         mem = ((void *(*)(size_t))stub)(size);
-        if (rcl_msg_ok(mem, size))
+        if (msg_ok(mem, size))
         {
             memset(mem, 0, size);
             return mem;
         }
     }
-    if (rcl_base && rcl_read_ptr(rcl_base + RCL_ALLOC_GOT_RVA, (void **)&got) &&
-        got)
+    if (base && read_ptr(base + ALLOC_GOT_RVA, (void **)&got) && got)
     {
         mem = ((void *(*)(size_t))got)(size);
-        if (rcl_msg_ok(mem, size))
+        if (msg_ok(mem, size))
         {
             memset(mem, 0, size);
             return mem;
@@ -262,15 +253,14 @@ void *rcl_msg_alloc(void)
     }
     return nullptr;
 }
-void *rcl_manager(void)
+void *manager(void)
 {
-    if (!rcl_scene_object || !rcl_scene_live())
+    if (!scene_object || !scene_live())
     {
         return nullptr;
     }
     static uintptr_t c_battle = 0;
-    uintptr_t battleFn =
-        rcl_callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
+    uintptr_t battleFn = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
     void *battle = nullptr;
     void *mgr = nullptr;
     if (!battleFn)
@@ -282,39 +272,39 @@ void *rcl_manager(void)
     {
         return nullptr;
     }
-    if (!rcl_read_ptr((uintptr_t)battle + RCL_MGR_OFF, &mgr) || !mgr)
+    if (!read_ptr((uintptr_t)battle + MGR_OFF, &mgr) || !mgr)
     {
         return nullptr;
     }
     return mgr;
 }
-int rcl_pred_set(int x, int y)
+int pred_set(int x, int y)
 {
     uintptr_t setFn = 0;
     uintptr_t ctrl = 0;
-    if (!RCL_PRED_SET || !rcl_coord_ok)
+    if (!PRED_SET || !coord_ok)
     {
         return 0;
     }
     {
         static uintptr_t c_set = 0;
-        setFn = rcl_callable_cached(&c_set, RCL_MOVE_RVA);
+        setFn = callable_cached(&c_set, MOVE_RVA);
     }
-    ctrl = rcl_controller();
+    ctrl = controller();
     if (!setFn || !ctrl)
     {
         return 0;
     }
-    ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, RCL_PRED_FLAG);
+    ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, PRED_FLAG);
     return 1;
 }
-int rcl_move_to(int32_t x, int32_t y, float ox, float oy)
+int move_to(int32_t x, int32_t y, float ox, float oy)
 {
     uintptr_t fn = 0;
     uintptr_t ctrl = 0;
     (void)ox;
     (void)oy;
-    if (!RCL_MOVE_ON || rcl_dead)
+    if (!MOVE_ON || dead)
     {
         return 0;
     }
@@ -324,9 +314,9 @@ int rcl_move_to(int32_t x, int32_t y, float ox, float oy)
     }
     {
         static uintptr_t c_move = 0;
-        fn = rcl_callable_cached(&c_move, RCL_MOVE_RVA);
+        fn = callable_cached(&c_move, MOVE_RVA);
     }
-    ctrl = rcl_controller();
+    ctrl = controller();
     if (!fn || !ctrl)
     {
         return 0;

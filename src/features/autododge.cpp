@@ -58,10 +58,10 @@ struct ProjectileState
     bool isIndirect;
     bool isBeam;
 };
-__thread int rcl_in_move = 0;
-int32_t rcl_pl_mine[12] = {0};
-int rcl_active = 0;
-int rcl_moving = 0;
+__thread int in_move = 0;
+int32_t pl_mine[12] = {0};
+int active = 0;
+int moving = 0;
 static std::map<int, ProjectileState> g_proj_cache;
 static std::vector<V2> g_ring;
 static int g_headingIdx = -1;
@@ -129,7 +129,7 @@ static float clearanceFor(const std::vector<Threat> &threats, float myX,
 }
 static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
 {
-    if (!rcl_wall_ready())
+    if (!wall_ready())
         return 0.0f;
     float step = speed * TUNE.PROBE_T;
     float penalty = 0.0f;
@@ -137,7 +137,7 @@ static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
     {
         float px = myX + dir.x * step * (float)s;
         float py = myY + dir.y * step * (float)s;
-        if (rcl_wall_is_blocked_wide(px, py, bodyR, RCL_WALL_BLOCKS_MOVEMENT))
+        if (wall_is_blocked_wide(px, py, bodyR, WALL_BLOCKS_MOVEMENT))
         {
             penalty += TUNE.WALL_HIT * (float)(TUNE.PROBE_N - s + 1);
         }
@@ -149,51 +149,50 @@ static void clearHeading()
     g_headingIdx = -1;
     g_holdUntil = 0;
 }
-static int32_t rcl_call1i_local(uintptr_t fn, uintptr_t self)
+static int32_t call1i_local(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !self || !rcl_base)
+    if (!fn || !self || !base)
         return 0;
-    if (!rcl_pointer_plausible(self))
+    if (!pointer_plausible(self))
         return 0;
-    uintptr_t rva = (fn >= rcl_base) ? (fn - rcl_base) : fn;
-    uintptr_t target = rcl_callable(rva);
+    uintptr_t rva = (fn >= base) ? (fn - base) : fn;
+    uintptr_t target = callable(rva);
     if (!target)
         return 0;
     typedef int32_t (*fn_t)(uintptr_t);
     return ((fn_t)target)(self);
 }
-void rcl_autododge(void)
+void autododge(void)
 {
-    if (!rcl_base || !rcl_own_elem || rcl_dead)
+    if (!base || !own_elem || dead)
     {
-        rcl_active = 0;
+        active = 0;
         return;
     }
-    uint64_t now = rcl_us() / 1000;
+    uint64_t now = us() / 1000;
     uint32_t tickMs = (g_headingIdx >= 0) ? TUNE.TICK_MS : TUNE.TICK_MS_IDLE;
     if (now - g_lastTick < tickMs)
         return;
     g_lastTick = now;
-    rcl_dbg.sent = 0;
-    rcl_dbg.thn = 0;
+    dbg.sent = 0;
+    dbg.thn = 0;
     buildRing();
-    float mx = (float)rcl_own_x;
-    float my = (float)rcl_own_y;
-    float myRadius = rcl_own_r;
+    float mx = (float)own_x;
+    float my = (float)own_y;
+    float myRadius = own_r;
     if (fabsf(mx) < TUNE.MIN_POS && fabsf(my) < TUNE.MIN_POS)
         return;
-    if (rcl_own_speed >= 300.0f && rcl_own_speed <= 8500.0f)
+    if (own_speed >= 300.0f && own_speed <= 8500.0f)
     {
-        CHAR_SPEED = rcl_own_speed;
+        CHAR_SPEED = own_speed;
     }
     else
     {
         uintptr_t data = 0;
-        if (rcl_read_ptr(rcl_own_elem + RCL_ELEM_DEF_OFF, (void **)&data) &&
-            data)
+        if (read_ptr(own_elem + ELEM_DEF_OFF, (void **)&data) && data)
         {
             int32_t readSpd = 0;
-            if (rcl_read_int(data + 0x1c4, &readSpd))
+            if (read_int(data + 0x1c4, &readSpd))
             {
                 if (readSpd >= 300 && readSpd <= 8500)
                 {
@@ -207,41 +206,39 @@ void rcl_autododge(void)
         std::map<int, bool> seen;
         float zoneSq = TUNE.AWARE * TUNE.AWARE;
         float bodyR = myRadius + TUNE.SKIN;
-        if (rcl_manager_array_ptr && rcl_manager_count_v > 0)
+        if (manager_array_ptr && manager_count_v > 0)
         {
-            for (int i = 0; i < rcl_manager_count_v; i++)
+            for (int i = 0; i < manager_count_v; i++)
             {
                 uintptr_t objPtr = 0;
-                if (!rcl_read_ptr(rcl_manager_array_ptr + (uintptr_t)i * 8ULL,
-                                  (void **)&objPtr) ||
+                if (!read_ptr(manager_array_ptr + (uintptr_t)i * 8ULL,
+                              (void **)&objPtr) ||
                     !objPtr)
                     continue;
-                if (!rcl_pointer_plausible(objPtr))
+                if (!pointer_plausible(objPtr))
                     continue;
                 uintptr_t dataPtr = 0;
-                if (!rcl_read_ptr(objPtr + RCL_ELEM_DEF_OFF,
-                                  (void **)&dataPtr) ||
+                if (!read_ptr(objPtr + ELEM_DEF_OFF, (void **)&dataPtr) ||
                     !dataPtr)
                     continue;
-                if (!rcl_pointer_plausible(dataPtr))
+                if (!pointer_plausible(dataPtr))
                     continue;
                 uintptr_t dataVtable = 0;
-                if (!rcl_read_ptr(dataPtr, (void **)&dataVtable) || !dataVtable)
+                if (!read_ptr(dataPtr, (void **)&dataVtable) || !dataVtable)
                     continue;
-                if (!rcl_pointer_plausible(dataVtable))
+                if (!pointer_plausible(dataVtable))
                     continue;
-                int pid = rcl_gid(objPtr, nullptr);
-                bool isProj = (pid >= 2000000) || (dataVtable - rcl_base ==
-                                                   RCL_VTABLE_PROJ_DATA_RVA);
+                int pid = gid(objPtr, nullptr);
+                bool isProj = (pid >= 2000000) ||
+                              (dataVtable - base == VTABLE_PROJ_DATA_RVA);
                 if (!isProj || pid == 0)
                     continue;
                 int32_t teamId = -1;
-                if (!rcl_read_int(objPtr + 64, &teamId) ||
-                    teamId == rcl_own_team_b)
+                if (!read_int(objPtr + 64, &teamId) || teamId == own_team_b)
                     continue;
                 int32_t px_i = 0, py_i = 0;
-                if (!rcl_read_int(objPtr + RCL_OBJ_X_OFF, &px_i) ||
-                    !rcl_read_int(objPtr + RCL_OBJ_Y_OFF, &py_i))
+                if (!read_int(objPtr + OBJ_X_OFF, &px_i) ||
+                    !read_int(objPtr + OBJ_Y_OFF, &py_i))
                     continue;
                 float px = (float)px_i;
                 float py = (float)py_i;
@@ -250,7 +247,7 @@ void rcl_autododge(void)
                 if (dx_dist * dx_dist + dy_dist * dy_dist > zoneSq)
                     continue;
                 uint32_t deadFlag = 0;
-                if (!rcl_read_int(objPtr + 208, (int32_t *)&deadFlag) ||
+                if (!read_int(objPtr + 208, (int32_t *)&deadFlag) ||
                     deadFlag != 0)
                     continue;
                 seen[pid] = true;
@@ -264,7 +261,7 @@ void rcl_autododge(void)
                     state.sampleTime = now;
                     state.castRange = RANGE_FALLBACK;
                     uint8_t ind = 0;
-                    if (rcl_read_byte(dataPtr + RCL_PROJ_ISTHROWER_OFF, &ind))
+                    if (read_byte(dataPtr + PROJ_ISTHROWER_OFF, &ind))
                     {
                         state.isIndirect = (ind != 0);
                     }
@@ -272,16 +269,16 @@ void rcl_autododge(void)
                     {
                         state.isIndirect = false;
                     }
-                    if (rcl_addr_projbeam)
+                    if (addr_projbeam)
                     {
                         state.isBeam =
-                            (rcl_call1i_local(rcl_addr_projbeam, dataPtr) != 0);
+                            (call1i_local(addr_projbeam, dataPtr) != 0);
                     }
                     else
                     {
                         uint8_t beam = 0;
-                        if (rcl_read_byte(dataPtr + OFF_PROJECTILEDATA_ISBEAM,
-                                          &beam))
+                        if (read_byte(dataPtr + OFF_PROJECTILEDATA_ISBEAM,
+                                      &beam))
                         {
                             state.isBeam = (beam != 0);
                         }
@@ -292,16 +289,15 @@ void rcl_autododge(void)
                     }
                     if (state.speed <= 0.0f)
                     {
-                        if (rcl_addr_projspeed)
+                        if (addr_projspeed)
                         {
-                            state.speed = (float)rcl_call1i_local(
-                                rcl_addr_projspeed, dataPtr);
+                            state.speed =
+                                (float)call1i_local(addr_projspeed, dataPtr);
                         }
                         else
                         {
                             int32_t spd = 0;
-                            if (rcl_read_int(dataPtr + RCL_PROJDATA_SPEED_OFF,
-                                             &spd) &&
+                            if (read_int(dataPtr + PROJDATA_SPEED_OFF, &spd) &&
                                 spd > 0)
                             {
                                 state.speed = (float)spd;
@@ -313,8 +309,7 @@ void rcl_autododge(void)
                         state.speed = 3000.0f;
                     }
                     int32_t angleDegrees = -1;
-                    if (rcl_read_int(objPtr + RCL_PROJ_ANGLE_OFF,
-                                     &angleDegrees) &&
+                    if (read_int(objPtr + PROJ_ANGLE_OFF, &angleDegrees) &&
                         angleDegrees >= 0 && angleDegrees <= 360)
                     {
                         float angle =
@@ -340,16 +335,15 @@ void rcl_autododge(void)
                     }
                 }
                 state.lastSeen = now;
-                if (rcl_addr_projradius)
+                if (addr_projradius)
                 {
                     state.radius =
-                        (float)rcl_call1i_local(rcl_addr_projradius, dataPtr);
+                        (float)call1i_local(addr_projradius, dataPtr);
                 }
                 else
                 {
                     int32_t r = 0;
-                    if (rcl_read_int(dataPtr + RCL_PROJDATA_RADIUS_OFF, &r) &&
-                        r > 0)
+                    if (read_int(dataPtr + PROJDATA_RADIUS_OFF, &r) && r > 0)
                     {
                         state.radius = (float)r;
                     }
@@ -389,8 +383,7 @@ void rcl_autododge(void)
                         continue;
                     float hX = px + state.dirX * std::max(playerAlong, 0.0f);
                     float hY = py + state.dirY * std::max(playerAlong, 0.0f);
-                    if (!rcl_wall_los(px, py, hX, hY,
-                                      RCL_WALL_BLOCKS_PROJECTILES))
+                    if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES))
                         continue;
                     if (playerAlong > state.castRange + state.radius)
                         continue;
@@ -488,26 +481,26 @@ void rcl_autododge(void)
         g_lastSentX = (float)tx;
         g_lastSentY = (float)ty;
         g_lastSentAt = now;
-        rcl_move_to(tx, ty, mx, my);
-        rcl_enqueue(tx, ty);
-        rcl_dbg.sent = 1;
+        move_to(tx, ty, mx, my);
+        enqueue(tx, ty);
+        dbg.sent = 1;
     }
-    rcl_active = 1;
-    rcl_moving = 1;
-    rcl_dbg.px = mx;
-    rcl_dbg.py = my;
-    rcl_dbg.dx = chosen.x;
-    rcl_dbg.dy = chosen.y;
-    rcl_dbg.tx = (float)tx;
-    rcl_dbg.ty = (float)ty;
-    rcl_dbg.hazards = (int)threats.size();
-    snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "CLR:%.0f SCR:%.0f", stayClear,
+    active = 1;
+    moving = 1;
+    dbg.px = mx;
+    dbg.py = my;
+    dbg.dx = chosen.x;
+    dbg.dy = chosen.y;
+    dbg.tx = (float)tx;
+    dbg.ty = (float)ty;
+    dbg.hazards = (int)threats.size();
+    snprintf(dbg.note, sizeof(dbg.note), "CLR:%.0f SCR:%.0f", stayClear,
              chosenScore);
 }
-void rcl_autododge_reset(void)
+void autododge_reset(void)
 {
     g_proj_cache.clear();
     clearHeading();
-    rcl_active = 0;
-    rcl_moving = 0;
+    active = 0;
+    moving = 0;
 }

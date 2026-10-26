@@ -5,14 +5,14 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME := Recoil
 
-Recoil_FILES := $(shell find src -name "*.cpp" | sort)
-Recoil_FILES += $(shell find tools \( -name "*.c" -o -name "*.cpp" \) | sort)
+FILES := $(shell find src -name "*.cpp" | sort)
+FILES += $(shell find tools \( -name "*.c" -o -name "*.cpp" \) | sort)
 
-RECOIL_INCLUDE_FLAGS := -Isrc -Itools
+INCLUDE_FLAGS := -Isrc -Itools
 
-Recoil_CFLAGS := -Wall -Wextra $(RECOIL_INCLUDE_FLAGS)
-Recoil_CCFLAGS := -std=c++17 -fblocks -Wall -Wextra $(RECOIL_INCLUDE_FLAGS)
+CFLAGS := -Wall -Wextra $(INCLUDE_FLAGS)
+CCFLAGS := -std=c++17 -fblocks -Wall -Wextra $(INCLUDE_FLAGS)
 
-Recoil_FRAMEWORKS := Foundation
+FRAMEWORKS := Foundation
 
 include $(THEOS_MAKE_PATH)/tweak.mk
