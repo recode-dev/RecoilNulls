@@ -77,6 +77,7 @@ extern uintptr_t addr_projradius;
 extern uintptr_t addr_projbeam;
 extern uintptr_t addr_castrange;
 float call1f(uintptr_t fn, uintptr_t self);
+float own_cast_range(void);
 extern volatile int at;
 extern int sig_ticks;
 extern uintptr_t sig_last;

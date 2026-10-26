@@ -46,6 +46,8 @@ uintptr_t addr_projspeed = 0;
 uintptr_t addr_projradius = 0;
 uintptr_t addr_projbeam = 0;
 uintptr_t addr_castrange = 0;
+uintptr_t addr_skilldata = 0;
+uintptr_t addr_weaponskill = 0;
 volatile int at = 0;
 uintptr_t slot_object[34] = {0};
 uintptr_t slot_arg[34] = {0};
@@ -1938,6 +1940,11 @@ float call1f(uintptr_t fn, uintptr_t self)
     if (!fn || !self) return 0.0f;
     return ((fn1f)fn)(self);
 }
+static uintptr_t call1u(uintptr_t fn, uintptr_t self)
+{
+    if (!fn || !self) return 0;
+    return ((uintptr_t(*)(uintptr_t))fn)(self);
+}
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
 int32_t own_x = 0;
@@ -2416,6 +2423,8 @@ void resolve_addresses(void)
     addr_projradius = callable(RVA_LOGICPROJECTILEDATA_GETRADIUS);
     addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
     addr_castrange = callable(RVA_LOGICSKILLDATA_GETCASTRANGE);
+    addr_skilldata = callable(RVA_LOGICSKILLCLIENT_GETDATA);
+    addr_weaponskill = callable(RVA_LOGICCHARACTERCLIENT_GETWEAPONSKILL);
     if (!addr_readable(addr_battlescreen, sizeof(void*)))
     {
         addr_battlescreen = 0;
@@ -2628,6 +2637,25 @@ uintptr_t client(void)
         return 0;
     }
     return (uintptr_t)clientPtr;
+}
+float own_cast_range(void)
+{
+    uintptr_t charClient = client();
+    if (!charClient || !addr_weaponskill || !addr_skilldata || !addr_castrange)
+    {
+        return 0.0f;
+    }
+    uintptr_t skillClient = call1u(addr_weaponskill, charClient);
+    if (!skillClient)
+    {
+        return 0.0f;
+    }
+    uintptr_t skillData = call1u(addr_skilldata, skillClient);
+    if (!skillData)
+    {
+        return 0.0f;
+    }
+    return call1f(addr_castrange, skillData);
 }
 void state_note(int state)
 {

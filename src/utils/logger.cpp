@@ -212,7 +212,6 @@ void dump_own(void)
     int32_t hp = 0;
     int32_t team = -1;
     int32_t ownerIdx = -1;
-    uint8_t deadFlag = 0;
     int okHp = 0;
     line("own elem=%p x=%d y=%d team=%d idx=%d dead=%d hp=%u ok=%d r=%.1f "
          "spd=%.1f\n",
@@ -232,16 +231,14 @@ void dump_own(void)
     read_int(own_elem + OBJ_HP_OFF, &hp);
     read_int(own_elem + OBJ_TEAM_OFF, &team);
     read_int(own_elem + OBJ_OWNERINDEX_OFF, &ownerIdx);
-    read_byte(own_elem + OBJ_DEADFLAG_OFF, &deadFlag);
     okHp = read_int(own_elem + OBJ_HP_OFF, &hp);
-    line("own raw x=%d y=%d hp=%d(ok=%d) team=%d owner=%d deadbyte=%d\n",
+    line("own raw x=%d y=%d hp=%d(ok=%d) team=%d owner=%d\n",
          x,
          y,
          hp,
          okHp,
          team,
-         ownerIdx,
-         deadFlag);
+         ownerIdx);
 }
 void dump_projectiles(void)
 {
