@@ -45,7 +45,7 @@ uintptr_t addr_charradius = 0;
 uintptr_t addr_projspeed = 0;
 uintptr_t addr_projradius = 0;
 uintptr_t addr_projbeam = 0;
-volatile int at = 0;
+volatile int g_at = 0;
 uintptr_t slot_object[34] = {0};
 uintptr_t slot_arg[34] = {0};
 uintptr_t slot_adopted = 0;
@@ -189,7 +189,7 @@ BOOL read_float(uintptr_t address, float *out)
     }
     return read_bytes(address, out, 4);
 }
-BOOL writable(uintptr_t address, size_t length)
+BOOL g_writable(uintptr_t address, size_t length)
 {
     uintptr_t end = address + length;
     uintptr_t cursor = address;
@@ -238,7 +238,7 @@ BOOL write_bytes(uintptr_t address, const void *src, size_t length)
     {
         return NO;
     }
-    if (!writable(address, length))
+    if (!g_writable(address, length))
     {
         return NO;
     }
@@ -259,12 +259,12 @@ BOOL read_ptr(uintptr_t address, void **out)
 }
 void *read_global_ptr(uintptr_t rva)
 {
-    if (!base || !rva)
+    if (!g_base || !rva)
     {
         return nullptr;
     }
     void *value = nullptr;
-    if (!read_ptr(base + rva, &value))
+    if (!read_ptr(g_base + rva, &value))
     {
         return nullptr;
     }
@@ -272,12 +272,12 @@ void *read_global_ptr(uintptr_t rva)
 }
 uintptr_t callable(uintptr_t rva)
 {
-    if (!base || !rva)
+    if (!g_base || !rva)
     {
         return 0;
     }
-    uintptr_t address = base + rva;
-    if (address < base || address >= base + 0x2000000ULL)
+    uintptr_t address = g_base + rva;
+    if (address < g_base || address >= g_base + 0x2000000ULL)
     {
         return 0;
     }
@@ -301,22 +301,22 @@ BOOL copy(uintptr_t source, void *destination, size_t length)
 }
 BOOL text_section(uintptr_t *address, uint64_t *size)
 {
-    if (!base)
+    if (!g_base)
     {
         return NO;
     }
-    if (!addr_readable(base, sizeof(struct mach_header_64)))
+    if (!addr_readable(g_base, sizeof(struct mach_header_64)))
     {
         return NO;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
+    const struct mach_header_64 *header = (const struct mach_header_64 *)g_base;
     if (header->magic != MH_MAGIC_64)
     {
         return NO;
     }
     const uint8_t *cursor = (const uint8_t *)(header + 1);
     const uint8_t *limit = cursor + header->sizeofcmds;
-    uintptr_t slide = image_slide(base);
+    uintptr_t slide = image_slide(g_base);
     for (uint32_t i = 0; i < header->ncmds; i++)
     {
         if (cursor + sizeof(struct load_command) > limit)
@@ -482,27 +482,27 @@ BOOL find_game_image(uintptr_t *out_base)
     }
     return NO;
 }
-uintptr_t owner = 0;
+uintptr_t g_owner = 0;
 int wired = 0;
 dispatch_source_t scan_timer = nullptr;
 BOOL segment_range(const char *name, uintptr_t *lo, uintptr_t *hi)
 {
-    if (!base || !name)
+    if (!g_base || !name)
     {
         return NO;
     }
-    if (!addr_readable(base, sizeof(struct mach_header_64)))
+    if (!addr_readable(g_base, sizeof(struct mach_header_64)))
     {
         return NO;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
+    const struct mach_header_64 *header = (const struct mach_header_64 *)g_base;
     if (header->magic != MH_MAGIC_64)
     {
         return NO;
     }
     const uint8_t *cursor = (const uint8_t *)(header + 1);
     const uint8_t *limit = cursor + header->sizeofcmds;
-    uintptr_t slide = image_slide(base);
+    uintptr_t slide = image_slide(g_base);
     for (uint32_t i = 0; i < header->ncmds; i++)
     {
         if (cursor + sizeof(struct load_command) > limit)
@@ -544,11 +544,11 @@ BOOL segment_range(const char *name, uintptr_t *lo, uintptr_t *hi)
 }
 void image_span_refresh(void)
 {
-    if (!base || !addr_readable(base, sizeof(struct mach_header_64)))
+    if (!g_base || !addr_readable(g_base, sizeof(struct mach_header_64)))
     {
         return;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
+    const struct mach_header_64 *header = (const struct mach_header_64 *)g_base;
     if (header->magic != MH_MAGIC_64)
     {
         return;
@@ -576,22 +576,22 @@ void image_span_refresh(void)
 }
 const char *image_segment_name(uintptr_t value)
 {
-    if (!base || !value)
+    if (!g_base || !value)
     {
         return nullptr;
     }
-    if (!addr_readable(base, sizeof(struct mach_header_64)))
+    if (!addr_readable(g_base, sizeof(struct mach_header_64)))
     {
         return nullptr;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
+    const struct mach_header_64 *header = (const struct mach_header_64 *)g_base;
     if (header->magic != MH_MAGIC_64)
     {
         return nullptr;
     }
     const uint8_t *cursor = (const uint8_t *)(header + 1);
     const uint8_t *limit = cursor + header->sizeofcmds;
-    uintptr_t slide = image_slide(base);
+    uintptr_t slide = image_slide(g_base);
     for (uint32_t i = 0; i < header->ncmds; i++)
     {
         if (cursor + sizeof(struct load_command) > limit)
@@ -758,7 +758,8 @@ BOOL vtable_in_image(uintptr_t vtable)
     {
         return NO;
     }
-    if (vtable >= base + DC_RVA_LO && vtable < base + DC_RVA_LO + DC_RVA_SIZE)
+    if (vtable >= g_base + DC_RVA_LO &&
+        vtable < g_base + DC_RVA_LO + DC_RVA_SIZE)
     {
         return YES;
     }
@@ -775,14 +776,14 @@ uintptr_t strip_ptr(uintptr_t value)
     stripped =
         (uintptr_t)ptrauth_strip((void *)value, ptrauth_key_function_pointer);
 #endif
-    if (stripped >= base && stripped < base + IMAGE_SPAN)
+    if (stripped >= g_base && stripped < g_base + IMAGE_SPAN)
     {
         return stripped;
     }
     if ((stripped & 0xffffffffULL) < IMAGE_SPAN)
     {
-        uintptr_t viaLow = base + (stripped & 0xffffffffULL);
-        if (viaLow >= base && viaLow < base + IMAGE_SPAN)
+        uintptr_t viaLow = g_base + (stripped & 0xffffffffULL);
+        if (viaLow >= g_base && viaLow < g_base + IMAGE_SPAN)
         {
             return viaLow;
         }
@@ -802,7 +803,7 @@ void poll_for_game(int tick)
     uintptr_t base = 0;
     if (find_game_image(&base))
     {
-        base = base;
+        g_base = base;
         setup();
         return;
     }
@@ -812,7 +813,7 @@ void poll_for_game(int tick)
           poll_for_game(tick + 1);
         });
 }
-uintptr_t base = 0;
+uintptr_t g_base = 0;
 uintptr_t manager_ptr = 0;
 uint64_t ticks_a = 0;
 float own_speed = 720.0f;
@@ -877,7 +878,7 @@ int collect(uintptr_t manager, obj_t *out, int capacity)
         {
             continue;
         }
-        vtRva = (uintptr_t)vtable - base;
+        vtRva = (uintptr_t)vtable - g_base;
         if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
         {
             continue;
@@ -990,7 +991,7 @@ BOOL start_boundary(const uint8_t *bytes, size_t offset)
 }
 void load_function_starts(void)
 {
-    if (starts || !base)
+    if (g_starts || !g_base)
     {
         return;
     }
@@ -1054,10 +1055,10 @@ void load_function_starts(void)
         free(starts);
         return;
     }
-    starts = starts;
+    g_starts = starts;
     starts_count = count;
 }
-uintptr_t *starts = nullptr;
+uintptr_t *g_starts = nullptr;
 size_t starts_count = 0;
 uintptr_t setpred = 0;
 uintptr_t site = 0;
@@ -1164,7 +1165,7 @@ void slot_hooks_install(void)
 {
     hook_t specs[34];
     int i = 0;
-    if (!base)
+    if (!g_base)
     {
         return;
     }
@@ -1175,12 +1176,12 @@ void slot_hooks_install(void)
         {
             continue;
         }
-        if (site_hash(base + specs[i].rva) != slot_site_hash[i])
+        if (site_hash(g_base + specs[i].rva) != slot_site_hash[i])
         {
             specs[i].rva = 0;
         }
     }
-    hooks_install(base, specs, 34, (void **)slot_orig);
+    hooks_install(g_base, specs, 34, (void **)slot_orig);
 }
 const int object_slots[3] = {2, 3, 4};
 int pub_logs = 0;
@@ -1651,14 +1652,14 @@ int state_tick(void)
     {
         hop_scene = scene;
     }
-    if (WIRE_OWNER && owner)
+    if (WIRE_OWNER && g_owner)
     {
         void *directArray = nullptr;
         int32_t directCount = 0;
-        if (read_ptr(owner + MGR_ARRAY_OFF, &directArray) && directArray &&
-            read_int(owner + MGR_COUNT_OFF, &directCount) && directCount > 0)
+        if (read_ptr(g_owner + MGR_ARRAY_OFF, &directArray) && directArray &&
+            read_int(g_owner + MGR_COUNT_OFF, &directCount) && directCount > 0)
         {
-            players_object = owner;
+            players_object = g_owner;
             players_array = (uintptr_t)directArray;
             players_count = directCount;
             hop_chosen = HOPCHOSEN_DIRECT;
@@ -1756,7 +1757,7 @@ void scan_world(void)
     int32_t y = 0;
     int32_t hp = 0;
     dbg.stage = 0;
-    if (!base)
+    if (!g_base)
         return;
     client = controller();
     if (!client)
@@ -1765,13 +1766,13 @@ void scan_world(void)
         own_elem_scan = 0;
         own_x = 0;
         own_y = 0;
-        dead = 1;
+        g_dead = 1;
         coord_ok = 0;
         dbg.stage = 1;
         return;
     }
     own = addr_getownchar ? call1(addr_getownchar, client) : 0;
-    if (base)
+    if (g_base)
     {
         uintptr_t tileMapFn = callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP);
         uintptr_t tileMap = tileMapFn ? call1(tileMapFn, client) : 0;
@@ -1828,12 +1829,12 @@ void scan_world(void)
             own_ok_hp = 0;
             own_hp = 0;
         }
-        dead = 0;
+        g_dead = 0;
         coord_ok = 1;
     }
     else
     {
-        dead = 1;
+        g_dead = 1;
     }
     if (own)
     {
@@ -1891,7 +1892,7 @@ void run_autododge(void)
         return;
     }
     in_move = 1;
-    autododge();
+    g_autododge();
     in_move = 0;
 }
 static uint64_t work_us = 0;
@@ -1946,8 +1947,8 @@ void setup(void)
     setup_done = YES;
     load_function_starts();
     resolve_addresses();
-    objc_arm(base, "MetalView", "render", objc_body);
-    objc_arm(base, "NullView", "render", objc_body);
+    objc_arm(g_base, "MetalView", "render", objc_body);
+    objc_arm(g_base, "NullView", "render", objc_body);
     slot_hooks_install();
     start_timer();
     start_hot_timer();
@@ -1972,7 +1973,7 @@ int element_type(uintptr_t vt, uintptr_t *wordOut)
     {
         return -1;
     }
-    slot = strip_ptr((uintptr_t)slotPtr) - base;
+    slot = strip_ptr((uintptr_t)slotPtr) - g_base;
     if (wordOut)
     {
         *wordOut = slot;
@@ -2047,7 +2048,7 @@ int32_t gid_at(uintptr_t element, uintptr_t off)
     }
     return 0;
 }
-int32_t gid(uintptr_t element, int32_t *offOut)
+int32_t g_gid(uintptr_t element, int32_t *offOut)
 {
     int32_t gid = 0;
     int32_t alt = 0;
@@ -2137,7 +2138,7 @@ int container_score(uintptr_t container)
         {
             asciiCount++;
         }
-        gid = gid((uintptr_t)element, nullptr);
+        gid = g_gid((uintptr_t)element, nullptr);
         read_int((uintptr_t)element + TEAM_OFF, &team);
         if (read_int((uintptr_t)element + OBJ_X_OFF, &px) &&
             read_int((uintptr_t)element + OBJ_Y_OFF, &py) && px > -COORD_MAX &&
@@ -2223,7 +2224,7 @@ int container_score(uintptr_t container)
 }
 void resolve_addresses(void)
 {
-    if (!base)
+    if (!g_base)
     {
         return;
     }
@@ -2232,7 +2233,7 @@ void resolve_addresses(void)
     addr_getteam = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM);
     addr_getx = callable(RVA_LOGICGAMEOBJECTCLIENT_GETX);
     addr_gety = callable(RVA_LOGICGAMEOBJECTCLIENT_GETY);
-    addr_battlescreen = base;
+    addr_battlescreen = g_base;
     addr_getownidx = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX);
     addr_movedto = callable(MOVE_RVA);
     addr_getdata = callable(RVA_LOGICGAMEOBJECTCLIENT_GETDATA);
@@ -2311,7 +2312,7 @@ void gidless_scan(uintptr_t manager)
             continue;
         }
         seen++;
-        if (gid((uintptr_t)element, nullptr) != 0)
+        if (g_gid((uintptr_t)element, nullptr) != 0)
         {
             withGid++;
         }
@@ -2360,7 +2361,7 @@ uintptr_t list_gid_off(uintptr_t array, int32_t count)
     }
     return off;
 }
-int dead = 0;
+int g_dead = 0;
 int own_team_a = -1;
 int own_team_seen = 0;
 uintptr_t proj_addr = 0;
@@ -2428,7 +2429,7 @@ void proj_track(uintptr_t elem, uintptr_t, int32_t, int32_t)
     }
     memcpy(proj_bytes, now, sizeof(now));
 }
-uintptr_t hop(uintptr_t base, int *whyOut)
+uintptr_t g_hop(uintptr_t base, int *whyOut)
 {
     void *p = nullptr;
     void *q = nullptr;
@@ -2481,7 +2482,7 @@ int scene_live(void)
     }
     return (uintptr_t)value == scene_object;
 }
-uintptr_t client(void)
+uintptr_t g_client(void)
 {
     void *client = nullptr;
     if (!scene_object || !scene_live())
@@ -2504,7 +2505,7 @@ void state_note(int state)
     }
     if (state == 5 && prev_state != 5)
     {
-        owner = 0;
+        g_owner = 0;
         wired = 0;
     }
     prev_state = state;
@@ -2621,8 +2622,8 @@ int proj_scan(uintptr_t manager, int32_t count, const obj_t *roster,
         {
             continue;
         }
-        vtRva = (uintptr_t)vtable - base;
-        gid = gid((uintptr_t)element, nullptr);
+        vtRva = (uintptr_t)vtable - g_base;
+        gid = g_gid((uintptr_t)element, nullptr);
         if (gid < 2000000)
         {
             gid = 0;
@@ -2928,7 +2929,7 @@ int ctrl_bounds(uintptr_t base, int32_t *wOut, int32_t *hOut)
 }
 uintptr_t controller(void)
 {
-    uintptr_t client = client();
+    uintptr_t client = g_client();
     int32_t cw = 0;
     int32_t ch = 0;
     if (client && ctrl_bounds(client, &cw, &ch))
@@ -3081,8 +3082,8 @@ int team_trust = 1;
 int32_t enemy_x[12];
 int32_t enemy_y[12];
 int enemy_n = 0;
-void roster(uintptr_t ownElem, int ownIndex, int ownTeam, const obj_t *objects,
-            int usable)
+void g_roster(uintptr_t ownElem, int ownIndex, int ownTeam,
+              const obj_t *objects, int usable)
 {
     int i = 0;
     int ownSide = 0;

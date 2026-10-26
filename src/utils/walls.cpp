@@ -1,23 +1,24 @@
 #include "walls.h"
 #include "../core/scan.h"
-uintptr_t tiles = 0;
-int w = 0;
-int h = 0;
+uintptr_t g_tiles = 0;
+int g_w = 0;
+int g_h = 0;
 int cell(int tx, int ty, int *proj, int *move)
 {
     void *tile = nullptr;
     void *type = nullptr;
     *proj = -1;
     *move = -1;
-    if (!tiles)
+    if (!g_tiles)
     {
         return 0;
     }
-    if (tx < 0 || ty < 0 || tx >= w || ty >= h)
+    if (tx < 0 || ty < 0 || tx >= g_w || ty >= g_h)
     {
         return 0;
     }
-    if (!read_ptr(tiles + (uintptr_t)(ty * w + tx) * (uintptr_t)TILE_PTR_STRIDE,
+    if (!read_ptr(g_tiles +
+                      (uintptr_t)(ty * g_w + tx) * (uintptr_t)TILE_PTR_STRIDE,
                   &tile))
     {
         return 0;
@@ -62,9 +63,9 @@ void wall_bind(uintptr_t tileMap)
     if (tileMap != wall_map)
     {
         wall_map = tileMap;
-        tiles = 0;
-        w = 0;
-        h = 0;
+        g_tiles = 0;
+        g_w = 0;
+        g_h = 0;
         wall_dirty = 1;
         wall_have = 0;
         wall_fail_ms = 0;
@@ -83,11 +84,11 @@ void wall_bind(uintptr_t tileMap)
     {
         return;
     }
-    if ((uintptr_t)tiles != tiles || w != w || h != h)
+    if ((uintptr_t)tiles != g_tiles || w != g_w || h != g_h)
     {
-        tiles = (uintptr_t)tiles;
-        w = w;
-        h = h;
+        g_tiles = (uintptr_t)tiles;
+        g_w = w;
+        g_h = h;
         wall_dirty = 1;
         wall_have = 0;
     }
@@ -142,12 +143,12 @@ int wall_build(void)
     int total = 0;
     int i = 0;
     wall_have = 0;
-    if (!tiles)
+    if (!g_tiles)
     {
         return 0;
     }
-    width = w;
-    height = h;
+    width = g_w;
+    height = g_h;
     if (width <= 0 || width > WALL_MAX_MAP_TILES)
     {
         return 0;

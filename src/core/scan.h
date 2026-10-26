@@ -49,9 +49,9 @@ typedef struct
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <objc/runtime.h>
-extern uintptr_t base;
+extern uintptr_t g_base;
 extern const char *image_names[4];
-extern uintptr_t *starts;
+extern uintptr_t *g_starts;
 extern size_t starts_count;
 extern BOOL setup_done;
 extern __thread BOOL inside_hook;
@@ -75,14 +75,14 @@ extern uintptr_t addr_battlescreen;
 extern uintptr_t addr_projspeed;
 extern uintptr_t addr_projradius;
 extern uintptr_t addr_projbeam;
-extern volatile int at;
+extern volatile int g_at;
 extern int sig_ticks;
 extern uintptr_t sig_last;
 extern uintptr_t players_array;
 extern int players_count;
 extern uint64_t walk_tick;
 extern int walk_count;
-extern uintptr_t owner;
+extern uintptr_t g_owner;
 extern int wired;
 extern dispatch_source_t scan_timer;
 extern trail_t trail[8];
@@ -97,7 +97,7 @@ BOOL pointer_plausible(uintptr_t value);
 BOOL read_byte(uintptr_t address, uint8_t *out);
 BOOL read_int(uintptr_t address, int32_t *out);
 BOOL read_float(uintptr_t address, float *out);
-BOOL writable(uintptr_t address, size_t length);
+BOOL g_writable(uintptr_t address, size_t length);
 BOOL write_bytes(uintptr_t address, const void *src, size_t length);
 BOOL read_ptr(uintptr_t address, void **out);
 void *read_global_ptr(uintptr_t rva);
@@ -600,7 +600,7 @@ extern int coord_ok;
 extern int coord_usable;
 extern int team_off;
 extern int gidless;
-extern int dead;
+extern int g_dead;
 extern int own_team_a;
 extern int own_team_seen;
 extern uintptr_t proj_addr;
@@ -684,15 +684,15 @@ int element_type(uintptr_t vt, uintptr_t *wordOut);
 int container_header(uintptr_t object, uintptr_t *arrayOut, int32_t *countOut,
                      int32_t *capOut);
 int32_t gid_at(uintptr_t element, uintptr_t off);
-int32_t gid(uintptr_t element, int32_t *offOut);
+int32_t g_gid(uintptr_t element, int32_t *offOut);
 int container_score(uintptr_t container);
 void resolve_addresses(void);
 void locate_battle_mode(void);
 void gidless_scan(uintptr_t manager);
 uintptr_t list_gid_off(uintptr_t array, int32_t count);
 void proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
-uintptr_t hop(uintptr_t base, int *whyOut);
-uintptr_t client(void);
+uintptr_t g_hop(uintptr_t base, int *whyOut);
+uintptr_t g_client(void);
 void state_note(int state);
 int resolve_own_fallback(const obj_t *objects, int usable, int *indexOut,
                          const char **fromOut);
@@ -730,8 +730,8 @@ extern int respawn_tick;
 extern int state_code;
 extern int team_trust;
 int own_side_spawn(int32_t sx, int32_t sy);
-void roster(uintptr_t ownElem, int ownIndex, int ownTeam, const obj_t *objects,
-            int usable);
+void g_roster(uintptr_t ownElem, int ownIndex, int ownTeam,
+              const obj_t *objects, int usable);
 int team_at(const obj_t *objects, int index);
 #define CLUSTER 10000.0f
 #define GIDLESS 1

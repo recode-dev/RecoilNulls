@@ -1,9 +1,9 @@
 #ifndef UTILS_WALLS_H
 #define UTILS_WALLS_H
 #include <stdint.h>
-extern uintptr_t tiles;
-extern int w;
-extern int h;
+extern uintptr_t g_tiles;
+extern int g_w;
+extern int g_h;
 #define WALL_TILE_SIZE 300.0f
 #define WALL_BLOCKS_MOVEMENT 128
 #define WALL_BLOCKS_PROJECTILES 64

@@ -91,7 +91,7 @@ void dump_header(void)
     uint32_t i = 0;
     uintptr_t found = 0;
     line("\n########## recoil header ##########\n");
-    line("base=%p setup=%d ticks=%llu rate=%d/s\n", (void *)base,
+    line("base=%p setup=%d ticks=%llu rate=%d/s\n", (void *)g_base,
          (int)setup_done, g_ticks, g_rate);
     line("rva getinstance=%p getownchar=%p getteam=%p getownidx=%p\n",
          (void *)addr_getinstance, (void *)addr_getownchar,
@@ -124,15 +124,15 @@ void dump_header(void)
     for (i = 0; i < count; i++)
     {
         uintptr_t base = (uintptr_t)_dyld_get_image_header(i);
-        if (base != (uintptr_t)base)
+        if (base != (uintptr_t)g_base)
             continue;
         found = base;
         line("[game] idx=%u base=%p name=%s\n", i, (void *)base,
              _dyld_get_image_name(i));
     }
     if (!found)
-        line("[game] base %p not found in dyld list (count=%u)\n", (void *)base,
-             count);
+        line("[game] base %p not found in dyld list (count=%u)\n",
+             (void *)g_base, count);
 }
 void dump_chain(void)
 {
@@ -196,8 +196,8 @@ void dump_own(void)
     int okHp = 0;
     line("own elem=%p x=%d y=%d team=%d idx=%d dead=%d hp=%u ok=%d r=%.1f "
          "spd=%.1f\n",
-         (void *)own_elem, own_x, own_y, own_team_b, own_index_v, dead, own_hp,
-         own_ok_hp, own_r, own_speed);
+         (void *)own_elem, own_x, own_y, own_team_b, own_index_v, g_dead,
+         own_hp, own_ok_hp, own_r, own_speed);
     if (!own_elem)
         return;
     read_int(own_elem + OBJ_X_OFF, &x);
@@ -240,7 +240,7 @@ void dump_ad(void)
          "first=%.1f "
          "tgt=(%.0f,%.0f) sent=%d active=%d moving=%d\n",
          dbg.stage, dbg.hazards, dbg.threats, dbg.danger, dbg.dx, dbg.dy,
-         dbg.ix, dbg.iy, dbg.tx, dbg.ty, dbg.sent, active, moving);
+         dbg.ix, dbg.iy, dbg.tx, dbg.ty, dbg.sent, g_active, g_moving);
     for (int i = 0; i < dbg.thn; i++)
     {
         line("  th%d x=%.0f y=%.0f vx=%.0f vy=%.0f rad=%.0f\n", i, dbg.thx[i],
@@ -327,7 +327,7 @@ void dump_objects(void)
         line("  o%d obj=%p vt=%llx gid=%d team=%d owner=%d x=%d y=%d hp=%d "
              "dead=%d\n",
              i, (void *)object,
-             (unsigned long long)(vt >= base ? vt - base : vt), gid, team,
+             (unsigned long long)(vt >= g_base ? vt - g_base : vt), gid, team,
              owner, x, y, hp, dead);
     }
 }

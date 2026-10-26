@@ -645,7 +645,7 @@ static int hook_probe(uintptr_t target)
                                       HOOK_PTR_SLOTS, true);
     return hits;
 }
-static bool install(void *target, void *replacement)
+static bool g_install(void *target, void *replacement)
 {
     if (!target || !replacement)
     {
@@ -727,7 +727,7 @@ int hooks_install(uintptr_t imageBase, const hook_t *hooks, int count,
             continue;
         if (!hook_prologue_ok(target))
             continue;
-        if (!install((void *)target, hooks[i].replacement))
+        if (!g_install((void *)target, hooks[i].replacement))
             continue;
         if (originals)
             originals[i] = original_ptr((void *)target);
