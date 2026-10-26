@@ -202,69 +202,7 @@ int rcl_enqueue(int x, int y)
     return rcl_enqueue_type(x, y, (int)RCL_TYPE_MOVE);
 }
 
-static int rcl_pred_probe(uintptr_t pred, int *alignOut, int *readOut, int *writeOut, int *vtOut)
-{
-    void *vtRaw = nullptr;
-    uintptr_t vt = 0;
-    if (alignOut)
-    {
-        *alignOut = 0;
-    }
-    if (readOut)
-    {
-        *readOut = 0;
-    }
-    if (writeOut)
-    {
-        *writeOut = 0;
-    }
-    if (vtOut)
-    {
-        *vtOut = 0;
-    }
-    if (!pred)
-    {
-        return 0;
-    }
-    if ((pred & 7) != 0)
-    {
-        return 0;
-    }
-    if (alignOut)
-    {
-        *alignOut = 1;
-    }
-    if (!rcl_addr_readable(pred, 0x118))
-    {
-        return 0;
-    }
-    if (readOut)
-    {
-        *readOut = 1;
-    }
-    if (!rcl_addr_writable(pred, 0x118))
-    {
-        return 0;
-    }
-    if (writeOut)
-    {
-        *writeOut = 1;
-    }
-    if (!rcl_read_ptr(pred, &vtRaw))
-    {
-        return 0;
-    }
-    vt = (uintptr_t)vtRaw;
-    if (!vt)
-    {
-        return 0;
-    }
-    if (vtOut)
-    {
-        *vtOut = 1;
-    }
-    return 1;
-}
+
 
 
 
