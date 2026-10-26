@@ -1,8 +1,6 @@
 #include "crypto.h"
-
 #include <stdint.h>
 #include <string.h>
-
 static const uint32_t RCL_SHA_K[64] = {
     0x428a2f98UL, 0x71374491UL, 0xb5c0fbcfUL, 0xe9b5dba5UL, 0x3956c25bUL, 0x59f111f1UL,
     0x923f82a4UL, 0xab1c5ed5UL, 0xd807aa98UL, 0x12835b01UL, 0x243185beUL, 0x550c7dc3UL,
@@ -15,10 +13,8 @@ static const uint32_t RCL_SHA_K[64] = {
     0x19a4c116UL, 0x1e376c08UL, 0x2748774cUL, 0x34b0bcb5UL, 0x391c0cb3UL, 0x4ed8aa4aUL,
     0x5b9cca4fUL, 0x682e6ff3UL, 0x748f82eeUL, 0x78a5636fUL, 0x84c87814UL, 0x8cc70208UL,
     0x90befffaUL, 0xa4506cebUL, 0xbef9a3f7UL, 0xc67178f2UL};
-
 static const uint32_t RCL_SHA_IV[8] = {0x6a09e667UL, 0xbb67ae85UL, 0x3c6ef372UL, 0xa54ff53aUL,
                                        0x510e527fUL, 0x9b05688cUL, 0x1f83d9abUL, 0x5be0cd19UL};
-
 typedef struct
 {
     uint32_t h[8];
@@ -26,12 +22,10 @@ typedef struct
     uint64_t bits;
     size_t n;
 } rcl_sha_ctx_t;
-
 static uint32_t rcl_ror(uint32_t v, int s)
 {
     return (v >> s) | (v << (32 - s));
 }
-
 static void rcl_sha_block(rcl_sha_ctx_t *c, const uint8_t *p)
 {
     uint32_t w[64];
@@ -89,14 +83,12 @@ static void rcl_sha_block(rcl_sha_ctx_t *c, const uint8_t *p)
     c->h[6] += g;
     c->h[7] += hh;
 }
-
 static void rcl_sha_init(rcl_sha_ctx_t *c)
 {
     memcpy(c->h, RCL_SHA_IV, sizeof(RCL_SHA_IV));
     c->bits = 0;
     c->n = 0;
 }
-
 static void rcl_sha_update(rcl_sha_ctx_t *c, const uint8_t *p, size_t length)
 {
     size_t i = 0;
@@ -118,7 +110,6 @@ static void rcl_sha_update(rcl_sha_ctx_t *c, const uint8_t *p, size_t length)
         }
     }
 }
-
 static void rcl_sha_final(rcl_sha_ctx_t *c, uint8_t out[32])
 {
     uint8_t pad[72];
@@ -140,7 +131,6 @@ static void rcl_sha_final(rcl_sha_ctx_t *c, uint8_t out[32])
         out[i * 4 + 3] = (uint8_t)(c->h[i]);
     }
 }
-
 void rcl_sha(const uint8_t *data, size_t length, uint8_t out[32])
 {
     rcl_sha_ctx_t c;
@@ -148,7 +138,6 @@ void rcl_sha(const uint8_t *data, size_t length, uint8_t out[32])
     rcl_sha_update(&c, data, length);
     rcl_sha_final(&c, out);
 }
-
 void rcl_ci_make_block(const uint8_t key16[16], const uint8_t mask16[16], uint8_t pad,
                        uint8_t out[64])
 {
@@ -159,7 +148,6 @@ void rcl_ci_make_block(const uint8_t key16[16], const uint8_t mask16[16], uint8_
     }
     memset(out + 16, pad, 64 - 16);
 }
-
 uint32_t rcl_ci_compute_token(const uint8_t key16[16], const uint8_t cmd16[16],
                               const uint32_t *table, uint32_t fallback,
                               const uint8_t innerMask[16], const uint8_t outerMask[16])

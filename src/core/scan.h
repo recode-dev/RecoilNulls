@@ -1,12 +1,7 @@
 #ifndef RECOIL_SCAN_SCAN_H
 #define RECOIL_SCAN_SCAN_H
-
 #include "./offsets.h"
-
 #include <stdint.h>
-
-/* Dispatch time units are provided by mach/clock_types.h in ObjC builds;
-   define them defensively now that Foundation is no longer included. */
 #ifndef NSEC_PER_SEC
 #define NSEC_PER_SEC 1000000000ull
 #endif
@@ -16,11 +11,9 @@
 #ifndef NSEC_PER_USEC
 #define NSEC_PER_USEC 1000ull
 #endif
-
 #include <string.h>
 #include <mach/mach.h>
 #include <dispatch/dispatch.h>
-
 typedef struct
 {
     uintptr_t at;
@@ -29,10 +22,8 @@ typedef struct
     int32_t team;
     int dead;
 } rcl_objhit_t;
-
 typedef uint64_t (*rcl_slot_fn_t)(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4,
                                   uint64_t a5, uint64_t a6, uint64_t a7);
-
 typedef struct
 {
     uintptr_t manager;
@@ -40,7 +31,6 @@ typedef struct
     int32_t capacity;
     int posDistinct;
 } rcl_trail_t;
-
 typedef struct
 {
     uintptr_t object;
@@ -54,16 +44,11 @@ typedef struct
     uint8_t dead;
     uint8_t activeFlag;
 } rcl_obj_t;
-
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <objc/runtime.h>
-
-/* CFAbsoluteTimeGetCurrent lives in CoreFoundation, a C API. */
 #include <CoreFoundation/CFDate.h>
-
 extern uintptr_t rcl_base;
-
 extern const char *rcl_image_names[4];
 extern uintptr_t *rcl_starts;
 extern size_t rcl_starts_count;
@@ -102,7 +87,6 @@ extern dispatch_source_t rcl_scan_timer;
 extern rcl_trail_t rcl_trail[8];
 extern int rcl_trail_count;
 extern uintptr_t rcl_own_elem_scan;
-
 BOOL rcl_query_region(uintptr_t address, vm_prot_t *protection, vm_prot_t *maxProtection,
                       mach_vm_size_t *regionSize, uintptr_t *regionStart);
 BOOL rcl_addr_writable(uintptr_t address, size_t length);
@@ -131,7 +115,6 @@ BOOL rcl_manager_shape(uintptr_t manager);
 BOOL rcl_vtable_in_image(uintptr_t vtable);
 uintptr_t rcl_strip_ptr(uintptr_t value);
 void poll_for_game(int tick);
-
 static inline BOOL rcl_region_flags(uintptr_t address, vm_prot_t *flags)
 {
     vm_prot_t protection = 0;
@@ -149,7 +132,6 @@ static inline BOOL rcl_region_flags(uintptr_t address, vm_prot_t *flags)
     }
     return YES;
 }
-
 static inline BOOL rcl_addr_readable(uintptr_t address, size_t length)
 {
     if (!address || !length)
@@ -197,7 +179,6 @@ static inline BOOL rcl_addr_readable(uintptr_t address, size_t length)
     }
     return cursor >= end;
 }
-
 static inline BOOL rcl_read_word(uintptr_t address, uint32_t *out)
 {
     if (!address || (address & 3) || !out)
@@ -215,7 +196,6 @@ static inline BOOL rcl_read_word(uintptr_t address, uint32_t *out)
     *out = value;
     return YES;
 }
-
 static inline BOOL rcl_addr_executable(uintptr_t address)
 {
     vm_prot_t flags = 0;
@@ -225,7 +205,6 @@ static inline BOOL rcl_addr_executable(uintptr_t address)
     }
     return (flags & VM_PROT_EXECUTE) ? YES : NO;
 }
-
 static inline uintptr_t rcl_image_slide(uintptr_t imageBase)
 {
     if (!imageBase)
@@ -282,7 +261,6 @@ static inline uintptr_t rcl_image_slide(uintptr_t imageBase)
     }
     return 0;
 }
-
 static inline BOOL rcl_image_segment_contains(uintptr_t imageBase, uintptr_t address,
                                               BOOL requireExec, uintptr_t *outStart,
                                               uintptr_t *outEnd, uint32_t *outProt)
@@ -361,7 +339,6 @@ static inline BOOL rcl_image_segment_contains(uintptr_t imageBase, uintptr_t add
     }
     return NO;
 }
-
 static inline BOOL rcl_image_text_contains(uintptr_t imageBase, uintptr_t address)
 {
     uintptr_t start = 0;
@@ -373,7 +350,6 @@ static inline BOOL rcl_image_text_contains(uintptr_t imageBase, uintptr_t addres
     }
     return (prot & VM_PROT_EXECUTE) ? YES : NO;
 }
-
 static inline BOOL rcl_object_plausible(void *object)
 {
     if (!object)
@@ -417,13 +393,10 @@ static inline BOOL rcl_object_plausible(void *object)
     }
     return rcl_addr_executable(firstEntry);
 }
-
 extern uintptr_t rcl_manager_ptr;
 extern uintptr_t rcl_manager_array_ptr;
 extern int32_t rcl_manager_count_v;
-
 extern uint64_t rcl_ticks_a;
-
 extern uint32_t rcl_own_hp;
 extern float rcl_own_r;
 extern float rcl_own_speed;
@@ -431,7 +404,6 @@ extern int32_t rcl_own_x;
 extern int32_t rcl_own_y;
 extern int32_t rcl_own_index_v;
 extern int rcl_own_ok_hp;
-
 typedef struct
 {
     int stage;
@@ -460,20 +432,13 @@ typedef struct
     float thrad[6];
     char note[64];
 } rcl_dbg_t;
-
 extern rcl_dbg_t rcl_dbg;
 extern int rcl_logs_a;
 extern int rcl_seeded;
 extern int32_t rcl_last_x_a;
 extern int32_t rcl_last_y_a;
-
 int rcl_collect(uintptr_t manager, rcl_obj_t *out, int capacity);
-
-
 uint64_t rcl_us(void);
-
-
-
 #define RCL_COORD_SOFT 0
 #define RCL_NP_DUMPS 8
 #define RCL_ELEMS 8
@@ -485,24 +450,13 @@ uint64_t rcl_us(void);
 #define RCL_AREA_RADIUS_MAX 6000
 #define RCL_AREA_TIME_MIN 1
 #define RCL_AREA_TIME_MAX 60000
-
-
-
-
 void rcl_load_function_starts(void);
-
-
 BOOL rcl_start_boundary(const uint8_t *bytes, size_t offset);
-
 BOOL rcl_start_word(uint32_t word);
-
-
 #include "hook.h"
-
 void rcl_slot_note(int index, void *self, uint64_t arg1);
 uint64_t rcl_hook_dispatches(void);
 uint64_t rcl_object_dispatches(void);
-
 extern int rcl_fb_on;
 extern uint64_t rcl_idle_start;
 extern int rcl_live_objs;
@@ -596,30 +550,23 @@ uint64_t rcl_slot_repl_9(void *a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64
                          uint64_t a6, uint64_t a7);
 int rcl_snapshot(uintptr_t *objectOut, uintptr_t *arrayOut, int32_t *countOut);
 void rcl_tick_begin(void);
-
 extern uintptr_t rcl_slot_object[34];
 extern uintptr_t rcl_slot_arg[34];
 extern uint64_t rcl_slot_hits[34];
 extern uintptr_t rcl_slot_adopted;
-
 extern int rcl_battle_active;
 extern int rcl_battle_last_tick;
 extern int rcl_hb_sig_prev;
 int rcl_battle_gate(int scene);
-
 extern uint64_t rcl_ticks_b;
 int rcl_battle_gate_fallback(int v63);
 int rcl_scan_allowed(uint64_t fired, uint64_t total);
 void rcl_start_timer(void);
 int rcl_state_tick(void);
-
-
 void rcl_scan_world(void);
-
 void rcl_run_workload(void);
 void setup(void);
 void rcl_run_autododge(void);
-
 #define RCL_WIRE_OWNER 1
 #define RCL_HOPCHOSEN_DIRECT 2
 #define RCL_ARRAY_VOTE_LOGS 8
@@ -630,9 +577,7 @@ void rcl_run_autododge(void);
 #define RCL_IDLE_RETRY_TICKS 300
 #define RCL_SNAPSHOT_DELAY 1.2
 extern uintptr_t rcl_scene_object;
-
 int rcl_scene_live(void);
-
 extern int rcl_prev_state;
 extern uintptr_t rcl_own_ptr_a;
 extern int rcl_hop_chosen;
@@ -669,7 +614,6 @@ typedef struct
     int32_t x;
     int32_t y;
 } rcl_proj_death_t;
-
 typedef struct
 {
     int has_segment;
@@ -684,7 +628,6 @@ typedef struct
     float by;
     const char *name;
 } rcl_hazard_t;
-
 #define RCL_OWNER_VOTE_MIN 3
 #define RCL_OWNER_VOTE_TEAMS_MIN 2
 #define RCL_MIN_USABLE_2 1
@@ -696,9 +639,7 @@ typedef struct
 #define RCL_PROJ_RADIUS_DEFAULT 150.0f
 #define RCL_OWN_RADIUS_MIN 40.0f
 #define RCL_OWN_RADIUS_MAX 200.0f
-
 #define RCL_NAME_CAP 32
-
 typedef struct
 {
     uintptr_t elem;
@@ -730,43 +671,32 @@ typedef struct
     int32_t spawnAreaActiveTime;
     int32_t castRange;
 } rcl_proj_t;
-
 extern rcl_proj_t rcl_projs[16];
 extern rcl_proj_death_t rcl_proj_deaths[16];
 extern int rcl_proj_death_n;
-
 void rcl_modesig_tick(void);
 int rcl_element_type(uintptr_t vt, uintptr_t *wordOut);
 int rcl_container_header(uintptr_t object, uintptr_t *arrayOut, int32_t *countOut, int32_t *capOut);
 int32_t rcl_gid_at(uintptr_t element, uintptr_t off);
 int32_t rcl_gid(uintptr_t element, int32_t *offOut);
 int rcl_container_score(uintptr_t container);
-
 int rcl_scan_ready(int battle);
 void rcl_resolve_addresses(void);
 void rcl_locate_battle_mode(void);
-
 void rcl_gidless_scan(uintptr_t manager);
 uintptr_t rcl_list_gid_off(uintptr_t array, int32_t count);
 void rcl_proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
-
 uintptr_t rcl_hop(uintptr_t base, int *whyOut);
 uintptr_t rcl_client(void);
-
 void rcl_state_note(int state);
-
 int rcl_resolve_own_fallback(const rcl_obj_t *objects, int usable, int *indexOut,
                              const char **fromOut);
 int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int rosterUsable);
-
 uintptr_t rcl_controller(void);
-
 const char *rcl_header_reason(uintptr_t manager, int32_t *countOut, int32_t *capOut);
 uintptr_t rcl_coord_x_off(void);
 uintptr_t rcl_coord_y_off(void);
-
 int rcl_ctrl_bounds(uintptr_t base, int32_t *wOut, int32_t *hOut);
-
 extern int rcl_cand_changes[3];
 extern int rcl_cand_frame[3];
 extern int rcl_dead_slot;
@@ -792,23 +722,10 @@ extern int rcl_prev_valid;
 extern int rcl_respawn_tick;
 extern int rcl_state_code;
 extern int rcl_team_trust;
-
-
-
-
-
 float rcl_own_radius(void);
 int rcl_own_side_spawn(int32_t sx, int32_t sy);
-
-
-
-
-
-
-
 void rcl_roster(uintptr_t ownElem, int ownIndex, int ownTeam, const rcl_obj_t *objects, int usable);
 int rcl_team_at(const rcl_obj_t *objects, int index);
-
 #define RCL_CLUSTER 10000.0f
 #define RCL_GIDLESS 1
 #define RCL_POS_BONUS 8
@@ -844,16 +761,10 @@ int rcl_team_at(const rcl_obj_t *objects, int index);
 #define RCL_VOTESCAN_GLOBAL_EVERY 10
 #define RCL_VOTESCAN_INTERVAL 1.0
 #define RCL_VOTESCAN_ATTEMPTS 600
-
 int rcl_ascii_word(uintptr_t address);
 int rcl_word_ascii(uint64_t value);
 int rcl_element_ascii(uintptr_t element);
-
 #define SCAN_MAX 256
-
-
-
 #define rcl_own_elem_2 rcl_own_elem_scan
 #define rcl_resolve_own_2 rcl_resolve_own_fallback
-
 #endif

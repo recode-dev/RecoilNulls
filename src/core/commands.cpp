@@ -2,28 +2,19 @@
 #include "scan.h"
 #include "commands.h"
 #include "../utils/crypto.h"
-
 #include <malloc/malloc.h>
-
 #if RCL_CI_HASH_INNER_MASK_RVA && RCL_CI_HASH_OUTER_MASK_RVA && RCL_BM_HASH_ENABLED_OFF &&         \
     RCL_BM_HASH_KEY_OFF
 #define RCL_CI_SIGNING_ON 1
 #else
 #define RCL_CI_SIGNING_ON 0
 #endif
-
 static uint32_t rcl_ci_table[RCL_CI_TABLE_TYPES];
-
 static uint32_t rcl_ci_fallback = 0;
-
 static uint8_t rcl_ci_inner[0x10];
-
 static uint8_t rcl_ci_outer[0x10];
-
 static int rcl_ci_ready = 0;
-
 static int rcl_msg_ok(void *ptr, size_t size);
-
 int rcl_ci_load_constants(void)
 {
     int i = 0;
@@ -58,7 +49,6 @@ int rcl_ci_load_constants(void)
     rcl_ci_ready = 1;
     return 1;
 }
-
 uint32_t rcl_ci_sign(void *ci, void *battle)
 {
 #if RCL_CI_SIGNING_ON
@@ -102,12 +92,10 @@ uint32_t rcl_ci_sign(void *ci, void *battle)
     return 0;
 #endif
 }
-
 int rcl_enqueue_type(int x, int y, int type)
 {
     return rcl_enqueue_skill(x, y, type, nullptr);
 }
-
 static uintptr_t rcl_callable_cached(uintptr_t *cache, uintptr_t rva)
 {
     if (!*cache)
@@ -116,7 +104,6 @@ static uintptr_t rcl_callable_cached(uintptr_t *cache, uintptr_t rva)
     }
     return *cache;
 }
-
 static int rcl_ptr_is_heap(const void *p)
 {
     if (!p || ((uintptr_t)p & 7ULL))
@@ -125,7 +112,6 @@ static int rcl_ptr_is_heap(const void *p)
     }
     return malloc_zone_from_ptr((void *)p) != NULL;
 }
-
 int rcl_enqueue_skill(int x, int y, int type, void *skillData)
 {
     uintptr_t ctorFn = 0;
@@ -199,22 +185,10 @@ int rcl_enqueue_skill(int x, int y, int type, void *skillData)
     ((void (*)(void *, void *))inputFn)(mgr, msg);
     return 1;
 }
-
 int rcl_enqueue(int x, int y)
 {
     return rcl_enqueue_type(x, y, (int)RCL_TYPE_MOVE);
 }
-
-
-
-
-
-
-
-
-
-
-
 uintptr_t rcl_entry_callable(uintptr_t rva)
 {
     if (!rcl_base || !rva)
@@ -227,7 +201,6 @@ uintptr_t rcl_entry_callable(uintptr_t rva)
     }
     return rcl_base + rva;
 }
-
 static int rcl_msg_ok(void *ptr, size_t size)
 {
     if (!ptr)
@@ -248,7 +221,6 @@ static int rcl_msg_ok(void *ptr, size_t size)
     }
     return 1;
 }
-
 void *rcl_msg_alloc(void)
 {
     uintptr_t stub = rcl_entry_callable(RCL_ALLOC_RVA);
@@ -281,7 +253,6 @@ void *rcl_msg_alloc(void)
     }
     return nullptr;
 }
-
 void *rcl_manager(void)
 {
     if (!rcl_scene_object || !rcl_scene_live())
@@ -307,43 +278,32 @@ void *rcl_manager(void)
     }
     return mgr;
 }
-
 int rcl_pred_set(int x, int y)
 {
     uintptr_t setFn = 0;
     uintptr_t ctrl = 0;
-
     if (!RCL_PRED_SET || !rcl_coord_ok)
     {
         return 0;
     }
-
     {
         static uintptr_t c_set = 0;
-
         setFn = rcl_callable_cached(&c_set, RCL_MOVE_RVA);
     }
-
     ctrl = rcl_controller();
     if (!setFn || !ctrl)
     {
         return 0;
     }
-
-
     ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, RCL_PRED_FLAG);
-
     return 1;
 }
-
 int rcl_move_to(int32_t x, int32_t y, float ox, float oy)
 {
     uintptr_t fn = 0;
     uintptr_t ctrl = 0;
-
     (void)ox;
     (void)oy;
-
     if (!RCL_MOVE_ON || rcl_dead)
     {
         return 0;
@@ -352,21 +312,15 @@ int rcl_move_to(int32_t x, int32_t y, float ox, float oy)
     {
         return 0;
     }
-
     {
         static uintptr_t c_move = 0;
-
         fn = rcl_callable_cached(&c_move, RCL_MOVE_RVA);
     }
-
     ctrl = rcl_controller();
     if (!fn || !ctrl)
     {
         return 0;
     }
-
-
     ((void (*)(void *, int, int, int))fn)((void *)ctrl, (int)x, (int)y, 1);
-
     return 1;
 }
