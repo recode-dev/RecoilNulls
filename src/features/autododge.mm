@@ -9,30 +9,46 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static const float SAFETY_MARGIN = 80.0f;
-static const float T_URGENT      = 4.5f;
-static const float T_FIELD       = 6.5f;
-static const int N_DIRECTIONS    = 64;
-static const float MAX_DIST_SQ   = 5000.0f * 5000.0f;
-static const uint32_t STALE_MS   = 450;
-static const float PERP_WEIGHT   = 2.4f;
-static const float AWAY_WEIGHT   = 1.2f;
-static const float INTENT_WEIGHT = 1.2f;
-static float CHAR_SPEED          = 720.0f;
+static struct {
+    float AWARE = 3200.0f;
+    uint32_t TICK_MS = 4;
+    uint32_t TICK_MS_IDLE = 48;
+    int DIR_COUNT = 48;
+    float SKIN = 50.0f;
+    uint32_t LOCK_MS = 70;
+    float REACH = 600.0f;
+    float HORIZON_S = 1.4f;
+    float KEEP_BAND = 100.0f;
+    float MOMENTUM = 55.0f;
+    float ENGAGE = 100.0f;
+    uint32_t RELEASE_GRACE_MS = 200;
+    float WALL_HIT = 9000.0f;
+    int PROBE_N = 3;
+    float PROBE_T = 0.35f;
+    float WALL_BODY = 240.0f;
+    uint32_t SEND_MIN_MS = 80;
+    float SEND_MIN_DIST = 8.0f;
+    float MIN_POS = 50.0f;
+} TUNE;
 
-#define RCL_JOY_CENTER_X 0x9d8
-#define RCL_JOY_CENTER_Y 0x9dc
-#define RCL_JOY_TARGET_X 0x9d0
-#define RCL_JOY_TARGET_Y 0x9d4
-#define RCL_JOY_DRAGGING 0xee8
-
+static const float RANGE_FALLBACK = 2800.0f;
+static const float DEFAULT_PAD = 80.0f;
+static const float DEFAULT_GROW = 0.5f;
 
 struct V2 {
     float x, y;
     V2(float x_ = 0, float y_ = 0) : x(x_), y(y_) {}
 };
 
-struct Projectile {
+struct Threat {
+    float x, y;
+    float vx, vy;
+    float rad;
+    float left;
+    float pathLen;
+};
+
+struct ProjectileState {
     float x, y;
     float dirX, dirY;
     float speed;
@@ -40,6 +56,10 @@ struct Projectile {
     uint64_t lastSeen;
     float sampleX, sampleY;
     uint64_t sampleTime;
+    float spawnX, spawnY;
+    float castRange;
+    bool isIndirect;
+    bool isBeam;
     int id;
 };
 
@@ -48,44 +68,89 @@ __thread int rcl_in_move = 0;
 int32_t rcl_pl_mine[12] = {0};
 int rcl_active = 0;
 int rcl_moving = 0;
-int rcl_cand_now[3] = {0};
-int rcl_cand_seen = 0;
-int32_t rcl_prev_x = 0;
-int32_t rcl_prev_y = 0;
 
-static std::map<int, Projectile> g_proj_cache;
-static V2 SAMPLES[N_DIRECTIONS];
-static bool g_samples_init = false;
-static V2 g_lastSafeDir(0, 0);
-static uint64_t g_lastSafeDirTime = 0;
-
+static std::map<int, ProjectileState> g_proj_cache;
+static std::vector<V2> g_ring;
+static V2 g_heading(0, 0);
+static int g_headingIdx = -1;
+static uint64_t g_holdUntil = 0;
+static uint64_t g_lastDangerTs = 0;
+static uint64_t g_lastTick = 0;
+static float g_lastSentX = 1e9f;
+static float g_lastSentY = 1e9f;
+static uint64_t g_lastSentAt = 0;
+static float CHAR_SPEED = 720.0f;
 
 static V2 normalize(float x, float y) {
     float l = sqrtf(x * x + y * y);
-    if (l < 1e-6f) return V2(1.0f, 0.0f);
+    if (l < 1e-6f) return V2(0, 0);
     return V2(x / l, y / l);
 }
 
-static void initSamples() {
-    if (g_samples_init) return;
-    for (int i = 0; i < N_DIRECTIONS; i++) {
-        float angle = (2.0f * (float)M_PI * (float)i) / (float)N_DIRECTIONS;
-        SAMPLES[i] = V2(cosf(angle), sinf(angle));
+static void buildRing() {
+    if ((int)g_ring.size() == TUNE.DIR_COUNT) return;
+    g_ring.clear();
+    for (int i = 0; i < TUNE.DIR_COUNT; i++) {
+        float a = (float)M_PI * 2.0f * (float)i / (float)TUNE.DIR_COUNT;
+        g_ring.push_back(V2(cosf(a), sinf(a)));
     }
-    g_samples_init = true;
+    g_headingIdx = -1;
 }
 
-static std::vector<V2> getDirectionSamples(int n) {
-    if (n == N_DIRECTIONS) {
-        return std::vector<V2>(SAMPLES, SAMPLES + N_DIRECTIONS);
+static float clearanceFor(const std::vector<Threat>& threats, float myX, float myY, float mvx, float mvy) {
+    float minClear = 1e18f;
+    float horizon = TUNE.HORIZON_S;
+
+    for (const auto& t : threats) {
+        float spd = sqrtf(t.vx * t.vx + t.vy * t.vy);
+        float maxT = horizon;
+        if (spd > 1.0f) {
+            if (t.left > 0) maxT = std::min(maxT, t.left / spd);
+            if (t.pathLen > 0) maxT = std::min(maxT, t.pathLen / spd);
+        }
+
+        float relx = t.x - myX;
+        float rely = t.y - myY;
+        float vrx = t.vx - mvx;
+        float vry = t.vy - mvy;
+        float vv = vrx * vrx + vry * vry;
+
+        float cx, cy;
+        if (vv < 1e-6f) {
+            cx = relx;
+            cy = rely;
+        } else {
+            float ts = -(relx * vrx + rely * vry) / vv;
+            if (ts < 0) ts = 0;
+            else if (ts > maxT) ts = maxT;
+            cx = relx + vrx * ts;
+            cy = rely + vry * ts;
+        }
+
+        float clear = sqrtf(cx * cx + cy * cy) - t.rad;
+        if (clear < minClear) minClear = clear;
     }
-    std::vector<V2> out;
-    out.reserve(n);
-    for (int i = 0; i < n; i++) {
-        float angle = (2.0f * (float)M_PI * (float)i) / (float)n;
-        out.push_back(V2(cosf(angle), sinf(angle)));
+    return minClear;
+}
+
+static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR) {
+    if (!rcl_wall_ready()) return 0.0f;
+    float step = speed * TUNE.PROBE_T;
+    float penalty = 0.0f;
+    for (int s = 1; s <= TUNE.PROBE_N; s++) {
+        float px = myX + dir.x * step * (float)s;
+        float py = myY + dir.y * step * (float)s;
+        if (rcl_wall_is_blocked_wide(px, py, bodyR, RCL_WALL_BLOCKS_MOVEMENT)) {
+            penalty += TUNE.WALL_HIT * (float)(TUNE.PROBE_N - s + 1);
+        }
     }
-    return out;
+    return penalty;
+}
+
+static void clearHeading() {
+    g_heading = V2(0, 0);
+    g_headingIdx = -1;
+    g_holdUntil = 0;
 }
 
 static int32_t rcl_call1i_local(uintptr_t fn, uintptr_t self) {
@@ -93,225 +158,6 @@ static int32_t rcl_call1i_local(uintptr_t fn, uintptr_t self) {
     typedef int32_t (*fn_t)(uintptr_t);
     return ((fn_t)rcl_callable(fn - rcl_base))(self);
 }
-
-
-
-static bool projectilePathClear(const Projectile& p, float time) {
-    if (rcl_wall_is_blocked_at(p.x, p.y, RCL_WALL_BLOCKS_PROJECTILES)) return false;
-    float endX = p.x + p.dirX * p.speed * time;
-    float endY = p.y + p.dirY * p.speed * time;
-    return rcl_wall_los(p.x, p.y, endX, endY, RCL_WALL_BLOCKS_PROJECTILES) != 0;
-}
-
-static float movementWallPenalty(V2 dir, float myX, float myY, float myRadius) {
-    if (!rcl_wall_ready()) return 0.0f;
-    float penalty = 0.0f;
-    float step = CHAR_SPEED * 0.35f;
-    float bodyRadius = myRadius + 80.0f;
-    for (int s = 1; s <= 3; s++) {
-        float px = myX + dir.x * step * (float)s;
-        float py = myY + dir.y * step * (float)s;
-        if (rcl_wall_is_blocked_wide(px, py, bodyRadius, RCL_WALL_BLOCKS_MOVEMENT)) {
-            penalty += 9000.0f * (float)(4 - s);
-        }
-    }
-    return penalty;
-}
-
-static bool isUrgentThreat(const Projectile& p, float myX, float myY, float myRadius) {
-    float dx = p.x - myX;
-    float dy = p.y - myY;
-    float vx = p.dirX * p.speed;
-    float vy = p.dirY * p.speed;
-
-    float c1 = dx * vx + dy * vy;
-    if (c1 >= 0) return false;
-    float c2 = vx * vx + vy * vy;
-    if (c2 <= 0) return false;
-    float tHit = -c1 / c2;
-    if (tHit <= 0 || tHit > T_URGENT) return false;
-
-    float closestX = p.x + vx * tHit;
-    float closestY = p.y + vy * tHit;
-
-    float r = myRadius + p.radius + SAFETY_MARGIN;
-    float ddx = myX - closestX;
-    float ddy = myY - closestY;
-    return (ddx * ddx + ddy * ddy) <= r * r && projectilePathClear(p, tHit);
-}
-
-static float threatScore(V2 dir, float myX, float myY, float myRadius, V2 intentDir, uint64_t now) {
-    float score = 0;
-
-    for (auto const& [id, p] : g_proj_cache) {
-        float r = myRadius + p.radius + SAFETY_MARGIN;
-
-        float vx = p.dirX * p.speed - dir.x * CHAR_SPEED;
-        float vy = p.dirY * p.speed - dir.y * CHAR_SPEED;
-
-        float dx = p.x - myX;
-        float dy = p.y - myY;
-
-        float a = vx * vx + vy * vy;
-        float b = 2.0f * (dx * vx + dy * vy);
-        float c = dx * dx + dy * dy;
-
-        float tMin = 0.0f;
-        float minD2 = c;
-        if (a > 1e-6f) {
-            tMin = -b / (2.0f * a);
-            if (tMin < 0.0f) tMin = 0.0f;
-            if (tMin > T_FIELD) tMin = T_FIELD;
-            minD2 = c + b * tMin + a * tMin * tMin;
-        }
-        if (!projectilePathClear(p, tMin)) continue;
-
-        float danger = (minD2 < r * r) ? 2500.0f : (r * r) / std::max(minD2, 50.0f);
-        score += danger;
-    }
-    score += movementWallPenalty(dir, myX, myY, myRadius);
-
-    if (intentDir.x != 0 || intentDir.y != 0) {
-        float dotIntent = dir.x * intentDir.x + dir.y * intentDir.y;
-        score -= dotIntent * INTENT_WEIGHT * 15.0f;
-    }
-
-    if ((g_lastSafeDir.x != 0 || g_lastSafeDir.y != 0) && (now - g_lastSafeDirTime) < 400) {
-        float dotInertia = dir.x * g_lastSafeDir.x + dir.y * g_lastSafeDir.y;
-        score -= dotInertia * 45.0f;
-    }
-
-    return score;
-}
-
-static bool isVelocityUnsafe(V2 dir, float myX, float myY, float myRadius) {
-    for (auto const& [id, p] : g_proj_cache) {
-        float r = myRadius + p.radius + SAFETY_MARGIN;
-
-        float vx = p.dirX * p.speed - dir.x * CHAR_SPEED;
-        float vy = p.dirY * p.speed - dir.y * CHAR_SPEED;
-        float dx = p.x - myX;
-        float dy = p.y - myY;
-
-        float a = vx * vx + vy * vy;
-        float b = 2.0f * (dx * vx + dy * vy);
-        float c = dx * dx + dy * dy - r * r;
-
-        if (c < 0) {
-            if (projectilePathClear(p, 0.0f)) return true;
-            continue;
-        }
-        if (a > 1e-6f) {
-            float disc = b * b - 4.0f * a * c;
-            if (disc >= 0) {
-                float t1 = (-b - sqrtf(disc)) / (2.0f * a);
-                if (t1 > 0 && t1 <= T_FIELD && projectilePathClear(p, t1)) return true;
-            }
-        }
-    }
-    return false;
-}
-
-static V2 getUrgentDodgeDir(float myX, float myY, float myRadius, V2 intentDir, uint64_t now) {
-    std::vector<V2> candidates;
-    int urgentCount = 0;
-
-    for (auto const& [id, p] : g_proj_cache) {
-        if (!isUrgentThreat(p, myX, myY, myRadius)) continue;
-        urgentCount++;
-
-        V2 away = normalize(myX - p.x, myY - p.y);
-        V2 perp1 = normalize(-p.dirY, p.dirX);
-        V2 perp2 = normalize(p.dirY, -p.dirX);
-
-        float intentX = (intentDir.x != 0 || intentDir.y != 0) ? intentDir.x * 0.6f : 0.0f;
-        float intentY = (intentDir.x != 0 || intentDir.y != 0) ? intentDir.y * 0.6f : 0.0f;
-
-        candidates.push_back(normalize(
-            perp1.x * PERP_WEIGHT + away.x * AWAY_WEIGHT + intentX,
-            perp1.y * PERP_WEIGHT + away.y * AWAY_WEIGHT + intentY
-        ));
-        candidates.push_back(normalize(
-            perp2.x * PERP_WEIGHT + away.x * AWAY_WEIGHT + intentX,
-            perp2.y * PERP_WEIGHT + away.y * AWAY_WEIGHT + intentY
-        ));
-    }
-
-    if (urgentCount == 0) return V2(0, 0);
-
-    std::vector<V2> samples = getDirectionSamples(16);
-    candidates.insert(candidates.end(), samples.begin(), samples.end());
-
-    V2 best = candidates[0];
-    float bestScore = 1e18f;
-
-    for (const auto& c : candidates) {
-        float s = threatScore(c, myX, myY, myRadius, intentDir, now);
-        if (s < bestScore) {
-            bestScore = s;
-            best = c;
-        }
-    }
-    return best;
-}
-
-static V2 chooseBestDirection(float myX, float myY, float myRadius, V2 intentDir, uint64_t now) {
-    V2 best = (intentDir.x != 0 || intentDir.y != 0) ? intentDir : SAMPLES[0];
-    float bestScore = 1e18f;
-
-    for (int i = 0; i < N_DIRECTIONS; i++) {
-        float s = threatScore(SAMPLES[i], myX, myY, myRadius, intentDir, now);
-        if (s < bestScore) {
-            bestScore = s;
-            best = SAMPLES[i];
-        }
-    }
-    return best;
-}
-
-static V2 applyVO(V2 dir, float myX, float myY, float myRadius, V2 intentDir, uint64_t now) {
-    if (!isVelocityUnsafe(dir, myX, myY, myRadius)) return dir;
-
-    V2 best = dir;
-    float bestScore = 1e18f;
-    bool foundSafe = false;
-
-    for (int i = 0; i < N_DIRECTIONS; i++) {
-        if (isVelocityUnsafe(SAMPLES[i], myX, myY, myRadius)) continue;
-        foundSafe = true;
-        float s = threatScore(SAMPLES[i], myX, myY, myRadius, intentDir, now);
-        if (s < bestScore) {
-            bestScore = s;
-            best = SAMPLES[i];
-        }
-    }
-    return foundSafe ? best : dir;
-}
-
-static bool checkDanger(float myX, float myY, float myRadius) {
-    for (auto const& [id, p] : g_proj_cache) {
-        float vx = p.dirX * p.speed;
-        float vy = p.dirY * p.speed;
-        float dx = myX - p.x;
-        float dy = myY - p.y;
-        float c1 = dx * vx + dy * vy;
-        float c2 = vx * vx + vy * vy;
-        if (c1 <= 0.0f || c2 <= 1e-6f) continue;
-
-        float tHit = c1 / c2;
-        if (tHit > T_FIELD) continue;
-
-        float cx = p.x + vx * tHit;
-        float cy = p.y + vy * tHit;
-        float ddx = myX - cx;
-        float ddy = myY - cy;
-        float r = myRadius + p.radius + SAFETY_MARGIN;
-        if (ddx * ddx + ddy * ddy <= r * r && projectilePathClear(p, tHit)) return true;
-    }
-    return false;
-}
-
-
 
 static uintptr_t rcl_battlescreen(void) {
     uintptr_t ctrl = rcl_controller();
@@ -322,24 +168,30 @@ static uintptr_t rcl_battlescreen(void) {
 }
 
 void rcl_autododge(void) {
-    uint64_t now = rcl_us() / 1000;
     if (!rcl_base || !rcl_own_elem || rcl_dead) {
         rcl_active = 0;
         return;
     }
 
-    initSamples();
+    uint64_t now = rcl_us() / 1000;
+    uint32_t tickMs = (g_headingIdx >= 0) ? TUNE.TICK_MS : TUNE.TICK_MS_IDLE;
+    if (now - g_lastTick < tickMs) return;
+    g_lastTick = now;
+
+    buildRing();
 
     float mx = (float)rcl_own_x;
     float my = (float)rcl_own_y;
     float myRadius = rcl_own_r;
 
+    if (fabsf(mx) < TUNE.MIN_POS && fabsf(my) < TUNE.MIN_POS) return;
 
+    // Update speed
     {
         uintptr_t data = 0;
         if (rcl_read_ptr(rcl_own_elem + RCL_ELEM_DEF_OFF, (void**)&data) && data) {
-            uint32_t readSpd = 0;
-            if (rcl_read_int(data + 0x1c4, (int32_t*)&readSpd)) {
+            int32_t readSpd = 0;
+            if (rcl_read_int(data + 0x1c4, &readSpd)) {
                 if (readSpd >= 300 && readSpd <= 8500) {
                     CHAR_SPEED = (float)readSpd;
                 }
@@ -347,9 +199,13 @@ void rcl_autododge(void) {
         }
     }
 
-
+    // Collect threats
+    std::vector<Threat> threats;
     {
         std::map<int, bool> seen;
+        float zoneSq = TUNE.AWARE * TUNE.AWARE;
+        float bodyR = myRadius + TUNE.SKIN;
+
         if (rcl_manager_array_ptr && rcl_manager_count_v > 0) {
             for (int i = 0; i < rcl_manager_count_v; i++) {
                 uintptr_t objPtr = 0;
@@ -371,7 +227,7 @@ void rcl_autododge(void) {
                 float py = (float)py_i;
                 float dx_dist = px - mx;
                 float dy_dist = py - my;
-                if (dx_dist * dx_dist + dy_dist * dy_dist > MAX_DIST_SQ) continue;
+                if (dx_dist * dx_dist + dy_dist * dy_dist > zoneSq) continue;
 
                 uint32_t deadFlag = 0;
                 if (!rcl_read_int(objPtr + 208, (int32_t*)&deadFlag) || deadFlag != 0) continue;
@@ -380,54 +236,85 @@ void rcl_autododge(void) {
                 if (pid == 0) continue;
                 seen[pid] = true;
 
-                Projectile& state = g_proj_cache[pid];
-                float speed = (float)rcl_call1i_local(rcl_base + RVA_LOGICPROJECTILEDATA_GETSPEED, dataPtr);
-                if (speed <= 0) speed = 1200.0f;
-                float radius = (float)rcl_call1i_local(rcl_base + RVA_LOGICPROJECTILEDATA_GETRADIUS, dataPtr);
-                if (radius <= 0) radius = 8.0f;
-
+                ProjectileState& state = g_proj_cache[pid];
                 if (state.lastSeen == 0) {
-                    int32_t angleDegrees = -1;
-                    if (rcl_read_int(objPtr + RCL_PROJ_ANGLE_OFF, &angleDegrees) &&
-                        angleDegrees >= 0 && angleDegrees <= 360) {
-                        float angle = (float)angleDegrees * ((float)M_PI / 180.0f);
-                        state.dirX = cosf(angle);
-                        state.dirY = sinf(angle);
-                    } else {
-                        state.dirX = 0.0f;
-                        state.dirY = 0.0f;
-                    }
+                    state.id = pid;
+                    state.spawnX = px;
+                    state.spawnY = py;
                     state.sampleX = px;
                     state.sampleY = py;
                     state.sampleTime = now;
+                    state.castRange = (float)rcl_call1i_local(rcl_base + 0x123456, dataPtr); // Placeholder RVA for getRange
+                    if (state.castRange <= 0) state.castRange = RANGE_FALLBACK;
+                    
+                    uint8_t ind = 0;
+                    rcl_read_byte(dataPtr + 0x123, &ind); // Placeholder for isIndirect
+                    state.isIndirect = ind != 0;
+                    
+                    uint8_t beam = 0;
+                    rcl_read_byte(dataPtr + 0x124, &beam); // Placeholder for isBeam
+                    state.isBeam = beam != 0;
+
+                    int32_t angleDegrees = -1;
+                    if (rcl_read_int(objPtr + RCL_PROJ_ANGLE_OFF, &angleDegrees) && angleDegrees >= 0 && angleDegrees <= 360) {
+                        float angle = (float)angleDegrees * ((float)M_PI / 180.0f);
+                        state.dirX = cosf(angle);
+                        state.dirY = sinf(angle);
+                    }
                 } else if (now - state.sampleTime >= 20) {
                     float ddx = px - state.sampleX;
                     float ddy = py - state.sampleY;
                     float distance = sqrtf(ddx * ddx + ddy * ddy);
                     uint64_t elapsed = now - state.sampleTime;
                     if (distance >= 6.0f && elapsed > 0) {
-                        float measuredSpeed = distance * 1000.0f / (float)elapsed;
-                        if (measuredSpeed >= 100.0f && measuredSpeed <= 12000.0f) {
-                            state.dirX = ddx / distance;
-                            state.dirY = ddy / distance;
-                            state.speed = measuredSpeed;
-                        }
+                        state.dirX = ddx / distance;
+                        state.dirY = ddy / distance;
+                        state.speed = distance * 1000.0f / (float)elapsed;
                         state.sampleX = px;
                         state.sampleY = py;
                         state.sampleTime = now;
                     }
                 }
+
                 state.x = px;
                 state.y = py;
-                if (state.speed <= 0.0f) state.speed = speed;
-                state.radius = radius;
                 state.lastSeen = now;
-                state.id = pid;
+                state.radius = (float)rcl_call1i_local(rcl_base + RVA_LOGICPROJECTILEDATA_GETRADIUS, dataPtr);
+                if (state.radius <= 0) state.radius = 100.0f;
+
+                float traveled = sqrtf((px - state.spawnX) * (px - state.spawnX) + (py - state.spawnY) * (py - state.spawnY));
+                float left = std::max(0.0f, state.castRange - traveled);
+                if (left <= 10.0f) continue;
+
+                float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) - bodyR - state.radius;
+                if (left < 0.85f * std::max(0.0f, gap)) continue;
+
+                bool blob = !state.isBeam && !state.isIndirect && state.speed > 0 && state.speed < 1600;
+                
+                Threat t;
+                t.x = px;
+                t.y = py;
+                t.vx = blob ? 0 : state.dirX * state.speed;
+                t.vy = blob ? 0 : state.dirY * state.speed;
+                t.rad = state.radius + bodyR + DEFAULT_PAD + state.radius * DEFAULT_GROW;
+                t.pathLen = state.castRange + state.radius;
+                t.left = left;
+                
+                if (!blob && !state.isIndirect && state.speed >= 1.0f) {
+                    float playerAlong = (mx - px) * state.dirX + (my - py) * state.dirY;
+                    if (playerAlong < -50.0f) continue;
+                    float hX = px + state.dirX * std::max(playerAlong, 0.0f);
+                    float hY = py + state.dirY * std::max(playerAlong, 0.0f);
+                    if (!rcl_wall_los(px, py, hX, hY, RCL_WALL_BLOCKS_PROJECTILES)) continue;
+                    if (playerAlong > state.castRange + state.radius) continue;
+                }
+
+                threats.push_back(t);
             }
         }
 
         for (auto it = g_proj_cache.begin(); it != g_proj_cache.end(); ) {
-            if (seen.find(it->first) == seen.end() || now - it->second.lastSeen > STALE_MS) {
+            if (seen.find(it->first) == seen.end() || now - it->second.lastSeen > 450) {
                 it = g_proj_cache.erase(it);
             } else {
                 ++it;
@@ -435,66 +322,88 @@ void rcl_autododge(void) {
         }
     }
 
-
-    V2 intentDir(0, 0);
-    uintptr_t js = rcl_battlescreen();
-    if (js) {
-        uint8_t dragging = 0;
-        if (rcl_read_byte(js + RCL_JOY_DRAGGING, &dragging) && dragging) {
-            float cx = 0, cy = 0, curX = 0, curY = 0;
-            if (rcl_read_float(js + RCL_JOY_CENTER_X, &cx) && rcl_read_float(js + RCL_JOY_CENTER_Y, &cy) &&
-                rcl_read_float(js + RCL_JOY_TARGET_X, &curX) && rcl_read_float(js + RCL_JOY_TARGET_Y, &curY)) {
-                float dx = curX - cx;
-                float dy = curY - cy;
-                if (dx * dx + dy * dy > 900.0f) {
-                    intentDir = normalize(dx, dy);
-                }
-            }
-        }
-    }
-
-
-    if (!checkDanger(mx, my, myRadius)) {
-        rcl_active = 0;
-        rcl_moving = 0;
+    if (threats.empty()) {
+        if (g_headingIdx >= 0 && now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS) clearHeading();
         return;
     }
 
-    V2 urgent = getUrgentDodgeDir(mx, my, myRadius, intentDir, now);
-    V2 baseDir;
-    if (urgent.x != 0 || urgent.y != 0) {
-        baseDir = urgent;
-    } else {
-        baseDir = chooseBestDirection(mx, my, myRadius, intentDir, now);
+    float stayClear = clearanceFor(threats, mx, my, 0, 0);
+    bool inDanger = stayClear < TUNE.ENGAGE;
+    if (inDanger) g_lastDangerTs = now;
+
+    if (!inDanger && (g_headingIdx < 0 || now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS)) {
+        if (g_headingIdx >= 0) clearHeading();
+        return;
     }
 
-    V2 safeDir = applyVO(baseDir, mx, my, myRadius, intentDir, now);
+    int prevIdx = g_headingIdx;
+    V2 prevDir = (prevIdx >= 0) ? g_ring[prevIdx] : V2(0, 0);
+    float bodyR = TUNE.WALL_BODY;
 
-    g_lastSafeDir = safeDir;
-    g_lastSafeDirTime = now;
+    int bestIdx = 0;
+    float bestScore = -1e18f;
+    float prevScore = -1e18f;
 
+    for (int i = 0; i < TUNE.DIR_COUNT; i++) {
+        const V2& d = g_ring[i];
+        float s = clearanceFor(threats, mx, my, CHAR_SPEED * d.x, CHAR_SPEED * d.y);
+        s -= wallAhead(mx, my, d, CHAR_SPEED, bodyR);
+        if (prevIdx >= 0) s += TUNE.MOMENTUM * (d.x * prevDir.x + d.y * prevDir.y);
+        
+        if (i == prevIdx) prevScore = s;
+        if (s > bestScore) {
+            bestScore = s;
+            bestIdx = i;
+        }
+    }
 
-    float angle = atan2f(safeDir.y, safeDir.x);
-    float teamFlip = (rcl_own_team_b == 1) ? -1.0f : 1.0f;
-    float reach = 800.0f;
-    int32_t tx = (int32_t)roundf(mx + cosf(angle) * reach * teamFlip);
-    int32_t ty = (int32_t)roundf(my + sinf(angle) * reach * teamFlip);
+    int chosenIdx = bestIdx;
+    float chosenScore = bestScore;
 
-    rcl_move_to(tx, ty, mx, my);
-    int sent = rcl_enqueue(tx, ty);
+    if (prevIdx >= 0 && now < g_holdUntil && chosenIdx != prevIdx) {
+        if (prevScore + TUNE.KEEP_BAND >= bestScore) {
+            chosenIdx = prevIdx;
+            chosenScore = prevScore;
+        } else {
+            g_holdUntil = now + TUNE.LOCK_MS;
+        }
+    } else if (now >= g_holdUntil) {
+        g_holdUntil = now + TUNE.LOCK_MS;
+    }
+
+    if (chosenScore <= stayClear) {
+        if (g_headingIdx >= 0) clearHeading();
+        return;
+    }
+
+    V2 chosen = g_ring[chosenIdx];
+    g_headingIdx = chosenIdx;
+    g_heading = chosen;
+
+    int32_t tx = (int32_t)roundf(mx + chosen.x * TUNE.REACH);
+    int32_t ty = (int32_t)roundf(my + chosen.y * TUNE.REACH);
+
+    float ddx = (float)tx - g_lastSentX;
+    float ddy = (float)ty - g_lastSentY;
+    bool moved = (ddx * ddx + ddy * ddy > TUNE.SEND_MIN_DIST * TUNE.SEND_MIN_DIST);
+    bool stale = (now - g_lastSentAt > TUNE.SEND_MIN_MS);
+
+    if (moved || stale) {
+        g_lastSentX = (float)tx;
+        g_lastSentY = (float)ty;
+        g_lastSentAt = now;
+        rcl_move_to(tx, ty, mx, my);
+        rcl_enqueue(tx, ty);
+    }
 
     rcl_active = 1;
-    rcl_moving = sent;
+    rcl_moving = 1;
 
-
-    rcl_dbg.px = mx;
-    rcl_dbg.py = my;
-    rcl_dbg.dx = safeDir.x;
-    rcl_dbg.dy = safeDir.y;
-    rcl_dbg.tx = (float)tx;
-    rcl_dbg.ty = (float)ty;
-    rcl_dbg.hazards = (int)g_proj_cache.size();
-    snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "VO:%s SPD:%.0f", (isVelocityUnsafe(baseDir, mx, my, myRadius) ? "FAIL" : "OK"), CHAR_SPEED);
+    rcl_dbg.px = mx; rcl_dbg.py = my;
+    rcl_dbg.dx = chosen.x; rcl_dbg.dy = chosen.y;
+    rcl_dbg.tx = (float)tx; rcl_dbg.ty = (float)ty;
+    rcl_dbg.hazards = (int)threats.size();
+    snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "CLR:%.0f SCR:%.0f", stayClear, chosenScore);
 }
 
 void rcl_autododge_reset(void) {

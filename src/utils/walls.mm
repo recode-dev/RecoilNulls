@@ -39,16 +39,13 @@ int rcl_cell(int tx, int ty, int *proj, int *move)
     {
         return 0;
     }
-    if (!rcl_read_bytes((uintptr_t)type + RCL_TILE_TYPE_MOVE_OFF, &bm, 1))
+    uint16_t packed = 0;
+    if (!rcl_read_bytes((uintptr_t)type + RCL_TILE_TYPE_MOVE_OFF, &packed, 2))
     {
         return 0;
     }
-    if (!rcl_read_bytes((uintptr_t)type + RCL_TILE_TYPE_PROJ_OFF, &bp, 1))
-    {
-        return 0;
-    }
-    *proj = (int)bp;
-    *move = (int)bm;
+    *move = (packed & 0xff) ? 1 : 0;
+    *proj = (packed >> 8) ? 1 : 0;
     return 1;
 }
 
