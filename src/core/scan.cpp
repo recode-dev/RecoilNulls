@@ -2182,7 +2182,6 @@ void setup(void)
     resolve_addresses();
     objc_arm(base, "MetalView", "render", objc_body);
     objc_arm(base, "NullView", "render", objc_body);
-    slot_hooks_install();
     start_timer();
     start_hot_timer();
 }
