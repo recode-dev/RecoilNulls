@@ -1928,6 +1928,16 @@ void rcl_scan_world(void)
     }
 
     own = rcl_addr_getownchar ? rcl_call1(rcl_addr_getownchar, client) : 0;
+    if (rcl_base)
+    {
+        uintptr_t tileMapFn = rcl_callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP);
+        uintptr_t tileMap = tileMapFn ? rcl_call1(tileMapFn, client) : 0;
+        if (rcl_pointer_plausible(tileMap))
+        {
+            rcl_wall_bind(tileMap);
+            rcl_wall_maybe_refresh((uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0));
+        }
+    }
     if (!rcl_pointer_plausible(own))
     {
         own = 0;

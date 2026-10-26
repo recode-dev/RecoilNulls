@@ -60,6 +60,8 @@ static int rcl_wall_h = 0;
 
 static int rcl_wall_have = 0;
 
+static uintptr_t rcl_wall_map = 0;
+
 static int rcl_wall_dirty = 1;
 
 static uint64_t rcl_wall_fail_ms = 0;
@@ -83,6 +85,16 @@ void rcl_wall_bind(uintptr_t tileMap)
     if (!tileMap)
     {
         return;
+    }
+    if (tileMap != rcl_wall_map)
+    {
+        rcl_wall_map = tileMap;
+        rcl_tiles = 0;
+        rcl_w = 0;
+        rcl_h = 0;
+        rcl_wall_dirty = 1;
+        rcl_wall_have = 0;
+        rcl_wall_fail_ms = 0;
     }
     if (!rcl_read_int(tileMap + (uintptr_t)RCL_TILEMAP_W_OFF, &w) || w <= 0 ||
         w > RCL_WALL_MAX_MAP_TILES)
@@ -163,6 +175,7 @@ int rcl_wall_build(void)
     int height = 0;
     int total = 0;
     int i = 0;
+    rcl_wall_have = 0;
     if (!rcl_tiles)
     {
         return 0;

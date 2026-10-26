@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static const float SAFETY_MARGIN = 220.0f;
+static const float SAFETY_MARGIN = 80.0f;
 static const float T_URGENT      = 4.5f;
 static const float T_FIELD       = 6.5f;
 static const int N_DIRECTIONS    = 64;
@@ -96,18 +96,40 @@ static int32_t rcl_call1i_local(uintptr_t fn, uintptr_t self) {
 
 
 
+static bool projectilePathClear(const Projectile& p, float time) {
+    if (rcl_wall_is_blocked_at(p.x, p.y, RCL_WALL_BLOCKS_PROJECTILES)) return false;
+    float endX = p.x + p.dirX * p.speed * time;
+    float endY = p.y + p.dirY * p.speed * time;
+    return rcl_wall_los(p.x, p.y, endX, endY, RCL_WALL_BLOCKS_PROJECTILES) != 0;
+}
+
+static float movementWallPenalty(V2 dir, float myX, float myY, float myRadius) {
+    if (!rcl_wall_ready()) return 0.0f;
+    float penalty = 0.0f;
+    float step = CHAR_SPEED * 0.35f;
+    float bodyRadius = myRadius + 80.0f;
+    for (int s = 1; s <= 3; s++) {
+        float px = myX + dir.x * step * (float)s;
+        float py = myY + dir.y * step * (float)s;
+        if (rcl_wall_is_blocked_wide(px, py, bodyRadius, RCL_WALL_BLOCKS_MOVEMENT)) {
+            penalty += 9000.0f * (float)(4 - s);
+        }
+    }
+    return penalty;
+}
+
 static bool isUrgentThreat(const Projectile& p, float myX, float myY, float myRadius) {
-    float dx = myX - p.x;
-    float dy = myY - p.y;
+    float dx = p.x - myX;
+    float dy = p.y - myY;
     float vx = p.dirX * p.speed;
     float vy = p.dirY * p.speed;
 
     float c1 = dx * vx + dy * vy;
-    if (c1 <= 0) return false;
+    if (c1 >= 0) return false;
     float c2 = vx * vx + vy * vy;
     if (c2 <= 0) return false;
-    float tHit = c1 / c2;
-    if (tHit > T_URGENT) return false;
+    float tHit = -c1 / c2;
+    if (tHit <= 0 || tHit > T_URGENT) return false;
 
     float closestX = p.x + vx * tHit;
     float closestY = p.y + vy * tHit;
@@ -115,7 +137,7 @@ static bool isUrgentThreat(const Projectile& p, float myX, float myY, float myRa
     float r = myRadius + p.radius + SAFETY_MARGIN;
     float ddx = myX - closestX;
     float ddy = myY - closestY;
-    return (ddx * ddx + ddy * ddy) <= r * r;
+    return (ddx * ddx + ddy * ddy) <= r * r && projectilePathClear(p, tHit);
 }
 
 static float threatScore(V2 dir, float myX, float myY, float myRadius, V2 intentDir, uint64_t now) {
@@ -134,19 +156,20 @@ static float threatScore(V2 dir, float myX, float myY, float myRadius, V2 intent
         float b = 2.0f * (dx * vx + dy * vy);
         float c = dx * dx + dy * dy;
 
+        float tMin = 0.0f;
         float minD2 = c;
         if (a > 1e-6f) {
-            float tMin = -b / (2.0f * a);
-            if (tMin > 0 && tMin <= T_FIELD) {
-                minD2 = c + b * tMin + a * tMin * tMin;
-            } else if (tMin > T_FIELD) {
-                minD2 = c + b * T_FIELD + a * T_FIELD * T_FIELD;
-            }
+            tMin = -b / (2.0f * a);
+            if (tMin < 0.0f) tMin = 0.0f;
+            if (tMin > T_FIELD) tMin = T_FIELD;
+            minD2 = c + b * tMin + a * tMin * tMin;
         }
+        if (!projectilePathClear(p, tMin)) continue;
 
         float danger = (minD2 < r * r) ? 2500.0f : (r * r) / std::max(minD2, 50.0f);
         score += danger;
     }
+    score += movementWallPenalty(dir, myX, myY, myRadius);
 
     if (intentDir.x != 0 || intentDir.y != 0) {
         float dotIntent = dir.x * intentDir.x + dir.y * intentDir.y;
@@ -174,12 +197,15 @@ static bool isVelocityUnsafe(V2 dir, float myX, float myY, float myRadius) {
         float b = 2.0f * (dx * vx + dy * vy);
         float c = dx * dx + dy * dy - r * r;
 
-        if (c < 0) return true;
+        if (c < 0) {
+            if (projectilePathClear(p, 0.0f)) return true;
+            continue;
+        }
         if (a > 1e-6f) {
             float disc = b * b - 4.0f * a * c;
             if (disc >= 0) {
                 float t1 = (-b - sqrtf(disc)) / (2.0f * a);
-                if (t1 > 0 && t1 <= T_FIELD) return true;
+                if (t1 > 0 && t1 <= T_FIELD && projectilePathClear(p, t1)) return true;
             }
         }
     }
@@ -264,27 +290,23 @@ static V2 applyVO(V2 dir, float myX, float myY, float myRadius, V2 intentDir, ui
 
 static bool checkDanger(float myX, float myY, float myRadius) {
     for (auto const& [id, p] : g_proj_cache) {
-        float r = myRadius + p.radius + SAFETY_MARGIN * 2.5f;
-        float dx = myX - p.x;
-        float dy = myY - p.y;
-        if (dx * dx + dy * dy <= r * r) return true;
-
         float vx = p.dirX * p.speed;
         float vy = p.dirY * p.speed;
+        float dx = myX - p.x;
+        float dy = myY - p.y;
         float c1 = dx * vx + dy * vy;
-        if (c1 > 0) {
-            float c2 = vx * vx + vy * vy;
-            if (c2 > 0) {
-                float tHit = c1 / c2;
-                if (tHit <= T_FIELD) {
-                    float cx = p.x + vx * tHit;
-                    float cy = p.y + vy * tHit;
-                    float ddx = myX - cx;
-                    float ddy = myY - cy;
-                    if (ddx * ddx + ddy * ddy <= r * r) return true;
-                }
-            }
-        }
+        float c2 = vx * vx + vy * vy;
+        if (c1 <= 0.0f || c2 <= 1e-6f) continue;
+
+        float tHit = c1 / c2;
+        if (tHit > T_FIELD) continue;
+
+        float cx = p.x + vx * tHit;
+        float cy = p.y + vy * tHit;
+        float ddx = myX - cx;
+        float ddy = myY - cy;
+        float r = myRadius + p.radius + SAFETY_MARGIN;
+        if (ddx * ddx + ddy * ddy <= r * r && projectilePathClear(p, tHit)) return true;
     }
     return false;
 }
