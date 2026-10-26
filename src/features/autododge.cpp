@@ -252,7 +252,7 @@ void autododge(void)
                     state.sampleX = px;
                     state.sampleY = py;
                     state.sampleTime = now;
-                    state.castRange = range_for_proj(dataPtr);
+                    state.castRange = own_cast_range();
                     uint8_t ind = 0;
                     if (read_byte(dataPtr + PROJ_ISTHROWER_OFF, &ind))
                     {

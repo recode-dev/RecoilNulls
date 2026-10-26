@@ -46,10 +46,7 @@ uintptr_t addr_projspeed = 0;
 uintptr_t addr_projradius = 0;
 uintptr_t addr_projbeam = 0;
 uintptr_t addr_castrange = 0;
-uintptr_t addr_skilldata = 0;
-uintptr_t addr_skillproj = 0;
 uintptr_t addr_weaponskill = 0;
-uintptr_t addr_skillat = 0;
 volatile int at = 0;
 uintptr_t slot_object[34] = {0};
 uintptr_t slot_arg[34] = {0};
@@ -1942,11 +1939,6 @@ static uintptr_t call1u(uintptr_t fn, uintptr_t self)
     if (!fn || !self) return 0;
     return ((uintptr_t(*)(uintptr_t))fn)(self);
 }
-static uintptr_t call2u(uintptr_t fn, uintptr_t self, int32_t arg)
-{
-    if (!fn || !self) return 0;
-    return ((uintptr_t(*)(uintptr_t, int32_t))fn)(self, arg);
-}
 static BOOL obj_ok(uintptr_t p)
 {
     uintptr_t vt = 0;
@@ -1967,6 +1959,47 @@ int32_t own_y = 0;
 int32_t own_index_v = -1;
 int own_ok_hp = 0;
 dbg_t dbg;
+static BOOL obj_in_image(uintptr_t p)
+{
+    uintptr_t vt = 0;
+    if (!pointer_plausible(p) || !base)
+    {
+        return NO;
+    }
+    if (!read_ptr(p, (void**)&vt) || !pointer_plausible(vt))
+    {
+        return NO;
+    }
+    return (vt >= base && vt - base < 0x2000000ULL) ? YES : NO;
+}
+static int battle_state(void)
+{
+    uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
+    int32_t state = -1;
+    if (!slot)
+    {
+        return -1;
+    }
+    if (!read_int(slot + (uintptr_t)STATE_ENUM_OFF, &state))
+    {
+        return -1;
+    }
+    return state;
+}
+static void world_reset(void)
+{
+    own_elem = 0;
+    own_elem_scan = 0;
+    own_x = 0;
+    own_y = 0;
+    own_hp = 0;
+    own_ok_hp = 0;
+    dead = 1;
+    coord_ok = 0;
+    manager_ptr = 0;
+    manager_array_ptr = 0;
+    manager_count_v = 0;
+}
 void scan_world(void)
 {
     uintptr_t clientPtr = 0;
@@ -1983,18 +2016,16 @@ void scan_world(void)
     int32_t hp = 0;
     dbg.stage = 0;
     if (!base) return;
-    clientPtr = controller();
-    if (!clientPtr)
+    if (battle_state() != 5)
     {
-        own_elem = 0;
-        own_elem_scan = 0;
-        own_x = 0;
-        own_y = 0;
-        dead = 1;
-        coord_ok = 0;
-        manager_ptr = 0;
-        manager_array_ptr = 0;
-        manager_count_v = 0;
+        world_reset();
+        dbg.stage = 1;
+        return;
+    }
+    clientPtr = controller();
+    if (!obj_in_image(clientPtr))
+    {
+        world_reset();
         dbg.stage = 1;
         return;
     }
@@ -2079,6 +2110,9 @@ void scan_world(void)
     }
     if (!read_ptr(clientPtr + (uintptr_t)MODE_MANAGER_OFF, &value) || !value)
     {
+        manager_ptr = 0;
+        manager_array_ptr = 0;
+        manager_count_v = 0;
         dbg.stage = 3;
         return;
     }
@@ -2086,12 +2120,16 @@ void scan_world(void)
     manager_ptr = mgrPtr;
     if (!read_ptr(mgrPtr + (uintptr_t)MGR_ARRAY_OFF, &value) || !value)
     {
+        manager_array_ptr = 0;
+        manager_count_v = 0;
         dbg.stage = 4;
         return;
     }
     array = (uintptr_t)value;
     if (!read_int(mgrPtr + (uintptr_t)MGR_COUNT_OFF, &count) || count <= 0)
     {
+        manager_array_ptr = 0;
+        manager_count_v = 0;
         dbg.stage = 5;
         return;
     }
@@ -2273,6 +2311,10 @@ int32_t gid(uintptr_t element, int32_t* offOut)
     {
         return 0;
     }
+    if (!obj_in_image(element))
+    {
+        return 0;
+    }
     return call1i(addr_getgid, element);
 }
 int last_choice = -2;
@@ -2441,10 +2483,7 @@ void resolve_addresses(void)
     addr_projradius = callable(RVA_LOGICPROJECTILEDATA_GETRADIUS);
     addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
     addr_castrange = callable(RVA_LOGICSKILLDATA_GETCASTRANGE);
-    addr_skilldata = callable(RVA_LOGICSKILLCLIENT_GETDATA);
-    addr_skillproj = callable(RVA_LOGICSKILLDATA_GETPROJECTILEDATA);
     addr_weaponskill = callable(RVA_LOGICCHARACTERCLIENT_GETWEAPONSKILL);
-    addr_skillat = callable(RVA_LOGICCHARACTERCLIENT_GETSKILLAT);
     if (!addr_readable(addr_battlescreen, sizeof(void*)))
     {
         addr_battlescreen = 0;
@@ -2657,101 +2696,6 @@ uintptr_t client(void)
         return 0;
     }
     return (uintptr_t)clientPtr;
-}
-static int proj_read_name(uintptr_t data, char* dst, int cap);
-typedef struct
-{
-    char name[64];
-    float range;
-} range_entry_t;
-#define RANGE_MAP_MAX 24
-static range_entry_t range_map[RANGE_MAP_MAX];
-static int range_map_n = 0;
-static uint64_t range_map_stamp = 0;
-static void refresh_range_map(void)
-{
-    int slot = 0;
-    int hyper = 0;
-    uint64_t now = us();
-    if (range_map_stamp != 0 && now - range_map_stamp < 500000ULL)
-    {
-        return;
-    }
-    range_map_stamp = now;
-    range_map_n = 0;
-    if (!own_elem || !addr_skillat || !addr_skilldata || !addr_castrange ||
-        !addr_skillproj)
-    {
-        return;
-    }
-    if (!obj_ok(own_elem))
-    {
-        return;
-    }
-    for (slot = 0; slot < 8; slot++)
-    {
-        uintptr_t skill = call2u(addr_skillat, own_elem, slot);
-        if (!obj_ok(skill))
-        {
-            continue;
-        }
-        for (hyper = 0; hyper < 2; hyper++)
-        {
-            uintptr_t data = call2u(addr_skilldata, skill, hyper);
-            uintptr_t pdata = 0;
-            char nm[64];
-            int32_t tiles = 0;
-            int i = 0;
-            int dup = 0;
-            if (!obj_ok(data))
-            {
-                continue;
-            }
-            tiles = call1i(addr_castrange, data);
-            if (tiles <= 0)
-            {
-                continue;
-            }
-            pdata = call2u(addr_skillproj, data, 0);
-            if (!obj_ok(pdata) || !proj_read_name(pdata, nm, 64))
-            {
-                continue;
-            }
-            for (i = 0; i < range_map_n; i++)
-            {
-                if (strcmp(range_map[i].name, nm) == 0)
-                {
-                    dup = 1;
-                    break;
-                }
-            }
-            if (dup || range_map_n >= RANGE_MAP_MAX)
-            {
-                continue;
-            }
-            strncpy(range_map[range_map_n].name, nm, 63);
-            range_map[range_map_n].name[63] = 0;
-            range_map[range_map_n].range = (float)tiles * CASTING_RANGE_SCALE;
-            range_map_n++;
-        }
-    }
-}
-float range_for_proj(uintptr_t projData)
-{
-    char nm[64];
-    int i = 0;
-    refresh_range_map();
-    if (obj_ok(projData) && proj_read_name(projData, nm, 64))
-    {
-        for (i = 0; i < range_map_n; i++)
-        {
-            if (strcmp(range_map[i].name, nm) == 0)
-            {
-                return range_map[i].range;
-            }
-        }
-    }
-    return own_cast_range();
 }
 float own_cast_range(void)
 {
