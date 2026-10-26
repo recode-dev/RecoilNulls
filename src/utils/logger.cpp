@@ -1,3 +1,4 @@
+#include "../core/gum_boot.h"
 #include "../core/scan.h"
 #include "../features/autododge.h"
 #include <dispatch/dispatch.h>
