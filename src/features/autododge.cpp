@@ -29,6 +29,7 @@ static struct
     float SEND_MIN_DIST = 8.0f;
     float MIN_POS = 50.0f;
 } TUNE;
+static const float CAST_RANGE = 2800.0f;
 static const float DEFAULT_PAD = 80.0f;
 static const float DEFAULT_GROW = 0.5f;
 struct V2
@@ -200,7 +201,7 @@ void autododge(void)
         std::map<int, bool> seen;
         float zoneSq = TUNE.AWARE * TUNE.AWARE;
         float bodyR = myRadius + TUNE.SKIN;
-        if (manager_array_ptr && manager_count_v > 0)
+        if (manager_array_ptr && manager_count_v > 0 && manager_count_v < 512)
         {
             for (int i = 0; i < manager_count_v; i++)
             {
@@ -251,7 +252,7 @@ void autododge(void)
                     state.sampleX = px;
                     state.sampleY = py;
                     state.sampleTime = now;
-                    state.castRange = own_cast_range();
+                    state.castRange = CAST_RANGE;
                     uint8_t ind = 0;
                     if (read_byte(dataPtr + PROJ_ISTHROWER_OFF, &ind))
                     {

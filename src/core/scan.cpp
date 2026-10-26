@@ -2640,47 +2640,6 @@ uintptr_t client(void)
     }
     return (uintptr_t)clientPtr;
 }
-float own_cast_range(void)
-{
-    static float cached = 0.0f;
-    static uint64_t stamp = 0;
-    int slot = 0;
-    int hyper = 0;
-    int32_t best = 0;
-    uint64_t now = us();
-    if (stamp != 0 && now - stamp < 500000ULL)
-    {
-        return cached;
-    }
-    stamp = now;
-    if (!own_elem || !addr_skillat || !addr_skilldata || !addr_castrange)
-    {
-        return cached;
-    }
-    for (slot = 0; slot < SKILL_SLOT_MAX; slot++)
-    {
-        uintptr_t skill = call2u(addr_skillat, own_elem, slot);
-        if (!pointer_plausible(skill))
-        {
-            continue;
-        }
-        for (hyper = 0; hyper < 2; hyper++)
-        {
-            uintptr_t data = call2u(addr_skilldata, skill, hyper);
-            if (!pointer_plausible(data))
-            {
-                continue;
-            }
-            int32_t tiles = call1i(addr_castrange, data);
-            if (tiles > best)
-            {
-                best = tiles;
-            }
-        }
-    }
-    cached = (float)best * CASTING_RANGE_SCALE;
-    return cached;
-}
 void state_note(int state)
 {
     if (prev_state == 5 && state != 5)
