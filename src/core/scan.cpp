@@ -18,6 +18,7 @@
 #include "objc.h"
 #include "offsets.h"
 #include "scan.h"
+#include <frida-gum.h>
 const char* image_names[2] = {"Nulls Brawl", nullptr};
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
@@ -156,13 +157,12 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    vm_size_t got = 0;
-    kern_return_t result = vm_read_overwrite(mach_task_self(),
-                                             (mach_vm_address_t)address,
-                                             (mach_vm_size_t)length,
-                                             (mach_vm_address_t)(uintptr_t)out,
-                                             &got);
-    return result == KERN_SUCCESS && got == (vm_size_t)length;
+    if (!gum_memory_is_readable((gconstpointer)address, (gsize)length))
+    {
+        return NO;
+    }
+    memcpy(out, (const void*)address, length);
+    return YES;
 }
 BOOL pointer_plausible(uintptr_t value)
 {
@@ -300,18 +300,12 @@ BOOL copy(uintptr_t source, void* destination, size_t length)
     {
         return NO;
     }
-    if (!addr_readable(source, length))
+    if (!gum_memory_is_readable((gconstpointer)source, (gsize)length))
     {
         return NO;
     }
-    vm_size_t copied = 0;
-    kern_return_t result =
-        vm_read_overwrite(mach_task_self(),
-                          (mach_vm_address_t)source,
-                          (mach_vm_size_t)length,
-                          (mach_vm_address_t)(uintptr_t)destination,
-                          &copied);
-    return result == KERN_SUCCESS && copied == (vm_size_t)length;
+    memcpy(destination, (const void*)source, length);
+    return YES;
 }
 BOOL text_section(uintptr_t* address, uint64_t* size)
 {
@@ -425,58 +419,76 @@ BOOL valid_header(uintptr_t imageBase)
     }
     return YES;
 }
+static BOOL contains_ci(const char* haystack, const char* needle)
+{
+    const char* p = NULL;
+    if (!haystack || !needle || !needle[0])
+    {
+        return NO;
+    }
+    for (p = haystack; *p; p++)
+    {
+        const char* a = p;
+        const char* b = needle;
+        while (*a && *b)
+        {
+            char ca = *a;
+            char cb = *b;
+            if (ca >= 'A' && ca <= 'Z')
+            {
+                ca = (char)(ca + 32);
+            }
+            if (cb >= 'A' && cb <= 'Z')
+            {
+                cb = (char)(cb + 32);
+            }
+            if (ca != cb)
+            {
+                break;
+            }
+            a++;
+            b++;
+        }
+        if (*b == 0)
+        {
+            return YES;
+        }
+    }
+    return NO;
+}
+static gboolean game_module_cb(GumModule* module, gpointer userData)
+{
+    const GumMemoryRange* range = NULL;
+    if (!module || !userData)
+    {
+        return TRUE;
+    }
+    if (!contains_ci(gum_module_get_name(module), "nulls"))
+    {
+        return TRUE;
+    }
+    range = gum_module_get_range(module);
+    if (!range)
+    {
+        return TRUE;
+    }
+    *(uintptr_t*)userData = (uintptr_t)range->base_address;
+    return FALSE;
+}
 BOOL find_game_image(uintptr_t* out_base)
 {
-    uint32_t count = 0;
-    uint32_t i = 0;
+    uintptr_t found = 0;
     if (!out_base)
     {
         return NO;
     }
-    count = _dyld_image_count();
-    if (count > 8192)
+    gum_process_enumerate_modules(game_module_cb, &found);
+    if (!found)
     {
-        count = 8192;
+        return NO;
     }
-    for (i = 0; i < count; i++)
-    {
-        const char* path = _dyld_get_image_name(i);
-        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
-        BOOL matched = NO;
-        int n = 0;
-        if (!path || !imageBase)
-        {
-            continue;
-        }
-        if (!strstr(path, ".app/"))
-        {
-            continue;
-        }
-        if (strstr(path, "/System/") || strstr(path, "/usr/lib/") ||
-            strstr(path, ".framework/") || strstr(path, ".dylib"))
-        {
-            continue;
-        }
-        if (!valid_header(imageBase))
-        {
-            continue;
-        }
-        for (n = 0; image_names[n]; n++)
-        {
-            if (strstr(path, image_names[n]))
-            {
-                matched = YES;
-                break;
-            }
-        }
-        if (!matched)
-        {
-            continue;
-        }
-        *out_base = imageBase;
-        return YES;
-    }
-    return NO;
+    *out_base = found;
+    return YES;
 }
 uintptr_t owner = 0;
 int wired = 0;
@@ -784,6 +796,12 @@ uintptr_t strip_ptr(uintptr_t value)
 }
 void poll_for_game(int tick)
 {
+    static int gum_ready = 0;
+    if (!gum_ready)
+    {
+        gum_init_embedded();
+        gum_ready = 1;
+    }
     if (setup_done)
     {
         return;
