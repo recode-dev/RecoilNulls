@@ -2597,8 +2597,7 @@ int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
             {
                 continue;
             }
-            if (rosterArr[rk].projGid < 1000000 ||
-                rosterArr[rk].projGid >= 2000000)
+            if (rosterArr[rk].gid < 1000000 || rosterArr[rk].gid >= 2000000)
             {
                 continue;
             }
@@ -2837,7 +2836,7 @@ int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
         projs[slot].classRva = vtRva;
         projs[slot].x = px;
         projs[slot].y = py;
-        projs[slot].projGid = projGid;
+        projs[slot].gid = projGid;
         projs[slot].qms = nowMs;
         found++;
     }
