@@ -50,7 +50,7 @@ typedef struct
 #include <mach-o/loader.h>
 #include <objc/runtime.h>
 extern uintptr_t base;
-extern const char* image_names[4];
+extern const char* image_names[2];
 extern uintptr_t* starts;
 extern size_t starts_count;
 extern BOOL setup_done;
