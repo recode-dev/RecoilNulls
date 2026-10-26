@@ -657,7 +657,7 @@ static bool g_install(void *target, void *replacement)
     uintptr_t repl = strip_fn(replacement);
     return hook_pointer_install(addr, repl) > 0;
 }
-static bool remove(void *target)
+static bool hook_remove(void *target)
 {
     if (!target)
         return false;
@@ -743,7 +743,7 @@ int hooks_uninstall(void)
     {
         if (!g_ptr_hooks[i].used)
             continue;
-        if (remove((void *)g_ptr_hooks[i].target))
+        if (hook_remove((void *)g_ptr_hooks[i].target))
             removed++;
     }
     hook_write_window_close();
