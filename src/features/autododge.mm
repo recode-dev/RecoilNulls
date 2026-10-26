@@ -81,12 +81,6 @@ static float g_lastSentY = 1e9f;
 static uint64_t g_lastSentAt = 0;
 static float CHAR_SPEED = 720.0f;
 
-static V2 normalize(float x, float y) {
-    float l = sqrtf(x * x + y * y);
-    if (l < 1e-6f) return V2(0, 0);
-    return V2(x / l, y / l);
-}
-
 static void buildRing() {
     if ((int)g_ring.size() == TUNE.DIR_COUNT) return;
     g_ring.clear();
@@ -157,14 +151,6 @@ static int32_t rcl_call1i_local(uintptr_t fn, uintptr_t self) {
     if (!fn || !self) return 0;
     typedef int32_t (*fn_t)(uintptr_t);
     return ((fn_t)rcl_callable(fn - rcl_base))(self);
-}
-
-static uintptr_t rcl_battlescreen(void) {
-    uintptr_t ctrl = rcl_controller();
-    if (!ctrl) return 0;
-    void* val = nullptr;
-    if (!rcl_read_ptr(ctrl + RCL_BATTLESCREEN_OFF, &val)) return 0;
-    return (uintptr_t)val;
 }
 
 void rcl_autododge(void) {
