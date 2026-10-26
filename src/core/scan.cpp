@@ -2894,11 +2894,6 @@ int proj_scan(uintptr_t mgrPtr,
             if (read_ptr((uintptr_t)element + (uintptr_t)ELEM_DEF_OFF, &def) &&
                 def)
             {
-                float range = call1f(addr_castrange, (uintptr_t)def);
-                if (range > 0.0f && range < 100000.0f)
-                {
-                    projs[slot].castRange = (int32_t)range;
-                }
                 if (proj_read_name((uintptr_t)def, proj_name_buf[slot], 64))
                 {
                     projs[slot].name = proj_name_buf[slot];
