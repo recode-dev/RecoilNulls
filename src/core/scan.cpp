@@ -1941,11 +1941,6 @@ float call1f(uintptr_t fn, uintptr_t self)
     if (!fn || !self) return 0.0f;
     return ((fn1f)fn)(self);
 }
-static uintptr_t call2u(uintptr_t fn, uintptr_t self, int32_t arg)
-{
-    if (!fn || !self) return 0;
-    return ((uintptr_t(*)(uintptr_t, int32_t))fn)(self, arg);
-}
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
 int32_t own_x = 0;
