@@ -969,7 +969,7 @@ BOOL rcl_start_word(uint32_t word)
     }
     return NO;
 }
-BOOL rcl_start_boundary(const uint8_t * /*bytes*/, size_t offset)
+BOOL rcl_start_boundary(const uint8_t * bytes, size_t offset)
 {
     if (offset < 4)
     {
