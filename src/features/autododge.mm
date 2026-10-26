@@ -43,6 +43,15 @@ struct Projectile {
 };
 
 // --- State ---
+__thread int rcl_in_move = 0;
+int32_t rcl_pl_mine[12] = {0};
+int rcl_active = 0;
+int rcl_moving = 0;
+int rcl_cand_now[3] = {0};
+int rcl_cand_seen = 0;
+int32_t rcl_prev_x = 0;
+int32_t rcl_prev_y = 0;
+
 static std::map<int, Projectile> g_proj_cache;
 static V2 SAMPLES[N_DIRECTIONS];
 static bool g_samples_init = false;
@@ -280,10 +289,6 @@ static bool checkDanger(float myX, float myY, float myRadius) {
 }
 
 // --- Integration ---
-
-extern rcl_dbg_t rcl_dbg;
-extern int rcl_active;
-extern int rcl_moving;
 
 static uintptr_t rcl_battlescreen(void) {
     uintptr_t ctrl = rcl_controller();
