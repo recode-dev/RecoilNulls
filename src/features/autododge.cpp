@@ -171,6 +171,8 @@ void autododge(void)
     g_lastTick = now;
     dbg.sent = 0;
     dbg.thn = 0;
+    dbg.mapn = range_map_size();
+    dbg.ranged = 0;
     buildRing();
     float mx = (float)own_x;
     float my = (float)own_y;
@@ -252,7 +254,9 @@ void autododge(void)
                     state.sampleX = px;
                     state.sampleY = py;
                     state.sampleTime = now;
-                    state.castRange = own_cast_range();
+                    int32_t ownerIdx = -1;
+                    read_int(objPtr + OBJ_OWNERINDEX_OFF, &ownerIdx);
+                    state.castRange = range_for_proj(dataPtr, ownerIdx);
                     uint8_t ind = 0;
                     if (read_byte(dataPtr + PROJ_ISTHROWER_OFF, &ind))
                     {
@@ -352,6 +356,7 @@ void autododge(void)
                 float left = 1e6f;
                 if (state.castRange > 0.0f)
                 {
+                    dbg.ranged++;
                     left = std::max(0.0f, state.castRange - traveled);
                     if (left <= 10.0f) continue;
                     float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) -

@@ -78,6 +78,8 @@ extern uintptr_t addr_projbeam;
 extern uintptr_t addr_castrange;
 float call1f(uintptr_t fn, uintptr_t self);
 float own_cast_range(void);
+float range_for_proj(uintptr_t projData, int32_t ownerIdx);
+int range_map_size(void);
 extern volatile int at;
 extern int sig_ticks;
 extern uintptr_t sig_last;
@@ -423,6 +425,8 @@ typedef struct
     float radius;
     float speed;
     int sent;
+    int mapn;
+    int ranged;
     int thn;
     float thx[6];
     float thy[6];

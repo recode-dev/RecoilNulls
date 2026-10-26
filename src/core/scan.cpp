@@ -46,6 +46,7 @@ uintptr_t addr_projspeed = 0;
 uintptr_t addr_projradius = 0;
 uintptr_t addr_projbeam = 0;
 uintptr_t addr_castrange = 0;
+uintptr_t addr_skillproj = 0;
 uintptr_t addr_weaponskill = 0;
 volatile int at = 0;
 uintptr_t slot_object[34] = {0};
@@ -1939,6 +1940,11 @@ static uintptr_t call1u(uintptr_t fn, uintptr_t self)
     if (!fn || !self) return 0;
     return ((uintptr_t(*)(uintptr_t))fn)(self);
 }
+static uintptr_t call2u(uintptr_t fn, uintptr_t self, int32_t arg)
+{
+    if (!fn || !self) return 0;
+    return ((uintptr_t(*)(uintptr_t, int32_t))fn)(self, arg);
+}
 static BOOL obj_ok(uintptr_t p)
 {
     uintptr_t vt = 0;
@@ -2483,6 +2489,7 @@ void resolve_addresses(void)
     addr_projradius = callable(RVA_LOGICPROJECTILEDATA_GETRADIUS);
     addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
     addr_castrange = callable(RVA_LOGICSKILLDATA_GETCASTRANGE);
+    addr_skillproj = callable(RVA_LOGICSKILLDATA_GETPROJECTILEDATA);
     addr_weaponskill = callable(RVA_LOGICCHARACTERCLIENT_GETWEAPONSKILL);
     if (!addr_readable(addr_battlescreen, sizeof(void*)))
     {
@@ -2697,6 +2704,191 @@ uintptr_t client(void)
     }
     return (uintptr_t)clientPtr;
 }
+static int proj_read_name(uintptr_t data, char* dst, int cap);
+typedef struct
+{
+    char name[64];
+    float range;
+} range_entry_t;
+#define RANGE_MAP_MAX 32
+#define HARVEST_MAX 32
+static range_entry_t range_map[RANGE_MAP_MAX];
+static int range_map_n = 0;
+static uintptr_t harvested[HARVEST_MAX];
+static int harvested_n = 0;
+static void range_map_reset(void)
+{
+    range_map_n = 0;
+    harvested_n = 0;
+}
+static int harvested_has(uintptr_t chr)
+{
+    int i = 0;
+    for (i = 0; i < harvested_n; i++)
+    {
+        if (harvested[i] == chr)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+static void harvested_add(uintptr_t chr)
+{
+    if (harvested_n >= HARVEST_MAX)
+    {
+        return;
+    }
+    harvested[harvested_n++] = chr;
+}
+static void range_note(const char* name, float units)
+{
+    int i = 0;
+    if (!name || !name[0] || units <= 0.0f)
+    {
+        return;
+    }
+    for (i = 0; i < range_map_n; i++)
+    {
+        if (strcmp(range_map[i].name, name) == 0)
+        {
+            if (units > range_map[i].range)
+            {
+                range_map[i].range = units;
+            }
+            return;
+        }
+    }
+    if (range_map_n >= RANGE_MAP_MAX)
+    {
+        return;
+    }
+    strncpy(range_map[range_map_n].name, name, 63);
+    range_map[range_map_n].name[63] = 0;
+    range_map[range_map_n].range = units;
+    range_map_n++;
+}
+static float range_lookup(const char* name)
+{
+    int i = 0;
+    if (!name || !name[0])
+    {
+        return 0.0f;
+    }
+    for (i = 0; i < range_map_n; i++)
+    {
+        if (strcmp(range_map[i].name, name) == 0)
+        {
+            return range_map[i].range;
+        }
+    }
+    return 0.0f;
+}
+static void harvest_skill_data(uintptr_t data)
+{
+    int32_t tiles = 0;
+    int i = 0;
+    if (!obj_ok(data) || !addr_castrange || !addr_skillproj)
+    {
+        return;
+    }
+    tiles = call1i(addr_castrange, data);
+    if (tiles <= 0)
+    {
+        return;
+    }
+    for (i = 0; i < PROJ_INDEX_MAX; i++)
+    {
+        uintptr_t proj = call2u(addr_skillproj, data, i);
+        char name[64];
+        if (!obj_ok(proj) || !proj_read_name(proj, name, 64))
+        {
+            continue;
+        }
+        range_note(name, (float)tiles * CASTING_RANGE_SCALE);
+    }
+}
+static void harvest_character(uintptr_t chr)
+{
+    uintptr_t weapon = 0;
+    if (!obj_ok(chr) || !addr_weaponskill)
+    {
+        return;
+    }
+    weapon = call1u(addr_weaponskill, chr);
+    if (!obj_ok(weapon))
+    {
+        return;
+    }
+    harvest_skill_data(weapon);
+}
+static uintptr_t char_by_owner(int32_t ownerIdx)
+{
+    int i = 0;
+    if (ownerIdx < 0 || !manager_array_ptr || manager_count_v <= 0)
+    {
+        return 0;
+    }
+    for (i = 0; i < manager_count_v && i < 128; i++)
+    {
+        uintptr_t obj = 0;
+        int32_t id = 0;
+        int32_t owner = -1;
+        if (!read_ptr(manager_array_ptr + (uintptr_t)i * 8ULL, (void**)&obj) ||
+            !obj)
+        {
+            continue;
+        }
+        if (!obj_ok(obj))
+        {
+            continue;
+        }
+        if (!read_int(obj + (uintptr_t)OBJ_GLOBALID_OFF, &id))
+        {
+            continue;
+        }
+        if (id < 1000000 || id >= 2000000)
+        {
+            continue;
+        }
+        if (!read_int(obj + (uintptr_t)OBJ_OWNERINDEX_OFF, &owner))
+        {
+            continue;
+        }
+        if (owner == ownerIdx)
+        {
+            return obj;
+        }
+    }
+    return 0;
+}
+float range_for_proj(uintptr_t projData, int32_t ownerIdx)
+{
+    char name[64];
+    float hit = 0.0f;
+    uintptr_t chr = 0;
+    if (!obj_ok(projData) || !proj_read_name(projData, name, 64))
+    {
+        return 0.0f;
+    }
+    hit = range_lookup(name);
+    if (hit > 0.0f)
+    {
+        return hit;
+    }
+    chr = char_by_owner(ownerIdx);
+    if (!chr || harvested_has(chr))
+    {
+        return 0.0f;
+    }
+    harvested_add(chr);
+    harvest_character(chr);
+    return range_lookup(name);
+}
+int range_map_size(void)
+{
+    return range_map_n;
+}
 float own_cast_range(void)
 {
     static float cached = 0.0f;
@@ -2730,6 +2922,7 @@ void state_note(int state)
 {
     if (prev_state == 5 && state != 5)
     {
+        range_map_reset();
         own_index = -1;
         own_ptr = 0;
         own_ptr_a = 0;
