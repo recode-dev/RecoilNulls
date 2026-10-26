@@ -1941,11 +1941,6 @@ float call1f(uintptr_t fn, uintptr_t self)
     if (!fn || !self) return 0.0f;
     return ((fn1f)fn)(self);
 }
-static uintptr_t call1u(uintptr_t fn, uintptr_t self)
-{
-    if (!fn || !self) return 0;
-    return ((uintptr_t(*)(uintptr_t))fn)(self);
-}
 static uintptr_t call2u(uintptr_t fn, uintptr_t self, int32_t arg)
 {
     if (!fn || !self) return 0;
