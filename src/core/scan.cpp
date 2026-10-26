@@ -18,7 +18,7 @@
 #include "objc.h"
 #include "offsets.h"
 #include "scan.h"
-const char* image_names[4] = {"Nulls Brawl", "Laser", "NB.app", nullptr};
+const char* image_names[2] = {"Nulls Brawl", nullptr};
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
 BOOL mode_strong = NO;
@@ -45,6 +45,7 @@ uintptr_t addr_charradius = 0;
 uintptr_t addr_projspeed = 0;
 uintptr_t addr_projradius = 0;
 uintptr_t addr_projbeam = 0;
+uintptr_t addr_castrange = 0;
 volatile int at = 0;
 uintptr_t slot_object[34] = {0};
 uintptr_t slot_arg[34] = {0};
@@ -433,7 +434,6 @@ BOOL find_game_image(uintptr_t* out_base)
     {
         count = 8192;
     }
-    uintptr_t fallback = 0;
     for (uint32_t i = 0; i < count; i++)
     {
         const char* path = _dyld_get_image_name(i);
@@ -480,15 +480,6 @@ BOOL find_game_image(uintptr_t* out_base)
             *out_base = imageBase;
             return YES;
         }
-        if (!fallback)
-        {
-            fallback = imageBase;
-        }
-    }
-    if (fallback)
-    {
-        *out_base = fallback;
-        return YES;
     }
     return NO;
 }
@@ -829,7 +820,6 @@ int collect(uintptr_t mgrPtr, obj_t* out, int capacity)
     void* data = nullptr;
     int32_t count = 0;
     int usable = 0;
-    uintptr_t gidOff = OBJ_GLOBALID_OFF;
     uint32_t walkSeq = 0;
     gidless_scan(mgrPtr);
     if (!mgrPtr)
@@ -852,7 +842,6 @@ int collect(uintptr_t mgrPtr, obj_t* out, int capacity)
     {
         count = capacity;
     }
-    gidOff = list_gid_off((uintptr_t)data, count);
     walkSeq = seq;
     for (int32_t i = 0; i < count && usable < capacity; i++)
     {
@@ -887,7 +876,7 @@ int collect(uintptr_t mgrPtr, obj_t* out, int capacity)
         {
             continue;
         }
-        entry.gid = gid_at(entry.object, gidOff);
+        entry.gid = gid(entry.object, nullptr);
         {
             uintptr_t tw = 0;
             element_type((uintptr_t)vtable, &tw);
@@ -1944,6 +1933,11 @@ static int32_t call1i(uintptr_t fn, uintptr_t self)
     if (!fn || !self) return 0;
     return ((fn1i)fn)(self);
 }
+float call1f(uintptr_t fn, uintptr_t self)
+{
+    if (!fn || !self) return 0.0f;
+    return ((fn1f)fn)(self);
+}
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
 int32_t own_x = 0;
@@ -2244,44 +2238,17 @@ int container_header(uintptr_t object,
     }
     return 1;
 }
-int32_t gid_at(uintptr_t element, uintptr_t off)
-{
-    int32_t projGid = 0;
-    if (off && read_int(element + off, &projGid))
-    {
-        return projGid;
-    }
-    return 0;
-}
 int32_t gid(uintptr_t element, int32_t* offOut)
 {
-    int32_t projGid = 0;
-    int32_t alt = 0;
     if (offOut)
     {
         *offOut = 0;
     }
-    if (!element)
+    if (!element || !addr_getgid)
     {
         return 0;
     }
-    if (read_int(element + OBJ_GLOBALID_OFF, &projGid) && projGid)
-    {
-        if (offOut)
-        {
-            *offOut = (int32_t)OBJ_GLOBALID_OFF;
-        }
-        return projGid;
-    }
-    if (read_int(element + GID_FALLBACK_OFF, &alt) && alt)
-    {
-        if (offOut)
-        {
-            *offOut = (int32_t)GID_FALLBACK_OFF;
-        }
-        return alt;
-    }
-    return 0;
+    return call1i(addr_getgid, element);
 }
 int last_choice = -2;
 int hop_logs = 0;
@@ -2448,6 +2415,7 @@ void resolve_addresses(void)
     addr_projspeed = callable(RVA_LOGICPROJECTILEDATA_GETSPEED);
     addr_projradius = callable(RVA_LOGICPROJECTILEDATA_GETRADIUS);
     addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
+    addr_castrange = callable(RVA_LOGICSKILLDATA_GETCASTRANGE);
     if (!addr_readable(addr_battlescreen, sizeof(void*)))
     {
         addr_battlescreen = 0;
@@ -2526,44 +2494,6 @@ void gidless_scan(uintptr_t mgrPtr)
         gidless = 1;
         return;
     }
-}
-uintptr_t list_gid_off(uintptr_t array, int32_t count)
-{
-    uintptr_t off = OBJ_GLOBALID_OFF;
-    int sawAt8 = 0;
-    int sawAt50 = 0;
-    int i = 0;
-    int32_t v = 0;
-    if (!array || count <= 0)
-    {
-        return off;
-    }
-    for (i = 0; i < count && i < 4; i++)
-    {
-        void* element = nullptr;
-        if (!read_ptr(array + (uintptr_t)i * sizeof(void*), &element) ||
-            !element)
-        {
-            continue;
-        }
-        if (read_int((uintptr_t)element + OBJ_GLOBALID_OFF, &v) && v != 0)
-        {
-            sawAt8++;
-        }
-        if (read_int((uintptr_t)element + GID_FALLBACK_OFF, &v) && v != 0)
-        {
-            sawAt50++;
-        }
-    }
-    if (sawAt8 > 0)
-    {
-        off = OBJ_GLOBALID_OFF;
-    }
-    else if (sawAt50 > 0)
-    {
-        off = GID_FALLBACK_OFF;
-    }
-    return off;
 }
 int dead = 0;
 int own_team_a = -1;
@@ -2964,6 +2894,11 @@ int proj_scan(uintptr_t mgrPtr,
             if (read_ptr((uintptr_t)element + (uintptr_t)ELEM_DEF_OFF, &def) &&
                 def)
             {
+                float range = call1f(addr_castrange, (uintptr_t)def);
+                if (range > 0.0f && range < 100000.0f)
+                {
+                    projs[slot].castRange = (int32_t)range;
+                }
                 if (proj_read_name((uintptr_t)def, proj_name_buf[slot], 64))
                 {
                     projs[slot].name = proj_name_buf[slot];

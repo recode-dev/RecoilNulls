@@ -75,6 +75,8 @@ extern uintptr_t addr_battlescreen;
 extern uintptr_t addr_projspeed;
 extern uintptr_t addr_projradius;
 extern uintptr_t addr_projbeam;
+extern uintptr_t addr_castrange;
+float call1f(uintptr_t fn, uintptr_t self);
 extern volatile int at;
 extern int sig_ticks;
 extern uintptr_t sig_last;
@@ -846,13 +848,11 @@ int container_header(uintptr_t object,
                      uintptr_t* arrayOut,
                      int32_t* countOut,
                      int32_t* capOut);
-int32_t gid_at(uintptr_t element, uintptr_t off);
 int32_t gid(uintptr_t element, int32_t* offOut);
 int container_score(uintptr_t container);
 void resolve_addresses(void);
 void locate_battle_mode(void);
 void gidless_scan(uintptr_t mgrPtr);
-uintptr_t list_gid_off(uintptr_t array, int32_t count);
 void proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
 uintptr_t hop(uintptr_t base, int* whyOut);
 uintptr_t client(void);
