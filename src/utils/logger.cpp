@@ -458,7 +458,7 @@ void start(void)
     dispatch_source_set_event_handler(g_timer, ^{ tick(); });
     dispatch_resume(g_timer);
 }
-}
+} // namespace
 __attribute__((constructor)) static void logger_entry(void)
 {
     dispatch_async(dispatch_get_main_queue(), ^{ start(); });
