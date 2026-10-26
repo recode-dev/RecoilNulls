@@ -12,8 +12,6 @@ int rcl_cell(int tx, int ty, int *proj, int *move)
 {
     void *tile = nullptr;
     void *type = nullptr;
-    uint8_t bm = 0;
-    uint8_t bp = 0;
     *proj = -1;
     *move = -1;
     if (!rcl_tiles)

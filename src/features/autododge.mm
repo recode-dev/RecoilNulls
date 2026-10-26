@@ -408,8 +408,7 @@ void rcl_autododge(void) {
 
 void rcl_autododge_reset(void) {
     g_proj_cache.clear();
-    g_lastSafeDir = V2(0, 0);
-    g_lastSafeDirTime = 0;
+    clearHeading();
     rcl_active = 0;
     rcl_moving = 0;
 }
