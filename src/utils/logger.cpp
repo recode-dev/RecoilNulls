@@ -280,7 +280,7 @@ void dump_projectiles(void)
 void dump_ad(void)
 {
     line("adg stage=%d haz=%d thr=%d danger=%d dir=(%.2f,%.2f) dmg=%.0f "
-         "first=%.1f "
+         "first=%.1f range=%.0f "
          "tgt=(%.0f,%.0f) sent=%d active=%d moving=%d\n",
          dbg.stage,
          dbg.hazards,
@@ -290,6 +290,7 @@ void dump_ad(void)
          dbg.dy,
          dbg.ix,
          dbg.iy,
+         own_cast_range(),
          dbg.tx,
          dbg.ty,
          dbg.sent,

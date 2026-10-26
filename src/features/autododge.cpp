@@ -348,11 +348,15 @@ void autododge(void)
                 float traveled =
                     sqrtf((px - state.spawnX) * (px - state.spawnX) +
                           (py - state.spawnY) * (py - state.spawnY));
-                float left = std::max(0.0f, state.castRange - traveled);
-                if (left <= 10.0f) continue;
-                float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) -
-                            bodyR - state.radius;
-                if (left < 0.85f * std::max(0.0f, gap)) continue;
+                float left = 1e6f;
+                if (state.castRange > 0.0f)
+                {
+                    left = std::max(0.0f, state.castRange - traveled);
+                    if (left <= 10.0f) continue;
+                    float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) -
+                                bodyR - state.radius;
+                    if (left < 0.85f * std::max(0.0f, gap)) continue;
+                }
                 bool blob = !state.isBeam && !state.isIndirect &&
                             state.speed > 0 && state.speed < 1600;
                 Threat t;
@@ -362,7 +366,9 @@ void autododge(void)
                 t.vy = blob ? 0 : state.dirY * state.speed;
                 t.rad = state.radius + bodyR + DEFAULT_PAD +
                         state.radius * DEFAULT_GROW;
-                t.pathLen = state.castRange + state.radius;
+                t.pathLen = state.castRange > 0.0f
+                                ? state.castRange + state.radius
+                                : 1e6f;
                 t.left = left;
                 if (!blob && !state.isIndirect && state.speed >= 1.0f)
                 {
@@ -373,7 +379,9 @@ void autododge(void)
                     float hY = py + state.dirY * std::max(playerAlong, 0.0f);
                     if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES))
                         continue;
-                    if (playerAlong > state.castRange + state.radius) continue;
+                    if (state.castRange > 0.0f &&
+                        playerAlong > state.castRange + state.radius)
+                        continue;
                 }
                 threats.push_back(t);
             }
