@@ -1,8 +1,5 @@
 .theos/
 packages/
 out/
-build.log
 .DS_Store
 *.dylib
-vendor/
-sim/

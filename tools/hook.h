@@ -8,7 +8,6 @@
 extern "C"
 {
 #endif
-#define HOOK_MAX 64
 #define HOOK_SLOTS_MAX 32
     typedef struct
     {

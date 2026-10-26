@@ -897,7 +897,7 @@ int collect(uintptr_t mgrPtr, obj_t* out, int capacity)
             !read_int(entry.object + coord_y_off(), &entry.y) ||
             !read_int(entry.object + OBJ_OWNERINDEX_OFF, &entry.ownerIndex) ||
             !read_int(entry.object + OBJ_TEAM_OFF, &entry.teamOld) ||
-            !read_int(entry.object + TEAM_OFF, &entry.teamNew) ||
+            !read_int(entry.object + OBJ_TEAM_OFF, &entry.teamNew) ||
             !read_byte(entry.object + OBJ_DEADFLAG_OFF, &entry.dead) ||
             !read_byte(entry.object + OBJ_ACTIVEFLAG_OFF, &entry.activeFlag))
         {
@@ -2344,7 +2344,7 @@ int container_score(uintptr_t container)
             asciiCount++;
         }
         projGid = gid((uintptr_t)element, nullptr);
-        read_int((uintptr_t)element + TEAM_OFF, &team);
+        read_int((uintptr_t)element + OBJ_TEAM_OFF, &team);
         if (read_int((uintptr_t)element + OBJ_X_OFF, &px) &&
             read_int((uintptr_t)element + OBJ_Y_OFF, &py) && px > -COORD_MAX &&
             px < COORD_MAX && py > -COORD_MAX && py < COORD_MAX &&
@@ -2482,7 +2482,6 @@ void locate_battle_mode(void)
 uint64_t probe_last_ms = 0;
 int coord_ok = 0;
 int coord_usable = 0;
-int team_off = (int)OBJ_TEAM_OFF;
 int gidless = 0;
 void gidless_scan(uintptr_t mgrPtr)
 {
@@ -2915,8 +2914,7 @@ int proj_scan(uintptr_t mgrPtr,
             projs[slot].vy = 0.0f;
         }
         {
-            uintptr_t teamOff =
-                (team_off == (int)OBJ_TEAM_OFF) ? OBJ_TEAM_OFF : TEAM_OFF;
+            uintptr_t teamOff = OBJ_TEAM_OFF;
             int32_t pteam = -1;
             int32_t ownerIdx = -1;
             int settled = 0;
@@ -3229,8 +3227,7 @@ int team_at(const obj_t* objects, int index)
     {
         return -1;
     }
-    return (team_off == (int)OBJ_TEAM_OFF) ? objects[index].teamOld
-                                           : objects[index].teamNew;
+    return objects[index].teamOld;
 }
 int own_side_spawn(int32_t sx, int32_t sy)
 {
@@ -3461,63 +3458,6 @@ int own_index_3 = -1;
 uintptr_t own_elem = 0;
 int32_t own_gid = 0;
 int no_source_passes = 0;
-int resolve_own_fallback(const obj_t* objects,
-                         int usable,
-                         int* indexOut,
-                         const char** fromOut)
-{
-    if (indexOut)
-    {
-        *indexOut = -1;
-    }
-    if (fromOut)
-    {
-        *fromOut = "none";
-    }
-    if (!objects || usable <= 0)
-    {
-        return 0;
-    }
-    if (own_index >= 0 && own_ptr)
-    {
-        int seen = 0;
-        int i;
-        for (i = 0; i < usable; i++)
-        {
-            if (objects[i].object == own_ptr)
-            {
-                seen = 1;
-                break;
-            }
-        }
-        if (seen)
-        {
-            if (indexOut)
-            {
-                *indexOut = i;
-            }
-            if (fromOut)
-            {
-                *fromOut = own_from;
-            }
-            return 1;
-        }
-    }
-    if (own_index_3 >= 0 && own_index_3 < usable &&
-        objects[own_index_3].object == own_ptr_b)
-    {
-        if (indexOut)
-        {
-            *indexOut = own_index_3;
-        }
-        if (fromOut)
-        {
-            *fromOut = "scan";
-        }
-        return 1;
-    }
-    return 0;
-}
 int ascii_word(uintptr_t address)
 {
     uint8_t bytes[8];

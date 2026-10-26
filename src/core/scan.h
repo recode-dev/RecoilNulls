@@ -16,8 +16,6 @@
 #include <string.h>
 typedef struct
 {
-    uintptr_t at;
-    uintptr_t vt;
     int32_t gid;
     int32_t team;
     int dead;
@@ -32,10 +30,7 @@ typedef uint64_t (*slot_fn_t)(void* a0,
                               uint64_t a7);
 typedef struct
 {
-    uintptr_t manager;
     int32_t count;
-    int32_t capacity;
-    int posDistinct;
 } trail_t;
 typedef struct
 {
@@ -191,26 +186,6 @@ static inline BOOL addr_readable(uintptr_t address, size_t length)
         cursor = next;
     }
     return cursor >= end;
-}
-static inline BOOL read_word(uintptr_t address, uint32_t* out)
-{
-    if (!address || (address & 3) || !out)
-    {
-        return NO;
-    }
-    uint32_t value = 0;
-    vm_size_t got = 0;
-    kern_return_t kr = vm_read_overwrite(mach_task_self(),
-                                         (vm_address_t)address,
-                                         sizeof(value),
-                                         (vm_address_t)&value,
-                                         &got);
-    if (kr != KERN_SUCCESS || got != sizeof(value))
-    {
-        return NO;
-    }
-    *out = value;
-    return YES;
 }
 static inline BOOL addr_executable(uintptr_t address)
 {
@@ -434,8 +409,6 @@ typedef struct
     int hazards;
     int threats;
     int danger;
-    int dirs;
-    int pick;
     float px;
     float py;
     float ix;
@@ -447,7 +420,6 @@ typedef struct
     float radius;
     float speed;
     int sent;
-    int approach;
     int thn;
     float thx[6];
     float thy[6];
@@ -464,12 +436,6 @@ extern int32_t last_y_a;
 int collect(uintptr_t mgrPtr, obj_t* out, int capacity);
 uint64_t us(void);
 #define COORD_SOFT 0
-#define NP_DUMPS 8
-#define ELEMS 8
-#define ELEM_WORDS 24
-#define VALUE_MAX 1000000
-#define FLOAT_MAX 10000.0f
-#define TEAM_MAX 8
 #define AREA_RADIUS_MIN 1
 #define AREA_RADIUS_MAX 6000
 #define AREA_TIME_MIN 1
@@ -796,12 +762,6 @@ void run_autododge(void);
 #define WIRE_OWNER 1
 #define HOPCHOSEN_DIRECT 2
 #define ARRAY_VOTE_LOGS 8
-#define HB_TICKS 5
-#define QUIET_SECS 10
-#define LIVE_OBJ_MIN 3
-#define LIVE_TEAM_MIN 2
-#define IDLE_RETRY_TICKS 300
-#define SNAPSHOT_DELAY 1.2
 extern uintptr_t scene_object;
 int scene_live(void);
 extern int prev_state;
@@ -818,7 +778,6 @@ extern int hop_logs;
 extern uint64_t probe_last_ms;
 extern int coord_ok;
 extern int coord_usable;
-extern int team_off;
 extern int gidless;
 extern int dead;
 extern int own_team_a;
@@ -842,30 +801,13 @@ typedef struct
 } proj_death_t;
 typedef struct
 {
-    int has_segment;
     float x;
     float y;
     float radius;
-    float t0;
-    float t1;
-    float ax;
-    float ay;
-    float bx;
-    float by;
     const char* name;
 } hazard_t;
-#define OWNER_VOTE_MIN 3
-#define OWNER_VOTE_TEAMS_MIN 2
-#define MIN_USABLE_2 1
-#define MIN_USABLE 1
-#define REPROBE_MS 5000
 #define WORK_GAP_US 200
-#define WORLD_GAP_US 2000
 #define HOT_INTERVAL_US 2000
-#define PROJ_RADIUS_DEFAULT 150.0f
-#define OWN_RADIUS_MIN 40.0f
-#define OWN_RADIUS_MAX 200.0f
-#define NAME_CAP 32
 typedef struct
 {
     uintptr_t elem;
@@ -887,7 +829,6 @@ typedef struct
     float radius;
     float angle;
     uint64_t spawnedAt;
-    char scratchName[32];
     float speed;
     float vx;
     float vy;
@@ -916,10 +857,6 @@ void proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
 uintptr_t hop(uintptr_t base, int* whyOut);
 uintptr_t client(void);
 void state_note(int state);
-int resolve_own_fallback(const obj_t* objects,
-                         int usable,
-                         int* indexOut,
-                         const char** fromOut);
 int proj_scan(uintptr_t mgrPtr,
               int32_t count,
               const obj_t* rosterArr,
@@ -968,30 +905,13 @@ int team_at(const obj_t* objects, int index);
 #define SOFT_BASE 2
 #define SOFT_MIN_POS 2
 #define SOFT_MIN_DIST 2
-#define LOGS_a 12
 #define ATTRIB_R (1200.0f * 1200.0f)
 #define ATTRIB_MARGIN 1.2f
-#define RESPAWN_JUMP 1200
-#define RESPAWN_VISIBLE 90
-#define HOLD_FRAMES 10
 #define STATE_INIT 0
-#define STATE_ALIVE 1
-#define STATE_DEAD 2
-#define STATE_RESPAWN 3
-#define PUB_LOGS 10
-#define MIN_OBJ_BYTES 0x118ULL
 #define DUMPS 3
 #define DIFF_LOGS 48
 #define COUNT_MAX 96
-#define SCAN_QWORDS 512
-#define SCAN_BASES 3
-#define QUIET_BUCKET_TICKS 10
-#define SCAN_FLOOR_TICKS 12
-#define SCAN_FALLBACK_TICKS 20
-#define MODESIG_TICKS 3
 #define ASCII_RATIO 30
-#define GID_MAX 10000000
-#define GID_FLOOR 1000000
 #define COORD_MAX 100000
 #define VOTESCAN_GLOBAL_EVERY 10
 #define VOTESCAN_INTERVAL 1.0
@@ -999,7 +919,4 @@ int team_at(const obj_t* objects, int index);
 int ascii_word(uintptr_t address);
 int word_ascii(uint64_t value);
 int element_ascii(uintptr_t element);
-#define SCAN_MAX 256
-#define own_elem_2 own_elem_scan
-#define resolve_own_2 resolve_own_fallback
 #endif
