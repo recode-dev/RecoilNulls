@@ -1,812 +1,447 @@
 #include "../data.hpp"
-
-#include <utility>
-#include <vector>
-
+#include "../core/scan.h"
+#include "../core/commands.h"
 #include "../utils/walls.h"
-
-__thread int rcl_in_drive = 0;
-
-int32_t rcl_pl_mine[12];
-
-int rcl_active = 0;
-
-int rcl_moving = 0;
-
-int rcl_cand_now[3];
-
-int rcl_cand_seen = 0;
-
-
+#include <map>
 #include <vector>
-#include <optional>
 #include <cmath>
 #include <algorithm>
-#include <limits>
+#include <stdint.h>
+#include <stdio.h>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+// --- Constants ---
+const float SAFETY_MARGIN = 28.0f;
+const float T_URGENT      = 0.9f;
+const float T_FIELD       = 1.8f;
+const float FIELD_RADIUS  = 275.0f;
+const int N_DIRECTIONS    = 64;
+const float PERP_WEIGHT   = 2.4f;
+const float AWAY_WEIGHT   = 1.0f;
+const float INTENT_WEIGHT = 1.2f;
+static float CHAR_SPEED   = 720.0f;
 
-namespace bs {
-
-constexpr double TICK_HZ      = 20.0;
-constexpr double DT           = 1.0 / TICK_HZ;
-[[maybe_unused]] constexpr double TILE_UNITS   = 300.0;
-constexpr double HITBOX_STD   = 120.0;
-[[maybe_unused]] constexpr double HITBOX_LARGE = 145.0;
-constexpr double JOY_DEADZONE = 0.06;
-constexpr double INF          = std::numeric_limits<double>::infinity();
-
+// --- Types ---
 struct V2 {
-    double x = 0.0, y = 0.0;
-    V2() = default;
-    V2(double x_, double y_) : x(x_), y(y_) {}
+    float x, y;
+    V2(float x_ = 0, float y_ = 0) : x(x_), y(y_) {}
 };
-
-inline V2 operator-(const V2& a, const V2& b) { return {a.x - b.x, a.y - b.y}; }
-inline V2 operator+(const V2& a, const V2& b) { return {a.x + b.x, a.y + b.y}; }
-inline V2 operator*(const V2& a, double s) { return {a.x * s, a.y * s}; }
-inline double dot(const V2& a, const V2& b) { return a.x * b.x + a.y * b.y; }
-inline double cross(const V2& a, const V2& b) { return a.x * b.y - a.y * b.x; }
-inline double len2(const V2& a) { return dot(a, a); }
-inline double len(const V2& a) { return std::sqrt(len2(a)); }
-inline V2 lerp(const V2& a, const V2& b, double t) { return a + (b - a) * t; }
-
-inline V2 dirFromDeg(double deg) {
-    const double r = deg * M_PI / 180.0;
-    return {std::cos(r), std::sin(r)};
-}
-
-inline double normDeg(double d) {
-    d = std::fmod(d, 360.0);
-    return d < 0.0 ? d + 360.0 : d;
-}
-
-inline double angDiff(double a, double b) {
-    const double d = std::fabs(a - b);
-    return std::min(d, 360.0 - d);
-}
 
 struct Projectile {
-    std::vector<V2> ticks;
-    double damage       = 0.0;
-    double radius       = 0.0;
-    double areaRadius   = 0.0;
-    int    areaTicks    = 0;
-    int    deathTick    = -1;
-    bool   indirect     = false;
-    bool   piercesWalls = false;
-    int    id           = 0;
-
-    double vx = 0.0, vy = 0.0;
-    double speed = 0.0;
-    double castRange = 0.0;
-    double spawnX = 0.0, spawnY = 0.0;
+    float x, y;
+    float dirX, dirY;
+    float speed;
+    float radius;
+    uint64_t lastSeen;
+    int id;
 };
 
-struct Wall {
-    double x = 0.0, y = 0.0, w = 0.0, h = 0.0;
-};
+// --- State ---
+static std::map<int, Projectile> g_proj_cache;
+static V2 SAMPLES[64];
+static bool g_samples_init = false;
+static V2 g_lastSafeDir(0, 0);
+static uint64_t g_lastSafeDirTime = 0;
 
-struct Hit {
-    int id = 0;
-    double tick = 0.0;
-};
-
-struct Eval {
-    double dmg     = 0.0;
-    double first   = INF;
-    double clear   = INF;
-    double minimax = -INF;
-    double wallPenalty = 0.0;
-    std::vector<Hit> hits;
-    bool blocked = false;
-};
-
-static std::optional<double> sweep(const V2& p0, const V2& p1, double rP,
-                                   const V2& q0, const V2& q1, double rQ) {
-    const double R = rP + rQ;
-    const V2 r = p0 - q0;
-    const V2 v = (p1 - p0) - (q1 - q0);
-    const double c = len2(r) - R * R;
-    if (c <= 0.0) return 0.0;
-    const double a = len2(v);
-    if (a < 1e-12) return std::nullopt;
-    const double b = 2.0 * dot(r, v);
-    double disc = b * b - 4.0 * a * c;
-    if (disc < 0.0) return std::nullopt;
-    if (disc < 1e-9) disc = 0.0;
-    const double s = std::sqrt(disc);
-    const double enter = std::max(0.0, (-b - s) / (2.0 * a));
-    const double exit  = std::min(1.0, (-b + s) / (2.0 * a));
-    if (enter > exit) return std::nullopt;
-    return enter;
+// --- Math Helpers ---
+static V2 normalize(float x, float y) {
+    float l = sqrtf(x * x + y * y);
+    if (l < 1e-6f) return V2(1.0f, 0.0f);
+    return V2(x / l, y / l);
 }
 
-static int clampTick(int v, int maxTick) {
-    return std::max(0, std::min(v, maxTick));
-}
-
-static std::vector<V2> buildPath(const V2& start, double deg, int ticks,
-                                 double speedUnitsPerSec, int inputDelayTicks) {
-    const V2 d = dirFromDeg(deg);
-    const double step = speedUnitsPerSec * DT;
-    std::vector<V2> p(ticks + 1);
-    p[0] = start;
-    for (int i = 1; i <= ticks; ++i) {
-        const int moveTicks = std::max(0, i - inputDelayTicks);
-        p[i] = start + d * (step * static_cast<double>(moveTicks));
+static void initSamples() {
+    if (g_samples_init) return;
+    for (int i = 0; i < N_DIRECTIONS; i++) {
+        float angle = (2.0f * M_PI * i) / N_DIRECTIONS;
+        SAMPLES[i] = V2(cosf(angle), sinf(angle));
     }
-    return p;
+    g_samples_init = true;
 }
 
-[[maybe_unused]] static V2 posAt(const std::vector<V2>& path, double t) {
-    const int n = static_cast<int>(path.size());
-    if (t <= 0.0) return path[0];
-    if (t >= n - 1) return path[n - 1];
-    const int i = static_cast<int>(std::floor(t));
-    return lerp(path[i], path[i + 1], t - i);
+static std::vector<V2> getDirectionSamples(int n) {
+    if (n == N_DIRECTIONS) {
+        std::vector<V2> out(SAMPLES, SAMPLES + N_DIRECTIONS);
+        return out;
+    }
+    std::vector<V2> out;
+    out.reserve(n);
+    for (int i = 0; i < n; i++) {
+        float angle = (2.0f * M_PI * i) / n;
+        out.push_back(V2(cosf(angle), sinf(angle)));
+    }
+    return out;
 }
 
-static std::optional<double> hitTick(const std::vector<V2>& path,
-                                     const Projectile& pr,
-                                     double charRadius) {
-    if (pr.ticks.empty() && pr.speed <= 0.0) return std::nullopt;
+// --- Core Logic ---
 
-    std::vector<V2> ticks;
-    if (!pr.ticks.empty()) {
-        ticks = pr.ticks;
-    } else {
-        const int n = static_cast<int>(path.size());
-        ticks.resize(n);
-        const double spd = std::max(pr.speed, 1.0);
-        const V2 dir = (len2({pr.vx, pr.vy}) > 1e-12) ? V2{pr.vx / spd, pr.vy / spd} : V2{1, 0};
-        for (int i = 0; i < n; ++i) {
-            const double dist = spd * DT * i;
-            ticks[i] = V2{pr.spawnX + dir.x * dist, pr.spawnY + dir.y * dist};
+static bool isUrgentThreat(const Projectile& p, float myX, float myY, float myRadius) {
+    float dx = myX - p.x;
+    float dy = myY - p.y;
+    float vx = p.dirX * p.speed;
+    float vy = p.dirY * p.speed;
+
+    float c1 = dx * vx + dy * vy;
+    if (c1 <= 0) return false;
+    float c2 = vx * vx + vy * vy;
+    if (c2 <= 0) return false;
+    float tHit = c1 / c2;
+    if (tHit > T_URGENT) return false;
+
+    float closestX = p.x + vx * tHit;
+    float closestY = p.y + vy * tHit;
+
+    float r = myRadius + p.radius + SAFETY_MARGIN;
+    float ddx = myX - closestX;
+    float ddy = myY - closestY;
+    return (ddx * ddx + ddy * ddy) <= r * r;
+}
+
+static float threatScore(V2 dir, float myX, float myY, float myRadius, V2 intentDir, V2 lastSafeDir, uint64_t lastSafeDirAgeMs) {
+    float score = 0;
+
+    for (auto const& [id, p] : g_proj_cache) {
+        float r = myRadius + p.radius + SAFETY_MARGIN;
+
+        float vx = p.dirX * p.speed - dir.x * CHAR_SPEED;
+        float vy = p.dirY * p.speed - dir.y * CHAR_SPEED;
+
+        float dx = p.x - myX;
+        float dy = p.y - myY;
+
+        float a = vx * vx + vy * vy;
+        float b = 2.0f * (dx * vx + dy * vy);
+        float c = dx * dx + dy * dy;
+
+        float minD2 = c;
+        if (a > 1e-6f) {
+            float tMin = -b / (2.0f * a);
+            if (tMin > 0 && tMin <= T_FIELD) {
+                minD2 = c + b * tMin + a * tMin * tMin;
+            } else if (tMin > T_FIELD) {
+                minD2 = c + b * T_FIELD + a * T_FIELD * T_FIELD;
+            }
         }
+
+        float danger = (minD2 < r * r) ? 2500.0f : (r * r) / std::max(minD2, 50.0f);
+        score += danger;
     }
-    if (ticks.size() == 1) ticks.push_back(ticks[0]);
 
-    const int maxTick = static_cast<int>(ticks.size()) - 1;
-    const int death = clampTick(pr.deathTick >= 0 ? pr.deathTick : maxTick, maxTick);
-    const double R = charRadius + pr.radius;
-    const int last = static_cast<int>(path.size()) - 1;
+    if (intentDir.x != 0 || intentDir.y != 0) {
+        float dotIntent = dir.x * intentDir.x + dir.y * intentDir.y;
+        score -= dotIntent * INTENT_WEIGHT * 15.0f;
+    }
 
-    std::optional<double> best;
+    if ((lastSafeDir.x != 0 || lastSafeDir.y != 0) && lastSafeDirAgeMs < 400) {
+        float dotInertia = dir.x * lastSafeDir.x + dir.y * lastSafeDir.y;
+        score -= dotInertia * 45.0f;
+    }
 
-    if (!pr.indirect) {
-        if (len2(path[0] - ticks[0]) <= R * R) best = 0.0;
-        const int end = std::min(last, death);
-        for (int k = 0; k < end; ++k) {
-            auto t = sweep(path[k], path[k + 1], 0.0, ticks[k], ticks[k + 1], R);
-            if (t) {
-                const double ht = static_cast<double>(k) + *t;
-                if (!best || ht < *best) best = ht;
-                break;
+    return score;
+}
+
+static bool isVelocityUnsafe(V2 dir, float myX, float myY, float myRadius) {
+    for (auto const& [id, p] : g_proj_cache) {
+        float r = myRadius + p.radius + SAFETY_MARGIN;
+
+        float vx = p.dirX * p.speed - dir.x * CHAR_SPEED;
+        float vy = p.dirY * p.speed - dir.y * CHAR_SPEED;
+        float dx = p.x - myX;
+        float dy = p.y - myY;
+
+        float a = vx * vx + vy * vy;
+        float b = 2.0f * (dx * vx + dy * vy);
+        float c = dx * dx + dy * dy - r * r;
+
+        if (c < 0) return true;
+        if (a > 1e-6f) {
+            float disc = b * b - 4.0f * a * c;
+            if (disc >= 0) {
+                float t1 = (-b - sqrtf(disc)) / (2.0f * a);
+                if (t1 > 0 && t1 <= T_FIELD) return true;
             }
         }
     }
+    return false;
+}
 
-    if (pr.areaRadius > 0.0) {
-        const double Ra = charRadius + pr.areaRadius;
-        const double Ra2 = Ra * Ra;
-        const int deathSafe = std::min(death, maxTick);
-        const V2 center = ticks[deathSafe];
-        const int at = std::max(0, pr.areaTicks);
+static V2 getUrgentDodgeDir(float myX, float myY, float myRadius, V2 intentDir, uint64_t now) {
+    std::vector<V2> candidates;
+    int urgentCount = 0;
 
-        if (len2(path[deathSafe] - center) <= Ra2) {
-            const double ht = static_cast<double>(deathSafe);
-            if (!best || ht < *best) best = ht;
-        }
+    for (auto const& [id, p] : g_proj_cache) {
+        if (!isUrgentThreat(p, myX, myY, myRadius)) continue;
+        urgentCount++;
 
-        if (at > 0) {
-            const int lo = deathSafe;
-            const int hi = std::min(deathSafe + at, last);
-            for (int k = lo; k < hi; ++k) {
-                auto t = sweep(path[k], path[k + 1], 0.0, center, center, Ra);
-                if (t) {
-                    const double ht = static_cast<double>(k) + *t;
-                    if (!best || ht < *best) best = ht;
-                    break;
-                }
-            }
+        V2 away = normalize(myX - p.x, myY - p.y);
+        V2 perp1 = normalize(-p.dirY, p.dirX);
+        V2 perp2 = normalize(p.dirY, -p.dirX);
+        float intentW = 0.6f;
+
+        // Formula: perp*2.4 + away*1.0 + intent*0.6
+        candidates.push_back(normalize(
+            perp1.x * PERP_WEIGHT + away.x * AWAY_WEIGHT + intentDir.x * intentW,
+            perp1.y * PERP_WEIGHT + away.y * AWAY_WEIGHT + intentDir.y * intentW
+        ));
+        candidates.push_back(normalize(
+            perp2.x * PERP_WEIGHT + away.x * AWAY_WEIGHT + intentDir.x * intentW,
+            perp2.y * PERP_WEIGHT + away.y * AWAY_WEIGHT + intentDir.y * intentW
+        ));
+    }
+
+    if (urgentCount == 0) return V2(0, 0);
+
+    // Add 16 uniform samples as fallback
+    std::vector<V2> samples = getDirectionSamples(16);
+    candidates.insert(candidates.end(), samples.begin(), samples.end());
+
+    V2 best = candidates[0];
+    float bestScore = 1e18f;
+    uint64_t age = now - g_lastSafeDirTime;
+
+    for (const auto& c : candidates) {
+        float s = threatScore(c, myX, myY, myRadius, intentDir, g_lastSafeDir, age);
+        if (s < bestScore) {
+            bestScore = s;
+            best = c;
         }
     }
     return best;
 }
 
-static double clearanceAt(const V2& pos, const Projectile& pr, double charRadius) {
-    if (pr.ticks.empty() && pr.speed <= 0.0) return INF;
-    const double R = charRadius + pr.radius;
-    const int maxTick = static_cast<int>(pr.ticks.size()) - 1;
-    if (maxTick < 0) return INF;
-    const int death = clampTick(pr.deathTick >= 0 ? pr.deathTick : maxTick, maxTick);
+static V2 chooseBestDirection(float myX, float myY, float myRadius, V2 intentDir, uint64_t now) {
+    V2 best = (intentDir.x != 0 || intentDir.y != 0) ? intentDir : SAMPLES[0];
+    float bestScore = 1e18f;
+    uint64_t age = now - g_lastSafeDirTime;
 
-    double minClear = INF;
-    for (int k = 0; k <= death; ++k) {
-        const V2& q = pr.ticks[k];
-        const double d = len(pos - q) - R;
-        if (d < minClear) minClear = d;
-    }
-    return minClear;
-}
-
-static double clearanceContinuous(const std::vector<V2>& path,
-                                  const Projectile& pr,
-                                  double charRadius) {
-    if (pr.ticks.size() < 2) return INF;
-    const int maxTick = static_cast<int>(pr.ticks.size()) - 1;
-    const int death = clampTick(pr.deathTick >= 0 ? pr.deathTick : maxTick, maxTick);
-    const double R = charRadius + pr.radius;
-    const int end = std::min(static_cast<int>(path.size()) - 1, death);
-    double minClear = INF;
-
-    for (int k = 0; k < end; ++k) {
-        const V2 p0 = path[k], p1 = path[k + 1];
-        const V2 q0 = pr.ticks[k], q1 = pr.ticks[k + 1];
-        const V2 r = p0 - q0;
-        const V2 v = (p1 - p0) - (q1 - q0);
-        const double a = len2(v);
-        double tStar = 0.0;
-        if (a > 1e-12) {
-            tStar = -dot(r, v) / a;
-            tStar = std::max(0.0, std::min(1.0, tStar));
-        }
-        const V2 closest = lerp(p0, p1, tStar);
-        const V2 projPos = lerp(q0, q1, tStar);
-        const double d = len(closest - projPos) - R;
-        if (d < minClear) minClear = d;
-    }
-    return minClear;
-}
-
-static double wallPenalty(const std::vector<V2>& path, const std::vector<Wall>& walls, double bodyR) {
-    double penalty = 0.0;
-    for (size_t i = 0; i + 1 < path.size(); ++i) {
-        for (const auto& w : walls) {
-            const double minX = std::min(path[i].x, path[i + 1].x) - bodyR;
-            const double maxX = std::max(path[i].x, path[i + 1].x) + bodyR;
-            const double minY = std::min(path[i].y, path[i + 1].y) - bodyR;
-            const double maxY = std::max(path[i].y, path[i + 1].y) + bodyR;
-            if (maxX < w.x || minX > w.x + w.w) continue;
-            if (maxY < w.y || minY > w.y + w.h) continue;
-            const double cx = std::max(w.x, std::min(path[i].x, w.x + w.w));
-            const double cy = std::max(w.y, std::min(path[i].y, w.y + w.h));
-            const double dist = std::sqrt((path[i].x - cx) * (path[i].x - cx) +
-                                          (path[i].y - cy) * (path[i].y - cy));
-            const double depth = std::max(0.0, bodyR - dist);
-            penalty += depth * depth * 50.0;
+    for (int i = 0; i < N_DIRECTIONS; i++) {
+        float s = threatScore(SAMPLES[i], myX, myY, myRadius, intentDir, g_lastSafeDir, age);
+        if (s < bestScore) {
+            bestScore = s;
+            best = SAMPLES[i];
         }
     }
-    return penalty;
+    return best;
 }
 
-static Eval evalPath(const std::vector<V2>& path,
-                     const std::vector<Projectile>& ps,
-                     double charRadius,
-                     const std::vector<Wall>& walls,
-                     bool useFastClear) {
-    Eval e;
+static V2 applyVO(V2 dir, float myX, float myY, float myRadius, V2 intentDir, uint64_t now) {
+    if (!isVelocityUnsafe(dir, myX, myY, myRadius)) return dir;
 
-    for (const auto& p : ps) {
-        if (p.ticks.empty() && p.speed <= 0.0) continue;
-        auto t = hitTick(path, p, charRadius);
-        if (t) {
-            e.dmg += p.damage;
-            if (*t < e.first) e.first = *t;
-            e.hits.push_back({p.id, *t});
+    V2 best = dir;
+    float bestScore = 1e18f;
+    bool foundSafe = false;
+    uint64_t age = now - g_lastSafeDirTime;
+
+    for (int i = 0; i < N_DIRECTIONS; i++) {
+        if (isVelocityUnsafe(SAMPLES[i], myX, myY, myRadius)) continue;
+        foundSafe = true;
+        float s = threatScore(SAMPLES[i], myX, myY, myRadius, intentDir, g_lastSafeDir, age);
+        if (s < bestScore) {
+            bestScore = s;
+            best = SAMPLES[i];
+        }
+    }
+    return foundSafe ? best : dir;
+}
+
+static bool checkDanger(float myX, float myY, float myRadius) {
+    for (auto const& [id, p] : g_proj_cache) {
+        float r = myRadius + p.radius + SAFETY_MARGIN * 2.5f;
+        float dx = myX - p.x;
+        float dy = myY - p.y;
+        if (dx * dx + dy * dy <= r * r) return true;
+
+        float vx = p.dirX * p.speed;
+        float vy = p.dirY * p.speed;
+        float c1 = dx * vx + dy * vy;
+        if (c1 > 0) {
+            float c2 = vx * vx + vy * vy;
+            if (c2 > 0) {
+                float tHit = c1 / c2;
+                if (tHit <= T_FIELD) {
+                    float cx = p.x + vx * tHit;
+                    float cy = p.y + vy * tHit;
+                    if ((myX - cx) * (myX - cx) + (myY - cy) * (myY - cy) <= r * r) return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+// --- Integration ---
+
+extern rcl_dbg_t rcl_dbg;
+extern int rcl_active;
+extern int rcl_moving;
+
+static uintptr_t rcl_battlescreen(void) {
+    uintptr_t ctrl = rcl_controller();
+    if (!ctrl) return 0;
+    void* val = nullptr;
+    if (!rcl_read_ptr(ctrl + RCL_BATTLESCREEN_OFF, &val)) return 0;
+    return (uintptr_t)val;
+}
+
+void rcl_autododge(void) {
+    uint64_t now = rcl_us() / 1000; // ms
+    if (!rcl_base || !rcl_own_elem || rcl_dead) {
+        rcl_active = 0;
+        return;
+    }
+
+    initSamples();
+
+    float mx = (float)rcl_own_x;
+    float my = (float)rcl_own_y;
+    float myRadius = rcl_own_radius();
+
+    // 1. Dynamic speed
+    {
+        uintptr_t def = 0;
+        if (rcl_read_ptr(rcl_own_elem + RCL_ELEM_DEF_OFF, (void**)&def) && def) {
+            uint32_t readSpd = 0;
+            if (rcl_read_int(def + 0x1c4, (int32_t*)&readSpd)) {
+                if (readSpd >= 300 && readSpd <= 8500) {
+                    CHAR_SPEED = (float)readSpd;
+                }
+            }
         }
     }
 
-    if (e.dmg == 0.0) {
-        for (const auto& p : ps) {
-            if (p.ticks.empty() && p.speed <= 0.0) continue;
-            double c;
-            if (useFastClear || p.ticks.size() < 2) {
-                c = clearanceAt(path.empty() ? V2{0, 0} : path.back(), p, charRadius);
+    // 2. Projectile Scan & Filter
+    {
+        // analyzeProjectiles equivalent
+        std::map<int, bool> seen;
+        for (int i = 0; i < 16; i++) {
+            rcl_proj_t* p = &rcl_projs[i];
+            if (!p->elem) continue;
+
+            // VTABLE check
+            void* vtable = nullptr;
+            if (!rcl_read_ptr(p->elem, &vtable) || !vtable) continue;
+            if ((uintptr_t)vtable - rcl_base != RCL_CLASS_PROJ_RVA) continue;
+
+            // LogicProjectileData VTABLE check
+            void* def = nullptr;
+            if (!rcl_read_ptr(p->elem + RCL_ELEM_DEF_OFF, &def) || !def) continue;
+            void* defVt = nullptr;
+            if (!rcl_read_ptr((uintptr_t)def, &defVt) || !defVt) continue;
+            if ((uintptr_t)defVt - rcl_base != RCL_VTABLE_PROJ_DATA_RVA) continue;
+
+            // Team check
+            if (p->team >= 0 && p->team == rcl_own_team_b) continue;
+
+            // Distance check
+            float distSq = (float)(p->x - mx) * (p->x - mx) + (float)(p->y - my) * (p->y - my);
+            if (distSq > 5000.0f * 5000.0f) continue;
+
+            // Dead flag
+            uint32_t dead = 0;
+            if (!rcl_read_int(p->elem + 208, (int32_t*)&dead) || dead != 0) continue;
+
+            int pid = p->gid;
+            seen[pid] = true;
+            Projectile& state = g_proj_cache[pid];
+            float px = (float)p->x;
+            float py = (float)p->y;
+
+            if (state.lastSeen == 0) {
+                // First appearance
+                state.dirX = cosf(p->angle);
+                state.dirY = sinf(p->angle);
             } else {
-                c = clearanceContinuous(path, p, charRadius);
+                float ddx = px - state.x;
+                float ddy = py - state.y;
+                float len = sqrtf(ddx * ddx + ddy * ddy);
+                if (len > 6.0f) {
+                    state.dirX = ddx / len;
+                    state.dirY = ddy / len;
+                }
             }
-            if (c < e.clear) e.clear = c;
-            if (c > e.minimax) e.minimax = c;
+            state.x = px;
+            state.y = py;
+            state.speed = p->speed;
+            state.radius = p->radius;
+            state.lastSeen = now;
+            state.id = pid;
+        }
+
+        // Garbage collection
+        for (auto it = g_proj_cache.begin(); it != g_proj_cache.end(); ) {
+            if (seen.find(it->first) == seen.end() || now - it->second.lastSeen > 450) {
+                it = g_proj_cache.erase(it);
+            } else {
+                ++it;
+            }
         }
     }
 
-    e.wallPenalty = walls.empty() ? 0.0 : wallPenalty(path, walls, charRadius);
-
-    if (e.wallPenalty > 0.0 && e.dmg == 0.0) {
-        e.blocked = true;
+    // 3. Joystick Intent
+    V2 intentDir(0, 0);
+    uintptr_t js = rcl_battlescreen();
+    if (js) {
+        uint8_t dragging = 0;
+        if (rcl_read_byte(js + RCL_JOY_DRAGGING, &dragging) && dragging) {
+            float cx, cy, tx, ty;
+            if (rcl_read_float(js + RCL_JOY_CENTER_X, &cx) && rcl_read_float(js + RCL_JOY_CENTER_Y, &cy) &&
+                rcl_read_float(js + RCL_JOY_TARGET_X, &tx) && rcl_read_float(js + RCL_JOY_TARGET_Y, &ty)) {
+                float dx = tx - cx;
+                float dy = ty - cy;
+                if (dx * dx + dy * dy > 900.0f) {
+                    intentDir = normalize(dx, dy);
+                }
+            }
+        }
     }
 
-    return e;
-}
+    // 4. Decision
+    if (!checkDanger(mx, my, myRadius)) {
+        rcl_active = 0;
+        rcl_moving = 0;
+        return;
+    }
 
-static bool betterEval(const Eval& a, double angleA,
-                       const Eval& b, double angleB,
-                       double currentAngle) {
-    if (a.dmg != b.dmg) return a.dmg < b.dmg;
-    if (a.dmg == 0.0) {
-        if (a.minimax != b.minimax) return a.minimax > b.minimax;
-        if (a.clear != b.clear) return a.clear > b.clear;
+    V2 urgent = getUrgentDodgeDir(mx, my, myRadius, intentDir, now);
+    V2 baseDir;
+    if (urgent.x != 0 || urgent.y != 0) {
+        baseDir = urgent;
     } else {
-        if (a.first != b.first) return a.first > b.first;
-    }
-    if (a.wallPenalty != b.wallPenalty) return a.wallPenalty < b.wallPenalty;
-    return angDiff(angleA, currentAngle) < angDiff(angleB, currentAngle);
-}
-
-static std::vector<double> candidateAngles(const std::vector<Projectile>& ps,
-                                           const V2& pos,
-                                           double currentAngle) {
-    std::vector<double> out;
-    out.reserve(64);
-    out.push_back(normDeg(currentAngle));
-
-    for (int a = 0; a < 360; a += 30)
-        out.push_back(static_cast<double>(a));
-
-    for (const auto& p : ps) {
-        if (p.ticks.empty() && p.speed <= 0.0) continue;
-        V2 t;
-        if (!p.ticks.empty()) {
-            const int idx = std::min(p.deathTick >= 0 ? p.deathTick : static_cast<int>(p.ticks.size()) - 1,
-                                     static_cast<int>(p.ticks.size()) - 1);
-            t = p.ticks[idx];
-        } else {
-            t = V2{p.spawnX, p.spawnY};
-        }
-        const double base = std::atan2(t.y - pos.y, t.x - pos.x) * 180.0 / M_PI;
-        for (double off : {-20.0, -10.0, 0.0, 10.0, 20.0})
-            out.push_back(normDeg(base + off));
+        baseDir = chooseBestDirection(mx, my, myRadius, intentDir, now);
     }
 
-    std::sort(out.begin(), out.end());
-    out.erase(std::unique(out.begin(), out.end()), out.end());
-    return out;
-}
+    V2 safeDir = applyVO(baseDir, mx, my, myRadius, intentDir, now);
 
-struct DodgeResult {
-    double angle = 0.0;
-    Eval eval;
-    bool deadzone = false;
-};
+    g_lastSafeDir = safeDir;
+    g_lastSafeDirTime = now;
 
-static DodgeResult bestDodge(const V2& pos,
-                             double charSpeed,
-                             const std::vector<Projectile>& projectiles,
-                             const std::vector<Wall>& walls = {},
-                             double charRadius = HITBOX_STD,
-                             int inputDelayTicks = 2,
-                             double currentAngleDeg = 0.0) {
-    std::vector<Projectile> ps;
-    for (const auto& p : projectiles)
-        if (!p.ticks.empty() || p.speed > 0.0) ps.push_back(p);
+    // 5. Emit
+    float angle = atan2f(safeDir.y, safeDir.x);
+    float teamFlip = (rcl_own_team_b == 1) ? -1.0f : 1.0f;
+    float reach = 800.0f;
+    int32_t tx = (int32_t)roundf(mx + cosf(angle) * reach * teamFlip);
+    int32_t ty = (int32_t)roundf(my + sinf(angle) * reach * teamFlip);
 
-    if (ps.empty()) return {currentAngleDeg, {}, true};
+    rcl_move_to(tx, ty, mx, my);
+    int sent = rcl_enqueue(tx, ty);
 
-    int maxT = 0;
-    for (const auto& p : ps) {
-        int idx;
-        if (!p.ticks.empty()) {
-            idx = std::min(p.deathTick >= 0 ? p.deathTick : static_cast<int>(p.ticks.size()) - 1,
-                           static_cast<int>(p.ticks.size()) - 1);
-        } else {
-            idx = static_cast<int>(p.castRange / (std::max(p.speed, 1.0) * DT));
-        }
-        maxT = std::max(maxT, idx + std::max(0, p.areaTicks));
-    }
-    const int totalTicks = std::min(maxT + inputDelayTicks + 1, 48);
+    rcl_active = 1;
+    rcl_moving = sent;
 
-    auto evalAt = [&](double deg, bool fastClear) -> std::pair<Eval, double> {
-        const double d = normDeg(deg);
-        auto path = buildPath(pos, d, totalTicks, charSpeed, inputDelayTicks);
-        Eval e = evalPath(path, ps, charRadius, walls, fastClear);
-        return {e, d};
-    };
-
-    auto cands = candidateAngles(ps, pos, currentAngleDeg);
-    std::vector<std::pair<Eval, double>> scored;
-    scored.reserve(cands.size());
-
-    for (double a : cands)
-        scored.push_back(evalAt(a, true));
-
-    std::sort(scored.begin(), scored.end(), [&](const auto& a, const auto& b) {
-        return betterEval(a.first, a.second, b.first, b.second, currentAngleDeg);
-    });
-
-    const int topN = std::min(5, static_cast<int>(scored.size()));
-    for (int i = 0; i < topN; ++i) {
-        scored[i] = evalAt(scored[i].second, false);
-    }
-
-    std::sort(scored.begin(), scored.begin() + topN, [&](const auto& a, const auto& b) {
-        return betterEval(a.first, a.second, b.first, b.second, currentAngleDeg);
-    });
-
-    std::pair<Eval, double> best = scored.front();
-
-    for (int s = 0; s < std::min(3, topN); ++s) {
-        auto loc = scored[s];
-        double radius = 2.0;
-        for (double step : {2.0, 0.5, 0.1, 0.02}) {
-            const int n = std::max(1, static_cast<int>(std::round((2.0 * radius) / step)));
-            for (int i = 0; i <= n; ++i) {
-                auto c = evalAt(loc.second - radius + i * step, false);
-                if (betterEval(c.first, c.second, loc.first, loc.second, currentAngleDeg))
-                    loc = c;
-            }
-            radius = step * 2.0;
-        }
-        if (betterEval(loc.first, loc.second, best.first, best.second, currentAngleDeg))
-            best = loc;
-    }
-
-    const bool deadzone =
-        (angDiff(best.second, currentAngleDeg) / 360.0 < JOY_DEADZONE) &&
-        (best.first.dmg == 0.0) &&
-        (best.first.wallPenalty == 0.0);
-
-    if (deadzone) {
-        auto exact = evalAt(currentAngleDeg, false);
-        return {currentAngleDeg, exact.first, true};
-    }
-
-    return {best.second, best.first, false};
-}
-
-}
-
-namespace
-{
-    constexpr int RCL_BS_TICKS = 30;
-    constexpr int RCL_BS_DELAY_TICKS = 2;
-    constexpr int RCL_BS_MAX_PROJ = 6;
-    constexpr int RCL_BS_MAX_WALLS = 40;
-    constexpr float RCL_BS_PROJ_ZONE = 3200.0f;
-    constexpr float RCL_BS_WALL_ZONE = 900.0f;
-    constexpr float RCL_BS_MIN_RADIUS = 45.0f;
-    constexpr double RCL_BS_REACH = 800.0;
-
-    // the core is heavy and the battle tick is 20 Hz: 30 Hz is plenty
-    constexpr uint64_t RCL_BS_PERIOD_MS = 33;
-
-    double g_angle = 0.0;
-    int g_have_angle = 0;
-    int g_solved = 0;
-    int g_was_active = 0;
-    uint64_t g_last_solve_ms = 0;
-    uint64_t g_last_send_ms = 0;
-    int g_last_sent = 0;
-    double g_sent_angle = 0.0;
-    int g_sent_once = 0;
-    uintptr_t g_tilemap_fn = 0;
-    int g_tilemap_tried = 0;
-    rcl_dbg_t g_last_dbg;
-
-    void rcl_bs_push(float mx, float my, double angleDeg)
-    {
-        double rad = angleDeg * M_PI / 180.0;
-        double tx = round((double)mx + cos(rad) * RCL_BS_REACH);
-        double ty = round((double)my + sin(rad) * RCL_BS_REACH);
-
-        rcl_dbg.dx = (float)cos(rad);
-        rcl_dbg.dy = (float)sin(rad);
-        rcl_dbg.tx = (float)tx;
-        rcl_dbg.ty = (float)ty;
-
-        rcl_move_to((int32_t)tx, (int32_t)ty, mx, my);
-    }
-
-    void rcl_bs_bind_map(void)
-    {
-        uintptr_t client = 0;
-        uintptr_t map = 0;
-
-        if (!g_tilemap_fn && !g_tilemap_tried)
-        {
-            g_tilemap_tried = 1;
-            g_tilemap_fn = rcl_entry_callable(RCL_TILEMAP_GET_RVA);
-        }
-        if (!g_tilemap_fn)
-        {
-            return;
-        }
-
-        client = rcl_controller();
-        if (!client)
-        {
-            return;
-        }
-
-        map = ((uintptr_t (*)(uintptr_t))g_tilemap_fn)(client);
-        if (map && ((map & 7ULL) == 0) && rcl_pointer_plausible(map))
-        {
-            rcl_wall_bind(map);
-
-            if (!rcl_wall_ready())
-            {
-                (void)rcl_wall_build();
-            }
-        }
-    }
-}
-
-float rcl_own_radius(void)
-{
-    if (rcl_own_r > 1.0f)
-    {
-        float r = rcl_own_r;
-
-        if (r > RCL_OWN_RADIUS_MAX) r = RCL_OWN_RADIUS_MAX;
-        if (r < RCL_OWN_RADIUS_MIN) r = RCL_OWN_RADIUS_MIN;
-
-        return r;
-    }
-
-    return (float)bs::HITBOX_STD;
-}
-
-static std::vector<bs::Projectile> rcl_bs_projectiles(float mx, float my)
-{
-    std::vector<bs::Projectile> out;
-
-    out.reserve(RCL_BS_MAX_PROJ);
-
-    for (int i = 0; i < 16; i++)
-    {
-        const rcl_proj_t *p = &rcl_projs[i];
-        float dx = 0.0f;
-        float dy = 0.0f;
-        float spd = 0.0f;
-        bs::Projectile q;
-
-        if (!p->elem) continue;
-        if (p->team >= 0 && p->team == rcl_own_team_b) continue;
-
-        dx = (float)p->x - mx;
-        dy = (float)p->y - my;
-        if (dx * dx + dy * dy > RCL_BS_PROJ_ZONE * RCL_BS_PROJ_ZONE) continue;
-
-        spd = sqrtf(p->vx * p->vx + p->vy * p->vy);
-        if (spd < 1.0f) continue;
-
-        q.id = i;
-        q.radius = (p->radius > RCL_BS_MIN_RADIUS) ? (double)p->radius : (double)RCL_BS_MIN_RADIUS;
-        q.indirect = (p->isThrower != 0);
-        q.speed = (double)spd;
-        q.vx = (double)p->vx;
-        q.vy = (double)p->vy;
-        q.spawnX = (double)p->spawnX;
-        q.spawnY = (double)p->spawnY;
-        q.castRange = 0.0;
-        q.areaRadius = (p->spawnAreaRadius > 0) ? (double)p->spawnAreaRadius : 0.0;
-        q.areaTicks = (p->spawnAreaRadius > 0 && p->spawnAreaActiveTime > 0)
-                          ? (p->spawnAreaActiveTime / 50)
-                          : 0;
-        q.deathTick = -1;
-
-        q.ticks.resize(RCL_BS_TICKS + 1);
-        for (int k = 0; k <= RCL_BS_TICKS; k++)
-        {
-            q.ticks[k] = bs::V2((double)p->x + (double)p->vx * bs::DT * (double)k,
-                                (double)p->y + (double)p->vy * bs::DT * (double)k);
-        }
-
-        out.push_back(std::move(q));
-
-        if ((int)out.size() >= RCL_BS_MAX_PROJ) break;
-    }
-
-    return out;
-}
-
-static std::vector<bs::Wall> rcl_bs_walls(float mx, float my)
-{
-    float raw[RCL_BS_MAX_WALLS * 4];
-    std::vector<bs::Wall> out;
-    int n = 0;
-
-    rcl_bs_bind_map();
-
-    n = rcl_walls_near(mx, my, RCL_BS_WALL_ZONE, raw, RCL_BS_MAX_WALLS);
-    out.reserve((size_t)(n > 0 ? n : 0));
-
-    for (int i = 0; i < n; i++)
-    {
-        bs::Wall w;
-
-        w.x = (double)raw[i * 4 + 0];
-        w.y = (double)raw[i * 4 + 1];
-        w.w = (double)raw[i * 4 + 2];
-        w.h = (double)raw[i * 4 + 3];
-        out.push_back(w);
-    }
-
-    return out;
-}
-
-void rcl_autododge(void)
-{
-    uint64_t now = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
-    float mx = 0.0f;
-    float my = 0.0f;
-    float radius = 0.0f;
-    double speed = 0.0;
-    double angle = 0.0;
-    int sent = 0;
-
-    if (!rcl_base) return;
-
-    /* the solver is expensive and the battle tick is 20 Hz: solve on a fixed cadence */
-    if (g_solved && now > g_last_solve_ms && (now - g_last_solve_ms) < RCL_BS_PERIOD_MS)
-    {
-        rcl_dbg = g_last_dbg;
-        return;
-    }
-    g_last_solve_ms = now;
-
-    rcl_dbg.hazards = 0;
-    rcl_dbg.threats = 0;
-    rcl_dbg.danger = 0;
-    rcl_dbg.dirs = 0;
-    rcl_dbg.sent = 0;
-    rcl_dbg.thn = 0;
-    rcl_dbg.note[0] = 0;
-    g_last_dbg = rcl_dbg;
-
-    if (!rcl_own_elem)
-    {
-        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no own elem");
-        rcl_active = 0;
-        g_last_dbg = rcl_dbg;
-        return;
-    }
-    if (rcl_dead)
-    {
-        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "dead");
-        rcl_active = 0;
-        g_last_dbg = rcl_dbg;
-        return;
-    }
-
-    mx = (float)rcl_own_x;
-    my = (float)rcl_own_y;
-
-    if (mx == 0.0f && my == 0.0f)
-    {
-        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no own pos");
-        rcl_active = 0;
-        g_last_dbg = rcl_dbg;
-        return;
-    }
-
-    radius = rcl_own_radius();
-    speed = (double)rcl_own_speed;
-    if (speed < 1.0) speed = 720.0;
-
+    // Debug
     rcl_dbg.px = mx;
     rcl_dbg.py = my;
-    rcl_dbg.radius = radius;
-    rcl_dbg.speed = (float)speed;
-
-    g_solved = 1;
-
-    if (!rcl_manager_ptr || rcl_manager_count_v <= 0)
-    {
-        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no manager");
-        rcl_active = 0;
-        g_last_dbg = rcl_dbg;
-        return;
-    }
-
-    {
-        rcl_obj_t objects[64];
-        int usable = rcl_collect(rcl_manager_ptr, objects, 64);
-
-        if (usable > 0)
-        {
-            rcl_roster(rcl_own_elem, rcl_own_index_v, rcl_own_team_b, objects, usable);
-        }
-
-        rcl_proj_scan(rcl_manager_ptr, rcl_manager_count_v, objects, usable);
-    }
-
-    {
-        std::vector<bs::Projectile> ps = rcl_bs_projectiles(mx, my);
-        std::vector<bs::Wall> walls = rcl_bs_walls(mx, my);
-        bs::DodgeResult res;
-
-        rcl_dbg.hazards = (int)ps.size();
-        rcl_dbg.threats = (int)ps.size();
-
-        if (ps.empty())
-        {
-            snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "no projectiles");
-            rcl_active = 0;
-            rcl_moving = 0;
-            g_have_angle = 0;
-            g_was_active = 0;
-            g_last_dbg = rcl_dbg;
-
-            return;
-        }
-
-        res = bs::bestDodge(bs::V2((double)mx, (double)my), speed, ps, walls, (double)radius,
-                            RCL_BS_DELAY_TICKS, g_have_angle ? g_angle : 0.0);
-
-        snprintf(rcl_dbg.note, sizeof(rcl_dbg.note),
-                 "dmg=%.0f first=%.1f clear=%.0f wall=%.0f nw=%d", res.eval.dmg, res.eval.first,
-                 res.eval.clear, res.eval.wallPenalty, (int)walls.size());
-
-        rcl_dbg.ix = (float)res.eval.dmg;
-        rcl_dbg.iy = (float)res.eval.first;
-
-        angle = res.angle;
-        g_angle = angle;
-        g_have_angle = 1;
-
-        if (res.deadzone)
-        {
-            /* release the prediction target once, then leave the stick alone */
-            if (g_was_active)
-            {
-                rcl_move_to((int32_t)mx, (int32_t)my, mx, my);
-                (void)rcl_enqueue((int32_t)mx, (int32_t)my);
-                g_was_active = 0;
-            }
-
-            rcl_active = 1;
-            rcl_moving = 0;
-            rcl_dbg.danger = 0;
-            rcl_dbg.sent = 0;
-            g_last_dbg = rcl_dbg;
-
-            return;
-        }
-
-        g_was_active = 1;
-        rcl_dbg.danger = 1;
-
-        /* do not machine-gun new targets: keep walking unless the answer really moved */
-        if (!g_sent_once || bs::angDiff(angle, g_sent_angle) > 12.0 ||
-            (now > g_last_send_ms && (now - g_last_send_ms) >= 100))
-        {
-            int32_t tx = (int32_t)round((double)mx + cos(angle * M_PI / 180.0) * RCL_BS_REACH);
-            int32_t ty = (int32_t)round((double)my + sin(angle * M_PI / 180.0) * RCL_BS_REACH);
-
-            rcl_bs_push(mx, my, angle);
-            sent = rcl_enqueue(tx, ty);
-
-            g_sent_angle = angle;
-            g_last_send_ms = now;
-            g_sent_once = 1;
-            g_last_sent = sent;
-        }
-        else
-        {
-            sent = g_last_sent;
-        }
-
-        rcl_dbg.dirs = 1;
-        rcl_active = 1;
-        rcl_moving = sent;
-        rcl_dbg.sent = sent;
-        g_last_dbg = rcl_dbg;
-    }
+    rcl_dbg.dx = safeDir.x;
+    rcl_dbg.dy = safeDir.y;
+    rcl_dbg.tx = (float)tx;
+    rcl_dbg.ty = (float)ty;
+    rcl_dbg.hazards = (int)g_proj_cache.size();
+    snprintf(rcl_dbg.note, sizeof(rcl_dbg.note), "VO:%s SPD:%.0f", (isVelocityUnsafe(baseDir, mx, my, myRadius) ? "FAIL" : "OK"), CHAR_SPEED);
 }
 
-void rcl_autododge_reset(void)
-{
-    g_angle = 0.0;
-    g_have_angle = 0;
-    g_solved = 0;
-    g_was_active = 0;
-    g_last_solve_ms = 0;
-    g_last_send_ms = 0;
-    g_sent_once = 0;
+void rcl_autododge_reset(void) {
+    g_proj_cache.clear();
+    g_lastSafeDir = V2(0, 0);
+    g_lastSafeDirTime = 0;
     rcl_active = 0;
     rcl_moving = 0;
 }
