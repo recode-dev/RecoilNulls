@@ -25,7 +25,7 @@ jobs:
       - name: Format
         run: |
           set -euo pipefail
-          style='{BasedOnStyle: LLVM, BreakBeforeBraces: Allman, IndentWidth: 4, ContinuationIndentWidth: 4, ColumnLimit: 80, AllowShortIfStatementsOnASingleLine: WithoutElse, AllowShortBlocksOnASingleLine: Empty, AllowShortFunctionsOnASingleLine: None, AllowShortLambdasOnASingleLine: None, BreakBeforeTernaryOperators: true, BinPackArguments: false, BinPackParameters: false, PointerAlignment: Left, SortIncludes: false}'
+          style='{BasedOnStyle: LLVM, BreakBeforeBraces: Allman, IndentWidth: 4, ContinuationIndentWidth: 4, ColumnLimit: 80, AllowShortIfStatementsOnASingleLine: WithoutElse, AllowShortBlocksOnASingleLine: Empty, AllowShortFunctionsOnASingleLine: None, AllowShortLambdasOnASingleLine: None, BreakBeforeTernaryOperators: true, BinPackArguments: false, BinPackParameters: false, PointerAlignment: Left, SortIncludes: false, FixNamespaceComments: false}'
           find src tools -type f \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 |
             xargs -0 clang-format -i -style="$style"
 
