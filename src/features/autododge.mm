@@ -177,7 +177,9 @@ void rcl_autododge(void) {
     if (fabsf(mx) < TUNE.MIN_POS && fabsf(my) < TUNE.MIN_POS) return;
 
     // Update speed
-    {
+    if (rcl_own_speed >= 300.0f && rcl_own_speed <= 8500.0f) {
+        CHAR_SPEED = rcl_own_speed;
+    } else {
         uintptr_t data = 0;
         if (rcl_read_ptr(rcl_own_elem + RCL_ELEM_DEF_OFF, (void**)&data) && data) {
             int32_t readSpd = 0;
@@ -266,6 +268,9 @@ void rcl_autododge(void) {
                                 state.speed = (float)spd;
                             }
                         }
+                    }
+                    if (state.speed <= 0.0f) {
+                        state.speed = 3000.0f;
                     }
 
                     int32_t angleDegrees = -1;

@@ -170,7 +170,7 @@ BOOL rcl_read_bytes(uintptr_t address, void *out, size_t length)
 
 BOOL rcl_pointer_plausible(uintptr_t value)
 {
-    if (value < 0x10000)
+    if (value < 0x10000ULL || value >= 0x00007fffffffffffULL)
     {
         return NO;
     }
