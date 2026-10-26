@@ -1,3 +1,4 @@
+#include <frida-gum.h>
 #include <dispatch/dispatch.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
@@ -156,13 +157,12 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    vm_size_t got = 0;
-    kern_return_t result = vm_read_overwrite(mach_task_self(),
-                                             (mach_vm_address_t)address,
-                                             (mach_vm_size_t)length,
-                                             (mach_vm_address_t)(uintptr_t)out,
-                                             &got);
-    return result == KERN_SUCCESS && got == (vm_size_t)length;
+    if (!gum_memory_is_readable((gconstpointer)address, (gsize)length))
+    {
+        return NO;
+    }
+    memcpy(out, (const void*)address, length);
+    return YES;
 }
 BOOL pointer_plausible(uintptr_t value)
 {
@@ -300,18 +300,12 @@ BOOL copy(uintptr_t source, void* destination, size_t length)
     {
         return NO;
     }
-    if (!addr_readable(source, length))
+    if (!gum_memory_is_readable((gconstpointer)source, (gsize)length))
     {
         return NO;
     }
-    vm_size_t copied = 0;
-    kern_return_t result =
-        vm_read_overwrite(mach_task_self(),
-                          (mach_vm_address_t)source,
-                          (mach_vm_size_t)length,
-                          (mach_vm_address_t)(uintptr_t)destination,
-                          &copied);
-    return result == KERN_SUCCESS && copied == (vm_size_t)length;
+    memcpy(destination, (const void*)source, length);
+    return YES;
 }
 BOOL text_section(uintptr_t* address, uint64_t* size)
 {
@@ -425,65 +419,51 @@ BOOL valid_header(uintptr_t imageBase)
     }
     return YES;
 }
+static gboolean port_module_cb(GumModule* module, gpointer userData)
+{
+    uintptr_t* out = (uintptr_t*)userData;
+    const char* path = NULL;
+    const GumMemoryRange* range = NULL;
+    if (!module || !out)
+    {
+        return TRUE;
+    }
+    path = gum_module_get_name(module);
+    range = gum_module_get_range(module);
+    if (!path || !range)
+    {
+        return TRUE;
+    }
+    if (!strstr(path, ".app/"))
+    {
+        return TRUE;
+    }
+    if (strstr(path, "/System/") || strstr(path, "/usr/lib/") ||
+        strstr(path, ".framework/") || strstr(path, ".dylib"))
+    {
+        return TRUE;
+    }
+    if (!valid_header((uintptr_t)range->base_address))
+    {
+        return TRUE;
+    }
+    *out = (uintptr_t)range->base_address;
+    return FALSE;
+}
 BOOL find_game_image(uintptr_t* out_base)
 {
+    uintptr_t found = 0;
     if (!out_base)
     {
         return NO;
     }
-    uint32_t count = _dyld_image_count();
-    if (count > 8192)
+    gum_process_enumerate_modules(port_module_cb, &found);
+    if (!found)
     {
-        count = 8192;
+        return NO;
     }
-    for (uint32_t i = 0; i < count; i++)
-    {
-        const char* path = _dyld_get_image_name(i);
-        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
-        if (!path || !imageBase)
-        {
-            continue;
-        }
-        if (!strstr(path, ".app/"))
-        {
-            continue;
-        }
-        if (strstr(path, "/System/"))
-        {
-            continue;
-        }
-        if (strstr(path, "/usr/lib/"))
-        {
-            continue;
-        }
-        if (strstr(path, ".framework/"))
-        {
-            continue;
-        }
-        if (strstr(path, ".dylib"))
-        {
-            continue;
-        }
-        if (!valid_header(imageBase))
-        {
-            continue;
-        }
-        BOOL matched = NO;
-        for (int n = 0; image_names[n]; n++)
-        {
-            if (strstr(path, image_names[n]))
-            {
-                matched = YES;
-                break;
-            }
-        }
-        if (matched)
-        {
-            *out_base = imageBase;
-            return YES;
-        }
-    }
-    return NO;
+    *out_base = found;
+    return YES;
 }
 uintptr_t owner = 0;
 int wired = 0;
