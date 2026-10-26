@@ -1,12 +1,15 @@
 name: prepare
 
 on:
-  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: write
   actions: write
+
+concurrency:
+  group: prepare-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   prepare:
@@ -44,5 +47,5 @@ jobs:
       - name: Build
         if: steps.push.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: gh workflow run build.yml --ref "$GITHUB_REF_NAME"
