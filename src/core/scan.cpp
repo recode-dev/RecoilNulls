@@ -2658,6 +2658,7 @@ uintptr_t client(void)
     }
     return (uintptr_t)clientPtr;
 }
+static int proj_read_name(uintptr_t data, char* dst, int cap);
 typedef struct
 {
     char name[64];
