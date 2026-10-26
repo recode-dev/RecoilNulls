@@ -1,4 +1,6 @@
-#include "../data.hpp"
+#include "offsets.h"
+#include "scan.h"
+#include "commands.h"
 
 #include <malloc/malloc.h>
 
@@ -142,7 +144,7 @@ int rcl_enqueue_skill(int x, int y, int type, void *skillData)
     static uintptr_t c_battle = 0;
     ctorFn = rcl_callable_cached(&c_ctor, RCL_MSGCTOR_RVA);
     inputFn = rcl_callable_cached(&c_input, RCL_ADDINPUT_RVA);
-    battleFn = rcl_callable_cached(&c_battle, RCL_GETBATTLE_RVA);
+    battleFn = rcl_callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
     if (!inputFn || !ctorFn || !battleFn)
     {
         return 0;
@@ -286,7 +288,7 @@ void *rcl_manager(void)
         return nullptr;
     }
     static uintptr_t c_battle = 0;
-    uintptr_t battleFn = rcl_callable_cached(&c_battle, RCL_GETBATTLE_RVA);
+    uintptr_t battleFn = rcl_callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
     void *battle = nullptr;
     void *mgr = nullptr;
     if (!battleFn)
@@ -318,7 +320,7 @@ int rcl_pred_set(int x, int y)
     {
         static uintptr_t c_set = 0;
 
-        setFn = rcl_callable_cached(&c_set, RCL_SETINPUT_RVA);
+        setFn = rcl_callable_cached(&c_set, RCL_MOVE_RVA);
     }
 
     ctrl = rcl_controller();

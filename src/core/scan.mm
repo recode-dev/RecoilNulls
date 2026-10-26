@@ -1,4 +1,27 @@
-#include "../data.hpp"
+#import <Foundation/Foundation.h>
+#import <mach/mach.h>
+#import <mach/vm_map.h>
+#import <mach/mach_time.h>
+#import <mach-o/dyld.h>
+#import <mach-o/loader.h>
+#import <dispatch/dispatch.h>
+#import <math.h>
+#import <stdint.h>
+#import <stdio.h>
+#import <stdlib.h>
+#import <string.h>
+
+#if __has_include(<ptrauth.h>)
+#import <ptrauth.h>
+#endif
+
+#include "offsets.h"
+#include "scan.h"
+#include "../utils/crypto.h"
+#include "../utils/walls.h"
+#include "../features/autododge.h"
+#include "hook.h"
+#include "objc.h"
 
 const char *rcl_image_names[4] = {"Nulls Brawl", "Laser", "NB.app", nullptr};
 
@@ -1680,7 +1703,7 @@ const rcl_hook_t rcl_slot_specs[34] = {
     {RCL_SLOT_RVA_29, (void *)rcl_slot_repl_29, 0},
     {RCL_SLOT_RVA_30, (void *)rcl_slot_repl_30, 0},
     {RCL_SLOT_RVA_31, (void *)rcl_slot_repl_31, 0},
-    {RVA_LOGICBATTLEMODECLIENT_UPDATE, (void *)rcl_slot_repl_32, 0},
+    {RCL_SLOT_NONE, (void *)rcl_slot_repl_32, 0},
     {RVA_BATTLESCREEN__UPDATEMOVEMENT, (void *)rcl_slot_repl_33, 0},
 };
 
@@ -2419,7 +2442,7 @@ void rcl_resolve_addresses(void)
     rcl_addr_gety = rcl_callable(RVA_LOGICGAMEOBJECTCLIENT_GETY);
     rcl_addr_battlescreen = rcl_base;
     rcl_addr_getownidx = rcl_callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX);
-    rcl_addr_movedto = rcl_callable(RVA_LOGICBATTLEMODECLIENT_SETCLIENTPREDICTIONMOVETO);
+    rcl_addr_movedto = rcl_callable(RCL_MOVE_RVA);
     rcl_addr_getdata = rcl_callable(RVA_LOGICGAMEOBJECTCLIENT_GETDATA);
     rcl_addr_getgid = rcl_callable(RVA_LOGICGAMEOBJECTCLIENT_GETGLOBALID);
     rcl_addr_charspeed = rcl_callable(RVA_LOGICCHARACTERDATA_GETSPEED);

@@ -1,4 +1,6 @@
-#include "../data.hpp"
+#include "walls.h"
+
+#include "../core/scan.h"
 
 uintptr_t rcl_tiles = 0;
 

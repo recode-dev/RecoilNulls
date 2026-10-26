@@ -1,4 +1,7 @@
-#include "../data.hpp"
+#import <Foundation/Foundation.h>
+#import <dispatch/dispatch.h>
+
+#include "../core/scan.h"
 
 #include <stdarg.h>
 #include <stdio.h>

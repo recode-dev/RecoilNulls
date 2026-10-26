@@ -1,4 +1,3 @@
-#include "../data.hpp"
 #include "../core/scan.h"
 #include "../core/commands.h"
 #include "../utils/walls.h"
