@@ -196,6 +196,7 @@ void autododge(void)
         }
     }
     std::vector<Threat> threats;
+    int hits = 0;
     {
         std::map<int, bool> seen;
         float zoneSq = TUNE.AWARE * TUNE.AWARE;
@@ -251,7 +252,7 @@ void autododge(void)
                     state.sampleX = px;
                     state.sampleY = py;
                     state.sampleTime = now;
-                    state.castRange = own_cast_range();
+                    state.castRange = range_for_proj(dataPtr);
                     uint8_t ind = 0;
                     if (read_byte(dataPtr + PROJ_ISTHROWER_OFF, &ind))
                     {
@@ -383,6 +384,25 @@ void autododge(void)
                         playerAlong > state.castRange + state.radius)
                         continue;
                 }
+                float ax = px - mx;
+                float ay = py - my;
+                float along = 0.0f;
+                float hx = 0.0f;
+                float hy = 0.0f;
+                if (state.speed > 1.0f)
+                {
+                    along = ax * state.dirX + ay * state.dirY;
+                }
+                if (along < 0.0f)
+                {
+                    along = 0.0f;
+                }
+                hx = ax - state.dirX * along;
+                hy = ay - state.dirY * along;
+                if (hx * hx + hy * hy <= t.rad * t.rad)
+                {
+                    hits++;
+                }
                 threats.push_back(t);
             }
         }
@@ -401,6 +421,7 @@ void autododge(void)
     }
     if (threats.empty())
     {
+        dbg.threats = 0;
         if (g_headingIdx >= 0 && now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS)
             clearHeading();
         return;
@@ -485,6 +506,7 @@ void autododge(void)
     dbg.tx = (float)tx;
     dbg.ty = (float)ty;
     dbg.hazards = (int)threats.size();
+    dbg.threats = hits;
     snprintf(dbg.note,
              sizeof(dbg.note),
              "CLR:%.0f SCR:%.0f",
