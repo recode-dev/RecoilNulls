@@ -17,8 +17,6 @@ void *rcl_msg_alloc(void);
 void *rcl_manager(void);
 int rcl_pred_set(int x, int y);
 int rcl_move_to(int32_t x, int32_t y, float ox, float oy);
-uintptr_t rcl_battlescreen(void);
-int rcl_joystick_aim(float dx, float dy, int teamFlip);
 
 int rcl_ci_load_constants(void);
 uint32_t rcl_ci_sign(void *ci, void *battle);

@@ -333,69 +333,38 @@ int rcl_pred_set(int x, int y)
     return 1;
 }
 
-uintptr_t rcl_battlescreen(void)
-{
-    uintptr_t battle = rcl_controller();
-    void *value = nullptr;
-
-    if (!battle) return 0;
-    if (!rcl_read_ptr(battle + (uintptr_t)RCL_BATTLESCREEN_OFF, &value)) return 0;
-    if (!value) return 0;
-    return (uintptr_t)value;
-}
-
-int rcl_joystick_aim(float dx, float dy, int teamFlip)
-{
-    uintptr_t js = rcl_battlescreen();
-    uint32_t cxBits = 0;
-    uint32_t cyBits = 0;
-    float cx = 0.0f;
-    float cy = 0.0f;
-    float tx = 0.0f;
-    float ty = 0.0f;
-    unsigned char one = 1;
-
-    if (!js) return 0;
-    if (!rcl_read_bytes(js + (uintptr_t)RCL_JOY_CENTER_X, &cxBits, 4)) return 0;
-    if (!rcl_read_bytes(js + (uintptr_t)RCL_JOY_CENTER_Y, &cyBits, 4)) return 0;
-
-    memcpy(&cx, &cxBits, 4);
-    memcpy(&cy, &cyBits, 4);
-
-    if (cx != cx || cy != cy) return 0;
-    if (fabsf(cx) > 100000.0f || fabsf(cy) > 100000.0f) return 0;
-
-    tx = cx + dx * RCL_JOY_RADIUS * (float)teamFlip;
-    ty = cy + dy * RCL_JOY_RADIUS * (float)teamFlip;
-
-    if (!rcl_write_bytes(js + (uintptr_t)RCL_JOY_TARGET_X, &tx, 4)) return 0;
-    if (!rcl_write_bytes(js + (uintptr_t)RCL_JOY_TARGET_Y, &ty, 4)) return 0;
-    if (!rcl_write_bytes(js + (uintptr_t)RCL_JOY_DRAGGING, &one, 1)) return 0;
-
-    return 1;
-}
-
 int rcl_move_to(int32_t x, int32_t y, float ox, float oy)
 {
-    uintptr_t ctrl = 0;
     uintptr_t fn = 0;
+    uintptr_t ctrl = 0;
 
     (void)ox;
     (void)oy;
 
-    if (!RCL_MOVE_ON || rcl_dead) return 0;
-    if (x < -200000 || x > 200000 || y < -200000 || y > 200000) return 0;
-
-    ctrl = rcl_controller();
-    if (!ctrl) return 0;
+    if (!RCL_MOVE_ON || rcl_dead)
+    {
+        return 0;
+    }
+    if (x < -200000 || x > 200000 || y < -200000 || y > 200000)
+    {
+        return 0;
+    }
 
     {
         static uintptr_t c_move = 0;
 
         fn = rcl_callable_cached(&c_move, RCL_MOVE_RVA);
     }
-    if (!fn) return 0;
 
+    ctrl = rcl_controller();
+    if (!fn || !ctrl)
+    {
+        return 0;
+    }
+
+    /* setClientPredictionMoveTo(this, x, y, 1) on the battle mode client only;
+       poking +0xf9c..+0xfd0 here was writing BattleScreen fields into the
+       client object and left the brawler turning without translating */
     ((void (*)(void *, int, int, int))fn)((void *)ctrl, (int)x, (int)y, 1);
 
     return 1;
