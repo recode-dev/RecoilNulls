@@ -9,15 +9,14 @@
 #include <stdint.h>
 #include <stdio.h>
 
-// --- Constants ---
-static const float SAFETY_MARGIN = 80.0f;
-static const float T_URGENT      = 1.5f;
-static const float T_FIELD       = 3.0f;
+static const float SAFETY_MARGIN = 220.0f;
+static const float T_URGENT      = 4.5f;
+static const float T_FIELD       = 6.5f;
 static const int N_DIRECTIONS    = 64;
 static const float MAX_DIST_SQ   = 5000.0f * 5000.0f;
 static const uint32_t STALE_MS   = 450;
 static const float PERP_WEIGHT   = 2.4f;
-static const float AWAY_WEIGHT   = 1.0f;
+static const float AWAY_WEIGHT   = 1.2f;
 static const float INTENT_WEIGHT = 1.2f;
 static float CHAR_SPEED          = 720.0f;
 
@@ -27,7 +26,7 @@ static float CHAR_SPEED          = 720.0f;
 #define RCL_JOY_TARGET_Y 0x9d4
 #define RCL_JOY_DRAGGING 0xee8
 
-// --- Types ---
+
 struct V2 {
     float x, y;
     V2(float x_ = 0, float y_ = 0) : x(x_), y(y_) {}
@@ -39,10 +38,12 @@ struct Projectile {
     float speed;
     float radius;
     uint64_t lastSeen;
+    float sampleX, sampleY;
+    uint64_t sampleTime;
     int id;
 };
 
-// --- State ---
+
 __thread int rcl_in_move = 0;
 int32_t rcl_pl_mine[12] = {0};
 int rcl_active = 0;
@@ -58,7 +59,7 @@ static bool g_samples_init = false;
 static V2 g_lastSafeDir(0, 0);
 static uint64_t g_lastSafeDirTime = 0;
 
-// --- Math Helpers ---
+
 static V2 normalize(float x, float y) {
     float l = sqrtf(x * x + y * y);
     if (l < 1e-6f) return V2(1.0f, 0.0f);
@@ -93,7 +94,7 @@ static int32_t rcl_call1i_local(uintptr_t fn, uintptr_t self) {
     return ((fn_t)rcl_callable(fn - rcl_base))(self);
 }
 
-// --- Core Logic ---
+
 
 static bool isUrgentThreat(const Projectile& p, float myX, float myY, float myRadius) {
     float dx = myX - p.x;
@@ -196,7 +197,7 @@ static V2 getUrgentDodgeDir(float myX, float myY, float myRadius, V2 intentDir, 
         V2 away = normalize(myX - p.x, myY - p.y);
         V2 perp1 = normalize(-p.dirY, p.dirX);
         V2 perp2 = normalize(p.dirY, -p.dirX);
-        
+
         float intentX = (intentDir.x != 0 || intentDir.y != 0) ? intentDir.x * 0.6f : 0.0f;
         float intentY = (intentDir.x != 0 || intentDir.y != 0) ? intentDir.y * 0.6f : 0.0f;
 
@@ -288,7 +289,7 @@ static bool checkDanger(float myX, float myY, float myRadius) {
     return false;
 }
 
-// --- Integration ---
+
 
 static uintptr_t rcl_battlescreen(void) {
     uintptr_t ctrl = rcl_controller();
@@ -299,7 +300,7 @@ static uintptr_t rcl_battlescreen(void) {
 }
 
 void rcl_autododge(void) {
-    uint64_t now = rcl_us() / 1000; // ms
+    uint64_t now = rcl_us() / 1000;
     if (!rcl_base || !rcl_own_elem || rcl_dead) {
         rcl_active = 0;
         return;
@@ -311,7 +312,7 @@ void rcl_autododge(void) {
     float my = (float)rcl_own_y;
     float myRadius = rcl_own_r;
 
-    // 1. Dynamic speed (from data + 0x1c4)
+
     {
         uintptr_t data = 0;
         if (rcl_read_ptr(rcl_own_elem + RCL_ELEM_DEF_OFF, (void**)&data) && data) {
@@ -324,7 +325,7 @@ void rcl_autododge(void) {
         }
     }
 
-    // 2. Projectile Scan & Filter (FULL SCAN using manager array)
+
     {
         std::map<int, bool> seen;
         if (rcl_manager_array_ptr && rcl_manager_count_v > 0) {
@@ -364,22 +365,39 @@ void rcl_autododge(void) {
                 if (radius <= 0) radius = 8.0f;
 
                 if (state.lastSeen == 0) {
-                    float angle = 0.0f;
-                    rcl_read_float(objPtr + 0xb8, &angle);
-                    state.dirX = cosf(angle);
-                    state.dirY = sinf(angle);
-                } else {
-                    float ddx = px - state.x;
-                    float ddy = py - state.y;
-                    float len = sqrtf(ddx * ddx + ddy * ddy);
-                    if (len > 6.0f) {
-                        state.dirX = ddx / len;
-                        state.dirY = ddy / len;
+                    int32_t angleDegrees = -1;
+                    if (rcl_read_int(objPtr + RCL_PROJ_ANGLE_OFF, &angleDegrees) &&
+                        angleDegrees >= 0 && angleDegrees <= 360) {
+                        float angle = (float)angleDegrees * ((float)M_PI / 180.0f);
+                        state.dirX = cosf(angle);
+                        state.dirY = sinf(angle);
+                    } else {
+                        state.dirX = 0.0f;
+                        state.dirY = 0.0f;
+                    }
+                    state.sampleX = px;
+                    state.sampleY = py;
+                    state.sampleTime = now;
+                } else if (now - state.sampleTime >= 20) {
+                    float ddx = px - state.sampleX;
+                    float ddy = py - state.sampleY;
+                    float distance = sqrtf(ddx * ddx + ddy * ddy);
+                    uint64_t elapsed = now - state.sampleTime;
+                    if (distance >= 6.0f && elapsed > 0) {
+                        float measuredSpeed = distance * 1000.0f / (float)elapsed;
+                        if (measuredSpeed >= 100.0f && measuredSpeed <= 12000.0f) {
+                            state.dirX = ddx / distance;
+                            state.dirY = ddy / distance;
+                            state.speed = measuredSpeed;
+                        }
+                        state.sampleX = px;
+                        state.sampleY = py;
+                        state.sampleTime = now;
                     }
                 }
                 state.x = px;
                 state.y = py;
-                state.speed = speed;
+                if (state.speed <= 0.0f) state.speed = speed;
                 state.radius = radius;
                 state.lastSeen = now;
                 state.id = pid;
@@ -395,7 +413,7 @@ void rcl_autododge(void) {
         }
     }
 
-    // 3. Joystick Intent (to weight dodges toward intent)
+
     V2 intentDir(0, 0);
     uintptr_t js = rcl_battlescreen();
     if (js) {
@@ -413,7 +431,7 @@ void rcl_autododge(void) {
         }
     }
 
-    // 4. Decision
+
     if (!checkDanger(mx, my, myRadius)) {
         rcl_active = 0;
         rcl_moving = 0;
@@ -433,7 +451,7 @@ void rcl_autododge(void) {
     g_lastSafeDir = safeDir;
     g_lastSafeDirTime = now;
 
-    // 5. Emit (via rcl_enqueue with team flip for world-space targets)
+
     float angle = atan2f(safeDir.y, safeDir.x);
     float teamFlip = (rcl_own_team_b == 1) ? -1.0f : 1.0f;
     float reach = 800.0f;
@@ -446,7 +464,7 @@ void rcl_autododge(void) {
     rcl_active = 1;
     rcl_moving = sent;
 
-    // Debug Output
+
     rcl_dbg.px = mx;
     rcl_dbg.py = my;
     rcl_dbg.dx = safeDir.x;

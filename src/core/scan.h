@@ -712,7 +712,6 @@ extern rcl_proj_t rcl_projs[16];
 extern rcl_proj_death_t rcl_proj_deaths[16];
 extern int rcl_proj_death_n;
 
-
 void rcl_modesig_tick(void);
 int rcl_element_type(uintptr_t vt, uintptr_t *wordOut);
 int rcl_container_header(uintptr_t object, uintptr_t *arrayOut, int32_t *countOut, int32_t *capOut);
@@ -728,12 +727,8 @@ void rcl_gidless_scan(uintptr_t manager);
 uintptr_t rcl_list_gid_off(uintptr_t array, int32_t count);
 void rcl_proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
 
-
-
-
 uintptr_t rcl_hop(uintptr_t base, int *whyOut);
 uintptr_t rcl_client(void);
-
 
 void rcl_state_note(int state);
 
@@ -742,8 +737,6 @@ int rcl_resolve_own_fallback(const rcl_obj_t *objects, int usable, int *indexOut
 int rcl_proj_scan(uintptr_t manager, int32_t count, const rcl_obj_t *roster, int rosterUsable);
 
 uintptr_t rcl_controller(void);
-
-
 
 const char *rcl_header_reason(uintptr_t manager, int32_t *countOut, int32_t *capOut);
 uintptr_t rcl_coord_x_off(void);
@@ -837,7 +830,6 @@ int rcl_element_ascii(uintptr_t element);
 
 
 
-#define rcl_in_drive rcl_in_move
 #define rcl_own_elem_2 rcl_own_elem_scan
 #define rcl_resolve_own_2 rcl_resolve_own_fallback
 

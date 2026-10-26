@@ -4,7 +4,7 @@
 #include "../core/offsets.h"
 #include <stdint.h>
 
-extern __thread int rcl_in_drive;
+extern __thread int rcl_in_move;
 extern int32_t rcl_pl_mine[12];
 extern int rcl_active;
 extern int rcl_moving;

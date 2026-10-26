@@ -1959,7 +1959,7 @@ void rcl_scan_world(void)
         rcl_own_index_v = ownIndex;
     }
 
-    /* own position + hp straight off the character object */
+
     if (own)
     {
         if (rcl_read_int(own + (uintptr_t)RCL_OBJ_X_OFF, &x) &&
@@ -1980,7 +1980,6 @@ void rcl_scan_world(void)
             rcl_own_hp = 0;
         }
 
-        /* never gate the dodge on hp: the field is only informative here */
         rcl_dead = 0;
         rcl_coord_ok = 1;
     }
@@ -1996,7 +1995,6 @@ void rcl_scan_world(void)
         ownData = rcl_addr_getdata ? rcl_call1(rcl_addr_getdata, own) : 0;
         if (rcl_pointer_plausible(ownData) && rcl_read_int(ownData, &probe))
         {
-            /* both getters return ints, not floats */
             int32_t radius = rcl_addr_charradius ? rcl_call1i(rcl_addr_charradius, ownData) : 0;
             int32_t speed = rcl_addr_charspeed ? rcl_call1i(rcl_addr_charspeed, ownData) : 0;
 

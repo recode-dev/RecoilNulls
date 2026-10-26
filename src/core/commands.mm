@@ -327,7 +327,7 @@ int rcl_pred_set(int x, int y)
         return 0;
     }
 
-    /* same receiver as rcl_move_to: the battle mode client, not rcl_hop() */
+
     ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, RCL_PRED_FLAG);
 
     return 1;
@@ -362,9 +362,7 @@ int rcl_move_to(int32_t x, int32_t y, float ox, float oy)
         return 0;
     }
 
-    /* setClientPredictionMoveTo(this, x, y, 1) on the battle mode client only;
-       poking +0xf9c..+0xfd0 here was writing BattleScreen fields into the
-       client object and left the brawler turning without translating */
+
     ((void (*)(void *, int, int, int))fn)((void *)ctrl, (int)x, (int)y, 1);
 
     return 1;
