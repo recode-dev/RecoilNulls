@@ -1,3 +1,4 @@
+#include <frida-gum.h>
 #ifndef SCAN_SCAN_H
 #define SCAN_SCAN_H
 #include "./offsets.h"
@@ -146,51 +147,8 @@ static inline BOOL addr_readable(uintptr_t address, size_t length)
     {
         return NO;
     }
-    uintptr_t end = address + length;
-    if (end < address)
-    {
-        return NO;
-    }
-    uintptr_t cursor = address;
-    for (int guard = 0; cursor < end && guard < 64; guard++)
-    {
-        vm_prot_t flags = 0;
-        if (!region_flags(cursor, &flags))
-        {
-            return NO;
-        }
-        if ((flags & VM_PROT_READ) == 0)
-        {
-            return NO;
-        }
-        vm_address_t region = (vm_address_t)cursor;
-        vm_size_t size = 0;
-        vm_region_basic_info_data_64_t info;
-        mach_msg_type_number_t infoCount = VM_REGION_BASIC_INFO_COUNT_64;
-        mach_port_t objectName = MACH_PORT_NULL;
-        kern_return_t kr = vm_region_64(mach_task_self(),
-                                        &region,
-                                        &size,
-                                        VM_REGION_BASIC_INFO_64,
-                                        (vm_region_info_t)&info,
-                                        &infoCount,
-                                        &objectName);
-        if (objectName != MACH_PORT_NULL)
-        {
-            mach_port_deallocate(mach_task_self(), objectName);
-        }
-        if (kr != KERN_SUCCESS || size == 0)
-        {
-            return NO;
-        }
-        uintptr_t next = (uintptr_t)region + (uintptr_t)size;
-        if (next <= cursor)
-        {
-            return NO;
-        }
-        cursor = next;
-    }
-    return cursor >= end;
+    return gum_memory_is_readable((gconstpointer)address, (gsize)length) ? YES
+                                                                        : NO;
 }
 static inline BOOL addr_executable(uintptr_t address)
 {
