@@ -3,10 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "gum_boot.h"
+
 extern "C"
 {
 #include "hook.h"
-#include "../core/gum_boot.h"
 #include <mach-o/dyld.h>
 }
 
