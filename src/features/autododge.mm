@@ -309,7 +309,7 @@ void rcl_autododge(void) {
 
     float mx = (float)rcl_own_x;
     float my = (float)rcl_own_y;
-    float myRadius = rcl_own_radius();
+    float myRadius = rcl_own_r;
 
     // 1. Dynamic speed (from data + 0x1c4)
     {
