@@ -343,6 +343,7 @@ namespace
             if (!rcl_read_ptr(array + (uintptr_t)i * 8ULL, &raw) || !raw) continue;
 
             object = (uintptr_t)raw;
+            if (!rcl_pointer_plausible(object)) continue;
             rcl_read_ptr(object, &raw);
             vt = (uintptr_t)raw;
 

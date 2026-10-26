@@ -148,9 +148,13 @@ static void clearHeading() {
 }
 
 static int32_t rcl_call1i_local(uintptr_t fn, uintptr_t self) {
-    if (!fn || !self) return 0;
+    if (!fn || !self || !rcl_base) return 0;
+    if (!rcl_pointer_plausible(self)) return 0;
+    uintptr_t rva = (fn >= rcl_base) ? (fn - rcl_base) : fn;
+    uintptr_t target = rcl_callable(rva);
+    if (!target) return 0;
     typedef int32_t (*fn_t)(uintptr_t);
-    return ((fn_t)rcl_callable(fn - rcl_base))(self);
+    return ((fn_t)target)(self);
 }
 
 void rcl_autododge(void) {
@@ -196,12 +200,15 @@ void rcl_autododge(void) {
             for (int i = 0; i < rcl_manager_count_v; i++) {
                 uintptr_t objPtr = 0;
                 if (!rcl_read_ptr(rcl_manager_array_ptr + (uintptr_t)i * 8ULL, (void**)&objPtr) || !objPtr) continue;
+                if (!rcl_pointer_plausible(objPtr)) continue;
 
                 uintptr_t dataPtr = 0;
                 if (!rcl_read_ptr(objPtr + RCL_ELEM_DEF_OFF, (void**)&dataPtr) || !dataPtr) continue;
+                if (!rcl_pointer_plausible(dataPtr)) continue;
 
                 uintptr_t dataVtable = 0;
                 if (!rcl_read_ptr(dataPtr, (void**)&dataVtable) || !dataVtable) continue;
+                if (!rcl_pointer_plausible(dataVtable)) continue;
                 if (dataVtable - rcl_base != RCL_VTABLE_PROJ_DATA_RVA) continue;
 
                 int32_t teamId = -1;
@@ -230,16 +237,36 @@ void rcl_autododge(void) {
                     state.sampleX = px;
                     state.sampleY = py;
                     state.sampleTime = now;
-                    state.castRange = (float)rcl_call1i_local(rcl_base + 0x123456, dataPtr); // Placeholder RVA for getRange
-                    if (state.castRange <= 0) state.castRange = RANGE_FALLBACK;
+                    state.castRange = RANGE_FALLBACK;
                     
                     uint8_t ind = 0;
-                    rcl_read_byte(dataPtr + 0x123, &ind); // Placeholder for isIndirect
-                    state.isIndirect = ind != 0;
+                    if (rcl_read_byte(dataPtr + RCL_PROJ_ISTHROWER_OFF, &ind)) {
+                        state.isIndirect = (ind != 0);
+                    } else {
+                        state.isIndirect = false;
+                    }
                     
-                    uint8_t beam = 0;
-                    rcl_read_byte(dataPtr + 0x124, &beam); // Placeholder for isBeam
-                    state.isBeam = beam != 0;
+                    if (rcl_addr_projbeam) {
+                        state.isBeam = (rcl_call1i_local(rcl_addr_projbeam, dataPtr) != 0);
+                    } else {
+                        uint8_t beam = 0;
+                        if (rcl_read_byte(dataPtr + OFF_PROJECTILEDATA_ISBEAM, &beam)) {
+                            state.isBeam = (beam != 0);
+                        } else {
+                            state.isBeam = false;
+                        }
+                    }
+
+                    if (state.speed <= 0.0f) {
+                        if (rcl_addr_projspeed) {
+                            state.speed = (float)rcl_call1i_local(rcl_addr_projspeed, dataPtr);
+                        } else {
+                            int32_t spd = 0;
+                            if (rcl_read_int(dataPtr + RCL_PROJDATA_SPEED_OFF, &spd) && spd > 0) {
+                                state.speed = (float)spd;
+                            }
+                        }
+                    }
 
                     int32_t angleDegrees = -1;
                     if (rcl_read_int(objPtr + RCL_PROJ_ANGLE_OFF, &angleDegrees) && angleDegrees >= 0 && angleDegrees <= 360) {
@@ -265,7 +292,16 @@ void rcl_autododge(void) {
                 state.x = px;
                 state.y = py;
                 state.lastSeen = now;
-                state.radius = (float)rcl_call1i_local(rcl_base + RVA_LOGICPROJECTILEDATA_GETRADIUS, dataPtr);
+                if (rcl_addr_projradius) {
+                    state.radius = (float)rcl_call1i_local(rcl_addr_projradius, dataPtr);
+                } else {
+                    int32_t r = 0;
+                    if (rcl_read_int(dataPtr + RCL_PROJDATA_RADIUS_OFF, &r) && r > 0) {
+                        state.radius = (float)r;
+                    } else {
+                        state.radius = 100.0f;
+                    }
+                }
                 if (state.radius <= 0) state.radius = 100.0f;
 
                 float traveled = sqrtf((px - state.spawnX) * (px - state.spawnX) + (py - state.spawnY) * (py - state.spawnY));
