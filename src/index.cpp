@@ -1,4 +1,3 @@
-#include <frida-gum.h>
 #include "./core/offsets.h"
 #include "hook.h"
 #include <dispatch/dispatch.h>
@@ -25,6 +24,5 @@
 #include "objc.h"
 __attribute__((constructor)) void start(void)
 {
-    gum_init_embedded();
     dispatch_async(dispatch_get_main_queue(), ^{ poll_for_game(0); });
 }

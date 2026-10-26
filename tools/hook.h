@@ -21,6 +21,8 @@ extern "C"
                       void** originals);
     int hooks_uninstall(void);
     uintptr_t hook_image_base(uintptr_t address);
+    void hook_set_error(const char* format, ...);
+    const char* hook_last_error(void);
 #ifdef __cplusplus
 }
 #endif

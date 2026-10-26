@@ -8,9 +8,6 @@ on:
 permissions:
   contents: write
 
-env:
-  FRIDA_VERSION: 17.2.11
-
 concurrency:
   group: recoil-${{ github.ref }}
   cancel-in-progress: true
@@ -27,21 +24,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/theos
-          key: theos-${{ runner.os }}-v6
-
-      - name: Gum
-        run: |
-          set -euo pipefail
-          dir="vendor/frida-gum"
-          if [ -f "$dir/frida-gum.h" ] || [ -f "$dir/include/frida-gum.h" ]; then
-            echo "using committed devkit"
-            exit 0
-          fi
-          mkdir -p "$dir"
-          curl -fsSL -o /tmp/gum.tar.xz \
-            "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-gum-devkit-${FRIDA_VERSION}-ios-arm64.tar.xz"
-          tar -xJf /tmp/gum.tar.xz -C "$dir"
-          ls -la "$dir"
+          key: theos-${{ runner.os }}-v7
 
       - name: Build
         run: |
@@ -60,64 +43,6 @@ jobs:
           [ -n "$dylib" ] || { echo "Recoil.dylib not found"; exit 1; }
           cp "$dylib" out/Recoil.dylib
           strip -x out/Recoil.dylib 2>/dev/null || true
-
-      - name: Scrub
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import struct
-
-          path = "out/Recoil.dylib"
-          data = bytearray(open(path, "rb").read())
-          ncmds = struct.unpack_from("<I", data, 16)[0]
-          off = 32
-          cstring = None
-          for _ in range(ncmds):
-              cmd, cmdsize = struct.unpack_from("<II", data, off)
-              if cmd == 0x19:
-                  nsects = struct.unpack_from("<I", data, off + 64)[0]
-                  so = off + 72
-                  for _ in range(nsects):
-                      sect = bytes(data[so:so + 16]).rstrip(b"\0")
-                      if sect == b"__cstring":
-                          size = struct.unpack_from("<Q", data, so + 40)[0]
-                          offset = struct.unpack_from("<I", data, so + 48)[0]
-                          cstring = (offset, size)
-                      elif sect == b"__FRIDA_DATA":
-                          data[so:so + 16] = b"__DATA_NOSIG\0\0\0\0"
-                      so += 80
-              off += cmdsize
-
-          if cstring is None:
-              raise SystemExit("no __cstring section")
-
-          start, size = cstring
-          pairs = [
-              (b"GumDarwinModuleResolver", b"ModDarwinModuleResolver"),
-              (b"GumDarwinModuleFlags", b"ModDarwinModuleFlags"),
-              (b"gum-error-quark", b"mod-error-quark"),
-              (b"Frida", b"Nmods"),
-              (b"frida", b"nmods"),
-              (b"gum", b"mod"),
-          ]
-          for old, new in pairs:
-              assert len(old) == len(new), old
-              data[start:start + size] = data[start:start + size].replace(old, new)
-
-          blob = bytes(data)
-          spill = [
-              (b"__FRIDA_DATA", b"__DATA_NOSIG"),
-              (b"Recoil.dylib", b"libsys.dylib"),
-              (b"Recoil", b"libsys"),
-          ]
-          for old, new in spill:
-              assert len(old) == len(new), old
-              blob = blob.replace(old, new)
-
-          open(path, "wb").write(blob)
-          for needle in (b"frida", b"Frida", b"FRIDA", b"gum", b"Recoil", b"recoil"):
-              print(needle.decode(), blob.count(needle))
-          PY
 
       - name: Artifact
         uses: actions/upload-artifact@v7
