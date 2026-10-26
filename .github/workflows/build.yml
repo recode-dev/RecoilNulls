@@ -4,6 +4,11 @@ on:
   push:
     branches: [test]
   workflow_dispatch:
+    inputs:
+      prepare:
+        description: prepare
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -13,7 +18,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  prepare:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.prepare }}
+    uses: ./.github/workflows/prepare.yml
+    permissions:
+      contents: write
+      actions: write
+
   build:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.prepare) }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
