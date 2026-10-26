@@ -1,0 +1,18 @@
+﻿2026-10-26T14:39:54.6062783Z ##[group]Run actions/cache@v6
+2026-10-26T14:39:54.6063982Z with:
+2026-10-26T14:39:54.6064850Z   path: ~/theos
+2026-10-26T14:39:54.6065801Z   key: theos-Linux-v6
+2026-10-26T14:39:54.6066864Z   enableCrossOsArchive: false
+2026-10-26T14:39:54.6068243Z   fail-on-cache-miss: false
+2026-10-26T14:39:54.6069382Z   lookup-only: false
+2026-10-26T14:39:54.6070381Z   save-always: false
+2026-10-26T14:39:54.6071344Z env:
+2026-10-26T14:39:54.6072185Z   FRIDA_VERSION: 17.2.11
+2026-10-26T14:39:54.6073212Z ##[endgroup]
+2026-10-26T14:39:54.8612665Z Cache hit for: theos-Linux-v6
+2026-10-26T14:39:56.0012017Z Received 130023424 of 178142673 (73.0%), 123.9 MBs/sec
+2026-10-26T14:39:56.4790979Z Received 178142673 of 178142673 (100.0%), 114.9 MBs/sec
+2026-10-26T14:39:56.4793283Z Cache Size: ~170 MB (178142673 B)
+2026-10-26T14:39:56.4833973Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ff528b28-524d-4574-a20a-769d137cd9e8/cache.tzst -P -C /home/runner/work/RecoilNulls/RecoilNulls --use-compress-program unzstd
+2026-10-26T14:39:58.5971519Z Cache restored successfully
+2026-10-26T14:39:58.6354076Z Cache restored from key: theos-Linux-v6
