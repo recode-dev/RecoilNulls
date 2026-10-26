@@ -478,6 +478,10 @@ namespace
     int g_solved = 0;
     int g_was_active = 0;
     uint64_t g_last_solve_ms = 0;
+    uint64_t g_last_send_ms = 0;
+    int g_last_sent = 0;
+    double g_sent_angle = 0.0;
+    int g_sent_once = 0;
     uintptr_t g_tilemap_fn = 0;
     int g_tilemap_tried = 0;
     rcl_dbg_t g_last_dbg;
@@ -766,16 +770,27 @@ void rcl_autododge(void)
         g_was_active = 1;
         rcl_dbg.danger = 1;
 
-        rcl_bs_push(mx, my, angle);
-        rcl_dbg.dirs = 1;
-
+        /* do not machine-gun new targets: keep walking unless the answer really moved */
+        if (!g_sent_once || bs::angDiff(angle, g_sent_angle) > 12.0 ||
+            (now > g_last_send_ms && (now - g_last_send_ms) >= 100))
         {
             int32_t tx = (int32_t)round((double)mx + cos(angle * M_PI / 180.0) * RCL_BS_REACH);
             int32_t ty = (int32_t)round((double)my + sin(angle * M_PI / 180.0) * RCL_BS_REACH);
 
+            rcl_bs_push(mx, my, angle);
             sent = rcl_enqueue(tx, ty);
+
+            g_sent_angle = angle;
+            g_last_send_ms = now;
+            g_sent_once = 1;
+            g_last_sent = sent;
+        }
+        else
+        {
+            sent = g_last_sent;
         }
 
+        rcl_dbg.dirs = 1;
         rcl_active = 1;
         rcl_moving = sent;
         rcl_dbg.sent = sent;
@@ -790,6 +805,8 @@ void rcl_autododge_reset(void)
     g_solved = 0;
     g_was_active = 0;
     g_last_solve_ms = 0;
+    g_last_send_ms = 0;
+    g_sent_once = 0;
     rcl_active = 0;
     rcl_moving = 0;
 }
