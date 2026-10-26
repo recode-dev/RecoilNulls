@@ -91,7 +91,7 @@ void dump_header(void)
     uint32_t i = 0;
     uintptr_t found = 0;
     line("\n########## recoil header ##########\n");
-    line("base=%p setup=%d ticks=%llu rate=%d/s\n", (void *)g_base,
+    line("base=%p setup=%d ticks=%llu rate=%d/s\n", (void *)base,
          (int)setup_done, g_ticks, g_rate);
     line("rva getinstance=%p getownchar=%p getteam=%p getownidx=%p\n",
          (void *)addr_getinstance, (void *)addr_getownchar,
@@ -123,22 +123,22 @@ void dump_header(void)
          (unsigned long long)PROJDATA_RADIUS_OFF);
     for (i = 0; i < count; i++)
     {
-        uintptr_t base = (uintptr_t)_dyld_get_image_header(i);
-        if (base != (uintptr_t)g_base)
+        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
+        if (imageBase != (uintptr_t)base)
             continue;
-        found = base;
-        line("[game] idx=%u base=%p name=%s\n", i, (void *)base,
+        found = imageBase;
+        line("[game] idx=%u base=%p name=%s\n", i, (void *)imageBase,
              _dyld_get_image_name(i));
     }
     if (!found)
-        line("[game] base %p not found in dyld list (count=%u)\n",
-             (void *)g_base, count);
+        line("[game] base %p not found in dyld list (count=%u)\n", (void *)base,
+             count);
 }
 void dump_chain(void)
 {
     uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
     uintptr_t scene = 0;
-    uintptr_t client = 0;
+    uintptr_t clientPtr = 0;
     uintptr_t m28 = 0;
     uintptr_t m58 = 0;
     uintptr_t a28 = 0;
@@ -156,16 +156,16 @@ void dump_chain(void)
     if (read_ptr(slot + SCENE_OFF, &value) && value)
         scene = (uintptr_t)value;
     if (scene && read_ptr(scene + CLIENT_OFF, &value) && value)
-        client = (uintptr_t)value;
-    if (!client && addr_getinstance)
+        clientPtr = (uintptr_t)value;
+    if (!clientPtr && addr_getinstance)
     {
-        client = ((uintptr_t(*)(void))addr_getinstance)();
+        clientPtr = ((uintptr_t(*)(void))addr_getinstance)();
     }
-    if (client)
+    if (clientPtr)
     {
-        if (read_ptr(client + MODE_MANAGER_OFF, &value) && value)
+        if (read_ptr(clientPtr + MODE_MANAGER_OFF, &value) && value)
             m28 = (uintptr_t)value;
-        if (read_ptr(client + MGR_OFF, &value) && value)
+        if (read_ptr(clientPtr + MGR_OFF, &value) && value)
             m58 = (uintptr_t)value;
         if (m28)
         {
@@ -181,7 +181,7 @@ void dump_chain(void)
         }
     }
     line("chain slot=%p state=%d scene=%p client=%p\n", (void *)slot, state,
-         (void *)scene, (void *)client);
+         (void *)scene, (void *)clientPtr);
     line("chain mgr[28]=%p arr=%p cnt=%d | mgr[58]=%p arr=%p cnt=%d\n",
          (void *)m28, (void *)a28, c28, (void *)m58, (void *)a58, c58);
 }
@@ -191,24 +191,24 @@ void dump_own(void)
     int32_t y = 0;
     int32_t hp = 0;
     int32_t team = -1;
-    int32_t owner = -1;
-    uint8_t dead = 0;
+    int32_t ownerIdx = -1;
+    uint8_t deadFlag = 0;
     int okHp = 0;
     line("own elem=%p x=%d y=%d team=%d idx=%d dead=%d hp=%u ok=%d r=%.1f "
          "spd=%.1f\n",
-         (void *)own_elem, own_x, own_y, own_team_b, own_index_v, g_dead,
-         own_hp, own_ok_hp, own_r, own_speed);
+         (void *)own_elem, own_x, own_y, own_team_b, own_index_v, dead, own_hp,
+         own_ok_hp, own_r, own_speed);
     if (!own_elem)
         return;
     read_int(own_elem + OBJ_X_OFF, &x);
     read_int(own_elem + OBJ_Y_OFF, &y);
     read_int(own_elem + OBJ_HP_OFF, &hp);
     read_int(own_elem + OBJ_TEAM_OFF, &team);
-    read_int(own_elem + OBJ_OWNERINDEX_OFF, &owner);
-    read_byte(own_elem + OBJ_DEADFLAG_OFF, &dead);
+    read_int(own_elem + OBJ_OWNERINDEX_OFF, &ownerIdx);
+    read_byte(own_elem + OBJ_DEADFLAG_OFF, &deadFlag);
     okHp = read_int(own_elem + OBJ_HP_OFF, &hp);
     line("own raw x=%d y=%d hp=%d(ok=%d) team=%d owner=%d deadbyte=%d\n", x, y,
-         hp, okHp, team, owner, dead);
+         hp, okHp, team, ownerIdx, deadFlag);
 }
 void dump_projectiles(void)
 {
@@ -240,7 +240,7 @@ void dump_ad(void)
          "first=%.1f "
          "tgt=(%.0f,%.0f) sent=%d active=%d moving=%d\n",
          dbg.stage, dbg.hazards, dbg.threats, dbg.danger, dbg.dx, dbg.dy,
-         dbg.ix, dbg.iy, dbg.tx, dbg.ty, dbg.sent, g_active, g_moving);
+         dbg.ix, dbg.iy, dbg.tx, dbg.ty, dbg.sent, active, moving);
     for (int i = 0; i < dbg.thn; i++)
     {
         line("  th%d x=%.0f y=%.0f vx=%.0f vy=%.0f rad=%.0f\n", i, dbg.thx[i],
@@ -303,13 +303,13 @@ void dump_objects(void)
         void *raw = nullptr;
         uintptr_t object = 0;
         uintptr_t vt = 0;
-        int32_t gid = 0;
+        int32_t projGid = 0;
         int32_t team = -1;
-        int32_t owner = -1;
+        int32_t ownerIdx = -1;
         int32_t x = 0;
         int32_t y = 0;
         int32_t hp = 0;
-        uint8_t dead = 0;
+        uint8_t deadFlag = 0;
         if (!read_ptr(array + (uintptr_t)i * 8ULL, &raw) || !raw)
             continue;
         object = (uintptr_t)raw;
@@ -317,18 +317,18 @@ void dump_objects(void)
             continue;
         read_ptr(object, &raw);
         vt = (uintptr_t)raw;
-        read_int(object + OBJ_GLOBALID_OFF, &gid);
+        read_int(object + OBJ_GLOBALID_OFF, &projGid);
         read_int(object + OBJ_TEAM_OFF, &team);
-        read_int(object + OBJ_OWNERINDEX_OFF, &owner);
+        read_int(object + OBJ_OWNERINDEX_OFF, &ownerIdx);
         read_int(object + OBJ_X_OFF, &x);
         read_int(object + OBJ_Y_OFF, &y);
         read_int(object + OBJ_HP_OFF, &hp);
-        read_byte(object + OBJ_DEADFLAG_OFF, &dead);
+        read_byte(object + OBJ_DEADFLAG_OFF, &deadFlag);
         line("  o%d obj=%p vt=%llx gid=%d team=%d owner=%d x=%d y=%d hp=%d "
              "dead=%d\n",
              i, (void *)object,
-             (unsigned long long)(vt >= g_base ? vt - g_base : vt), gid, team,
-             owner, x, y, hp, dead);
+             (unsigned long long)(vt >= base ? vt - base : vt), projGid, team,
+             ownerIdx, x, y, hp, deadFlag);
     }
 }
 void tick(void)
@@ -354,12 +354,12 @@ void tick(void)
     dump_own();
     if (addr_getteam && controller())
     {
-        uintptr_t client = controller();
-        probeTeam = ((int32_t(*)(uintptr_t))addr_getteam)(client);
+        uintptr_t clientPtr = controller();
+        probeTeam = ((int32_t(*)(uintptr_t))addr_getteam)(clientPtr);
         if (addr_getownidx)
-            probeIdx = ((int32_t(*)(uintptr_t))addr_getownidx)(client);
+            probeIdx = ((int32_t(*)(uintptr_t))addr_getownidx)(clientPtr);
         line("client probe team=%d idx=%d ctrl=%p\n", probeTeam, probeIdx,
-             (void *)client);
+             (void *)clientPtr);
     }
     dump_projectiles();
     dump_ad();

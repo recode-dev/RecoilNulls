@@ -22,28 +22,28 @@ int ci_load_constants(void)
     {
         return 1;
     }
-    if (!g_base)
+    if (!base)
     {
         return 0;
     }
     for (i = 0; i < (int)CI_TABLE_TYPES; i++)
     {
-        if (!read_bytes(g_base + CI_TYPE_TABLE_RVA + (uintptr_t)i * 4ULL,
+        if (!read_bytes(base + CI_TYPE_TABLE_RVA + (uintptr_t)i * 4ULL,
                         &ci_table[i], sizeof(uint32_t)))
         {
             return 0;
         }
     }
-    if (!read_bytes(g_base + CI_TYPE_FALLBACK_RVA, &ci_fallback,
+    if (!read_bytes(base + CI_TYPE_FALLBACK_RVA, &ci_fallback,
                     sizeof(uint32_t)))
     {
         return 0;
     }
-    if (!read_bytes(g_base + CI_HASH_INNER_MASK_RVA, ci_inner, 0x10))
+    if (!read_bytes(base + CI_HASH_INNER_MASK_RVA, ci_inner, 0x10))
     {
         return 0;
     }
-    if (!read_bytes(g_base + CI_HASH_OUTER_MASK_RVA, ci_outer, 0x10))
+    if (!read_bytes(base + CI_HASH_OUTER_MASK_RVA, ci_outer, 0x10))
     {
         return 0;
     }
@@ -124,7 +124,7 @@ int enqueue_skill(int x, int y, int type, void *skillData)
     void *battle = nullptr;
     void *mgr = nullptr;
     void *msg = nullptr;
-    if (!coord_ok || g_dead)
+    if (!coord_ok || dead)
     {
         return 0;
     }
@@ -148,7 +148,7 @@ int enqueue_skill(int x, int y, int type, void *skillData)
     {
         return 0;
     }
-    mgr = g_manager();
+    mgr = manager();
     if (!mgr)
     {
         return 0;
@@ -191,7 +191,7 @@ int enqueue_skill(int x, int y, int type, void *skillData)
 int enqueue(int x, int y) { return enqueue_type(x, y, (int)TYPE_MOVE); }
 uintptr_t entry_callable(uintptr_t rva)
 {
-    if (!g_base || !rva)
+    if (!base || !rva)
     {
         return 0;
     }
@@ -199,7 +199,7 @@ uintptr_t entry_callable(uintptr_t rva)
     {
         return 0;
     }
-    return g_base + rva;
+    return base + rva;
 }
 static int msg_ok(void *ptr, size_t size)
 {
@@ -242,7 +242,7 @@ void *msg_alloc(void)
             return mem;
         }
     }
-    if (g_base && read_ptr(g_base + ALLOC_GOT_RVA, (void **)&got) && got)
+    if (base && read_ptr(base + ALLOC_GOT_RVA, (void **)&got) && got)
     {
         mem = ((void *(*)(size_t))got)(size);
         if (msg_ok(mem, size))
@@ -253,7 +253,7 @@ void *msg_alloc(void)
     }
     return nullptr;
 }
-void *g_manager(void)
+void *manager(void)
 {
     if (!scene_object || !scene_live())
     {
@@ -304,7 +304,7 @@ int move_to(int32_t x, int32_t y, float ox, float oy)
     uintptr_t ctrl = 0;
     (void)ox;
     (void)oy;
-    if (!MOVE_ON || g_dead)
+    if (!MOVE_ON || dead)
     {
         return 0;
     }

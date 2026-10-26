@@ -28,7 +28,7 @@ typedef struct
 static uint32_t ror(uint32_t v, int s) { return (v >> s) | (v << (32 - s)); }
 static void sha_block(sha_ctx_t *c, const uint8_t *p)
 {
-    uint32_t w[64];
+    uint32_t ws[64];
     uint32_t a = 0;
     uint32_t b = 0;
     uint32_t cc = 0;
@@ -40,14 +40,16 @@ static void sha_block(sha_ctx_t *c, const uint8_t *p)
     int i = 0;
     for (i = 0; i < 16; i++)
     {
-        w[i] = ((uint32_t)p[i * 4] << 24) | ((uint32_t)p[i * 4 + 1] << 16) |
-               ((uint32_t)p[i * 4 + 2] << 8) | (uint32_t)p[i * 4 + 3];
+        ws[i] = ((uint32_t)p[i * 4] << 24) | ((uint32_t)p[i * 4 + 1] << 16) |
+                ((uint32_t)p[i * 4 + 2] << 8) | (uint32_t)p[i * 4 + 3];
     }
     for (i = 16; i < 64; i++)
     {
-        uint32_t s0 = ror(w[i - 15], 7) ^ ror(w[i - 15], 18) ^ (w[i - 15] >> 3);
-        uint32_t s1 = ror(w[i - 2], 17) ^ ror(w[i - 2], 19) ^ (w[i - 2] >> 10);
-        w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+        uint32_t s0 =
+            ror(ws[i - 15], 7) ^ ror(ws[i - 15], 18) ^ (ws[i - 15] >> 3);
+        uint32_t s1 =
+            ror(ws[i - 2], 17) ^ ror(ws[i - 2], 19) ^ (ws[i - 2] >> 10);
+        ws[i] = ws[i - 16] + s0 + ws[i - 7] + s1;
     }
     a = c->h[0];
     b = c->h[1];
@@ -61,7 +63,7 @@ static void sha_block(sha_ctx_t *c, const uint8_t *p)
     {
         uint32_t S1 = ror(e, 6) ^ ror(e, 11) ^ ror(e, 25);
         uint32_t ch = (e & f) ^ ((~e) & g);
-        uint32_t t1 = hh + S1 + ch + SHA_K[i] + w[i];
+        uint32_t t1 = hh + S1 + ch + SHA_K[i] + ws[i];
         uint32_t S0 = ror(a, 2) ^ ror(a, 13) ^ ror(a, 22);
         uint32_t maj = (a & b) ^ (a & cc) ^ (b & cc);
         uint32_t t2 = S0 + maj;

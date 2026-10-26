@@ -45,7 +45,7 @@ uintptr_t addr_charradius = 0;
 uintptr_t addr_projspeed = 0;
 uintptr_t addr_projradius = 0;
 uintptr_t addr_projbeam = 0;
-volatile int g_at = 0;
+volatile int at = 0;
 uintptr_t slot_object[34] = {0};
 uintptr_t slot_arg[34] = {0};
 uintptr_t slot_adopted = 0;
@@ -189,7 +189,7 @@ BOOL read_float(uintptr_t address, float *out)
     }
     return read_bytes(address, out, 4);
 }
-BOOL g_writable(uintptr_t address, size_t length)
+BOOL writable(uintptr_t address, size_t length)
 {
     uintptr_t end = address + length;
     uintptr_t cursor = address;
@@ -238,7 +238,7 @@ BOOL write_bytes(uintptr_t address, const void *src, size_t length)
     {
         return NO;
     }
-    if (!g_writable(address, length))
+    if (!writable(address, length))
     {
         return NO;
     }
@@ -259,12 +259,12 @@ BOOL read_ptr(uintptr_t address, void **out)
 }
 void *read_global_ptr(uintptr_t rva)
 {
-    if (!g_base || !rva)
+    if (!base || !rva)
     {
         return nullptr;
     }
     void *value = nullptr;
-    if (!read_ptr(g_base + rva, &value))
+    if (!read_ptr(base + rva, &value))
     {
         return nullptr;
     }
@@ -272,12 +272,12 @@ void *read_global_ptr(uintptr_t rva)
 }
 uintptr_t callable(uintptr_t rva)
 {
-    if (!g_base || !rva)
+    if (!base || !rva)
     {
         return 0;
     }
-    uintptr_t address = g_base + rva;
-    if (address < g_base || address >= g_base + 0x2000000ULL)
+    uintptr_t address = base + rva;
+    if (address < base || address >= base + 0x2000000ULL)
     {
         return 0;
     }
@@ -301,22 +301,22 @@ BOOL copy(uintptr_t source, void *destination, size_t length)
 }
 BOOL text_section(uintptr_t *address, uint64_t *size)
 {
-    if (!g_base)
+    if (!base)
     {
         return NO;
     }
-    if (!addr_readable(g_base, sizeof(struct mach_header_64)))
+    if (!addr_readable(base, sizeof(struct mach_header_64)))
     {
         return NO;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)g_base;
+    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
     if (header->magic != MH_MAGIC_64)
     {
         return NO;
     }
     const uint8_t *cursor = (const uint8_t *)(header + 1);
     const uint8_t *limit = cursor + header->sizeofcmds;
-    uintptr_t slide = image_slide(g_base);
+    uintptr_t slide = image_slide(base);
     for (uint32_t i = 0; i < header->ncmds; i++)
     {
         if (cursor + sizeof(struct load_command) > limit)
@@ -375,18 +375,18 @@ BOOL text_section(uintptr_t *address, uint64_t *size)
     }
     return NO;
 }
-BOOL valid_header(uintptr_t base)
+BOOL valid_header(uintptr_t imageBase)
 {
-    if (!base)
+    if (!imageBase)
     {
         return NO;
     }
     struct mach_header_64 header;
-    if (!pointer_plausible(base))
+    if (!pointer_plausible(imageBase))
     {
         return NO;
     }
-    if (!read_bytes(base, &header, sizeof(header)))
+    if (!read_bytes(imageBase, &header, sizeof(header)))
     {
         return NO;
     }
@@ -406,7 +406,7 @@ BOOL valid_header(uintptr_t base)
     {
         return NO;
     }
-    if (!image_text_contains(base, base + IMAGE_TEXT_WINDOW))
+    if (!image_text_contains(imageBase, imageBase + IMAGE_TEXT_WINDOW))
     {
         return NO;
     }
@@ -427,8 +427,8 @@ BOOL find_game_image(uintptr_t *out_base)
     for (uint32_t i = 0; i < count; i++)
     {
         const char *path = _dyld_get_image_name(i);
-        uintptr_t base = (uintptr_t)_dyld_get_image_header(i);
-        if (!path || !base)
+        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
+        if (!path || !imageBase)
         {
             continue;
         }
@@ -452,7 +452,7 @@ BOOL find_game_image(uintptr_t *out_base)
         {
             continue;
         }
-        if (!valid_header(base))
+        if (!valid_header(imageBase))
         {
             continue;
         }
@@ -467,12 +467,12 @@ BOOL find_game_image(uintptr_t *out_base)
         }
         if (matched)
         {
-            *out_base = base;
+            *out_base = imageBase;
             return YES;
         }
         if (!fallback)
         {
-            fallback = base;
+            fallback = imageBase;
         }
     }
     if (fallback)
@@ -482,27 +482,27 @@ BOOL find_game_image(uintptr_t *out_base)
     }
     return NO;
 }
-uintptr_t g_owner = 0;
+uintptr_t owner = 0;
 int wired = 0;
 dispatch_source_t scan_timer = nullptr;
 BOOL segment_range(const char *name, uintptr_t *lo, uintptr_t *hi)
 {
-    if (!g_base || !name)
+    if (!base || !name)
     {
         return NO;
     }
-    if (!addr_readable(g_base, sizeof(struct mach_header_64)))
+    if (!addr_readable(base, sizeof(struct mach_header_64)))
     {
         return NO;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)g_base;
+    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
     if (header->magic != MH_MAGIC_64)
     {
         return NO;
     }
     const uint8_t *cursor = (const uint8_t *)(header + 1);
     const uint8_t *limit = cursor + header->sizeofcmds;
-    uintptr_t slide = image_slide(g_base);
+    uintptr_t slide = image_slide(base);
     for (uint32_t i = 0; i < header->ncmds; i++)
     {
         if (cursor + sizeof(struct load_command) > limit)
@@ -544,11 +544,11 @@ BOOL segment_range(const char *name, uintptr_t *lo, uintptr_t *hi)
 }
 void image_span_refresh(void)
 {
-    if (!g_base || !addr_readable(g_base, sizeof(struct mach_header_64)))
+    if (!base || !addr_readable(base, sizeof(struct mach_header_64)))
     {
         return;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)g_base;
+    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
     if (header->magic != MH_MAGIC_64)
     {
         return;
@@ -576,22 +576,22 @@ void image_span_refresh(void)
 }
 const char *image_segment_name(uintptr_t value)
 {
-    if (!g_base || !value)
+    if (!base || !value)
     {
         return nullptr;
     }
-    if (!addr_readable(g_base, sizeof(struct mach_header_64)))
+    if (!addr_readable(base, sizeof(struct mach_header_64)))
     {
         return nullptr;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)g_base;
+    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
     if (header->magic != MH_MAGIC_64)
     {
         return nullptr;
     }
     const uint8_t *cursor = (const uint8_t *)(header + 1);
     const uint8_t *limit = cursor + header->sizeofcmds;
-    uintptr_t slide = image_slide(g_base);
+    uintptr_t slide = image_slide(base);
     for (uint32_t i = 0; i < header->ncmds; i++)
     {
         if (cursor + sizeof(struct load_command) > limit)
@@ -685,25 +685,25 @@ BOOL instance_shaped(uintptr_t object)
     }
     return YES;
 }
-BOOL manager_shape(uintptr_t manager)
+BOOL manager_shape(uintptr_t mgrPtr)
 {
     void *array = nullptr;
     void *probe = nullptr;
     int32_t count = 0;
     int32_t capacity = 0;
-    if (!heap_resident(manager))
+    if (!heap_resident(mgrPtr))
     {
         return NO;
     }
-    if (!read_ptr(manager + MGR_ARRAY_OFF, &array))
+    if (!read_ptr(mgrPtr + MGR_ARRAY_OFF, &array))
     {
         return NO;
     }
-    if (!read_int(manager + MGR_COUNT_OFF, &count))
+    if (!read_int(mgrPtr + MGR_COUNT_OFF, &count))
     {
         return NO;
     }
-    if (!read_int(manager + MGR_CAP_OFF, &capacity))
+    if (!read_int(mgrPtr + MGR_CAP_OFF, &capacity))
     {
         return NO;
     }
@@ -758,8 +758,7 @@ BOOL vtable_in_image(uintptr_t vtable)
     {
         return NO;
     }
-    if (vtable >= g_base + DC_RVA_LO &&
-        vtable < g_base + DC_RVA_LO + DC_RVA_SIZE)
+    if (vtable >= base + DC_RVA_LO && vtable < base + DC_RVA_LO + DC_RVA_SIZE)
     {
         return YES;
     }
@@ -776,14 +775,14 @@ uintptr_t strip_ptr(uintptr_t value)
     stripped =
         (uintptr_t)ptrauth_strip((void *)value, ptrauth_key_function_pointer);
 #endif
-    if (stripped >= g_base && stripped < g_base + IMAGE_SPAN)
+    if (stripped >= base && stripped < base + IMAGE_SPAN)
     {
         return stripped;
     }
     if ((stripped & 0xffffffffULL) < IMAGE_SPAN)
     {
-        uintptr_t viaLow = g_base + (stripped & 0xffffffffULL);
-        if (viaLow >= g_base && viaLow < g_base + IMAGE_SPAN)
+        uintptr_t viaLow = base + (stripped & 0xffffffffULL);
+        if (viaLow >= base && viaLow < base + IMAGE_SPAN)
         {
             return viaLow;
         }
@@ -800,10 +799,10 @@ void poll_for_game(int tick)
     {
         return;
     }
-    uintptr_t base = 0;
-    if (find_game_image(&base))
+    uintptr_t imageBase = 0;
+    if (find_game_image(&imageBase))
     {
-        g_base = base;
+        base = imageBase;
         setup();
         return;
     }
@@ -813,29 +812,29 @@ void poll_for_game(int tick)
           poll_for_game(tick + 1);
         });
 }
-uintptr_t g_base = 0;
+uintptr_t base = 0;
 uintptr_t manager_ptr = 0;
 uint64_t ticks_a = 0;
 float own_speed = 720.0f;
 float own_r = 0.0f;
 uint32_t own_hp = 0;
-int collect(uintptr_t manager, obj_t *out, int capacity)
+int collect(uintptr_t mgrPtr, obj_t *out, int capacity)
 {
     void *data = nullptr;
     int32_t count = 0;
     int usable = 0;
     uintptr_t gidOff = OBJ_GLOBALID_OFF;
     uint32_t walkSeq = 0;
-    gidless_scan(manager);
-    if (!manager)
+    gidless_scan(mgrPtr);
+    if (!mgrPtr)
     {
         return 0;
     }
-    if (!read_ptr(manager + MGR_ARRAY_OFF, &data) || !data)
+    if (!read_ptr(mgrPtr + MGR_ARRAY_OFF, &data) || !data)
     {
         return 0;
     }
-    if (!read_int((uintptr_t)manager + MGR_COUNT_OFF, &count))
+    if (!read_int((uintptr_t)mgrPtr + MGR_COUNT_OFF, &count))
     {
         return 0;
     }
@@ -878,7 +877,7 @@ int collect(uintptr_t manager, obj_t *out, int capacity)
         {
             continue;
         }
-        vtRva = (uintptr_t)vtable - g_base;
+        vtRva = (uintptr_t)vtable - base;
         if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
         {
             continue;
@@ -991,7 +990,7 @@ BOOL start_boundary(const uint8_t *bytes, size_t offset)
 }
 void load_function_starts(void)
 {
-    if (g_starts || !g_base)
+    if (starts || !base)
     {
         return;
     }
@@ -1016,8 +1015,8 @@ void load_function_starts(void)
         return;
     }
     size_t capacity = 32768;
-    uintptr_t *starts = (uintptr_t *)malloc(capacity * sizeof(uintptr_t));
-    if (!starts)
+    uintptr_t *startList = (uintptr_t *)malloc(capacity * sizeof(uintptr_t));
+    if (!startList)
     {
         free(bytes);
         return;
@@ -1039,26 +1038,26 @@ void load_function_starts(void)
         {
             size_t grown = capacity * 2;
             uintptr_t *larger =
-                (uintptr_t *)realloc(starts, grown * sizeof(uintptr_t));
+                (uintptr_t *)realloc(startList, grown * sizeof(uintptr_t));
             if (!larger)
             {
                 break;
             }
-            starts = larger;
+            startList = larger;
             capacity = grown;
         }
-        starts[count++] = textAddress + offset;
+        startList[count++] = textAddress + offset;
     }
     free(bytes);
     if (!count)
     {
-        free(starts);
+        free(startList);
         return;
     }
-    g_starts = starts;
+    starts = startList;
     starts_count = count;
 }
-uintptr_t *g_starts = nullptr;
+uintptr_t *starts = nullptr;
 size_t starts_count = 0;
 uintptr_t setpred = 0;
 uintptr_t site = 0;
@@ -1165,7 +1164,7 @@ void slot_hooks_install(void)
 {
     hook_t specs[34];
     int i = 0;
-    if (!g_base)
+    if (!base)
     {
         return;
     }
@@ -1176,12 +1175,12 @@ void slot_hooks_install(void)
         {
             continue;
         }
-        if (site_hash(g_base + specs[i].rva) != slot_site_hash[i])
+        if (site_hash(base + specs[i].rva) != slot_site_hash[i])
         {
             specs[i].rva = 0;
         }
     }
-    hooks_install(g_base, specs, 34, (void **)slot_orig);
+    hooks_install(base, specs, 34, (void **)slot_orig);
 }
 const int object_slots[3] = {2, 3, 4};
 int pub_logs = 0;
@@ -1570,7 +1569,7 @@ int state_tick(void)
     int32_t state = -1;
     void *value = nullptr;
     uintptr_t scene = 0;
-    uintptr_t client = 0;
+    uintptr_t clientPtr = 0;
     uintptr_t inner = 0;
     uintptr_t players = 0;
     void *array = nullptr;
@@ -1616,15 +1615,16 @@ int state_tick(void)
     {
         return 1;
     }
-    client = (uintptr_t)value;
-    if (!read_ptr(client + CLIENT_HOP_OFF, &value) || !value)
+    clientPtr = (uintptr_t)value;
+    if (!read_ptr(clientPtr + CLIENT_HOP_OFF, &value) || !value)
     {
         return 1;
     }
     inner = (uintptr_t)value;
-    hopOk[0] = container_header(client, &hopArray[0], &hopCount[0], &hopCap[0]);
+    hopOk[0] =
+        container_header(clientPtr, &hopArray[0], &hopCount[0], &hopCap[0]);
     hopOk[1] = container_header(inner, &hopArray[1], &hopCount[1], &hopCap[1]);
-    score[0] = hopOk[0] ? container_score(client) : -1;
+    score[0] = hopOk[0] ? container_score(clientPtr) : -1;
     score[1] = hopOk[1] ? container_score(inner) : -1;
     if (score[1] > score[0])
     {
@@ -1652,14 +1652,14 @@ int state_tick(void)
     {
         hop_scene = scene;
     }
-    if (WIRE_OWNER && g_owner)
+    if (WIRE_OWNER && owner)
     {
         void *directArray = nullptr;
         int32_t directCount = 0;
-        if (read_ptr(g_owner + MGR_ARRAY_OFF, &directArray) && directArray &&
-            read_int(g_owner + MGR_COUNT_OFF, &directCount) && directCount > 0)
+        if (read_ptr(owner + MGR_ARRAY_OFF, &directArray) && directArray &&
+            read_int(owner + MGR_COUNT_OFF, &directCount) && directCount > 0)
         {
-            players_object = g_owner;
+            players_object = owner;
             players_array = (uintptr_t)directArray;
             players_count = directCount;
             hop_chosen = HOPCHOSEN_DIRECT;
@@ -1674,7 +1674,7 @@ int state_tick(void)
     {
         return 1;
     }
-    players = (chosen == 1) ? inner : client;
+    players = (chosen == 1) ? inner : clientPtr;
     array = (void *)hopArray[chosen];
     count = hopCount[chosen];
     capacity = hopCap[chosen];
@@ -1744,10 +1744,10 @@ int own_ok_hp = 0;
 dbg_t dbg;
 void scan_world(void)
 {
-    uintptr_t client = 0;
+    uintptr_t clientPtr = 0;
     uintptr_t own = 0;
     uintptr_t ownData = 0;
-    uintptr_t manager = 0;
+    uintptr_t mgrPtr = 0;
     uintptr_t array = 0;
     void *value = nullptr;
     int32_t count = 0;
@@ -1757,25 +1757,25 @@ void scan_world(void)
     int32_t y = 0;
     int32_t hp = 0;
     dbg.stage = 0;
-    if (!g_base)
+    if (!base)
         return;
-    client = controller();
-    if (!client)
+    clientPtr = controller();
+    if (!clientPtr)
     {
         own_elem = 0;
         own_elem_scan = 0;
         own_x = 0;
         own_y = 0;
-        g_dead = 1;
+        dead = 1;
         coord_ok = 0;
         dbg.stage = 1;
         return;
     }
-    own = addr_getownchar ? call1(addr_getownchar, client) : 0;
-    if (g_base)
+    own = addr_getownchar ? call1(addr_getownchar, clientPtr) : 0;
+    if (base)
     {
         uintptr_t tileMapFn = callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP);
-        uintptr_t tileMap = tileMapFn ? call1(tileMapFn, client) : 0;
+        uintptr_t tileMap = tileMapFn ? call1(tileMapFn, clientPtr) : 0;
         if (pointer_plausible(tileMap))
         {
             wall_bind(tileMap);
@@ -1789,11 +1789,11 @@ void scan_world(void)
     }
     if (addr_getteam)
     {
-        ownTeam = call1i(addr_getteam, client);
+        ownTeam = call1i(addr_getteam, clientPtr);
     }
     if (addr_getownidx)
     {
-        ownIndex = call1i(addr_getownidx, client);
+        ownIndex = call1i(addr_getownidx, clientPtr);
     }
     if (own)
     {
@@ -1829,12 +1829,12 @@ void scan_world(void)
             own_ok_hp = 0;
             own_hp = 0;
         }
-        g_dead = 0;
+        dead = 0;
         coord_ok = 1;
     }
     else
     {
-        g_dead = 1;
+        dead = 1;
     }
     if (own)
     {
@@ -1852,20 +1852,20 @@ void scan_world(void)
                 own_speed = (float)speed;
         }
     }
-    if (!read_ptr(client + (uintptr_t)MODE_MANAGER_OFF, &value) || !value)
+    if (!read_ptr(clientPtr + (uintptr_t)MODE_MANAGER_OFF, &value) || !value)
     {
         dbg.stage = 3;
         return;
     }
-    manager = (uintptr_t)value;
-    manager_ptr = manager;
-    if (!read_ptr(manager + (uintptr_t)MGR_ARRAY_OFF, &value) || !value)
+    mgrPtr = (uintptr_t)value;
+    manager_ptr = mgrPtr;
+    if (!read_ptr(mgrPtr + (uintptr_t)MGR_ARRAY_OFF, &value) || !value)
     {
         dbg.stage = 4;
         return;
     }
     array = (uintptr_t)value;
-    if (!read_int(manager + (uintptr_t)MGR_COUNT_OFF, &count) || count <= 0)
+    if (!read_int(mgrPtr + (uintptr_t)MGR_COUNT_OFF, &count) || count <= 0)
     {
         dbg.stage = 5;
         return;
@@ -1892,7 +1892,7 @@ void run_autododge(void)
         return;
     }
     in_move = 1;
-    g_autododge();
+    autododge();
     in_move = 0;
 }
 static uint64_t work_us = 0;
@@ -1947,8 +1947,8 @@ void setup(void)
     setup_done = YES;
     load_function_starts();
     resolve_addresses();
-    objc_arm(g_base, "MetalView", "render", objc_body);
-    objc_arm(g_base, "NullView", "render", objc_body);
+    objc_arm(base, "MetalView", "render", objc_body);
+    objc_arm(base, "NullView", "render", objc_body);
     slot_hooks_install();
     start_timer();
     start_hot_timer();
@@ -1973,7 +1973,7 @@ int element_type(uintptr_t vt, uintptr_t *wordOut)
     {
         return -1;
     }
-    slot = strip_ptr((uintptr_t)slotPtr) - g_base;
+    slot = strip_ptr((uintptr_t)slotPtr) - base;
     if (wordOut)
     {
         *wordOut = slot;
@@ -2041,16 +2041,16 @@ int container_header(uintptr_t object, uintptr_t *arrayOut, int32_t *countOut,
 }
 int32_t gid_at(uintptr_t element, uintptr_t off)
 {
-    int32_t gid = 0;
-    if (off && read_int(element + off, &gid))
+    int32_t projGid = 0;
+    if (off && read_int(element + off, &projGid))
     {
-        return gid;
+        return projGid;
     }
     return 0;
 }
-int32_t g_gid(uintptr_t element, int32_t *offOut)
+int32_t gid(uintptr_t element, int32_t *offOut)
 {
-    int32_t gid = 0;
+    int32_t projGid = 0;
     int32_t alt = 0;
     if (offOut)
     {
@@ -2060,13 +2060,13 @@ int32_t g_gid(uintptr_t element, int32_t *offOut)
     {
         return 0;
     }
-    if (read_int(element + OBJ_GLOBALID_OFF, &gid) && gid)
+    if (read_int(element + OBJ_GLOBALID_OFF, &projGid) && projGid)
     {
         if (offOut)
         {
             *offOut = (int32_t)OBJ_GLOBALID_OFF;
         }
-        return gid;
+        return projGid;
     }
     if (read_int(element + GID_FALLBACK_OFF, &alt) && alt)
     {
@@ -2086,7 +2086,7 @@ int container_score(uintptr_t container)
     int32_t count = 0;
     int32_t own = -1;
     int32_t ownTeam = -1;
-    int32_t gid = 0;
+    int32_t projGid = 0;
     int32_t team = 0;
     int samples = 0;
     int gidOk = 0;
@@ -2138,7 +2138,7 @@ int container_score(uintptr_t container)
         {
             asciiCount++;
         }
-        gid = g_gid((uintptr_t)element, nullptr);
+        projGid = gid((uintptr_t)element, nullptr);
         read_int((uintptr_t)element + TEAM_OFF, &team);
         if (read_int((uintptr_t)element + OBJ_X_OFF, &px) &&
             read_int((uintptr_t)element + OBJ_Y_OFF, &py) && px > -COORD_MAX &&
@@ -2174,7 +2174,7 @@ int container_score(uintptr_t container)
                 posDistinct++;
             }
         }
-        if (gid)
+        if (projGid)
         {
             gidOk++;
         }
@@ -2224,7 +2224,7 @@ int container_score(uintptr_t container)
 }
 void resolve_addresses(void)
 {
-    if (!g_base)
+    if (!base)
     {
         return;
     }
@@ -2233,7 +2233,7 @@ void resolve_addresses(void)
     addr_getteam = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM);
     addr_getx = callable(RVA_LOGICGAMEOBJECTCLIENT_GETX);
     addr_gety = callable(RVA_LOGICGAMEOBJECTCLIENT_GETY);
-    addr_battlescreen = g_base;
+    addr_battlescreen = base;
     addr_getownidx = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX);
     addr_movedto = callable(MOVE_RVA);
     addr_getdata = callable(RVA_LOGICGAMEOBJECTCLIENT_GETDATA);
@@ -2279,7 +2279,7 @@ int coord_ok = 0;
 int coord_usable = 0;
 int team_off = (int)OBJ_TEAM_OFF;
 int gidless = 0;
-void gidless_scan(uintptr_t manager)
+void gidless_scan(uintptr_t mgrPtr)
 {
     void *data = nullptr;
     int32_t count = 0;
@@ -2291,15 +2291,15 @@ void gidless_scan(uintptr_t manager)
     {
         return;
     }
-    if (!manager)
+    if (!mgrPtr)
     {
         return;
     }
-    if (!read_ptr(manager + MGR_ARRAY_OFF, &data) || !data)
+    if (!read_ptr(mgrPtr + MGR_ARRAY_OFF, &data) || !data)
     {
         return;
     }
-    if (!read_int(manager + MGR_COUNT_OFF, &count))
+    if (!read_int(mgrPtr + MGR_COUNT_OFF, &count))
     {
         return;
     }
@@ -2312,7 +2312,7 @@ void gidless_scan(uintptr_t manager)
             continue;
         }
         seen++;
-        if (g_gid((uintptr_t)element, nullptr) != 0)
+        if (gid((uintptr_t)element, nullptr) != 0)
         {
             withGid++;
         }
@@ -2361,7 +2361,7 @@ uintptr_t list_gid_off(uintptr_t array, int32_t count)
     }
     return off;
 }
-int g_dead = 0;
+int dead = 0;
 int own_team_a = -1;
 int own_team_seen = 0;
 uintptr_t proj_addr = 0;
@@ -2422,14 +2422,14 @@ void proj_track(uintptr_t elem, uintptr_t, int32_t, int32_t)
         {
             uint64_t oldQ = 0;
             uint64_t newQ = 0;
-            int base = i & ~7;
-            memcpy(&oldQ, proj_bytes + base, 8);
-            memcpy(&newQ, now + base, 8);
+            int blockBase = i & ~7;
+            memcpy(&oldQ, proj_bytes + blockBase, 8);
+            memcpy(&newQ, now + blockBase, 8);
         }
     }
     memcpy(proj_bytes, now, sizeof(now));
 }
-uintptr_t g_hop(uintptr_t base, int *whyOut)
+uintptr_t hop(uintptr_t imageBase, int *whyOut)
 {
     void *p = nullptr;
     void *q = nullptr;
@@ -2437,7 +2437,7 @@ uintptr_t g_hop(uintptr_t base, int *whyOut)
     {
         *whyOut = 0;
     }
-    if (!base)
+    if (!imageBase)
     {
         if (whyOut)
         {
@@ -2445,7 +2445,7 @@ uintptr_t g_hop(uintptr_t base, int *whyOut)
         }
         return 0;
     }
-    if (!read_ptr(base + CTRL_MODE_OFF, &p) || !p)
+    if (!read_ptr(imageBase + CTRL_MODE_OFF, &p) || !p)
     {
         if (whyOut)
         {
@@ -2482,18 +2482,18 @@ int scene_live(void)
     }
     return (uintptr_t)value == scene_object;
 }
-uintptr_t g_client(void)
+uintptr_t client(void)
 {
-    void *client = nullptr;
+    void *clientPtr = nullptr;
     if (!scene_object || !scene_live())
     {
         return 0;
     }
-    if (!read_ptr((uintptr_t)scene_object + CLIENT_OFF, &client))
+    if (!read_ptr((uintptr_t)scene_object + CLIENT_OFF, &clientPtr))
     {
         return 0;
     }
-    return (uintptr_t)client;
+    return (uintptr_t)clientPtr;
 }
 void state_note(int state)
 {
@@ -2505,7 +2505,7 @@ void state_note(int state)
     }
     if (state == 5 && prev_state != 5)
     {
-        g_owner = 0;
+        owner = 0;
         wired = 0;
     }
     prev_state = state;
@@ -2557,7 +2557,7 @@ static int proj_read_name(uintptr_t data, char *dst, int cap)
     dst[len] = 0;
     return 1;
 }
-int proj_scan(uintptr_t manager, int32_t count, const obj_t *roster,
+int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
               int rosterUsable)
 {
     int32_t ownerTeam[64];
@@ -2566,7 +2566,7 @@ int proj_scan(uintptr_t manager, int32_t count, const obj_t *roster,
     int k;
     int32_t i;
     uint64_t nowMs = 0;
-    if (!manager || count <= 0)
+    if (!mgrPtr || count <= 0)
     {
         return 0;
     }
@@ -2574,7 +2574,7 @@ int proj_scan(uintptr_t manager, int32_t count, const obj_t *roster,
     {
         count = COUNT_MAX;
     }
-    if (!read_ptr(manager + MGR_ARRAY_OFF, &array) || !array)
+    if (!read_ptr(mgrPtr + MGR_ARRAY_OFF, &array) || !array)
     {
         return 0;
     }
@@ -2592,16 +2592,17 @@ int proj_scan(uintptr_t manager, int32_t count, const obj_t *roster,
         }
         for (rk = 0; rk < rosterUsable && rk < 64; rk++)
         {
-            int32_t idx = roster[rk].ownerIndex;
+            int32_t idx = rosterArr[rk].ownerIndex;
             if (idx < 0 || idx >= 64)
             {
                 continue;
             }
-            if (roster[rk].gid < 1000000 || roster[rk].gid >= 2000000)
+            if (rosterArr[rk].projGid < 1000000 ||
+                rosterArr[rk].projGid >= 2000000)
             {
                 continue;
             }
-            ownerTeam[idx] = team_at(roster, rk);
+            ownerTeam[idx] = team_at(rosterArr, rk);
         }
     }
     for (i = 0; i < count && found < 16; i++)
@@ -2609,7 +2610,7 @@ int proj_scan(uintptr_t manager, int32_t count, const obj_t *roster,
         void *element = nullptr;
         void *vtable = nullptr;
         uintptr_t vtRva = 0;
-        int32_t gid = 0;
+        int32_t projGid = 0;
         int32_t px = 0;
         int32_t py = 0;
         int slot = -1;
@@ -2622,11 +2623,11 @@ int proj_scan(uintptr_t manager, int32_t count, const obj_t *roster,
         {
             continue;
         }
-        vtRva = (uintptr_t)vtable - g_base;
-        gid = g_gid((uintptr_t)element, nullptr);
-        if (gid < 2000000)
+        vtRva = (uintptr_t)vtable - base;
+        projGid = gid((uintptr_t)element, nullptr);
+        if (projGid < 2000000)
         {
-            gid = 0;
+            projGid = 0;
         }
         {
             static uintptr_t seenCls[4] = {0, 0, 0, 0};
@@ -2646,7 +2647,7 @@ int proj_scan(uintptr_t manager, int32_t count, const obj_t *roster,
                 seenCls[seenClsN++] = vtRva;
             }
         }
-        if (gid == 0 && vtRva != (uintptr_t)CLASS_PROJ_RVA)
+        if (projGid == 0 && vtRva != (uintptr_t)CLASS_PROJ_RVA)
         {
             continue;
         }
@@ -2713,7 +2714,7 @@ int proj_scan(uintptr_t manager, int32_t count, const obj_t *roster,
             int32_t pteam = -1;
             int32_t ownerIdx = -1;
             int settled = 0;
-            if (roster && rosterUsable > 0 &&
+            if (rosterArr && rosterUsable > 0 &&
                 read_int((uintptr_t)element + (uintptr_t)OBJ_OWNERINDEX_OFF,
                          &ownerIdx) &&
                 ownerIdx >= 0 && ownerIdx < 64)
@@ -2836,7 +2837,7 @@ int proj_scan(uintptr_t manager, int32_t count, const obj_t *roster,
         projs[slot].classRva = vtRva;
         projs[slot].x = px;
         projs[slot].y = py;
-        projs[slot].gid = gid;
+        projs[slot].projGid = projGid;
         projs[slot].qms = nowMs;
         found++;
     }
@@ -2867,8 +2868,8 @@ static int ctrl_logs = 0;
 static int bounds_try(uintptr_t receiver, int32_t *wOut, int32_t *hOut)
 {
     uintptr_t bounds = 0;
-    int32_t w = 0;
-    int32_t h = 0;
+    int32_t mapW = 0;
+    int32_t mapH = 0;
     if (!receiver)
     {
         return 0;
@@ -2893,56 +2894,56 @@ static int bounds_try(uintptr_t receiver, int32_t *wOut, int32_t *hOut)
     {
         return 0;
     }
-    if (!read_int(bounds + BOUNDS_X_OFF, &w))
+    if (!read_int(bounds + BOUNDS_X_OFF, &mapW))
     {
         return 0;
     }
-    if (!read_int(bounds + BOUNDS_Y_OFF, &h))
+    if (!read_int(bounds + BOUNDS_Y_OFF, &mapH))
     {
         return 0;
     }
-    if (w <= 3 || h <= 3 || w > 200000 || h > 200000)
+    if (mapW <= 3 || mapH <= 3 || mapW > 200000 || mapH > 200000)
     {
         return 0;
     }
     if (wOut)
     {
-        *wOut = w;
+        *wOut = mapW;
     }
     if (hOut)
     {
-        *hOut = h;
+        *hOut = mapH;
     }
     return 1;
 }
-int ctrl_bounds(uintptr_t base, int32_t *wOut, int32_t *hOut)
+int ctrl_bounds(uintptr_t imageBase, int32_t *wOut, int32_t *hOut)
 {
-    if (!base)
+    if (!imageBase)
     {
         return 0;
     }
-    if (!pointer_plausible(base))
+    if (!pointer_plausible(imageBase))
     {
         return 0;
     }
-    return bounds_try(base, wOut, hOut);
+    return bounds_try(imageBase, wOut, hOut);
 }
 uintptr_t controller(void)
 {
-    uintptr_t client = g_client();
+    uintptr_t clientPtr = client();
     int32_t cw = 0;
     int32_t ch = 0;
-    if (client && ctrl_bounds(client, &cw, &ch))
+    if (clientPtr && ctrl_bounds(clientPtr, &cw, &ch))
     {
-        return client;
+        return clientPtr;
     }
     if (!ctrl_logs)
     {
         ctrl_logs = 1;
     }
-    return client;
+    return clientPtr;
 }
-const char *header_reason(uintptr_t manager, int32_t *countOut, int32_t *capOut)
+const char *header_reason(uintptr_t mgrPtr, int32_t *countOut, int32_t *capOut)
 {
     void *array = nullptr;
     int32_t count = 0;
@@ -2955,15 +2956,15 @@ const char *header_reason(uintptr_t manager, int32_t *countOut, int32_t *capOut)
     {
         *capOut = 0;
     }
-    if (!manager)
+    if (!mgrPtr)
     {
         return "no-manager";
     }
-    if (manager & 7ULL)
+    if (mgrPtr & 7ULL)
     {
         return "manager-unaligned";
     }
-    if (!read_ptr(manager + MGR_ARRAY_OFF, &array))
+    if (!read_ptr(mgrPtr + MGR_ARRAY_OFF, &array))
     {
         return "array-unreadable";
     }
@@ -2971,7 +2972,7 @@ const char *header_reason(uintptr_t manager, int32_t *countOut, int32_t *capOut)
     {
         return "array-null";
     }
-    if (!read_int(manager + MGR_COUNT_OFF, &count))
+    if (!read_int(mgrPtr + MGR_COUNT_OFF, &count))
     {
         return "count-unreadable";
     }
@@ -2979,7 +2980,7 @@ const char *header_reason(uintptr_t manager, int32_t *countOut, int32_t *capOut)
     {
         return "count-zero";
     }
-    if (!read_int(manager + MGR_CAP_OFF, &capacity))
+    if (!read_int(mgrPtr + MGR_CAP_OFF, &capacity))
     {
         return "cap-unreadable";
     }
@@ -3082,8 +3083,8 @@ int team_trust = 1;
 int32_t enemy_x[12];
 int32_t enemy_y[12];
 int enemy_n = 0;
-void g_roster(uintptr_t ownElem, int ownIndex, int ownTeam,
-              const obj_t *objects, int usable)
+void roster(uintptr_t ownElem, int ownIndex, int ownTeam, const obj_t *objects,
+            int usable)
 {
     int i = 0;
     int ownSide = 0;
@@ -3098,7 +3099,7 @@ void g_roster(uintptr_t ownElem, int ownIndex, int ownTeam,
     {
         int32_t team = 0;
         int isOwn = 0;
-        int h = 0;
+        int rowIdx = 0;
         if (objects[i].gid < 1000000)
         {
             continue;
@@ -3120,14 +3121,14 @@ void g_roster(uintptr_t ownElem, int ownIndex, int ownTeam,
         {
             continue;
         }
-        for (h = 0; h < hn; h++)
+        for (rowIdx = 0; rowIdx < hn; rowIdx++)
         {
-            if (hist[h] == team)
+            if (hist[rowIdx] == team)
             {
                 break;
             }
         }
-        if (h == hn && hn < 12)
+        if (rowIdx == hn && hn < 12)
         {
             hist[hn++] = team;
         }

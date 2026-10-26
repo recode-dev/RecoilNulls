@@ -218,12 +218,12 @@ int objc_arm(uintptr_t imageBase, const char *clsName, const char *selName,
     if (hook_image_base((uintptr_t)wanted) != imageBase)
         return 0;
     SEL sel = sel_registerName(selName);
-    Class owner = objc_owner(wanted, sel);
-    if (!owner)
+    Class ownerClass = objc_owner(wanted, sel);
+    if (!ownerClass)
         return 0;
-    if (hook_image_base((uintptr_t)owner) != imageBase)
+    if (hook_image_base((uintptr_t)ownerClass) != imageBase)
         return 0;
-    Method method = class_getInstanceMethod(owner, sel);
+    Method method = class_getInstanceMethod(ownerClass, sel);
     if (!method)
         return 0;
     if (!sel_isEqual(method_getName(method), sel))
@@ -262,7 +262,7 @@ int objc_arm(uintptr_t imageBase, const char *clsName, const char *selName,
     {
         if (!g_objc_hooks[i].used)
             continue;
-        if (g_objc_hooks[i].cls != owner || g_objc_hooks[i].sel != sel)
+        if (g_objc_hooks[i].cls != ownerClass || g_objc_hooks[i].sel != sel)
             continue;
         return 0;
     }
@@ -279,7 +279,7 @@ int objc_arm(uintptr_t imageBase, const char *clsName, const char *selName,
             return 0;
         }
         g_objc_hooks[i].used = 1;
-        g_objc_hooks[i].cls = owner;
+        g_objc_hooks[i].cls = ownerClass;
         g_objc_hooks[i].sel = sel;
         g_objc_hooks[i].original = previous;
         g_objc_hooks[i].replacement = replacement;
@@ -287,7 +287,7 @@ int objc_arm(uintptr_t imageBase, const char *clsName, const char *selName,
         g_objc_hooks[i].signature = types;
         g_objc_hooks[i].hits = 0;
         g_objc_hooks[i].body = body;
-        g_objc_hooks[i].wanted[0] = owner;
+        g_objc_hooks[i].wanted[0] = ownerClass;
         g_objc_hooks[i].wantedCount = 1;
         return 1;
     }

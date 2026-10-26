@@ -10,7 +10,7 @@
 #define MOVE_ON 1
 uintptr_t entry_callable(uintptr_t rva);
 void *msg_alloc(void);
-void *g_manager(void);
+void *manager(void);
 int pred_set(int x, int y);
 int move_to(int32_t x, int32_t y, float ox, float oy);
 int ci_load_constants(void);

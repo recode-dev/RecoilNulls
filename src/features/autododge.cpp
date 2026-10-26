@@ -60,8 +60,8 @@ struct ProjectileState
 };
 __thread int in_move = 0;
 int32_t pl_mine[12] = {0};
-int g_active = 0;
-int g_moving = 0;
+int active = 0;
+int moving = 0;
 static std::map<int, ProjectileState> g_proj_cache;
 static std::vector<V2> g_ring;
 static int g_headingIdx = -1;
@@ -151,22 +151,22 @@ static void clearHeading()
 }
 static int32_t call1i_local(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !self || !g_base)
+    if (!fn || !self || !base)
         return 0;
     if (!pointer_plausible(self))
         return 0;
-    uintptr_t rva = (fn >= g_base) ? (fn - g_base) : fn;
+    uintptr_t rva = (fn >= base) ? (fn - base) : fn;
     uintptr_t target = callable(rva);
     if (!target)
         return 0;
     typedef int32_t (*fn_t)(uintptr_t);
     return ((fn_t)target)(self);
 }
-void g_autododge(void)
+void autododge(void)
 {
-    if (!g_base || !own_elem || g_dead)
+    if (!base || !own_elem || dead)
     {
-        g_active = 0;
+        active = 0;
         return;
     }
     uint64_t now = us() / 1000;
@@ -228,9 +228,9 @@ void g_autododge(void)
                     continue;
                 if (!pointer_plausible(dataVtable))
                     continue;
-                int pid = g_gid(objPtr, nullptr);
+                int pid = gid(objPtr, nullptr);
                 bool isProj = (pid >= 2000000) ||
-                              (dataVtable - g_base == VTABLE_PROJ_DATA_RVA);
+                              (dataVtable - base == VTABLE_PROJ_DATA_RVA);
                 if (!isProj || pid == 0)
                     continue;
                 int32_t teamId = -1;
@@ -485,8 +485,8 @@ void g_autododge(void)
         enqueue(tx, ty);
         dbg.sent = 1;
     }
-    g_active = 1;
-    g_moving = 1;
+    active = 1;
+    moving = 1;
     dbg.px = mx;
     dbg.py = my;
     dbg.dx = chosen.x;
@@ -501,6 +501,6 @@ void autododge_reset(void)
 {
     g_proj_cache.clear();
     clearHeading();
-    g_active = 0;
-    g_moving = 0;
+    active = 0;
+    moving = 0;
 }

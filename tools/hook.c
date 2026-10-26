@@ -142,11 +142,11 @@ uintptr_t hook_image_base(uintptr_t address)
         count = 8192;
     for (uint32_t i = 0; i < count; i++)
     {
-        uintptr_t base = (uintptr_t)_dyld_get_image_header(i);
-        if (!base || address < base)
+        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
+        if (!imageBase || address < imageBase)
             continue;
         const struct mach_header_64 *header =
-            (const struct mach_header_64 *)base;
+            (const struct mach_header_64 *)imageBase;
         if (header->magic != MH_MAGIC_64)
             continue;
         if (header->ncmds == 0 || header->ncmds > 4096)
@@ -184,7 +184,7 @@ uintptr_t hook_image_base(uintptr_t address)
         }
         if (!haveText)
             continue;
-        uintptr_t slide = base - textVmaddr;
+        uintptr_t slide = imageBase - textVmaddr;
         cursor = (const uint8_t *)(header + 1);
         for (uint32_t c = 0; c < header->ncmds; c++)
         {
@@ -204,7 +204,7 @@ uintptr_t hook_image_base(uintptr_t address)
                 uintptr_t start = (uintptr_t)seg->vmaddr + slide;
                 uintptr_t end = start + (uintptr_t)seg->vmsize;
                 if (address >= start && address < end)
-                    return base;
+                    return imageBase;
             }
             cursor += cmd->cmdsize;
         }
@@ -645,7 +645,7 @@ static int hook_probe(uintptr_t target)
                                       HOOK_PTR_SLOTS, true);
     return hits;
 }
-static bool g_install(void *target, void *replacement)
+static bool install(void *target, void *replacement)
 {
     if (!target || !replacement)
     {
@@ -727,7 +727,7 @@ int hooks_install(uintptr_t imageBase, const hook_t *hooks, int count,
             continue;
         if (!hook_prologue_ok(target))
             continue;
-        if (!g_install((void *)target, hooks[i].replacement))
+        if (!install((void *)target, hooks[i].replacement))
             continue;
         if (originals)
             originals[i] = original_ptr((void *)target);
