@@ -1965,19 +1965,6 @@ int32_t own_y = 0;
 int32_t own_index_v = -1;
 int own_ok_hp = 0;
 dbg_t dbg;
-static BOOL obj_in_image(uintptr_t p)
-{
-    uintptr_t vt = 0;
-    if (!pointer_plausible(p) || !base)
-    {
-        return NO;
-    }
-    if (!read_ptr(p, (void**)&vt) || !pointer_plausible(vt))
-    {
-        return NO;
-    }
-    return (vt >= base && vt - base < 0x2000000ULL) ? YES : NO;
-}
 static int battle_state(void)
 {
     uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
@@ -2029,7 +2016,7 @@ void scan_world(void)
         return;
     }
     clientPtr = controller();
-    if (!obj_in_image(clientPtr))
+    if (!clientPtr)
     {
         world_reset();
         dbg.stage = 1;
@@ -2314,10 +2301,6 @@ int32_t gid(uintptr_t element, int32_t* offOut)
         *offOut = 0;
     }
     if (!element || !addr_getgid)
-    {
-        return 0;
-    }
-    if (!obj_in_image(element))
     {
         return 0;
     }
