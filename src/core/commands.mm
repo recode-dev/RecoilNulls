@@ -1,6 +1,7 @@
 #include "offsets.h"
 #include "scan.h"
 #include "commands.h"
+#include "../utils/crypto.h"
 
 #include <malloc/malloc.h>
 

@@ -2,7 +2,11 @@
 #define RECOIL_SCAN_SCAN_H
 
 #include "./offsets.h"
+
 #include <stdint.h>
+#include <string.h>
+#include <mach/mach.h>
+#include <dispatch/dispatch.h>
 
 typedef struct
 {
