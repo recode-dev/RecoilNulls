@@ -97,7 +97,7 @@ struct Eval {
     bool blocked = false;
 };
 
-static std::optional<double> sweep(const V2& p0, const V2& p1, double rP,
+[[maybe_unused]] static std::optional<double> sweep(const V2& p0, const V2& p1, double rP,
                                    const V2& q0, const V2& q1, double rQ) {
     const double R = rP + rQ;
     const V2 r = p0 - q0;
@@ -121,7 +121,7 @@ static std::optional<double> sweep(const V2& p0, const V2& p1, double rP,
     return std::max(0, std::min(v, maxTick));
 }
 
-static std::vector<V2> buildPath(const V2& start, double deg, int ticks,
+[[maybe_unused]] static std::vector<V2> buildPath(const V2& start, double deg, int ticks,
                                  double speedUnitsPerSec, int inputDelayTicks) {
     const V2 d = dirFromDeg(deg);
     const double step = speedUnitsPerSec * DT;
@@ -142,7 +142,7 @@ static std::vector<V2> buildPath(const V2& start, double deg, int ticks,
     return lerp(path[i], path[i + 1], t - i);
 }
 
-static std::optional<double> hitTick(const std::vector<V2>& path,
+[[maybe_unused]] static std::optional<double> hitTick(const std::vector<V2>& path,
                                      const Projectile& pr,
                                      double charRadius) {
     if (pr.ticks.empty() && pr.speed <= 0.0) return std::nullopt;
@@ -226,7 +226,7 @@ static std::optional<double> hitTick(const std::vector<V2>& path,
     return minClear;
 }
 
-static double clearanceContinuous(const std::vector<V2>& path,
+[[maybe_unused]] static double clearanceContinuous(const std::vector<V2>& path,
                                   const Projectile& pr,
                                   double charRadius) {
     if (pr.ticks.size() < 2) return INF;
@@ -276,7 +276,7 @@ static double clearanceContinuous(const std::vector<V2>& path,
     return penalty;
 }
 
-static Eval evalPath(const std::vector<V2>& path,
+[[maybe_unused]] static Eval evalPath(const std::vector<V2>& path,
                      const std::vector<Projectile>& ps,
                      double charRadius,
                      const std::vector<Wall>& walls,
@@ -316,7 +316,7 @@ static Eval evalPath(const std::vector<V2>& path,
     return e;
 }
 
-static bool betterEval(const Eval& a, double angleA,
+[[maybe_unused]] static bool betterEval(const Eval& a, double angleA,
                        const Eval& b, double angleB,
                        double currentAngle) {
     if (a.dmg != b.dmg) return a.dmg < b.dmg;
@@ -330,7 +330,7 @@ static bool betterEval(const Eval& a, double angleA,
     return angDiff(angleA, currentAngle) < angDiff(angleB, currentAngle);
 }
 
-static std::vector<double> candidateAngles(const std::vector<Projectile>& ps,
+[[maybe_unused]] static std::vector<double> candidateAngles(const std::vector<Projectile>& ps,
                                            const V2& pos,
                                            double currentAngle) {
     std::vector<double> out;
@@ -366,7 +366,7 @@ struct DodgeResult {
     bool deadzone = false;
 };
 
-static DodgeResult bestDodge(const V2& pos,
+[[maybe_unused]] static DodgeResult bestDodge(const V2& pos,
                              double charSpeed,
                              const std::vector<Projectile>& projectiles,
                              const std::vector<Wall>& walls = {},
@@ -642,7 +642,7 @@ float rcl_own_radius(void)
     return (float)bs::HITBOX_STD;
 }
 
-static void ad_collect(float mx, float my)
+[[maybe_unused]] static void ad_collect(float mx, float my)
 {
     g_ad_n = 0;
 
@@ -688,7 +688,7 @@ static void ad_collect(float mx, float my)
     }
 }
 
-static int ad_urgent(float mx, float my, float mr, float ix, float iy, float *ox, float *oy)
+[[maybe_unused]] static int ad_urgent(float mx, float my, float mr, float ix, float iy, float *ox, float *oy)
 {
     float cx[32];
     float cy[32];
@@ -775,7 +775,7 @@ static int ad_urgent(float mx, float my, float mr, float ix, float iy, float *ox
     return urgent;
 }
 
-static void ad_best_dir(float mx, float my, float mr, float ix, float iy, float *ox, float *oy)
+[[maybe_unused]] static void ad_best_dir(float mx, float my, float mr, float ix, float iy, float *ox, float *oy)
 {
     int best = 0;
     float bestScore = 1e18f;
@@ -797,7 +797,7 @@ static void ad_best_dir(float mx, float my, float mr, float ix, float iy, float 
     *oy = g_diry[best];
 }
 
-static void ad_apply_vo(float *dx, float *dy, float mx, float my, float mr, float ix, float iy)
+[[maybe_unused]] static void ad_apply_vo(float *dx, float *dy, float mx, float my, float mr, float ix, float iy)
 {
     int best = 0;
     float bestScore = 1e18f;
