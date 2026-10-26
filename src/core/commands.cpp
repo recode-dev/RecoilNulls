@@ -14,7 +14,7 @@ static uint32_t ci_fallback = 0;
 static uint8_t ci_inner[0x10];
 static uint8_t ci_outer[0x10];
 static int ci_ready = 0;
-static int msg_ok(void *ptr, size_t size);
+static int msg_ok(void* ptr, size_t size);
 int ci_load_constants(void)
 {
     int i = 0;
@@ -29,13 +29,14 @@ int ci_load_constants(void)
     for (i = 0; i < (int)CI_TABLE_TYPES; i++)
     {
         if (!read_bytes(base + CI_TYPE_TABLE_RVA + (uintptr_t)i * 4ULL,
-                        &ci_table[i], sizeof(uint32_t)))
+                        &ci_table[i],
+                        sizeof(uint32_t)))
         {
             return 0;
         }
     }
-    if (!read_bytes(base + CI_TYPE_FALLBACK_RVA, &ci_fallback,
-                    sizeof(uint32_t)))
+    if (!read_bytes(
+            base + CI_TYPE_FALLBACK_RVA, &ci_fallback, sizeof(uint32_t)))
     {
         return 0;
     }
@@ -50,7 +51,7 @@ int ci_load_constants(void)
     ci_ready = 1;
     return 1;
 }
-uint32_t ci_sign(void *ci, void *battle)
+uint32_t ci_sign(void* ci, void* battle)
 {
 #if CI_SIGNING_ON
     uint8_t key[0x10];
@@ -98,7 +99,7 @@ int enqueue_type(int x, int y, int type)
 {
     return enqueue_skill(x, y, type, nullptr);
 }
-static uintptr_t callable_cached(uintptr_t *cache, uintptr_t rva)
+static uintptr_t callable_cached(uintptr_t* cache, uintptr_t rva)
 {
     if (!*cache)
     {
@@ -106,24 +107,24 @@ static uintptr_t callable_cached(uintptr_t *cache, uintptr_t rva)
     }
     return *cache;
 }
-static int ptr_is_heap(const void *p)
+static int ptr_is_heap(const void* p)
 {
     if (!p || ((uintptr_t)p & 7ULL))
     {
         return 0;
     }
-    return malloc_zone_from_ptr((void *)p) != NULL;
+    return malloc_zone_from_ptr((void*)p) != NULL;
 }
-int enqueue_skill(int x, int y, int type, void *skillData)
+int enqueue_skill(int x, int y, int type, void* skillData)
 {
     uintptr_t ctorFn = 0;
     uintptr_t inputFn = 0;
     uintptr_t battleFn = 0;
     int32_t vx = x;
     int32_t vy = y;
-    void *battle = nullptr;
-    void *mgr = nullptr;
-    void *msg = nullptr;
+    void* battle = nullptr;
+    void* mgr = nullptr;
+    void* msg = nullptr;
     if (!coord_ok || dead)
     {
         return 0;
@@ -143,7 +144,7 @@ int enqueue_skill(int x, int y, int type, void *skillData)
     {
         return 0;
     }
-    battle = ((void *(*)(void))battleFn)();
+    battle = ((void* (*)(void))battleFn)();
     if (!object_plausible(battle))
     {
         return 0;
@@ -154,7 +155,7 @@ int enqueue_skill(int x, int y, int type, void *skillData)
         return 0;
     }
     {
-        void *mgrInner = nullptr;
+        void* mgrInner = nullptr;
         if (!read_ptr((uintptr_t)mgr + CI_MGR_QUEUE_OFF, &mgrInner) ||
             !mgrInner)
         {
@@ -171,24 +172,28 @@ int enqueue_skill(int x, int y, int type, void *skillData)
         return 0;
     }
     memset(msg, 0, (size_t)MSG_SIZE + (size_t)MSG_SLACK);
-    ((void (*)(void *, int))ctorFn)(msg, TYPE_MOVE);
+    ((void (*)(void*, int))ctorFn)(msg, TYPE_MOVE);
     write_bytes((uintptr_t)msg + TYPE_OFF, &type, sizeof(type));
     write_bytes((uintptr_t)msg + X_OFF, &vx, sizeof(vx));
     write_bytes((uintptr_t)msg + Y_OFF, &vy, sizeof(vy));
     if (skillData && ptr_is_heap(skillData))
     {
         write_bytes((uintptr_t)msg + (uintptr_t)OFF_CLIENTINPUT_SKILLDATA,
-                    &skillData, sizeof(skillData));
+                    &skillData,
+                    sizeof(skillData));
     }
     ci_sign(msg, battle);
     if (type == (int)TYPE_MOVE)
     {
         (void)pred_set(x, y);
     }
-    ((void (*)(void *, void *))inputFn)(mgr, msg);
+    ((void (*)(void*, void*))inputFn)(mgr, msg);
     return 1;
 }
-int enqueue(int x, int y) { return enqueue_type(x, y, (int)TYPE_MOVE); }
+int enqueue(int x, int y)
+{
+    return enqueue_type(x, y, (int)TYPE_MOVE);
+}
 uintptr_t entry_callable(uintptr_t rva)
 {
     if (!base || !rva)
@@ -201,7 +206,7 @@ uintptr_t entry_callable(uintptr_t rva)
     }
     return base + rva;
 }
-static int msg_ok(void *ptr, size_t size)
+static int msg_ok(void* ptr, size_t size)
 {
     if (!ptr)
     {
@@ -221,12 +226,12 @@ static int msg_ok(void *ptr, size_t size)
     }
     return 1;
 }
-void *msg_alloc(void)
+void* msg_alloc(void)
 {
     uintptr_t stub = entry_callable(ALLOC_RVA);
     uintptr_t got = 0;
     size_t size = (size_t)MSG_SIZE + (size_t)MSG_SLACK;
-    void *mem = nullptr;
+    void* mem = nullptr;
     mem = malloc(size);
     if (msg_ok(mem, size))
     {
@@ -235,16 +240,16 @@ void *msg_alloc(void)
     }
     if (stub)
     {
-        mem = ((void *(*)(size_t))stub)(size);
+        mem = ((void* (*)(size_t))stub)(size);
         if (msg_ok(mem, size))
         {
             memset(mem, 0, size);
             return mem;
         }
     }
-    if (base && read_ptr(base + ALLOC_GOT_RVA, (void **)&got) && got)
+    if (base && read_ptr(base + ALLOC_GOT_RVA, (void**)&got) && got)
     {
-        mem = ((void *(*)(size_t))got)(size);
+        mem = ((void* (*)(size_t))got)(size);
         if (msg_ok(mem, size))
         {
             memset(mem, 0, size);
@@ -253,7 +258,7 @@ void *msg_alloc(void)
     }
     return nullptr;
 }
-void *manager(void)
+void* manager(void)
 {
     if (!scene_object || !scene_live())
     {
@@ -261,13 +266,13 @@ void *manager(void)
     }
     static uintptr_t c_battle = 0;
     uintptr_t battleFn = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
-    void *battle = nullptr;
-    void *mgr = nullptr;
+    void* battle = nullptr;
+    void* mgr = nullptr;
     if (!battleFn)
     {
         return nullptr;
     }
-    battle = ((void *(*)(void))battleFn)();
+    battle = ((void* (*)(void))battleFn)();
     if (!battle)
     {
         return nullptr;
@@ -321,6 +326,6 @@ int move_to(int32_t x, int32_t y, float ox, float oy)
     {
         return 0;
     }
-    ((void (*)(void *, int, int, int))fn)((void *)ctrl, (int)x, (int)y, 1);
+    ((void (*)(void*, int, int, int))fn)((void*)ctrl, (int)x, (int)y, 1);
     return 1;
 }

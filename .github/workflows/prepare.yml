@@ -1,0 +1,51 @@
+name: prepare
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: prepare-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Tool
+        run: pip install --quiet clang-format
+
+      - name: Format
+        run: |
+          set -euo pipefail
+          style='{BasedOnStyle: LLVM, BreakBeforeBraces: Allman, IndentWidth: 4, ContinuationIndentWidth: 4, ColumnLimit: 80, AllowShortIfStatementsOnASingleLine: WithoutElse, AllowShortBlocksOnASingleLine: Empty, AllowShortFunctionsOnASingleLine: None, AllowShortLambdasOnASingleLine: None, BreakBeforeTernaryOperators: true, BinPackArguments: false, BinPackParameters: false, PointerAlignment: Left, SortIncludes: false}'
+          find src tools -type f \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 |
+            xargs -0 clang-format -i -style="$style"
+
+      - name: Push
+        id: push
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git commit -m "chore(prepare): format"
+          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        if: steps.push.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run build.yml --ref "$GITHUB_REF_NAME"

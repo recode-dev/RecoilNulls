@@ -3,10 +3,10 @@
 uintptr_t tiles = 0;
 int w = 0;
 int h = 0;
-int cell(int tx, int ty, int *proj, int *move)
+int cell(int tx, int ty, int* proj, int* move)
 {
-    void *tile = nullptr;
-    void *type = nullptr;
+    void* tile = nullptr;
+    void* type = nullptr;
     *proj = -1;
     *move = -1;
     if (!tiles)
@@ -48,11 +48,17 @@ static int wall_have = 0;
 static uintptr_t wall_map = 0;
 static int wall_dirty = 1;
 static uint64_t wall_fail_ms = 0;
-int wall_cache_w(void) { return wall_w; }
-int wall_cache_h(void) { return wall_h; }
+int wall_cache_w(void)
+{
+    return wall_w;
+}
+int wall_cache_h(void)
+{
+    return wall_h;
+}
 void wall_bind(uintptr_t tileMap)
 {
-    void *tileArray = nullptr;
+    void* tileArray = nullptr;
     int32_t mapW = 0;
     int32_t mapH = 0;
     if (!tileMap)
@@ -93,8 +99,11 @@ void wall_bind(uintptr_t tileMap)
         wall_have = 0;
     }
 }
-int wall_ready(void) { return wall_have; }
-int walls_near(float x, float y, float radius, float *out, int max)
+int wall_ready(void)
+{
+    return wall_have;
+}
+int walls_near(float x, float y, float radius, float* out, int max)
 {
     int x0 = 0;
     int y0 = 0;
@@ -111,14 +120,10 @@ int walls_near(float x, float y, float radius, float *out, int max)
     y0 = (int)((y - radius) / WALL_TILE_SIZE);
     x1 = (int)((x + radius) / WALL_TILE_SIZE);
     y1 = (int)((y + radius) / WALL_TILE_SIZE);
-    if (x0 < 0)
-        x0 = 0;
-    if (y0 < 0)
-        y0 = 0;
-    if (x1 >= wall_w)
-        x1 = wall_w - 1;
-    if (y1 >= wall_h)
-        y1 = wall_h - 1;
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 >= wall_w) x1 = wall_w - 1;
+    if (y1 >= wall_h) y1 = wall_h - 1;
     for (ty = y0; ty <= y1 && n < max; ty++)
     {
         for (tx = x0; tx <= x1 && n < max; tx++)

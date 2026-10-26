@@ -15,9 +15,14 @@ static const uint32_t SHA_K[64] = {
     0x2748774cUL, 0x34b0bcb5UL, 0x391c0cb3UL, 0x4ed8aa4aUL, 0x5b9cca4fUL,
     0x682e6ff3UL, 0x748f82eeUL, 0x78a5636fUL, 0x84c87814UL, 0x8cc70208UL,
     0x90befffaUL, 0xa4506cebUL, 0xbef9a3f7UL, 0xc67178f2UL};
-static const uint32_t SHA_IV[8] = {0x6a09e667UL, 0xbb67ae85UL, 0x3c6ef372UL,
-                                   0xa54ff53aUL, 0x510e527fUL, 0x9b05688cUL,
-                                   0x1f83d9abUL, 0x5be0cd19UL};
+static const uint32_t SHA_IV[8] = {0x6a09e667UL,
+                                   0xbb67ae85UL,
+                                   0x3c6ef372UL,
+                                   0xa54ff53aUL,
+                                   0x510e527fUL,
+                                   0x9b05688cUL,
+                                   0x1f83d9abUL,
+                                   0x5be0cd19UL};
 typedef struct
 {
     uint32_t h[8];
@@ -25,8 +30,11 @@ typedef struct
     uint64_t bits;
     size_t n;
 } sha_ctx_t;
-static uint32_t ror(uint32_t v, int s) { return (v >> s) | (v << (32 - s)); }
-static void sha_block(sha_ctx_t *c, const uint8_t *p)
+static uint32_t ror(uint32_t v, int s)
+{
+    return (v >> s) | (v << (32 - s));
+}
+static void sha_block(sha_ctx_t* c, const uint8_t* p)
 {
     uint32_t ws[64];
     uint32_t a = 0;
@@ -85,13 +93,13 @@ static void sha_block(sha_ctx_t *c, const uint8_t *p)
     c->h[6] += g;
     c->h[7] += hh;
 }
-static void sha_init(sha_ctx_t *c)
+static void sha_init(sha_ctx_t* c)
 {
     memcpy(c->h, SHA_IV, sizeof(SHA_IV));
     c->bits = 0;
     c->n = 0;
 }
-static void sha_update(sha_ctx_t *c, const uint8_t *p, size_t length)
+static void sha_update(sha_ctx_t* c, const uint8_t* p, size_t length)
 {
     size_t i = 0;
     c->bits += (uint64_t)length * 8ULL;
@@ -112,7 +120,7 @@ static void sha_update(sha_ctx_t *c, const uint8_t *p, size_t length)
         }
     }
 }
-static void sha_final(sha_ctx_t *c, uint8_t out[32])
+static void sha_final(sha_ctx_t* c, uint8_t out[32])
 {
     uint8_t pad[72];
     uint64_t bits = c->bits;
@@ -133,15 +141,17 @@ static void sha_final(sha_ctx_t *c, uint8_t out[32])
         out[i * 4 + 3] = (uint8_t)(c->h[i]);
     }
 }
-void sha(const uint8_t *data, size_t length, uint8_t out[32])
+void sha(const uint8_t* data, size_t length, uint8_t out[32])
 {
     sha_ctx_t c;
     sha_init(&c);
     sha_update(&c, data, length);
     sha_final(&c, out);
 }
-void ci_make_block(const uint8_t key16[16], const uint8_t mask16[16],
-                   uint8_t pad, uint8_t out[64])
+void ci_make_block(const uint8_t key16[16],
+                   const uint8_t mask16[16],
+                   uint8_t pad,
+                   uint8_t out[64])
 {
     int i = 0;
     for (i = 0; i < 16; i++)
@@ -150,8 +160,10 @@ void ci_make_block(const uint8_t key16[16], const uint8_t mask16[16],
     }
     memset(out + 16, pad, 64 - 16);
 }
-uint32_t ci_compute_token(const uint8_t key16[16], const uint8_t cmd16[16],
-                          const uint32_t *table, uint32_t fallback,
+uint32_t ci_compute_token(const uint8_t key16[16],
+                          const uint8_t cmd16[16],
+                          const uint32_t* table,
+                          uint32_t fallback,
                           const uint8_t innerMask[16],
                           const uint8_t outerMask[16])
 {

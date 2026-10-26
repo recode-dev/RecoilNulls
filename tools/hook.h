@@ -13,15 +13,17 @@ extern "C"
     typedef struct
     {
         uintptr_t rva;
-        void *replacement;
+        void* replacement;
         int control;
     } hook_t;
-    int hooks_install(uintptr_t imageBase, const hook_t *hooks, int count,
-                      void **originals);
+    int hooks_install(uintptr_t imageBase,
+                      const hook_t* hooks,
+                      int count,
+                      void** originals);
     int hooks_uninstall(void);
     uintptr_t hook_image_base(uintptr_t address);
-    void hook_set_error(const char *format, ...);
-    const char *hook_last_error(void);
+    void hook_set_error(const char* format, ...);
+    const char* hook_last_error(void);
 #ifdef __cplusplus
 }
 #endif

@@ -15,8 +15,8 @@ typedef struct
     SEL sel;
     IMP original;
     IMP replacement;
-    const char *selName;
-    const char *signature;
+    const char* selName;
+    const char* signature;
     int hits;
     int used;
     objc_body_t body;
@@ -26,12 +26,12 @@ static uintptr_t objc_strip_imp(IMP imp)
 {
 #if defined(__has_feature)
 #if __has_feature(ptrauth_calls)
-    return (uintptr_t)ptrauth_strip((void *)imp, ptrauth_key_function_pointer);
+    return (uintptr_t)ptrauth_strip((void*)imp, ptrauth_key_function_pointer);
 #endif
 #endif
     return (uintptr_t)imp;
 }
-static const char *objc_skip_compound(const char *p)
+static const char* objc_skip_compound(const char* p)
 {
     char open = *p;
     char close = (open == '{') ? '}' : ((open == '(') ? ')' : ']');
@@ -55,18 +55,16 @@ static const char *objc_skip_compound(const char *p)
     }
     return p;
 }
-static int objc_arg_types(const char *types, char *out, size_t capacity)
+static int objc_arg_types(const char* types, char* out, size_t capacity)
 {
-    if (!types || !out || capacity < 8)
-        return -1;
+    if (!types || !out || capacity < 8) return -1;
     size_t used = 0;
-    const char *p = types;
+    const char* p = types;
     while (*p && (used + 1) < capacity)
     {
         while (*p >= '0' && *p <= '9')
             p++;
-        if (!*p)
-            break;
+        if (!*p) break;
         char c = *p;
         if (c == 'r' || c == 'n' || c == 'N' || c == 'o' || c == 'O' ||
             c == 'R' || c == 'V')
@@ -77,8 +75,7 @@ static int objc_arg_types(const char *types, char *out, size_t capacity)
         if (c == '^')
         {
             p++;
-            if (*p == '{' || *p == '(' || *p == '[')
-                p = objc_skip_compound(p);
+            if (*p == '{' || *p == '(' || *p == '[') p = objc_skip_compound(p);
             out[used++] = '^';
             continue;
         }
@@ -96,12 +93,10 @@ static int objc_arg_types(const char *types, char *out, size_t capacity)
 }
 static int objc_class_owns(Class cls, SEL sel)
 {
-    if (!cls || !sel)
-        return 0;
+    if (!cls || !sel) return 0;
     unsigned count = 0;
-    Method *list = class_copyMethodList(cls, &count);
-    if (!list)
-        return 0;
+    Method* list = class_copyMethodList(cls, &count);
+    if (!list) return 0;
     int found = 0;
     for (unsigned i = 0; i < count; i++)
     {
@@ -116,66 +111,54 @@ static int objc_class_owns(Class cls, SEL sel)
 }
 static Class objc_owner(Class cls, SEL sel)
 {
-    if (!cls || !sel)
-        return Nil;
+    if (!cls || !sel) return Nil;
     for (Class c = cls; c; c = class_getSuperclass(c))
     {
-        if (objc_class_owns(c, sel))
-            return c;
+        if (objc_class_owns(c, sel)) return c;
     }
     return Nil;
 }
-static objc_hook_t *objc_find(id self, SEL _cmd)
+static objc_hook_t* objc_find(id self, SEL _cmd)
 {
     Class start = object_getClass(self);
-    if (!start)
-        return NULL;
-    objc_hook_t *bySelector = NULL;
+    if (!start) return NULL;
+    objc_hook_t* bySelector = NULL;
     int bySelectorCount = 0;
     for (int i = 0; i < OBJC_HOOK_MAX; i++)
     {
-        objc_hook_t *hook = &g_objc_hooks[i];
-        if (!hook->used || hook->sel != _cmd)
-            continue;
+        objc_hook_t* hook = &g_objc_hooks[i];
+        if (!hook->used || hook->sel != _cmd) continue;
         bySelector = hook;
         bySelectorCount++;
         for (Class c = start; c; c = class_getSuperclass(c))
         {
-            if (c == hook->cls)
-                return hook;
+            if (c == hook->cls) return hook;
         }
     }
-    if (bySelectorCount == 1)
-        return bySelector;
+    if (bySelectorCount == 1) return bySelector;
     return NULL;
 }
-static int objc_targets(id self, objc_hook_t *hook)
+static int objc_targets(id self, objc_hook_t* hook)
 {
-    if (!hook || hook->wantedCount <= 0)
-        return 0;
+    if (!hook || hook->wantedCount <= 0) return 0;
     Class start = object_getClass(self);
-    if (!start)
-        return 0;
+    if (!start) return 0;
     for (int i = 0; i < hook->wantedCount; i++)
     {
         Class wanted = hook->wanted[i];
-        if (!wanted)
-            continue;
+        if (!wanted) continue;
         for (Class c = start; c; c = class_getSuperclass(c))
         {
-            if (c == wanted)
-                return 1;
+            if (c == wanted) return 1;
         }
     }
     return 0;
 }
 static void objc_rep_a(id self, SEL _cmd)
 {
-    objc_hook_t *hook = objc_find(self, _cmd);
-    if (hook)
-        hook->hits++;
-    if (hook && hook->body && objc_targets(self, hook))
-        hook->body();
+    objc_hook_t* hook = objc_find(self, _cmd);
+    if (hook) hook->hits++;
+    if (hook && hook->body && objc_targets(self, hook)) hook->body();
     if (hook && hook->original)
     {
         reinterpret_cast<void (*)(id, SEL)>(hook->original)(self, _cmd);
@@ -183,7 +166,7 @@ static void objc_rep_a(id self, SEL _cmd)
 }
 static void objc_rep_b(id self, SEL _cmd, id a1)
 {
-    objc_hook_t *hook = objc_find(self, _cmd);
+    objc_hook_t* hook = objc_find(self, _cmd);
     if (hook && hook->original)
     {
         reinterpret_cast<void (*)(id, SEL, id)>(hook->original)(self, _cmd, a1);
@@ -191,52 +174,44 @@ static void objc_rep_b(id self, SEL _cmd, id a1)
 }
 static void objc_rep1b(id self, SEL _cmd, BOOL a1)
 {
-    objc_hook_t *hook = objc_find(self, _cmd);
+    objc_hook_t* hook = objc_find(self, _cmd);
     if (hook && hook->original)
     {
-        reinterpret_cast<void (*)(id, SEL, BOOL)>(hook->original)(self, _cmd,
-                                                                  a1);
+        reinterpret_cast<void (*)(id, SEL, BOOL)>(hook->original)(
+            self, _cmd, a1);
     }
 }
 static void objc_rep_c(id self, SEL _cmd, id a1, id a2)
 {
-    objc_hook_t *hook = objc_find(self, _cmd);
+    objc_hook_t* hook = objc_find(self, _cmd);
     if (hook && hook->original)
     {
-        reinterpret_cast<void (*)(id, SEL, id, id)>(hook->original)(self, _cmd,
-                                                                    a1, a2);
+        reinterpret_cast<void (*)(id, SEL, id, id)>(hook->original)(
+            self, _cmd, a1, a2);
     }
 }
-int objc_arm(uintptr_t imageBase, const char *clsName, const char *selName,
+int objc_arm(uintptr_t imageBase,
+             const char* clsName,
+             const char* selName,
              objc_body_t body)
 {
-    if (!imageBase || !clsName || !selName || !body)
-        return 0;
+    if (!imageBase || !clsName || !selName || !body) return 0;
     Class wanted = objc_getClass(clsName);
-    if (!wanted)
-        return 0;
-    if (hook_image_base((uintptr_t)wanted) != imageBase)
-        return 0;
+    if (!wanted) return 0;
+    if (hook_image_base((uintptr_t)wanted) != imageBase) return 0;
     SEL sel = sel_registerName(selName);
     Class ownerClass = objc_owner(wanted, sel);
-    if (!ownerClass)
-        return 0;
-    if (hook_image_base((uintptr_t)ownerClass) != imageBase)
-        return 0;
+    if (!ownerClass) return 0;
+    if (hook_image_base((uintptr_t)ownerClass) != imageBase) return 0;
     Method method = class_getInstanceMethod(ownerClass, sel);
-    if (!method)
-        return 0;
-    if (!sel_isEqual(method_getName(method), sel))
-        return 0;
-    const char *types = method_getTypeEncoding(method);
-    if (!types)
-        return 0;
+    if (!method) return 0;
+    if (!sel_isEqual(method_getName(method), sel)) return 0;
+    const char* types = method_getTypeEncoding(method);
+    if (!types) return 0;
     char args[10];
     int argc = objc_arg_types(types, args, sizeof(args));
-    if (argc < 3)
-        return 0;
-    if (args[0] != 'v')
-        return 0;
+    if (argc < 3) return 0;
+    if (args[0] != 'v') return 0;
     IMP replacement = NULL;
     if (argc == 3)
     {
@@ -260,19 +235,16 @@ int objc_arm(uintptr_t imageBase, const char *clsName, const char *selName,
     }
     for (int i = 0; i < OBJC_HOOK_MAX; i++)
     {
-        if (!g_objc_hooks[i].used)
-            continue;
+        if (!g_objc_hooks[i].used) continue;
         if (g_objc_hooks[i].cls != ownerClass || g_objc_hooks[i].sel != sel)
             continue;
         return 0;
     }
     for (int i = 0; i < OBJC_HOOK_MAX; i++)
     {
-        if (g_objc_hooks[i].used)
-            continue;
+        if (g_objc_hooks[i].used) continue;
         IMP previous = method_setImplementation(method, replacement);
-        if (!previous)
-            return 0;
+        if (!previous) return 0;
         if (objc_strip_imp(previous) == objc_strip_imp(replacement))
         {
             method_setImplementation(method, previous);

@@ -9,13 +9,13 @@
 #define PRED_FLAG 1
 #define MOVE_ON 1
 uintptr_t entry_callable(uintptr_t rva);
-void *msg_alloc(void);
-void *manager(void);
+void* msg_alloc(void);
+void* manager(void);
 int pred_set(int x, int y);
 int move_to(int32_t x, int32_t y, float ox, float oy);
 int ci_load_constants(void);
-uint32_t ci_sign(void *ci, void *battle);
+uint32_t ci_sign(void* ci, void* battle);
 int enqueue(int x, int y);
 int enqueue_type(int x, int y, int type);
-int enqueue_skill(int x, int y, int type, void *skillData);
+int enqueue_skill(int x, int y, int type, void* skillData);
 #endif

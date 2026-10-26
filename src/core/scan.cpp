@@ -18,7 +18,7 @@
 #include "objc.h"
 #include "offsets.h"
 #include "scan.h"
-const char *image_names[4] = {"Nulls Brawl", "Laser", "NB.app", nullptr};
+const char* image_names[4] = {"Nulls Brawl", "Laser", "NB.app", nullptr};
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
 BOOL mode_strong = NO;
@@ -53,18 +53,24 @@ int sig_ticks = 0;
 uintptr_t sig_last = 0;
 uint64_t walk_tick = 0;
 int walk_count = -1;
-BOOL query_region(uintptr_t address, vm_prot_t *protection,
-                  vm_prot_t *maxProtection, mach_vm_size_t *regionSize,
-                  uintptr_t *regionStart)
+BOOL query_region(uintptr_t address,
+                  vm_prot_t* protection,
+                  vm_prot_t* maxProtection,
+                  mach_vm_size_t* regionSize,
+                  uintptr_t* regionStart)
 {
     vm_address_t regionAddress = (vm_address_t)address;
     vm_size_t size = 0;
     vm_region_basic_info_data_64_t info;
     mach_msg_type_number_t infoCount = VM_REGION_BASIC_INFO_COUNT_64;
     mach_port_t objectName = MACH_PORT_NULL;
-    kern_return_t result = vm_region_64(
-        mach_task_self(), &regionAddress, &size, VM_REGION_BASIC_INFO_64,
-        (vm_region_info_t)&info, &infoCount, &objectName);
+    kern_return_t result = vm_region_64(mach_task_self(),
+                                        &regionAddress,
+                                        &size,
+                                        VM_REGION_BASIC_INFO_64,
+                                        (vm_region_info_t)&info,
+                                        &infoCount,
+                                        &objectName);
     if (objectName != MACH_PORT_NULL)
     {
         mach_port_deallocate(mach_task_self(), objectName);
@@ -137,7 +143,7 @@ BOOL addr_writable(uintptr_t address, size_t length)
     }
     return cursor >= end;
 }
-BOOL read_bytes(uintptr_t address, void *out, size_t length)
+BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
     if (!out || !length)
     {
@@ -148,9 +154,11 @@ BOOL read_bytes(uintptr_t address, void *out, size_t length)
         return NO;
     }
     vm_size_t got = 0;
-    kern_return_t result = vm_read_overwrite(
-        mach_task_self(), (mach_vm_address_t)address, (mach_vm_size_t)length,
-        (mach_vm_address_t)(uintptr_t)out, &got);
+    kern_return_t result = vm_read_overwrite(mach_task_self(),
+                                             (mach_vm_address_t)address,
+                                             (mach_vm_size_t)length,
+                                             (mach_vm_address_t)(uintptr_t)out,
+                                             &got);
     return result == KERN_SUCCESS && got == (vm_size_t)length;
 }
 BOOL pointer_plausible(uintptr_t value)
@@ -165,11 +173,11 @@ BOOL pointer_plausible(uintptr_t value)
     }
     return YES;
 }
-BOOL read_byte(uintptr_t address, uint8_t *out)
+BOOL read_byte(uintptr_t address, uint8_t* out)
 {
     return read_bytes(address, out, 1);
 }
-BOOL read_int(uintptr_t address, int32_t *out)
+BOOL read_int(uintptr_t address, int32_t* out)
 {
     if (!out)
     {
@@ -181,7 +189,7 @@ BOOL read_int(uintptr_t address, int32_t *out)
     }
     return read_bytes(address, out, 4);
 }
-BOOL read_float(uintptr_t address, float *out)
+BOOL read_float(uintptr_t address, float* out)
 {
     if (address & 3)
     {
@@ -228,7 +236,7 @@ BOOL writable(uintptr_t address, size_t length)
     }
     return cursor >= end;
 }
-BOOL write_bytes(uintptr_t address, const void *src, size_t length)
+BOOL write_bytes(uintptr_t address, const void* src, size_t length)
 {
     if (!src || !length)
     {
@@ -242,10 +250,10 @@ BOOL write_bytes(uintptr_t address, const void *src, size_t length)
     {
         return NO;
     }
-    memcpy((void *)address, src, length);
+    memcpy((void*)address, src, length);
     return YES;
 }
-BOOL read_ptr(uintptr_t address, void **out)
+BOOL read_ptr(uintptr_t address, void** out)
 {
     if (!out)
     {
@@ -255,15 +263,15 @@ BOOL read_ptr(uintptr_t address, void **out)
     {
         return NO;
     }
-    return read_bytes(address, out, sizeof(void *));
+    return read_bytes(address, out, sizeof(void*));
 }
-void *read_global_ptr(uintptr_t rva)
+void* read_global_ptr(uintptr_t rva)
 {
     if (!base || !rva)
     {
         return nullptr;
     }
-    void *value = nullptr;
+    void* value = nullptr;
     if (!read_ptr(base + rva, &value))
     {
         return nullptr;
@@ -283,7 +291,7 @@ uintptr_t callable(uintptr_t rva)
     }
     return address;
 }
-BOOL copy(uintptr_t source, void *destination, size_t length)
+BOOL copy(uintptr_t source, void* destination, size_t length)
 {
     if (!source || !destination || !length)
     {
@@ -294,12 +302,15 @@ BOOL copy(uintptr_t source, void *destination, size_t length)
         return NO;
     }
     vm_size_t copied = 0;
-    kern_return_t result = vm_read_overwrite(
-        mach_task_self(), (mach_vm_address_t)source, (mach_vm_size_t)length,
-        (mach_vm_address_t)(uintptr_t)destination, &copied);
+    kern_return_t result =
+        vm_read_overwrite(mach_task_self(),
+                          (mach_vm_address_t)source,
+                          (mach_vm_size_t)length,
+                          (mach_vm_address_t)(uintptr_t)destination,
+                          &copied);
     return result == KERN_SUCCESS && copied == (vm_size_t)length;
 }
-BOOL text_section(uintptr_t *address, uint64_t *size)
+BOOL text_section(uintptr_t* address, uint64_t* size)
 {
     if (!base)
     {
@@ -309,13 +320,13 @@ BOOL text_section(uintptr_t *address, uint64_t *size)
     {
         return NO;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
+    const struct mach_header_64* header = (const struct mach_header_64*)base;
     if (header->magic != MH_MAGIC_64)
     {
         return NO;
     }
-    const uint8_t *cursor = (const uint8_t *)(header + 1);
-    const uint8_t *limit = cursor + header->sizeofcmds;
+    const uint8_t* cursor = (const uint8_t*)(header + 1);
+    const uint8_t* limit = cursor + header->sizeofcmds;
     uintptr_t slide = image_slide(base);
     for (uint32_t i = 0; i < header->ncmds; i++)
     {
@@ -323,8 +334,7 @@ BOOL text_section(uintptr_t *address, uint64_t *size)
         {
             return NO;
         }
-        const struct load_command *command =
-            (const struct load_command *)cursor;
+        const struct load_command* command = (const struct load_command*)cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             return NO;
@@ -336,8 +346,8 @@ BOOL text_section(uintptr_t *address, uint64_t *size)
         if (command->cmd == LC_SEGMENT_64 &&
             command->cmdsize >= sizeof(struct segment_command_64))
         {
-            const struct segment_command_64 *segment =
-                (const struct segment_command_64 *)command;
+            const struct segment_command_64* segment =
+                (const struct segment_command_64*)command;
             if (strcmp(segment->segname, "__TEXT") == 0)
             {
                 uint64_t room = (uint64_t)command->cmdsize -
@@ -347,8 +357,8 @@ BOOL text_section(uintptr_t *address, uint64_t *size)
                 {
                     count = segment->nsects;
                 }
-                const struct section_64 *sections =
-                    (const struct section_64 *)(segment + 1);
+                const struct section_64* sections =
+                    (const struct section_64*)(segment + 1);
                 for (uint64_t s = 0; s < count; s++)
                 {
                     if (strcmp(sections[s].sectname, "__text") != 0)
@@ -412,7 +422,7 @@ BOOL valid_header(uintptr_t imageBase)
     }
     return YES;
 }
-BOOL find_game_image(uintptr_t *out_base)
+BOOL find_game_image(uintptr_t* out_base)
 {
     if (!out_base)
     {
@@ -426,7 +436,7 @@ BOOL find_game_image(uintptr_t *out_base)
     uintptr_t fallback = 0;
     for (uint32_t i = 0; i < count; i++)
     {
-        const char *path = _dyld_get_image_name(i);
+        const char* path = _dyld_get_image_name(i);
         uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
         if (!path || !imageBase)
         {
@@ -485,7 +495,7 @@ BOOL find_game_image(uintptr_t *out_base)
 uintptr_t owner = 0;
 int wired = 0;
 dispatch_source_t scan_timer = nullptr;
-BOOL segment_range(const char *name, uintptr_t *lo, uintptr_t *hi)
+BOOL segment_range(const char* name, uintptr_t* lo, uintptr_t* hi)
 {
     if (!base || !name)
     {
@@ -495,13 +505,13 @@ BOOL segment_range(const char *name, uintptr_t *lo, uintptr_t *hi)
     {
         return NO;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
+    const struct mach_header_64* header = (const struct mach_header_64*)base;
     if (header->magic != MH_MAGIC_64)
     {
         return NO;
     }
-    const uint8_t *cursor = (const uint8_t *)(header + 1);
-    const uint8_t *limit = cursor + header->sizeofcmds;
+    const uint8_t* cursor = (const uint8_t*)(header + 1);
+    const uint8_t* limit = cursor + header->sizeofcmds;
     uintptr_t slide = image_slide(base);
     for (uint32_t i = 0; i < header->ncmds; i++)
     {
@@ -509,8 +519,7 @@ BOOL segment_range(const char *name, uintptr_t *lo, uintptr_t *hi)
         {
             return NO;
         }
-        const struct load_command *command =
-            (const struct load_command *)cursor;
+        const struct load_command* command = (const struct load_command*)cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             return NO;
@@ -522,8 +531,8 @@ BOOL segment_range(const char *name, uintptr_t *lo, uintptr_t *hi)
         if (command->cmd == LC_SEGMENT_64 &&
             command->cmdsize >= sizeof(struct segment_command_64))
         {
-            const struct segment_command_64 *segment =
-                (const struct segment_command_64 *)command;
+            const struct segment_command_64* segment =
+                (const struct segment_command_64*)command;
             if (strcmp(segment->segname, name) == 0)
             {
                 if (lo)
@@ -548,21 +557,20 @@ void image_span_refresh(void)
     {
         return;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
+    const struct mach_header_64* header = (const struct mach_header_64*)base;
     if (header->magic != MH_MAGIC_64)
     {
         return;
     }
-    const uint8_t *cursor = (const uint8_t *)(header + 1);
-    const uint8_t *limit = cursor + header->sizeofcmds;
+    const uint8_t* cursor = (const uint8_t*)(header + 1);
+    const uint8_t* limit = cursor + header->sizeofcmds;
     for (uint32_t i = 0; i < header->ncmds; i++)
     {
         if (cursor + sizeof(struct load_command) > limit)
         {
             break;
         }
-        const struct load_command *command =
-            (const struct load_command *)cursor;
+        const struct load_command* command = (const struct load_command*)cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             break;
@@ -574,7 +582,7 @@ void image_span_refresh(void)
         cursor += command->cmdsize;
     }
 }
-const char *image_segment_name(uintptr_t value)
+const char* image_segment_name(uintptr_t value)
 {
     if (!base || !value)
     {
@@ -584,13 +592,13 @@ const char *image_segment_name(uintptr_t value)
     {
         return nullptr;
     }
-    const struct mach_header_64 *header = (const struct mach_header_64 *)base;
+    const struct mach_header_64* header = (const struct mach_header_64*)base;
     if (header->magic != MH_MAGIC_64)
     {
         return nullptr;
     }
-    const uint8_t *cursor = (const uint8_t *)(header + 1);
-    const uint8_t *limit = cursor + header->sizeofcmds;
+    const uint8_t* cursor = (const uint8_t*)(header + 1);
+    const uint8_t* limit = cursor + header->sizeofcmds;
     uintptr_t slide = image_slide(base);
     for (uint32_t i = 0; i < header->ncmds; i++)
     {
@@ -598,8 +606,7 @@ const char *image_segment_name(uintptr_t value)
         {
             return nullptr;
         }
-        const struct load_command *command =
-            (const struct load_command *)cursor;
+        const struct load_command* command = (const struct load_command*)cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             return nullptr;
@@ -611,8 +618,8 @@ const char *image_segment_name(uintptr_t value)
         if (command->cmd == LC_SEGMENT_64 &&
             command->cmdsize >= sizeof(struct segment_command_64))
         {
-            const struct segment_command_64 *segment =
-                (const struct segment_command_64 *)command;
+            const struct segment_command_64* segment =
+                (const struct segment_command_64*)command;
             if (segment->vmsize)
             {
                 uintptr_t start = slide + (uintptr_t)segment->vmaddr;
@@ -629,7 +636,7 @@ const char *image_segment_name(uintptr_t value)
 }
 BOOL vtable_shaped(uintptr_t value)
 {
-    const char *segment = image_segment_name(value);
+    const char* segment = image_segment_name(value);
     if (!segment)
     {
         return NO;
@@ -658,7 +665,7 @@ BOOL heap_resident(uintptr_t value)
 }
 BOOL instance_shaped(uintptr_t object)
 {
-    void *vtable = nullptr;
+    void* vtable = nullptr;
     if (!pointer_plausible(object))
     {
         return NO;
@@ -687,8 +694,8 @@ BOOL instance_shaped(uintptr_t object)
 }
 BOOL manager_shape(uintptr_t mgrPtr)
 {
-    void *array = nullptr;
-    void *probe = nullptr;
+    void* array = nullptr;
+    void* probe = nullptr;
     int32_t count = 0;
     int32_t capacity = 0;
     if (!heap_resident(mgrPtr))
@@ -736,7 +743,7 @@ BOOL manager_shape(uintptr_t mgrPtr)
         if (count > 1)
         {
             if (!read_ptr((uintptr_t)array +
-                              (uintptr_t)(count - 1) * sizeof(void *),
+                              (uintptr_t)(count - 1) * sizeof(void*),
                           &probe))
             {
                 return NO;
@@ -773,7 +780,7 @@ uintptr_t strip_ptr(uintptr_t value)
     uintptr_t stripped = value;
 #if __has_feature(ptrauth_calls)
     stripped =
-        (uintptr_t)ptrauth_strip((void *)value, ptrauth_key_function_pointer);
+        (uintptr_t)ptrauth_strip((void*)value, ptrauth_key_function_pointer);
 #endif
     if (stripped >= base && stripped < base + IMAGE_SPAN)
     {
@@ -808,9 +815,8 @@ void poll_for_game(int tick)
     }
     dispatch_after(
         dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
-        dispatch_get_main_queue(), ^{
-          poll_for_game(tick + 1);
-        });
+        dispatch_get_main_queue(),
+        ^{ poll_for_game(tick + 1); });
 }
 uintptr_t base = 0;
 uintptr_t manager_ptr = 0;
@@ -818,9 +824,9 @@ uint64_t ticks_a = 0;
 float own_speed = 720.0f;
 float own_r = 0.0f;
 uint32_t own_hp = 0;
-int collect(uintptr_t mgrPtr, obj_t *out, int capacity)
+int collect(uintptr_t mgrPtr, obj_t* out, int capacity)
 {
-    void *data = nullptr;
+    void* data = nullptr;
     int32_t count = 0;
     int usable = 0;
     uintptr_t gidOff = OBJ_GLOBALID_OFF;
@@ -850,8 +856,8 @@ int collect(uintptr_t mgrPtr, obj_t *out, int capacity)
     walkSeq = seq;
     for (int32_t i = 0; i < count && usable < capacity; i++)
     {
-        void *element = nullptr;
-        void *vtable = nullptr;
+        void* element = nullptr;
+        void* vtable = nullptr;
         obj_t entry;
         uintptr_t vtRva = 0;
         memset(&entry, 0, sizeof(entry));
@@ -859,8 +865,7 @@ int collect(uintptr_t mgrPtr, obj_t *out, int capacity)
         {
             break;
         }
-        if (!read_ptr((uintptr_t)data + (uintptr_t)i * sizeof(void *),
-                      &element))
+        if (!read_ptr((uintptr_t)data + (uintptr_t)i * sizeof(void*), &element))
         {
             continue;
         }
@@ -961,7 +966,7 @@ BOOL start_word(uint32_t word)
     }
     return NO;
 }
-BOOL start_boundary(const uint8_t *bytes, size_t offset)
+BOOL start_boundary(const uint8_t* bytes, size_t offset)
 {
     if (offset < 4)
     {
@@ -1004,7 +1009,7 @@ void load_function_starts(void)
     {
         return;
     }
-    uint8_t *bytes = (uint8_t *)malloc((size_t)textSize);
+    uint8_t* bytes = (uint8_t*)malloc((size_t)textSize);
     if (!bytes)
     {
         return;
@@ -1015,7 +1020,7 @@ void load_function_starts(void)
         return;
     }
     size_t capacity = 32768;
-    uintptr_t *startList = (uintptr_t *)malloc(capacity * sizeof(uintptr_t));
+    uintptr_t* startList = (uintptr_t*)malloc(capacity * sizeof(uintptr_t));
     if (!startList)
     {
         free(bytes);
@@ -1037,8 +1042,8 @@ void load_function_starts(void)
         if (count >= capacity)
         {
             size_t grown = capacity * 2;
-            uintptr_t *larger =
-                (uintptr_t *)realloc(startList, grown * sizeof(uintptr_t));
+            uintptr_t* larger =
+                (uintptr_t*)realloc(startList, grown * sizeof(uintptr_t));
             if (!larger)
             {
                 break;
@@ -1057,7 +1062,7 @@ void load_function_starts(void)
     starts = startList;
     starts_count = count;
 }
-uintptr_t *starts = nullptr;
+uintptr_t* starts = nullptr;
 size_t starts_count = 0;
 uintptr_t setpred = 0;
 uintptr_t site = 0;
@@ -1069,8 +1074,8 @@ int32_t pub_count = 0;
 uintptr_t tick_object = 0;
 uintptr_t tick_array = 0;
 int32_t tick_count = 0;
-void publish(uintptr_t object, uintptr_t array, int32_t count, int32_t,
-             const char *)
+void publish(
+    uintptr_t object, uintptr_t array, int32_t count, int32_t, const char*)
 {
     __sync_synchronize();
     seq++;
@@ -1085,7 +1090,7 @@ void publish(uintptr_t object, uintptr_t array, int32_t count, int32_t,
     seq++;
     __sync_synchronize();
 }
-int snapshot(uintptr_t *objectOut, uintptr_t *arrayOut, int32_t *countOut)
+int snapshot(uintptr_t* objectOut, uintptr_t* arrayOut, int32_t* countOut)
 {
     int tries;
     for (tries = 0; tries < 8; tries++)
@@ -1180,7 +1185,7 @@ void slot_hooks_install(void)
             specs[i].rva = 0;
         }
     }
-    hooks_install(base, specs, 34, (void **)slot_orig);
+    hooks_install(base, specs, 34, (void**)slot_orig);
 }
 const int object_slots[3] = {2, 3, 4};
 int pub_logs = 0;
@@ -1209,7 +1214,7 @@ void slot_pump(void)
     }
     slot_adopted = object;
     {
-        void *vtable = nullptr;
+        void* vtable = nullptr;
         if (!(read_ptr(object, &vtable) && vtable &&
               vtable_in_image((uintptr_t)vtable)) &&
             !pointer_plausible((uintptr_t)vtable))
@@ -1219,8 +1224,14 @@ void slot_pump(void)
     }
 }
 slot_fn_t slot_orig[34] = {nullptr};
-uint64_t slot_repl_0(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_0(void* a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[0])
     {
@@ -1228,8 +1239,14 @@ uint64_t slot_repl_0(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_1(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_1(void* a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[1])
     {
@@ -1237,8 +1254,14 @@ uint64_t slot_repl_1(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_2(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_2(void* a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[2])
     {
@@ -1246,8 +1269,14 @@ uint64_t slot_repl_2(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_3(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_3(void* a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[3])
     {
@@ -1255,8 +1284,14 @@ uint64_t slot_repl_3(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_4(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_4(void* a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[4])
     {
@@ -1264,8 +1299,14 @@ uint64_t slot_repl_4(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_5(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_5(void* a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[5])
     {
@@ -1273,8 +1314,14 @@ uint64_t slot_repl_5(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_6(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_6(void* a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[6])
     {
@@ -1282,8 +1329,14 @@ uint64_t slot_repl_6(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_7(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_7(void* a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[7])
     {
@@ -1291,8 +1344,14 @@ uint64_t slot_repl_7(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_8(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_8(void* a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[8])
     {
@@ -1300,8 +1359,14 @@ uint64_t slot_repl_8(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_9(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_9(void* a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[9])
     {
@@ -1309,8 +1374,14 @@ uint64_t slot_repl_9(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_10(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_10(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[10])
     {
@@ -1318,8 +1389,14 @@ uint64_t slot_repl_10(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_11(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_11(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[11])
     {
@@ -1327,8 +1404,14 @@ uint64_t slot_repl_11(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_12(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_12(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[12])
     {
@@ -1336,8 +1419,14 @@ uint64_t slot_repl_12(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_13(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_13(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[13])
     {
@@ -1345,8 +1434,14 @@ uint64_t slot_repl_13(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_14(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_14(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[14])
     {
@@ -1354,8 +1449,14 @@ uint64_t slot_repl_14(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_15(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_15(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[15])
     {
@@ -1363,8 +1464,14 @@ uint64_t slot_repl_15(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_16(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_16(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[16])
     {
@@ -1372,8 +1479,14 @@ uint64_t slot_repl_16(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_17(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_17(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[17])
     {
@@ -1381,8 +1494,14 @@ uint64_t slot_repl_17(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_18(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_18(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[18])
     {
@@ -1390,8 +1509,14 @@ uint64_t slot_repl_18(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_19(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_19(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[19])
     {
@@ -1399,8 +1524,14 @@ uint64_t slot_repl_19(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_20(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_20(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[20])
     {
@@ -1408,8 +1539,14 @@ uint64_t slot_repl_20(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_21(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_21(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[21])
     {
@@ -1417,8 +1554,14 @@ uint64_t slot_repl_21(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_22(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_22(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[22])
     {
@@ -1426,8 +1569,14 @@ uint64_t slot_repl_22(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_23(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_23(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[23])
     {
@@ -1435,8 +1584,14 @@ uint64_t slot_repl_23(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_24(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_24(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[24])
     {
@@ -1444,8 +1599,14 @@ uint64_t slot_repl_24(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_25(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_25(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[25])
     {
@@ -1453,8 +1614,14 @@ uint64_t slot_repl_25(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_26(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_26(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[26])
     {
@@ -1462,8 +1629,14 @@ uint64_t slot_repl_26(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_27(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_27(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[27])
     {
@@ -1471,8 +1644,14 @@ uint64_t slot_repl_27(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_28(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_28(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[28])
     {
@@ -1480,8 +1659,14 @@ uint64_t slot_repl_28(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_29(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_29(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[29])
     {
@@ -1489,8 +1674,14 @@ uint64_t slot_repl_29(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_30(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_30(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[30])
     {
@@ -1498,8 +1689,14 @@ uint64_t slot_repl_30(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_31(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_31(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     if (slot_orig[31])
     {
@@ -1507,8 +1704,14 @@ uint64_t slot_repl_31(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return 0;
 }
-uint64_t slot_repl_32(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_32(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     uint64_t r = 0;
     if (slot_orig[32])
@@ -1517,8 +1720,14 @@ uint64_t slot_repl_32(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     }
     return r;
 }
-uint64_t slot_repl_33(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                      uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7)
+uint64_t slot_repl_33(void* a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7)
 {
     uint64_t r = 0;
     if (slot_orig[33])
@@ -1528,51 +1737,51 @@ uint64_t slot_repl_33(void *a0, uint64_t a1, uint64_t a2, uint64_t a3,
     return r;
 }
 const hook_t slot_specs[34] = {
-    {SLOT_RVA_0, (void *)slot_repl_0, 0},
-    {SLOT_RVA_1, (void *)slot_repl_1, 0},
-    {SLOT_NONE, (void *)slot_repl_2, 0},
-    {SLOT_NONE, (void *)slot_repl_3, 0},
-    {SLOT_NONE, (void *)slot_repl_4, 0},
-    {SLOT_RVA_5, (void *)slot_repl_5, 1},
-    {0, (void *)slot_repl_6, 1},
-    {SLOT_NONE, (void *)slot_repl_7, 0},
-    {SLOT_NONE, (void *)slot_repl_8, 0},
-    {SLOT_NONE, (void *)slot_repl_9, 0},
-    {SLOT_NONE, (void *)slot_repl_10, 0},
-    {SLOT_RVA_11, (void *)slot_repl_11, 0},
-    {SLOT_NONE, (void *)slot_repl_12, 1},
-    {SLOT_RVA_13, (void *)slot_repl_13, 0},
-    {SLOT_RVA_14, (void *)slot_repl_14, 0},
-    {SLOT_NONE, (void *)slot_repl_15, 0},
-    {SLOT_RVA_16, (void *)slot_repl_16, 0},
-    {SLOT_RVA_17, (void *)slot_repl_17, 1},
-    {SLOT_RVA_18, (void *)slot_repl_18, 1},
-    {SLOT_RVA_19, (void *)slot_repl_19, 0},
-    {SLOT_RVA_20, (void *)slot_repl_20, 0},
-    {SLOT_NONE, (void *)slot_repl_21, 0},
-    {SLOT_NONE, (void *)slot_repl_22, 0},
-    {SLOT_RVA_23, (void *)slot_repl_23, 0},
-    {SLOT_RVA_24, (void *)slot_repl_24, 0},
-    {0, (void *)slot_repl_25, 0},
-    {0, (void *)slot_repl_26, 0},
-    {SLOT_NONE, (void *)slot_repl_27, 0},
-    {SLOT_RVA_28, (void *)slot_repl_28, 0},
-    {SLOT_RVA_29, (void *)slot_repl_29, 0},
-    {SLOT_RVA_30, (void *)slot_repl_30, 0},
-    {SLOT_RVA_31, (void *)slot_repl_31, 0},
-    {SLOT_NONE, (void *)slot_repl_32, 0},
-    {RVA_BATTLESCREEN__UPDATEMOVEMENT, (void *)slot_repl_33, 0},
+    {SLOT_RVA_0, (void*)slot_repl_0, 0},
+    {SLOT_RVA_1, (void*)slot_repl_1, 0},
+    {SLOT_NONE, (void*)slot_repl_2, 0},
+    {SLOT_NONE, (void*)slot_repl_3, 0},
+    {SLOT_NONE, (void*)slot_repl_4, 0},
+    {SLOT_RVA_5, (void*)slot_repl_5, 1},
+    {0, (void*)slot_repl_6, 1},
+    {SLOT_NONE, (void*)slot_repl_7, 0},
+    {SLOT_NONE, (void*)slot_repl_8, 0},
+    {SLOT_NONE, (void*)slot_repl_9, 0},
+    {SLOT_NONE, (void*)slot_repl_10, 0},
+    {SLOT_RVA_11, (void*)slot_repl_11, 0},
+    {SLOT_NONE, (void*)slot_repl_12, 1},
+    {SLOT_RVA_13, (void*)slot_repl_13, 0},
+    {SLOT_RVA_14, (void*)slot_repl_14, 0},
+    {SLOT_NONE, (void*)slot_repl_15, 0},
+    {SLOT_RVA_16, (void*)slot_repl_16, 0},
+    {SLOT_RVA_17, (void*)slot_repl_17, 1},
+    {SLOT_RVA_18, (void*)slot_repl_18, 1},
+    {SLOT_RVA_19, (void*)slot_repl_19, 0},
+    {SLOT_RVA_20, (void*)slot_repl_20, 0},
+    {SLOT_NONE, (void*)slot_repl_21, 0},
+    {SLOT_NONE, (void*)slot_repl_22, 0},
+    {SLOT_RVA_23, (void*)slot_repl_23, 0},
+    {SLOT_RVA_24, (void*)slot_repl_24, 0},
+    {0, (void*)slot_repl_25, 0},
+    {0, (void*)slot_repl_26, 0},
+    {SLOT_NONE, (void*)slot_repl_27, 0},
+    {SLOT_RVA_28, (void*)slot_repl_28, 0},
+    {SLOT_RVA_29, (void*)slot_repl_29, 0},
+    {SLOT_RVA_30, (void*)slot_repl_30, 0},
+    {SLOT_RVA_31, (void*)slot_repl_31, 0},
+    {SLOT_NONE, (void*)slot_repl_32, 0},
+    {RVA_BATTLESCREEN__UPDATEMOVEMENT, (void*)slot_repl_33, 0},
 };
 int state_tick(void)
 {
     uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
     int32_t state = -1;
-    void *value = nullptr;
+    void* value = nullptr;
     uintptr_t scene = 0;
     uintptr_t clientPtr = 0;
     uintptr_t inner = 0;
     uintptr_t players = 0;
-    void *array = nullptr;
+    void* array = nullptr;
     int32_t count = 0;
     int32_t capacity = 0;
     uintptr_t hopArray[2] = {0};
@@ -1654,7 +1863,7 @@ int state_tick(void)
     }
     if (WIRE_OWNER && owner)
     {
-        void *directArray = nullptr;
+        void* directArray = nullptr;
         int32_t directCount = 0;
         if (read_ptr(owner + MGR_ARRAY_OFF, &directArray) && directArray &&
             read_int(owner + MGR_COUNT_OFF, &directCount) && directCount > 0)
@@ -1675,7 +1884,7 @@ int state_tick(void)
         return 1;
     }
     players = (chosen == 1) ? inner : clientPtr;
-    array = (void *)hopArray[chosen];
+    array = (void*)hopArray[chosen];
     count = hopCount[chosen];
     capacity = hopCap[chosen];
     hop_chosen = chosen;
@@ -1709,7 +1918,9 @@ void start_timer(void)
     }
     uint64_t interval = (uint64_t)(1.0 * NSEC_PER_SEC);
     dispatch_source_set_timer(
-        timer, dispatch_time(DISPATCH_TIME_NOW, (int64_t)interval), interval,
+        timer,
+        dispatch_time(DISPATCH_TIME_NOW, (int64_t)interval),
+        interval,
         (uint64_t)(0.25 * NSEC_PER_SEC));
     dispatch_source_set_event_handler(timer, ^{
       slot_pump();
@@ -1725,14 +1936,12 @@ typedef int32_t (*fn1i)(uintptr_t);
 typedef float (*fn1f)(uintptr_t);
 static uintptr_t call1(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !self)
-        return 0;
+    if (!fn || !self) return 0;
     return ((fn1)fn)(self);
 }
 static int32_t call1i(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !self)
-        return 0;
+    if (!fn || !self) return 0;
     return ((fn1i)fn)(self);
 }
 uintptr_t manager_array_ptr = 0;
@@ -1749,7 +1958,7 @@ void scan_world(void)
     uintptr_t ownData = 0;
     uintptr_t mgrPtr = 0;
     uintptr_t array = 0;
-    void *value = nullptr;
+    void* value = nullptr;
     int32_t count = 0;
     int32_t ownIndex = -1;
     int32_t ownTeam = -1;
@@ -1757,8 +1966,7 @@ void scan_world(void)
     int32_t y = 0;
     int32_t hp = 0;
     dbg.stage = 0;
-    if (!base)
-        return;
+    if (!base) return;
     clientPtr = controller();
     if (!clientPtr)
     {
@@ -1846,10 +2054,8 @@ void scan_world(void)
                 addr_charradius ? call1i(addr_charradius, ownData) : 0;
             int32_t speed =
                 addr_charspeed ? call1i(addr_charspeed, ownData) : 0;
-            if (radius >= 20 && radius <= 400)
-                own_r = (float)radius;
-            if (speed >= 300 && speed <= 3000)
-                own_speed = (float)speed;
+            if (radius >= 20 && radius <= 400) own_r = (float)radius;
+            if (speed >= 300 && speed <= 3000) own_speed = (float)speed;
         }
     }
     if (!read_ptr(clientPtr + (uintptr_t)MODE_MANAGER_OFF, &value) || !value)
@@ -1870,8 +2076,7 @@ void scan_world(void)
         dbg.stage = 5;
         return;
     }
-    if (count > COUNT_MAX)
-        count = COUNT_MAX;
+    if (count > COUNT_MAX) count = COUNT_MAX;
     manager_array_ptr = array;
     manager_count_v = count;
     dbg.stage = 6;
@@ -1930,11 +2135,9 @@ static void start_hot_timer(void)
         return;
     }
     interval = (uint64_t)(HOT_INTERVAL_US * NSEC_PER_USEC);
-    dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, 0),
-                              interval, 0);
-    dispatch_source_set_event_handler(timer, ^{
-      objc_body();
-    });
+    dispatch_source_set_timer(
+        timer, dispatch_time(DISPATCH_TIME_NOW, 0), interval, 0);
+    dispatch_source_set_event_handler(timer, ^{ objc_body(); });
     dispatch_resume(timer);
     hot_timer = timer;
 }
@@ -1957,9 +2160,9 @@ int prev_state = -1;
 int hop_chosen = -1;
 int hop_sticky = 0;
 uintptr_t scan_container = 0;
-int element_type(uintptr_t vt, uintptr_t *wordOut)
+int element_type(uintptr_t vt, uintptr_t* wordOut)
 {
-    void *slotPtr = nullptr;
+    void* slotPtr = nullptr;
     uintptr_t slot = 0;
     if (wordOut)
     {
@@ -2001,10 +2204,12 @@ int element_type(uintptr_t vt, uintptr_t *wordOut)
     }
 }
 uintptr_t hop_scene = 0;
-int container_header(uintptr_t object, uintptr_t *arrayOut, int32_t *countOut,
-                     int32_t *capOut)
+int container_header(uintptr_t object,
+                     uintptr_t* arrayOut,
+                     int32_t* countOut,
+                     int32_t* capOut)
 {
-    void *array = nullptr;
+    void* array = nullptr;
     if (arrayOut)
     {
         *arrayOut = 0;
@@ -2048,7 +2253,7 @@ int32_t gid_at(uintptr_t element, uintptr_t off)
     }
     return 0;
 }
-int32_t gid(uintptr_t element, int32_t *offOut)
+int32_t gid(uintptr_t element, int32_t* offOut)
 {
     int32_t projGid = 0;
     int32_t alt = 0;
@@ -2082,7 +2287,7 @@ int last_choice = -2;
 int hop_logs = 0;
 int container_score(uintptr_t container)
 {
-    void *array = nullptr;
+    void* array = nullptr;
     int32_t count = 0;
     int32_t own = -1;
     int32_t ownTeam = -1;
@@ -2124,7 +2329,7 @@ int container_score(uintptr_t container)
     }
     for (i = 0; i < count && samples < 4; i++)
     {
-        void *element = nullptr;
+        void* element = nullptr;
         if (!read_ptr((uintptr_t)array + (uintptr_t)i * 8ULL, &element) ||
             !element)
         {
@@ -2149,7 +2354,7 @@ int container_score(uintptr_t container)
             posOk++;
             for (j = 0; j < i; j++)
             {
-                void *other = nullptr;
+                void* other = nullptr;
                 if (!read_ptr((uintptr_t)array + (uintptr_t)j * 8ULL, &other) ||
                     !other)
                 {
@@ -2243,7 +2448,7 @@ void resolve_addresses(void)
     addr_projspeed = callable(RVA_LOGICPROJECTILEDATA_GETSPEED);
     addr_projradius = callable(RVA_LOGICPROJECTILEDATA_GETRADIUS);
     addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
-    if (!addr_readable(addr_battlescreen, sizeof(void *)))
+    if (!addr_readable(addr_battlescreen, sizeof(void*)))
     {
         addr_battlescreen = 0;
     }
@@ -2281,7 +2486,7 @@ int team_off = (int)OBJ_TEAM_OFF;
 int gidless = 0;
 void gidless_scan(uintptr_t mgrPtr)
 {
-    void *data = nullptr;
+    void* data = nullptr;
     int32_t count = 0;
     int32_t i = 0;
     int seen = 0;
@@ -2305,7 +2510,7 @@ void gidless_scan(uintptr_t mgrPtr)
     }
     for (i = 0; i < count && i < 8; i++)
     {
-        void *element = nullptr;
+        void* element = nullptr;
         if (!read_ptr((uintptr_t)data + (uintptr_t)i * 8ULL, &element) ||
             !element)
         {
@@ -2336,8 +2541,8 @@ uintptr_t list_gid_off(uintptr_t array, int32_t count)
     }
     for (i = 0; i < count && i < 4; i++)
     {
-        void *element = nullptr;
-        if (!read_ptr(array + (uintptr_t)i * sizeof(void *), &element) ||
+        void* element = nullptr;
+        if (!read_ptr(array + (uintptr_t)i * sizeof(void*), &element) ||
             !element)
         {
             continue;
@@ -2429,10 +2634,10 @@ void proj_track(uintptr_t elem, uintptr_t, int32_t, int32_t)
     }
     memcpy(proj_bytes, now, sizeof(now));
 }
-uintptr_t hop(uintptr_t imageBase, int *whyOut)
+uintptr_t hop(uintptr_t imageBase, int* whyOut)
 {
-    void *p = nullptr;
-    void *q = nullptr;
+    void* p = nullptr;
+    void* q = nullptr;
     if (whyOut)
     {
         *whyOut = 0;
@@ -2466,7 +2671,7 @@ uintptr_t hop(uintptr_t imageBase, int *whyOut)
 int scene_live(void)
 {
     uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
-    void *value = nullptr;
+    void* value = nullptr;
     int32_t state = -1;
     if (!scene_object || !slot)
     {
@@ -2484,7 +2689,7 @@ int scene_live(void)
 }
 uintptr_t client(void)
 {
-    void *clientPtr = nullptr;
+    void* clientPtr = nullptr;
     if (!scene_object || !scene_live())
     {
         return 0;
@@ -2514,10 +2719,10 @@ proj_t projs[16];
 proj_death_t proj_deaths[16];
 int proj_death_n = 0;
 static char proj_name_buf[16][64];
-static int proj_read_name(uintptr_t data, char *dst, int cap)
+static int proj_read_name(uintptr_t data, char* dst, int cap)
 {
-    void *strp = nullptr;
-    void *farp = nullptr;
+    void* strp = nullptr;
+    void* farp = nullptr;
     uintptr_t str = 0;
     uintptr_t src = 0;
     int32_t len = 0;
@@ -2557,11 +2762,13 @@ static int proj_read_name(uintptr_t data, char *dst, int cap)
     dst[len] = 0;
     return 1;
 }
-int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
+int proj_scan(uintptr_t mgrPtr,
+              int32_t count,
+              const obj_t* rosterArr,
               int rosterUsable)
 {
     int32_t ownerTeam[64];
-    void *array = nullptr;
+    void* array = nullptr;
     int found = 0;
     int k;
     int32_t i;
@@ -2606,8 +2813,8 @@ int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
     }
     for (i = 0; i < count && found < 16; i++)
     {
-        void *element = nullptr;
-        void *vtable = nullptr;
+        void* element = nullptr;
+        void* vtable = nullptr;
         uintptr_t vtRva = 0;
         int32_t projGid = 0;
         int32_t px = 0;
@@ -2744,7 +2951,7 @@ int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
             }
         }
         {
-            void *def = nullptr;
+            void* def = nullptr;
             uint8_t indirect = 0;
             projs[slot].name = nullptr;
             projs[slot].angle = 0.0f;
@@ -2764,7 +2971,8 @@ int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
                     projs[slot].name = proj_name_buf[slot];
                 }
                 if (read_bytes((uintptr_t)def + (uintptr_t)PROJ_ISTHROWER_OFF,
-                               &indirect, sizeof(indirect)))
+                               &indirect,
+                               sizeof(indirect)))
                 {
                     projs[slot].isThrower = indirect ? 1 : 0;
                 }
@@ -2772,7 +2980,8 @@ int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
                     uint8_t beam = 0;
                     if (read_bytes((uintptr_t)def +
                                        (uintptr_t)OFF_PROJECTILEDATA_ISBEAM,
-                                   &beam, sizeof(beam)))
+                                   &beam,
+                                   sizeof(beam)))
                     {
                         projs[slot].isBeam = beam ? 1 : 0;
                     }
@@ -2788,7 +2997,7 @@ int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
                     }
                 }
                 {
-                    void *area = nullptr;
+                    void* area = nullptr;
                     if (read_ptr((uintptr_t)def +
                                      (uintptr_t)OFF_PROJECTILEDATA_SPAWNAREA,
                                  &area) &&
@@ -2828,8 +3037,7 @@ int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
         if (projs[slot].hasPrev && nowMs > projs[slot].pms)
         {
             float dt = (float)(nowMs - projs[slot].pms);
-            if (dt < 1.0f)
-                dt = 1.0f;
+            if (dt < 1.0f) dt = 1.0f;
             projs[slot].vx = (float)(px - projs[slot].px) * 1000.0f / dt;
             projs[slot].vy = (float)(py - projs[slot].py) * 1000.0f / dt;
         }
@@ -2848,7 +3056,7 @@ int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
         }
         if (projs[k].elem && projs[k].name && proj_death_n < 16)
         {
-            proj_death_t *rec = &proj_deaths[proj_death_n];
+            proj_death_t* rec = &proj_deaths[proj_death_n];
             rec->name = projs[k].name;
             rec->angle = projs[k].angle;
             rec->spawnX = projs[k].spawnX;
@@ -2864,7 +3072,7 @@ int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t *rosterArr,
     return found;
 }
 static int ctrl_logs = 0;
-static int bounds_try(uintptr_t receiver, int32_t *wOut, int32_t *hOut)
+static int bounds_try(uintptr_t receiver, int32_t* wOut, int32_t* hOut)
 {
     uintptr_t bounds = 0;
     int32_t mapW = 0;
@@ -2878,7 +3086,7 @@ static int bounds_try(uintptr_t receiver, int32_t *wOut, int32_t *hOut)
         return 0;
     }
     {
-        void *box = nullptr;
+        void* box = nullptr;
         if (!read_ptr(receiver + (uintptr_t)BOX_PTR_OFF, &box))
         {
             return 0;
@@ -2915,7 +3123,7 @@ static int bounds_try(uintptr_t receiver, int32_t *wOut, int32_t *hOut)
     }
     return 1;
 }
-int ctrl_bounds(uintptr_t imageBase, int32_t *wOut, int32_t *hOut)
+int ctrl_bounds(uintptr_t imageBase, int32_t* wOut, int32_t* hOut)
 {
     if (!imageBase)
     {
@@ -2942,9 +3150,9 @@ uintptr_t controller(void)
     }
     return clientPtr;
 }
-const char *header_reason(uintptr_t mgrPtr, int32_t *countOut, int32_t *capOut)
+const char* header_reason(uintptr_t mgrPtr, int32_t* countOut, int32_t* capOut)
 {
-    void *array = nullptr;
+    void* array = nullptr;
     int32_t count = 0;
     int32_t capacity = 0;
     if (countOut)
@@ -3005,11 +3213,17 @@ const char *header_reason(uintptr_t mgrPtr, int32_t *countOut, int32_t *capOut)
     }
     return nullptr;
 }
-uintptr_t coord_x_off(void) { return OBJ_X_OFF; }
-uintptr_t coord_y_off(void) { return OBJ_Y_OFF; }
+uintptr_t coord_x_off(void)
+{
+    return OBJ_X_OFF;
+}
+uintptr_t coord_y_off(void)
+{
+    return OBJ_Y_OFF;
+}
 trail_t trail[8];
 uintptr_t scene_object = 0;
-int team_at(const obj_t *objects, int index)
+int team_at(const obj_t* objects, int index)
 {
     if (!objects || index < 0)
     {
@@ -3064,7 +3278,7 @@ int own_side_spawn(int32_t sx, int32_t sy)
 }
 uintptr_t own_ptr = 0;
 int own_index = -1;
-const char *own_from = "none";
+const char* own_from = "none";
 uintptr_t players_object = 0;
 uintptr_t players_array = 0;
 int players_count = 0;
@@ -3082,7 +3296,10 @@ int team_trust = 1;
 int32_t enemy_x[12];
 int32_t enemy_y[12];
 int enemy_n = 0;
-void roster(uintptr_t ownElem, int ownIndex, int ownTeam, const obj_t *objects,
+void roster(uintptr_t ownElem,
+            int ownIndex,
+            int ownTeam,
+            const obj_t* objects,
             int usable)
 {
     int i = 0;
@@ -3244,8 +3461,10 @@ int own_index_3 = -1;
 uintptr_t own_elem = 0;
 int32_t own_gid = 0;
 int no_source_passes = 0;
-int resolve_own_fallback(const obj_t *objects, int usable, int *indexOut,
-                         const char **fromOut)
+int resolve_own_fallback(const obj_t* objects,
+                         int usable,
+                         int* indexOut,
+                         const char** fromOut)
 {
     if (indexOut)
     {

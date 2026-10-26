@@ -7,7 +7,9 @@ extern "C"
 {
 #endif
     typedef void (*objc_body_t)(void);
-    int objc_arm(uintptr_t imageBase, const char *clsName, const char *selName,
+    int objc_arm(uintptr_t imageBase,
+                 const char* clsName,
+                 const char* selName,
                  objc_body_t body);
 #ifdef __cplusplus
 }
