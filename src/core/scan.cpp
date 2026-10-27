@@ -1,5 +1,4 @@
 #include <dispatch/dispatch.h>
-#include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -343,115 +342,35 @@ BOOL text_section(uintptr_t* address, uint64_t* size)
     }
     return NO;
 }
-BOOL valid_header(uintptr_t imageBase)
-{
-    if (!imageBase)
-    {
-        return NO;
-    }
-    struct mach_header_64 header;
-    if (!pointer_plausible(imageBase))
-    {
-        return NO;
-    }
-    if (!read_bytes(imageBase, &header, sizeof(header)))
-    {
-        return NO;
-    }
-    if (header.magic != MH_MAGIC_64)
-    {
-        return NO;
-    }
-    if (header.ncmds == 0 || header.ncmds > 4096)
-    {
-        return NO;
-    }
-    if (header.sizeofcmds == 0)
-    {
-        return NO;
-    }
-    if (header.sizeofcmds > (4u * 1024u * 1024u))
-    {
-        return NO;
-    }
-    if (!image_text_contains(imageBase, imageBase + IMAGE_TEXT_WINDOW))
-    {
-        return NO;
-    }
-    return YES;
-}
-static BOOL contains_ci(const char* haystack, const char* needle)
-{
-    const char* p = NULL;
-    if (!haystack || !needle || !needle[0])
-    {
-        return NO;
-    }
-    for (p = haystack; *p; p++)
-    {
-        const char* a = p;
-        const char* b = needle;
-        while (*a && *b)
-        {
-            char ca = *a;
-            char cb = *b;
-            if (ca >= 'A' && ca <= 'Z')
-            {
-                ca = (char)(ca + 32);
-            }
-            if (cb >= 'A' && cb <= 'Z')
-            {
-                cb = (char)(cb + 32);
-            }
-            if (ca != cb)
-            {
-                break;
-            }
-            a++;
-            b++;
-        }
-        if (*b == 0)
-        {
-            return YES;
-        }
-    }
-    return NO;
-}
-static BOOL find_game_image_dyld(uintptr_t* out_base)
-{
-    uint32_t count = _dyld_image_count();
-    uint32_t i = 0;
-    if (count > 8192)
-    {
-        count = 8192;
-    }
-    for (i = 0; i < count; i++)
-    {
-        const char* path = _dyld_get_image_name(i);
-        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
-        if (!path || !imageBase)
-        {
-            continue;
-        }
-        if (!contains_ci(path, "nulls"))
-        {
-            continue;
-        }
-        if (!strstr(path, ".app"))
-        {
-            continue;
-        }
-        if (!valid_header(imageBase))
-        {
-            continue;
-        }
-        *out_base = imageBase;
-        return YES;
-    }
-    return NO;
-}
 void stage_note(const char* what);
 int gum_live = 0;
+static BOOL module_base_by_name(const char* name, uintptr_t* out_base)
+{
+    GumModule* module = NULL;
+    const GumMemoryRange* range = NULL;
+    uintptr_t found = 0;
+    if (!name || !name[0] || !out_base)
+    {
+        return NO;
+    }
+    module = gum_process_find_module_by_name(name);
+    if (!module)
+    {
+        return NO;
+    }
+    range = gum_module_get_range(module);
+    if (range)
+    {
+        found = (uintptr_t)range->base_address;
+    }
+    g_object_unref(module);
+    if (!found)
+    {
+        return NO;
+    }
+    *out_base = found;
+    return YES;
+}
 BOOL find_game_image(uintptr_t* out_base)
 {
     static int gum_ready = 0;
@@ -463,16 +382,18 @@ BOOL find_game_image(uintptr_t* out_base)
     if (!gum_ready)
     {
         stage_note("stage gum_init begin\n");
+        gum_process_set_teardown_requirement(GUM_TEARDOWN_REQUIREMENT_MINIMAL);
         gum_init_embedded();
         gum_ready = 1;
         gum_live = 1;
         stage_note("stage gum_init end\n");
     }
-    if (!find_game_image_dyld(&found))
+    stage_note("stage module_find begin\n");
+    if (!module_base_by_name(image_names[0], &found))
     {
         return NO;
     }
-    stage_note("stage dyld_find end found=1\n");
+    stage_note("stage module_find end found=1\n");
     *out_base = found;
     return YES;
 }

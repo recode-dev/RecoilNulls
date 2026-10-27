@@ -103,7 +103,6 @@ void* read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 BOOL copy(uintptr_t source, void* destination, size_t length);
 BOOL text_section(uintptr_t* address, uint64_t* size);
-BOOL valid_header(uintptr_t imageBase);
 BOOL find_game_image(uintptr_t* out_base);
 const char* image_segment_name(uintptr_t value);
 BOOL vtable_shaped(uintptr_t value);
