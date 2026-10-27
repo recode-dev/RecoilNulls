@@ -87,6 +87,20 @@ void line(const char* format, ...)
     vfprintf(g_file, format, args);
     va_end(args);
 }
+void write_crash_marks(const char* format, ...)
+{
+    va_list args;
+    FILE* f = nullptr;
+    if (g_path[0] == 0) return;
+    if (g_file != nullptr) fflush(g_file);
+    f = fopen(g_path, "a");
+    if (f == nullptr) return;
+    va_start(args, format);
+    vfprintf(f, format, args);
+    va_end(args);
+    fflush(f);
+    fclose(f);
+}
 void dump_header(void)
 {
     line("\n########## header ##########\n");
@@ -411,11 +425,23 @@ void tick(void)
          (unsigned long long)(g_lastMs ? now - g_lastMs : 0),
          (unsigned long long)scan,
          g_rate);
+    write_crash_marks("[crash-mark] tick=%llu stage=chain\n", g_ticks);
     dump_chain();
+    write_crash_marks("[crash-mark] tick=%llu stage=own\n", g_ticks);
     dump_own();
+    write_crash_marks("[crash-mark] tick=%llu stage=ad\n", g_ticks);
     dump_ad();
-    if ((g_ticks % 4) == 0) dump_objects();
-    if ((g_ticks % RAW_EVERY) == 0) dump_raw();
+    if ((g_ticks % 4) == 0)
+    {
+        write_crash_marks("[crash-mark] tick=%llu stage=objects\n", g_ticks);
+        dump_objects();
+    }
+    if ((g_ticks % RAW_EVERY) == 0)
+    {
+        write_crash_marks("[crash-mark] tick=%llu stage=raw\n", g_ticks);
+        dump_raw();
+    }
+    write_crash_marks("[crash-mark] tick=%llu stage=done\n", g_ticks);
     if ((g_ticks % 50) == 0) dump_header();
     g_lastMs = now;
     g_lastScan = scan;
