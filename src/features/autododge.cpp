@@ -17,6 +17,7 @@ static struct
     float MOMENTUM = 55.0f;
     float SWITCH_MARGIN = 120.0f;
     float SWITCH_MIN = 40.0f;
+    float TURN_DOT = -0.2f;
     float ENGAGE = 100.0f;
     uint32_t RELEASE_GRACE_MS = 200;
     float COAST_S = 0.2f;
@@ -387,15 +388,31 @@ void autododge(void)
     int bestIdx = 0;
     float bestScore = -1e18f;
     float prevScore = -1e18f;
+    if (prevIdx >= 0)
+    {
+        prevScore =
+            clearanceFor(threats, mx, my, CHAR_SPEED * prevDir.x, CHAR_SPEED * prevDir.y);
+        prevScore -= wallAhead(mx, my, prevDir, CHAR_SPEED, bodyR);
+        if (hasPrevDir)
+        {
+            prevScore += TUNE.MOMENTUM;
+        }
+    }
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
         const V2& d = g_ring[i];
-        float s =
-            clearanceFor(threats, mx, my, CHAR_SPEED * d.x, CHAR_SPEED * d.y);
+        bool forward = (d.x * prevDir.x + d.y * prevDir.y) >= TUNE.TURN_DOT;
+        float s = 0.0f;
+        if (prevScore > 0.0f && hasPrevDir && !forward)
+        {
+            continue;
+        }
+        s = clearanceFor(threats, mx, my, CHAR_SPEED * d.x, CHAR_SPEED * d.y);
         s -= wallAhead(mx, my, d, CHAR_SPEED, bodyR);
         if (hasPrevDir)
+        {
             s += TUNE.MOMENTUM * (d.x * prevDir.x + d.y * prevDir.y);
-        if (i == prevIdx) prevScore = s;
+        }
         if (s > bestScore)
         {
             bestScore = s;
