@@ -48,16 +48,17 @@ struct Threat
 };
 struct ProjectileState
 {
-    float dirX, dirY;
+    float vx, vy;
     float speed;
     float radius;
     uint64_t lastSeen;
-    float sampleX, sampleY;
-    uint64_t sampleTime;
+    int32_t lastX, lastY;
+    uint64_t lastTs;
     float spawnX, spawnY;
     float castRange;
     bool isIndirect;
     bool isBeam;
+    bool hasVelocity;
 };
 __thread int in_move = 0;
 int active = 0;
@@ -262,16 +263,15 @@ void autododge(void)
                     continue;
                 seen[pid] = true;
                 ProjectileState& state = g_proj_cache[pid];
+                int32_t ownerIdx = -1;
+                read_int(objPtr + OBJ_OWNERINDEX_OFF, &ownerIdx);
                 if (state.lastSeen == 0)
                 {
                     state.spawnX = px;
                     state.spawnY = py;
-                    state.sampleX = px;
-                    state.sampleY = py;
-                    state.sampleTime = now;
-                    int32_t ownerIdx = -1;
-                    read_int(objPtr + OBJ_OWNERINDEX_OFF, &ownerIdx);
-                    state.castRange = range_for_proj(dataPtr, ownerIdx);
+                    state.lastX = px_i;
+                    state.lastY = py_i;
+                    state.lastTs = now;
                     uint8_t ind = 0;
                     if (!read_byte(dataPtr + PROJ_ISTHROWER_OFF, &ind))
                     {
@@ -282,37 +282,43 @@ void autododge(void)
                         (call1i_local(addr_projbeam, dataPtr) != 0);
                     state.speed = (float)call1i_local(addr_projspeed, dataPtr);
                     state.radius = (float)call1i_local(addr_projradius, dataPtr);
-                    int32_t angleDegrees = -1;
-                    if (read_int(objPtr + PROJ_ANGLE_OFF, &angleDegrees) &&
-                        angleDegrees >= 0 && angleDegrees <= 360)
-                    {
-                        float angle =
-                            (float)angleDegrees * ((float)M_PI / 180.0f);
-                        state.dirX = cosf(angle);
-                        state.dirY = sinf(angle);
-                    }
+                    state.castRange = range_for_proj(dataPtr, ownerIdx);
                 }
-                else if (now - state.sampleTime >= 20)
+                else
                 {
-                    float ddx = px - state.sampleX;
-                    float ddy = py - state.sampleY;
-                    float distance = sqrtf(ddx * ddx + ddy * ddy);
-                    uint64_t elapsed = now - state.sampleTime;
-                    if (distance >= 6.0f && elapsed > 0)
+                    float dt = (float)(now - state.lastTs) / 1000.0f;
+                    float ddx = (float)px_i - (float)state.lastX;
+                    float ddy = (float)py_i - (float)state.lastY;
+                    if (dt > 0.002f && dt < 0.3f &&
+                        ddx * ddx + ddy * ddy >= 16.0f)
                     {
-                        state.dirX = ddx / distance;
-                        state.dirY = ddy / distance;
-                        state.speed = distance * 1000.0f / (float)elapsed;
-                        state.sampleX = px;
-                        state.sampleY = py;
-                        state.sampleTime = now;
+                        float observedX = ddx / dt;
+                        float observedY = ddy / dt;
+                        float alpha = state.hasVelocity ? 0.4f : 1.0f;
+                        state.vx = state.vx * (1.0f - alpha) + observedX * alpha;
+                        state.vy = state.vy * (1.0f - alpha) + observedY * alpha;
+                        state.hasVelocity = true;
                     }
-                }
-                if (state.radius <= 0.0f)
-                {
-                    continue;
+                    state.lastX = px_i;
+                    state.lastY = py_i;
+                    state.lastTs = now;
+                    if (state.castRange <= 0.0f)
+                    {
+                        state.castRange = range_for_proj(dataPtr, ownerIdx);
+                    }
                 }
                 state.lastSeen = now;
+                float radius = state.radius > 0.0f ? state.radius : 100.0f;
+                bool blob = !state.isBeam && !state.isIndirect &&
+                            state.speed > 0.0f && state.speed < 1600.0f;
+                float speedNow = sqrtf(state.vx * state.vx + state.vy * state.vy);
+                float ux = 0.0f;
+                float uy = 0.0f;
+                if (!blob && speedNow >= 1.0f)
+                {
+                    ux = state.vx / speedNow;
+                    uy = state.vy / speedNow;
+                }
                 float traveled =
                     sqrtf((px - state.spawnX) * (px - state.spawnX) +
                           (py - state.spawnY) * (py - state.spawnY));
@@ -326,52 +332,44 @@ void autododge(void)
                         continue;
                     }
                     float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) -
-                                bodyR - state.radius;
+                                bodyR - radius;
                     if (left < 0.85f * std::max(0.0f, gap))
                     {
                         continue;
                     }
                 }
-                bool blob = !state.isBeam && !state.isIndirect &&
-                            state.speed > 0 && state.speed < 1600;
+                if (!blob && !state.isIndirect && speedNow >= 1.0f)
+                {
+                    float playerAlong = (mx - px) * ux + (my - py) * uy;
+                    if (playerAlong < -50.0f) continue;
+                    float hX = px + ux * std::max(playerAlong, 0.0f);
+                    float hY = py + uy * std::max(playerAlong, 0.0f);
+                    if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES))
+                        continue;
+                    if (state.castRange > 0.0f && playerAlong > left + radius)
+                        continue;
+                }
                 Threat t;
                 t.x = px;
                 t.y = py;
-                t.vx = blob ? 0 : state.dirX * state.speed;
-                t.vy = blob ? 0 : state.dirY * state.speed;
-                t.rad = state.radius + bodyR + DEFAULT_PAD +
-                        state.radius * DEFAULT_GROW;
-                t.pathLen =
-                    state.castRange > 0.0f ? left + state.radius : 1e6f;
+                t.vx = blob ? 0.0f : state.vx;
+                t.vy = blob ? 0.0f : state.vy;
+                t.rad = radius + bodyR + DEFAULT_PAD + radius * DEFAULT_GROW;
+                t.pathLen = state.castRange > 0.0f ? left + radius : 1e6f;
                 t.left = left;
-                if (!blob && !state.isIndirect && state.speed >= 1.0f)
-                {
-                    float playerAlong =
-                        (mx - px) * state.dirX + (my - py) * state.dirY;
-                    if (playerAlong < -50.0f) continue;
-                    float hX = px + state.dirX * std::max(playerAlong, 0.0f);
-                    float hY = py + state.dirY * std::max(playerAlong, 0.0f);
-                    if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES))
-                        continue;
-                    if (state.castRange > 0.0f &&
-                        playerAlong > left + state.radius)
-                        continue;
-                }
                 float ax = px - mx;
                 float ay = py - my;
                 float along = 0.0f;
-                float hx = 0.0f;
-                float hy = 0.0f;
-                if (state.speed > 1.0f)
+                if (!blob && speedNow >= 1.0f)
                 {
-                    along = ax * state.dirX + ay * state.dirY;
+                    along = ax * ux + ay * uy;
                 }
                 if (along < 0.0f)
                 {
                     along = 0.0f;
                 }
-                hx = ax - state.dirX * along;
-                hy = ay - state.dirY * along;
+                float hx = ax - ux * along;
+                float hy = ay - uy * along;
                 if (hx * hx + hy * hy <= t.rad * t.rad)
                 {
                     hits++;
