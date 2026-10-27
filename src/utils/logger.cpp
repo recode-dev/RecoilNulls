@@ -13,6 +13,8 @@
 #include <limits>
 #include <unistd.h>
 
+void autododge_scanner_log(uint64_t now, const char* format, ...);
+
 extern int active;
 extern int moving;
 extern int32_t ad_target_x;
@@ -47,10 +49,33 @@ constexpr int MAX_THREATS = 32;
 constexpr int MAX_ENTITIES = 16;
 constexpr uintptr_t RAW_6C_OFF = 0x6C;
 
+constexpr float SPEED_SCALE = 1000.0f;
+constexpr float RADIUS_SCALE = 10.0f;
+constexpr float DT_MIN = 0.002f;
+constexpr float DT_MAX = 0.6f;
+constexpr float POS_DELTA_MIN_SQ = 16.0f;
+constexpr float VEL_ALPHA_NEW = 1.0f;
+constexpr float VEL_ALPHA_EXIST = 0.4f;
+constexpr int MAX_TRACK = 64;
+constexpr uint64_t TRACK_TTL_MS = 1000;
+
+struct Track
+{
+    uintptr_t data;
+    int32_t lastX, lastY;
+    uint64_t lastMs;
+    float vx, vy;
+    bool hasVelocity;
+};
+
+static Track tracks[MAX_TRACK];
+static int trackCount = 0;
+
 struct Thr
 {
     float x, y, vx, vy, rad;
     int32_t raw6c_i;
+    int32_t rawSpeed;
     float raw6c_f;
 };
 struct Ent
@@ -193,10 +218,72 @@ float dangerFor(
     return d > DANGER_MAX ? DANGER_MAX : d;
 }
 
+void resetVelocityTracks()
+{
+    trackCount = 0;
+}
+
+static Track* trackFor(uintptr_t data, int32_t px, int32_t py, uint64_t now)
+{
+    Track* slot = nullptr;
+    for (int i = 0; i < trackCount; i++)
+    {
+        if (tracks[i].data == data)
+        {
+            slot = &tracks[i];
+            break;
+        }
+    }
+    if (slot == nullptr)
+    {
+        int reuse = -1;
+        for (int i = 0; i < trackCount; i++)
+        {
+            if (now - tracks[i].lastMs > TRACK_TTL_MS)
+            {
+                reuse = i;
+                break;
+            }
+        }
+        if (reuse < 0)
+        {
+            if (trackCount < MAX_TRACK)
+                reuse = trackCount++;
+            else
+                reuse = 0;
+        }
+        slot = &tracks[reuse];
+        slot->data = data;
+        slot->lastX = px;
+        slot->lastY = py;
+        slot->lastMs = now;
+        slot->vx = 0.0f;
+        slot->vy = 0.0f;
+        slot->hasVelocity = false;
+        return slot;
+    }
+
+    float dt = (float)(now - slot->lastMs) / 1000.0f;
+    float ddx = (float)(px - slot->lastX);
+    float ddy = (float)(py - slot->lastY);
+    if (dt > DT_MIN && dt < DT_MAX && ddx * ddx + ddy * ddy >= POS_DELTA_MIN_SQ)
+    {
+        float alpha = slot->hasVelocity ? VEL_ALPHA_EXIST : VEL_ALPHA_NEW;
+        slot->vx = slot->vx * (SPEED_MIN - alpha) + (ddx / dt) * alpha;
+        slot->vy = slot->vy * (SPEED_MIN - alpha) + (ddy / dt) * alpha;
+        slot->hasVelocity = true;
+    }
+    slot->lastX = px;
+    slot->lastY = py;
+    slot->lastMs = now;
+    return slot;
+}
+
 void collectThreats(float mx, float my, float myRadius)
 {
     thrCount = 0;
     entCount = 0;
+    const uint64_t nowMs = static_cast<uint64_t>(g_get_real_time() / 1000);
     float zoneSq = AWARE * AWARE;
     uintptr_t projVt = base + static_cast<uintptr_t>(VTABLE_PROJ_DATA_RVA);
 
@@ -253,12 +340,17 @@ void collectThreats(float mx, float my, float myRadius)
         read_int(data + static_cast<uintptr_t>(PROJECTILEDATA_RADIUS_OFF),
                  &radius);
 
+        const Track* track = trackFor(data, px, py, nowMs);
+        float vx = track->hasVelocity ? track->vx : 0.0f;
+        float vy = track->hasVelocity ? track->vy : 0.0f;
+
         thr[thrCount].x = (float)px;
         thr[thrCount].y = (float)py;
-        thr[thrCount].vx = 0.0f;
-        thr[thrCount].vy = 0.0f;
-        thr[thrCount].rad = (float)radius + myRadius;
+        thr[thrCount].vx = vx;
+        thr[thrCount].vy = vy;
+        thr[thrCount].rad = (float)radius * RADIUS_SCALE + myRadius;
         thr[thrCount].raw6c_i = raw6c_i;
+        thr[thrCount].rawSpeed = speed;
         thr[thrCount].raw6c_f = raw6c_f;
         thrCount++;
     }
@@ -316,16 +408,19 @@ void dump_ad()
     line("[ad] thr=%d ent=%d near_ttc=%.3f\n", thrCount, entCount, minTtc);
 
     for (int i = 0; i < thrCount && i < 8; i++)
-        line("  t%d: (%.0f,%.0f) v=(%.0f,%.0f) r=%.0f tca=%.3f raw6c_i=%d "
-             "raw6c_f=%.3f\n",
+        line("  t%d: (%.0f,%.0f) v=(%.0f,%.0f) |v|=%.0f exp=%.0f r=%.0f "
+             "tca=%.3f raw6c_i=%d rs=%d raw6c_f=%.3f\n",
              i,
              thr[i].x,
              thr[i].y,
              thr[i].vx,
              thr[i].vy,
+             sqrtf(thr[i].vx * thr[i].vx + thr[i].vy * thr[i].vy),
+             (float)thr[i].rawSpeed * SPEED_SCALE,
              thr[i].rad,
              tcaFor(thr[i], mx, my),
              thr[i].raw6c_i,
+             thr[i].rawSpeed,
              thr[i].raw6c_f);
 
     float ex = 0.0f, ey = 0.0f;
@@ -409,7 +504,7 @@ static uintptr_t scan_call(uintptr_t fn, uintptr_t a, uintptr_t b)
     return ((fn_t)target)(a, b);
 }
 
-static void scan_projectile_data(bool newMatch)
+void scan_projectile_data(bool newMatch)
 {
     struct ScanStats
     {
@@ -741,6 +836,7 @@ void tick()
         last_ty = INT32_MAX;
         dodge_count = 0;
         hit_count = 0;
+        resetVelocityTracks();
     }
     line("\n--- t=%llu ---\n", ticks.load(std::memory_order_relaxed));
     dump_ad();
@@ -764,6 +860,18 @@ void start()
     dispatch_source_set_event_handler(timer, ^{ tick(); });
     dispatch_resume(timer);
 }
+}
+
+void autododge_scanner_log(uint64_t now, const char* format, ...)
+{
+    if (!format) return;
+    if (!file && !open_log()) return;
+    line("\n[SCANNER] t=%llu ", static_cast<unsigned long long>(now));
+    va_list args;
+    va_start(args, format);
+    vfprintf(file, format, args);
+    va_end(args);
+    fflush(file);
 }
 
 __attribute__((constructor)) static void logger_entry()

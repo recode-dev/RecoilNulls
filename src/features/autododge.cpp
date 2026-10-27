@@ -96,13 +96,21 @@ struct ProjectileState
     float spawnX, spawnY;
     int earlyTicks;
     uint64_t spawnedAt, lastSeen, lastTs;
-    int32_t lastX, lastY;
+    int32_t lastX, lastY, pid;
     bool isIndirect, isBeam, hasVelocity;
     int32_t rawSpeed, rawRadius, rawEarly;
 };
 
 static std::vector<ProjectileState> proj_cache_storage;
-static std::map<int, size_t> proj_cache_index;
+static std::map<int32_t, size_t> proj_cache_index;
+
+static void rebuild_projectile_cache_index()
+{
+    proj_cache_index.clear();
+    for (size_t i = 0; i < proj_cache_storage.size(); i++)
+        proj_cache_index[proj_cache_storage[i].pid] = i;
+}
+
 
 static std::vector<Body> bodies;
 static std::vector<Threat> threats;
@@ -308,22 +316,45 @@ void autododge()
 
     for (int i = 0; i < obj_count; i++)
     {
-        if (!obj_valid[i]) continue;
+        if (!obj_valid[i])
+        {
+            autododge_scanner_event(SCAN_AD_INVALID_SNAPSHOT);
+            continue;
+        }
         const uint8_t* obj = obj_block[i];
         uintptr_t objPtr = obj_snapshot[i], dataPtr = 0;
         memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
-        if (!dataPtr || !pointer_plausible(dataPtr)) continue;
+        if (!dataPtr || !pointer_plausible(dataPtr))
+        {
+            autododge_scanner_event(SCAN_AD_BAD_DATA_POINTER);
+            continue;
+        }
 
         uint8_t data[PROJ_DATA_BLOCK_SIZE];
-        if (!read_bytes(dataPtr, data, sizeof(data))) continue;
+        if (!read_bytes(dataPtr, data, sizeof(data)))
+        {
+            autododge_scanner_event(SCAN_AD_DATA_READ_FAIL);
+            continue;
+        }
 
         uintptr_t dataVtable = 0;
         memcpy(&dataVtable, data, sizeof(dataVtable));
-        if (!dataVtable || !pointer_plausible(dataVtable)) continue;
-        uintptr_t vtRva = dataVtable - base;
-        if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE ||
-            dataVtable - base != VTABLE_PROJ_DATA_RVA)
+        if (!dataVtable || !pointer_plausible(dataVtable))
+        {
+            autododge_scanner_event(SCAN_AD_BAD_VTABLE);
             continue;
+        }
+        uintptr_t vtRva = dataVtable - base;
+        if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
+        {
+            autododge_scanner_event(SCAN_AD_BAD_VTABLE);
+            continue;
+        }
+        if (dataVtable - base != VTABLE_PROJ_DATA_RVA)
+        {
+            autododge_scanner_event(SCAN_AD_NOT_PROJECTILE_VTABLE);
+            continue;
+        }
 
         int32_t pid = 0, teamId = 0, px_i = 0, py_i = 0;
         memcpy(&pid, obj + OBJ_GLOBALID_OFF, sizeof(pid));
@@ -332,11 +363,24 @@ void autododge()
         memcpy(&py_i, obj + OBJ_Y_OFF, sizeof(py_i));
 
         float px = (float)px_i, py = (float)py_i;
-        if (pid == 0 || teamId == own_team_b) continue;
+        if (pid == 0)
+        {
+            autododge_scanner_event(SCAN_AD_ZERO_PID);
+            continue;
+        }
+        if (teamId == own_team_b)
+        {
+            autododge_scanner_event(SCAN_AD_OWN_TEAM);
+            continue;
+        }
 
         uint32_t deadFlag = 0;
         memcpy(&deadFlag, obj + OBJ_DEADFLAG_OFF, sizeof(deadFlag));
-        if (deadFlag != 0) continue;
+        if (deadFlag != 0)
+        {
+            autododge_scanner_event(SCAN_AD_DEAD);
+            continue;
+        }
 
         if (px != 0.0f && py != 0.0f) bodies.push_back({px, py, myRadius});
 
@@ -348,7 +392,11 @@ void autododge()
             state.lastY = py_i;
             state.lastTs = now;
             int32_t ind = 0, projSpeed = 0, projRadius = 0, projEarly = 0;
-            if (!read_int(objPtr + PROJECTILE_ISINDIRECT_OFF, &ind)) continue;
+            if (!read_int(objPtr + PROJECTILE_ISINDIRECT_OFF, &ind))
+            {
+                autododge_scanner_event(SCAN_AD_INDIRECT_READ_FAIL);
+                continue;
+            }
 
             memcpy(
                 &projSpeed, data + PROJECTILEDATA_SPEED_OFF, sizeof(projSpeed));
@@ -357,6 +405,7 @@ void autododge()
                    sizeof(projRadius));
             read_int(dataPtr + EARLY_TICKS_OFF, &projEarly);
 
+            state.pid = pid;
             state.rawSpeed = projSpeed;
             state.rawRadius = projRadius;
             state.rawEarly = projEarly;
@@ -385,6 +434,14 @@ void autododge()
         }
         else
         {
+            if (it->second >= proj_cache_storage.size() ||
+                proj_cache_storage[it->second].pid != pid)
+            {
+                autododge_scanner_event(SCAN_AD_CACHE_INDEX_REPAIRED);
+                rebuild_projectile_cache_index();
+                it = proj_cache_index.find(pid);
+            }
+            if (it == proj_cache_index.end()) continue;
             ProjectileState& state = proj_cache_storage[it->second];
             float dt = (float)(now - state.lastTs) / 1000.0f;
             float ddx = (float)px_i - (float)state.lastX;
@@ -419,26 +476,41 @@ void autododge()
         }
 
         float dx = px - mx, dy = py - my;
-        if (dx * dx + dy * dy > zoneSq) continue;
+        if (dx * dx + dy * dy > zoneSq)
+        {
+            autododge_scanner_event(SCAN_AD_OUT_OF_RANGE);
+            continue;
+        }
 
         bool blob = !state.isBeam && !state.isIndirect && state.speed > 0.0f &&
                     state.speed < BLOB_SPEED_MAX;
         float speedNow = sqrtf(state.vx * state.vx + state.vy * state.vy);
+        if (!blob && speedNow < SPEED_MIN)
+            autododge_scanner_event(SCAN_AD_NO_VELOCITY);
+        if (blob) autododge_scanner_event(SCAN_AD_BLOB);
         float ux = (blob || speedNow < SPEED_MIN) ? 0.0f : state.vx / speedNow;
         float uy = (blob || speedNow < SPEED_MIN) ? 0.0f : state.vy / speedNow;
 
         if (!blob && speedNow >= SPEED_MIN)
         {
             float playerAlong = (mx - px) * ux + (my - py) * uy;
-            if (playerAlong < PLAYER_ALONG_MIN) continue;
+            if (playerAlong < PLAYER_ALONG_MIN)
+            {
+                autododge_scanner_event(SCAN_AD_BEHIND);
+                continue;
+            }
             if (!state.isIndirect &&
                 !wall_los(px,
                           py,
                           px + ux * (playerAlong > 0.0f ? playerAlong : 0.0f),
                           py + uy * (playerAlong > 0.0f ? playerAlong : 0.0f),
-                          WALL_BLOCKS_PROJECTILES))
+                           WALL_BLOCKS_PROJECTILES))
+            {
+                autododge_scanner_event(SCAN_AD_WALL_BLOCKED);
                 continue;
+            }
         }
+        autododge_scanner_event(SCAN_AD_THREAT_CANDIDATE);
         threats.push_back({px,
                            py,
                            blob ? 0.0f : state.vx,
@@ -450,13 +522,20 @@ void autododge()
         size_t writeIdx = 0;
         for (size_t i = 0; i < proj_cache_storage.size(); i++)
         {
-            if (now - proj_cache_storage[i].lastSeen > 1024) continue;
+            if (now - proj_cache_storage[i].lastSeen > 1024)
+            {
+                autododge_scanner_event(SCAN_AD_CACHE_REBUILT);
+                continue;
+            }
             if (writeIdx != i)
                 proj_cache_storage[writeIdx] = proj_cache_storage[i];
             writeIdx++;
         }
         proj_cache_storage.resize(writeIdx);
+        if (writeIdx != proj_cache_index.size()) rebuild_projectile_cache_index();
     }
+    if (threats.size() >= 32) autododge_scanner_event(SCAN_AD_MAX_THREATS);
+    autododge_scanner_report();
 
     if (threats.empty() && bodies.empty())
     {

@@ -3,6 +3,8 @@
 #include <mach/mach_time.h>
 #include <cstdint>
 #include <cstring>
+#include <cstdio>
+#include <atomic>
 #include "../features/autododge.h"
 #include "../utils/walls.h"
 #include "objc.h"
@@ -27,6 +29,72 @@ uintptr_t addr_charradius = 0;
 uintptr_t addr_projbeam = 0;
 uintptr_t addr_projearly = 0;
 uintptr_t addr_dataname = 0;
+
+namespace
+{
+static std::atomic<uint64_t> autododge_scan_counters[SCAN_AD_REASON_COUNT]{};
+}
+
+void autododge_scanner_event(uint32_t reason)
+{
+    if (reason > 0 && reason < SCAN_AD_REASON_COUNT)
+        autododge_scan_counters[reason].fetch_add(1, std::memory_order_relaxed);
+}
+
+void autododge_scanner_report()
+{
+    static uint64_t lastReportMs = 0;
+    static uint64_t totals[SCAN_AD_REASON_COUNT]{};
+    uint64_t interval[SCAN_AD_REASON_COUNT]{};
+    uint64_t sum = 0;
+    const uint64_t now = us() / 1000;
+    if (lastReportMs && now - lastReportMs < 1000) return;
+    for (uint32_t i = 1; i < SCAN_AD_REASON_COUNT; i++)
+    {
+        interval[i] = autododge_scan_counters[i].exchange(0, std::memory_order_relaxed);
+        totals[i] += interval[i];
+        sum += interval[i];
+    }
+    if (!sum) return;
+    lastReportMs = now;
+    char out[1200];
+    int n = snprintf(out, sizeof(out), "interval(ms=1000)");
+    for (uint32_t i = 1; i < SCAN_AD_REASON_COUNT && n > 0 &&
+                        n < static_cast<int>(sizeof(out)); i++)
+    {
+        const uint64_t value = interval[i];
+        const char* label = "unknown";
+        switch (i)
+        {
+            case SCAN_AD_INVALID_SNAPSHOT: label = "invalidSnapshot"; break;
+            case SCAN_AD_BAD_DATA_POINTER: label = "badDataPointer"; break;
+            case SCAN_AD_DATA_READ_FAIL: label = "dataReadFail"; break;
+            case SCAN_AD_BAD_VTABLE: label = "badVtable"; break;
+            case SCAN_AD_NOT_PROJECTILE_VTABLE: label = "otherVtable"; break;
+            case SCAN_AD_ZERO_PID: label = "pidZero"; break;
+            case SCAN_AD_OWN_TEAM: label = "ownTeam"; break;
+            case SCAN_AD_DEAD: label = "dead"; break;
+            case SCAN_AD_INDIRECT_READ_FAIL: label = "indirectReadFail"; break;
+            case SCAN_AD_OUT_OF_RANGE: label = "outOfRange"; break;
+            case SCAN_AD_BEHIND: label = "behind"; break;
+            case SCAN_AD_WALL_BLOCKED: label = "wallBlocked"; break;
+            case SCAN_AD_BLOB: label = "blob"; break;
+            case SCAN_AD_NO_VELOCITY: label = "noVelocity"; break;
+            case SCAN_AD_THREAT_CANDIDATE: label = "threatCandidates"; break;
+            case SCAN_AD_CACHE_REBUILT: label = "cacheEvicted"; break;
+            case SCAN_AD_CACHE_INDEX_REPAIRED: label = "cacheIndexRepaired"; break;
+            case SCAN_AD_MAX_THREATS: label = "maxThreatCap"; break;
+            default: break;
+        }
+        n += snprintf(out + n,
+                      sizeof(out) - static_cast<size_t>(n),
+                      " %s=%llu/%llu",
+                      label,
+                      static_cast<unsigned long long>(value),
+                      static_cast<unsigned long long>(totals[i]));
+    }
+    if (n > 0) autododge_scanner_log(now, "%s", out);
+}
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
@@ -548,12 +616,16 @@ void scan_world()
     obj_count = count;
     for (int i = 0; i < count; i++)
     {
-        uintptr_t objPtr = obj_snapshot[i];
-        obj_valid[i] = (objPtr && pointer_plausible(objPtr) &&
-                        read_bytes(objPtr, obj_block[i], OBJ_BLOCK_SIZE))
-                           ? 1
-                           : 0;
-        if (!obj_valid[i]) continue;
+            uintptr_t objPtr = obj_snapshot[i];
+            obj_valid[i] = (objPtr && pointer_plausible(objPtr) &&
+                            read_bytes(objPtr, obj_block[i], OBJ_BLOCK_SIZE))
+                               ? 1
+                               : 0;
+            if (!obj_valid[i])
+            {
+                autododge_scanner_event(SCAN_AD_INVALID_SNAPSHOT);
+                continue;
+            }
         int32_t team = 0;
         int32_t hpNow = 0;
         memcpy(&team, obj_block[i] + OBJ_TEAM_OFF, sizeof(team));
