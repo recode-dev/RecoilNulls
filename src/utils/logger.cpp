@@ -435,23 +435,20 @@ static void scan_projectile_data()
         char name[64] = "?";
         uintptr_t nameStr = scan_call(addr_dataname, data, 0);
         if (nameStr)
-            read_scstring(nameStr, SCSTRING_DEFAULT_MAX_LENGTH, name,
-                          sizeof(name));
+            read_scstring(
+                nameStr, SCSTRING_DEFAULT_MAX_LENGTH, name, sizeof(name));
 
         char out[2048];
-        int n = snprintf(out,
-                         sizeof(out),
-                         "[SCANNER] data=%p name=%s",
-                         (void*)data,
-                         name);
+        int n = snprintf(
+            out, sizeof(out), "[SCANNER] data=%p name=%s", (void*)data, name);
         for (int off = 0x60; off <= 0xC0; off += 4)
         {
             int32_t iv = 0;
             float fv = 0.0f;
             memcpy(&iv, buf + off, 4);
             memcpy(&fv, buf + off, 4);
-            bool key = (off == 0x6c || off == 0x74 || off == 0x80 || off == 0x9c ||
-                        off == 0xa4);
+            bool key = (off == 0x6c || off == 0x74 || off == 0x80 ||
+                        off == 0x9c || off == 0xa4);
             n += snprintf(out + n,
                           sizeof(out) - n,
                           key ? " |%02x=%d(f=%.1f)" : " |%02x=%d",
