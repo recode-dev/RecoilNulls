@@ -29,7 +29,6 @@ static struct
     float PROBE_T = 0.15f;
     float WALL_BODY = 240.0f;
     uint32_t SEND_MIN_MS = 80;
-    float SEND_TURN_DOT = 0.99f;
     float MIN_POS = 50.0f;
 } TUNE;
 static const float DEFAULT_PAD = 80.0f;
@@ -74,8 +73,6 @@ static int headingIdx = -1;
 static uint64_t lastDangerTs = 0;
 static uint64_t lastGoodTs = 0;
 static V2 commitDir = V2(0, 0);
-static float sentDirX = 0.0f;
-static float sentDirY = 0.0f;
 static uint64_t lastSentAt = 0;
 static float CHAR_SPEED = 720.0f;
 static void buildRing()
@@ -185,8 +182,6 @@ static void releaseHeading(uint64_t now, float mx, float my)
     ty = clamp_axis(my + dir.y * coast, wall_cache_h());
     move_to(tx, ty);
     enqueue(tx, ty);
-    sentDirX = dir.x;
-    sentDirY = dir.y;
     lastSentAt = now;
     ad_target_x = tx;
     ad_target_y = ty;
@@ -209,8 +204,6 @@ void autododge_reset()
     lastDangerTs = 0;
     lastGoodTs = 0;
     commitDir = V2(0, 0);
-    sentDirX = 0.0f;
-    sentDirY = 0.0f;
     lastSentAt = 0;
     ad_target_x = 0;
     ad_target_y = 0;
@@ -478,12 +471,12 @@ void autododge()
     lastGoodTs = now;
     int32_t tx = clamp_axis(mx + dir.x * TUNE.REACH, wall_cache_w());
     int32_t ty = clamp_axis(my + dir.y * TUNE.REACH, wall_cache_h());
-    bool turned = ((dir.x * sentDirX + dir.y * sentDirY) < TUNE.SEND_TURN_DOT);
+    int32_t ddx = tx - ad_target_x;
+    int32_t ddy = ty - ad_target_y;
+    bool moved = (ddx * ddx + ddy * ddy) > (8 * 8);
     bool stale = (now - lastSentAt > TUNE.SEND_MIN_MS);
-    if (turned || stale)
+    if (moved || stale)
     {
-        sentDirX = dir.x;
-        sentDirY = dir.y;
         lastSentAt = now;
         move_to(tx, ty);
         enqueue(tx, ty);
