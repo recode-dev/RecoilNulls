@@ -50,6 +50,8 @@ struct ProjectileState
     float vx, vy;
     float speed;
     float radius;
+    int earlyTicks;
+    uint64_t spawnedAt;
     uint64_t lastSeen;
     int32_t lastX, lastY;
     uint64_t lastTs;
@@ -295,6 +297,8 @@ void autododge(void)
                     state.isBeam = (call1i_local(addr_projbeam, dataPtr) != 0);
                     state.speed = (float)projSpeed;
                     state.radius = (float)projRadius;
+                    state.earlyTicks = call1i_local(addr_projearly, dataPtr);
+                    state.spawnedAt = now - (uint64_t)state.earlyTicks * 16;
                 }
                 else
                 {

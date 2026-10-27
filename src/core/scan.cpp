@@ -24,6 +24,8 @@ uintptr_t addr_getgid = 0;
 uintptr_t addr_charspeed = 0;
 uintptr_t addr_charradius = 0;
 uintptr_t addr_projbeam = 0;
+uintptr_t addr_projearly = 0;
+uintptr_t addr_dataname = 0;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
@@ -593,6 +595,8 @@ void resolve_addresses(void)
     addr_charspeed = callable(RVA_LOGICCHARACTERDATA_GETSPEED);
     addr_charradius = callable(RVA_LOGICCHARACTERDATA_GETCOLLISIONRADIUS);
     addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
+    addr_projearly = callable(RVA_LOGICPROJECTILEDATA_GETNUMEARLYTICKS);
+    addr_dataname = callable(RVA_LOGICDATA_GETNAME);
 }
 int coord_ok = 0;
 int dead = 0;

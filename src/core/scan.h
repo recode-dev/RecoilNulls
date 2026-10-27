@@ -24,6 +24,8 @@ extern uintptr_t addr_getteam;
 extern uintptr_t addr_getx;
 extern uintptr_t addr_gety;
 extern uintptr_t addr_projbeam;
+extern uintptr_t addr_projearly;
+extern uintptr_t addr_dataname;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
