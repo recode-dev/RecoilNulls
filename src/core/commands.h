@@ -9,7 +9,7 @@ uintptr_t entry_callable(uintptr_t rva);
 void* msg_alloc(void);
 void* manager(void);
 int pred_set(int x, int y);
-int move_to(int32_t x, int32_t y, float ox, float oy);
+int move_to(int32_t x, int32_t y);
 int ci_load_constants(void);
 uint32_t ci_sign(void* ci, void* battle);
 int enqueue(int x, int y);

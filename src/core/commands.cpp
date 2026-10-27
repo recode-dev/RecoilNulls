@@ -300,12 +300,10 @@ int pred_set(int x, int y)
     ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, PRED_FLAG);
     return 1;
 }
-int move_to(int32_t x, int32_t y, float ox, float oy)
+int move_to(int32_t x, int32_t y)
 {
     uintptr_t fn = 0;
     uintptr_t ctrl = 0;
-    (void)ox;
-    (void)oy;
     if (dead)
     {
         return 0;

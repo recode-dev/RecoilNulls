@@ -175,7 +175,7 @@ static void releaseHeading(uint64_t now, float mx, float my)
     clearHeading();
     tx = clamp_axis(mx + dir.x * coast, wall_cache_w());
     ty = clamp_axis(my + dir.y * coast, wall_cache_h());
-    move_to(tx, ty, mx, my);
+    move_to(tx, ty);
     enqueue(tx, ty);
     g_sentDirX = dir.x;
     g_sentDirY = dir.y;
@@ -465,7 +465,7 @@ void autododge(void)
         g_sentDirX = dir.x;
         g_sentDirY = dir.y;
         g_lastSentAt = now;
-        move_to(tx, ty, mx, my);
+        move_to(tx, ty);
         enqueue(tx, ty);
         ad_target_x = tx;
         ad_target_y = ty;
