@@ -252,8 +252,7 @@ void autododge(void)
                 uintptr_t objPtr = obj_snapshot[i];
                 uintptr_t dataPtr = 0;
                 memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
-                if (!dataPtr)
-                    continue;
+                if (!dataPtr) continue;
                 if (!pointer_plausible(dataPtr)) continue;
                 uintptr_t dataVtable = 0;
                 if (!read_ptr(dataPtr, (void**)&dataVtable) || !dataVtable)
@@ -268,8 +267,7 @@ void autododge(void)
                 if (pid == 0) continue;
                 int32_t teamId = 0;
                 memcpy(&teamId, obj + OBJ_TEAM_OFF, sizeof(teamId));
-                if (teamId == own_team_b)
-                    continue;
+                if (teamId == own_team_b) continue;
                 int32_t px_i = 0, py_i = 0;
                 memcpy(&px_i, obj + OBJ_X_OFF, sizeof(px_i));
                 memcpy(&py_i, obj + OBJ_Y_OFF, sizeof(py_i));
@@ -279,8 +277,7 @@ void autododge(void)
                 float dy_dist = py - my;
                 uint32_t deadFlag = 0;
                 memcpy(&deadFlag, obj + OBJ_DEADFLAG_OFF, sizeof(deadFlag));
-                if (deadFlag != 0)
-                    continue;
+                if (deadFlag != 0) continue;
                 ProjectileState& state = g_proj_cache[pid];
                 if (state.lastSeen == 0)
                 {
@@ -312,10 +309,14 @@ void autododge(void)
                     state.spawnedAt = now - (uint64_t)state.earlyTicks * 16;
                     state.name[0] = '\0';
                     {
-                        uintptr_t nameStr = call1p_local(addr_dataname, dataPtr);
+                        uintptr_t nameStr =
+                            call1p_local(addr_dataname, dataPtr);
                         if (nameStr)
                         {
-                            read_scstring(nameStr, SCSTRING_DEFAULT_MAX_LENGTH, state.name, sizeof(state.name));
+                            read_scstring(nameStr,
+                                          SCSTRING_DEFAULT_MAX_LENGTH,
+                                          state.name,
+                                          sizeof(state.name));
                         }
                     }
                 }

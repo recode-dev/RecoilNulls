@@ -192,7 +192,8 @@ static gboolean objc_resolve_cb(const GumApiDetails* details, gpointer user)
     ctx->found = 1;
     return FALSE;
 }
-static Class objc_owner_by_resolver(const char* clsName, const char* selName,
+static Class objc_owner_by_resolver(const char* clsName,
+                                    const char* selName,
                                     GumAddress* outImp)
 {
     GError* error = NULL;
@@ -200,8 +201,8 @@ static Class objc_owner_by_resolver(const char* clsName, const char* selName,
     if (!resolver) return Nil;
     gchar* query = g_strdup_printf("-[%s %s]", clsName, selName);
     objc_resolve_ctx_t ctx = {0, 0};
-    gum_api_resolver_enumerate_matches(resolver, query, objc_resolve_cb, &ctx,
-                                       &error);
+    gum_api_resolver_enumerate_matches(
+        resolver, query, objc_resolve_cb, &ctx, &error);
     g_free(query);
     if (error) g_error_free(error);
     g_object_unref(resolver);
