@@ -11,7 +11,7 @@ static struct
 {
     float AWARE = 3200.0f;
     uint32_t TICK_MS = 4;
-    uint32_t TICK_MS_IDLE = 48;
+    uint32_t TICK_MS_IDLE = 8;
     int DIR_COUNT = 48;
     float SKIN = 50.0f;
     uint32_t LOCK_MS = 70;
@@ -215,17 +215,14 @@ void autododge(void)
     std::vector<Threat> threats;
     int hits = 0;
     {
-        std::map<int, bool> seen;
         float zoneSq = TUNE.AWARE * TUNE.AWARE;
         float bodyR = myRadius + TUNE.SKIN;
-        if (manager_array_ptr && manager_count_v > 0 && manager_count_v < 512)
+        if (obj_snapshot_n > 0)
         {
-            for (int i = 0; i < manager_count_v; i++)
+            for (int i = 0; i < obj_snapshot_n; i++)
             {
-                uintptr_t objPtr = 0;
-                if (!read_ptr(manager_array_ptr + (uintptr_t)i * 8ULL,
-                              (void**)&objPtr) ||
-                    !objPtr)
+                uintptr_t objPtr = obj_snapshot[i];
+                if (!objPtr)
                     continue;
                 if (!pointer_plausible(objPtr)) continue;
                 uintptr_t dataPtr = 0;
@@ -256,12 +253,10 @@ void autododge(void)
                 float py = (float)py_i;
                 float dx_dist = px - mx;
                 float dy_dist = py - my;
-                if (dx_dist * dx_dist + dy_dist * dy_dist > zoneSq) continue;
                 uint32_t deadFlag = 0;
                 if (!read_int(objPtr + OBJ_DEADFLAG_OFF, (int32_t*)&deadFlag) ||
                     deadFlag != 0)
                     continue;
-                seen[pid] = true;
                 ProjectileState& state = g_proj_cache[pid];
                 int32_t ownerIdx = -1;
                 read_int(objPtr + OBJ_OWNERINDEX_OFF, &ownerIdx);
@@ -319,6 +314,7 @@ void autododge(void)
                     }
                 }
                 state.lastSeen = now;
+                if (dx_dist * dx_dist + dy_dist * dy_dist > zoneSq) continue;
                 float radius = state.radius;
                 bool blob = !state.isBeam && !state.isIndirect &&
                             state.speed > 0.0f && state.speed < 1600.0f;
@@ -390,8 +386,7 @@ void autododge(void)
         }
         for (auto it = g_proj_cache.begin(); it != g_proj_cache.end();)
         {
-            if (seen.find(it->first) == seen.end() ||
-                now - it->second.lastSeen > 450)
+            if (now - it->second.lastSeen > 450)
             {
                 it = g_proj_cache.erase(it);
             }

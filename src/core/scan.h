@@ -284,9 +284,13 @@ static inline BOOL object_plausible(void* object)
     }
     return addr_executable(firstEntry);
 }
+#define COUNT_MAX 512
+#define OBJECT_COUNT_MAX 1200
 extern uintptr_t manager_ptr;
 extern uintptr_t manager_array_ptr;
 extern int32_t manager_count_v;
+extern uintptr_t obj_snapshot[COUNT_MAX];
+extern int obj_snapshot_n;
 extern uint64_t ticks_a;
 extern uint32_t own_hp;
 extern float own_r;
@@ -337,5 +341,4 @@ uintptr_t client(void);
 void state_note(int state);
 uintptr_t controller(void);
 extern int own_team_b;
-#define COUNT_MAX 96
 #endif

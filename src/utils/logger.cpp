@@ -67,7 +67,7 @@ bool open_log(void)
     fseek(g_file, 0, SEEK_END);
     if (ftell(g_file) == 0)
     {
-        fprintf(g_file, "=== recoil log ===\n");
+        fprintf(g_file, "=== log ===\n");
         fprintf(g_file, "documents: %s\n", dir);
     }
     return true;
@@ -82,7 +82,7 @@ void line(const char* format, ...)
 }
 void dump_header(void)
 {
-    line("\n########## recoil header ##########\n");
+    line("\n########## header ##########\n");
     line("base=%p setup=%d ticks=%llu rate=%d/s\n",
          (void*)base,
          (int)setup_done,

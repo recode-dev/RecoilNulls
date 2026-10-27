@@ -490,6 +490,8 @@ static BOOL obj_ok(uintptr_t p)
 }
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
+uintptr_t obj_snapshot[COUNT_MAX];
+int obj_snapshot_n = 0;
 int32_t own_x = 0;
 int32_t own_y = 0;
 int32_t own_index_v = -1;
@@ -522,6 +524,7 @@ static void world_reset(void)
     manager_ptr = 0;
     manager_array_ptr = 0;
     manager_count_v = 0;
+    obj_snapshot_n = 0;
     scene_object = 0;
     wall_drop();
     autododge_reset();
@@ -652,29 +655,42 @@ void scan_world(void)
         manager_ptr = 0;
         manager_array_ptr = 0;
         manager_count_v = 0;
+        obj_snapshot_n = 0;
         dbg.stage = 3;
         return;
     }
     mgrPtr = (uintptr_t)value;
     manager_ptr = mgrPtr;
+    if (!read_int(mgrPtr + (uintptr_t)MGR_COUNT_OFF, &count) || count <= 0 ||
+        count > OBJECT_COUNT_MAX)
+    {
+        manager_array_ptr = 0;
+        manager_count_v = 0;
+        obj_snapshot_n = 0;
+        dbg.stage = 4;
+        return;
+    }
     if (!read_ptr(mgrPtr + (uintptr_t)MGR_ARRAY_OFF, &value) || !value)
     {
         manager_array_ptr = 0;
         manager_count_v = 0;
-        dbg.stage = 4;
-        return;
-    }
-    array = (uintptr_t)value;
-    if (!read_int(mgrPtr + (uintptr_t)MGR_COUNT_OFF, &count) || count <= 0)
-    {
-        manager_array_ptr = 0;
-        manager_count_v = 0;
+        obj_snapshot_n = 0;
         dbg.stage = 5;
         return;
     }
+    array = (uintptr_t)value;
     if (count > COUNT_MAX) count = COUNT_MAX;
+    if (!read_bytes(array, obj_snapshot, (size_t)count * sizeof(uintptr_t)))
+    {
+        manager_array_ptr = 0;
+        manager_count_v = 0;
+        obj_snapshot_n = 0;
+        dbg.stage = 5;
+        return;
+    }
     manager_array_ptr = array;
     manager_count_v = count;
+    obj_snapshot_n = count;
     dbg.stage = 6;
     ticks_a++;
 }
