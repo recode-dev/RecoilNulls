@@ -17,7 +17,8 @@ RECOIL_HARDEN_FLAGS := -Os -fvisibility=hidden -fvisibility-inlines-hidden -ffun
 RECOIL_LINK_HARDEN := -Wl,-dead_strip -Wl,-x -Wl,-S -Wl,-exported_symbols_list,/dev/null -Wl,-install_name,/usr/lib/libsystem_support.dylib
 
 Recoil_CFLAGS := $(RECOIL_WARNING_FLAGS) $(RECOIL_INCLUDE_FLAGS)
-Recoil_CCFLAGS := -std=c++17 -fno-exceptions -fno-rtti $(RECOIL_WARNING_FLAGS) $(RECOIL_HARDEN_FLAGS) $(RECOIL_INCLUDE_FLAGS)
+RECOIL_DEBUG_FLAGS := $(if $(MSG_ALLOC_DEBUG),-DDEBUG_MSG_ALLOC=1,)
+Recoil_CCFLAGS := -std=c++17 -fno-exceptions -fno-rtti $(RECOIL_WARNING_FLAGS) $(RECOIL_HARDEN_FLAGS) $(RECOIL_INCLUDE_FLAGS) $(RECOIL_DEBUG_FLAGS)
 Recoil_OBJCFLAGS := -fobjc-arc -std=c++17 $(RECOIL_WARNING_FLAGS) $(RECOIL_HARDEN_FLAGS) $(RECOIL_INCLUDE_FLAGS)
 Recoil_LDFLAGS := $(RECOIL_LINK_HARDEN) -L$(RECOIL_GUM_DIR) -lfrida-gum -Wl,-undefined,dynamic_lookup
 
