@@ -7,6 +7,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <ucontext.h>
+#include <unistd.h>
 
 extern uintptr_t addr_getownidx;
 
@@ -85,6 +90,7 @@ void line(const char* format, ...)
     if (g_file == nullptr) return;
     va_start(args, format);
     vfprintf(g_file, format, args);
+    fflush(g_file);
     va_end(args);
 }
 void write_crash_marks(const char* format, ...)
@@ -104,6 +110,64 @@ void write_crash_marks(const char* format, ...)
     fflush(f);
     fclose(f);
 }
+void crash_signal(int sig, siginfo_t* info, void* ctx)
+{
+    char buf[256];
+    uintptr_t pc = 0;
+    uintptr_t lr = 0;
+    uintptr_t fault = 0;
+    int len = 0;
+    Dl_info di;
+    if (ctx != nullptr)
+    {
+        ucontext_t* uc = (ucontext_t*)ctx;
+        pc = (uintptr_t)uc->uc_mcontext->__ss.__pc;
+        lr = (uintptr_t)uc->uc_mcontext->__ss.__lr;
+    }
+    if (info != nullptr) fault = (uintptr_t)info->si_addr;
+    len = snprintf(buf, sizeof(buf),
+                   "[crash-signal] sig=%d fault=%p pc=%p lr=%p\n",
+                   sig,
+                   (void*)fault,
+                   (void*)pc,
+                   (void*)lr);
+    if (len > 0) write(STDERR_FILENO, buf, (size_t)len);
+    if (g_path[0] != 0)
+    {
+        int fd = open(g_path, O_WRONLY | O_APPEND | O_CREAT, 0644);
+        if (fd >= 0)
+        {
+            if (len > 0) write(fd, buf, (size_t)len);
+            if (dladdr((void*)pc, &di) && di.dli_fname)
+            {
+                len = snprintf(buf, sizeof(buf),
+                               "[crash-signal] pc in %s off=%lx sym=%s\n",
+                               di.dli_fname,
+                               (unsigned long)(pc - (uintptr_t)di.dli_fbase),
+                               di.dli_sname ? di.dli_sname : "?");
+                if (len > 0) write(fd, buf, (size_t)len);
+            }
+            close(fd);
+        }
+    }
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+void install_crash_handler(void)
+{
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = crash_signal;
+    sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGSEGV, &sa, nullptr);
+    sigaction(SIGBUS, &sa, nullptr);
+    sigaction(SIGILL, &sa, nullptr);
+    sigaction(SIGABRT, &sa, nullptr);
+    sigaction(SIGTRAP, &sa, nullptr);
+}
+
 void dump_header(void)
 {
     line("\n########## header ##########\n");
@@ -473,6 +537,7 @@ void start(void)
 __attribute__((constructor)) static void logger_entry(void)
 {
     write_crash_marks("[crash-mark] process start\n");
+    install_crash_handler();
     dispatch_async(dispatch_get_main_queue(), ^{ start(); });
 
 }
