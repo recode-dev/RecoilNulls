@@ -437,7 +437,7 @@ void autododge(void)
     float chosenScore = bestScore;
     if (prevIdx >= 0 && now < g_holdUntil && chosenIdx != prevIdx)
     {
-        if (prevScore + TUNE.KEEP_BAND >= bestScore)
+        if (prevScore > 0.0f && prevScore + TUNE.KEEP_BAND >= bestScore)
         {
             chosenIdx = prevIdx;
             chosenScore = prevScore;
