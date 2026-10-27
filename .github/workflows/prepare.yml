@@ -1,6 +1,8 @@
 name: Prepare
 
 on:
+  push:
+    branches: ["**"]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +15,7 @@ concurrency:
 
 jobs:
   prepare:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
