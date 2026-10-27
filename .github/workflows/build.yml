@@ -99,6 +99,7 @@ jobs:
               (b"Frida", b"Nmods"),
               (b"frida", b"nmods"),
               (b"gum", b"mod"),
+              (b"Gum", b"Mod"),
           ]
           for old, new in pairs:
               assert len(old) == len(new), old
@@ -115,7 +116,7 @@ jobs:
               blob = blob.replace(old, new)
 
           open(path, "wb").write(blob)
-          for needle in (b"frida", b"Frida", b"FRIDA", b"gum", b"Recoil", b"recoil"):
+          for needle in (b"frida", b"Frida", b"FRIDA", b"gum", b"Gum", b"Recoil", b"recoil"):
               print(needle.decode(), blob.count(needle))
           PY
 
