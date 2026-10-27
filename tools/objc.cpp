@@ -5,8 +5,8 @@
 #if __has_include(<ptrauth.h>)
 #include <ptrauth.h>
 #endif
-#define OBJC_HOOK_MAX 32
-#define OBJC_WANTED_MAX 4
+inline constexpr int OBJC_HOOK_MAX = 32;
+inline constexpr int OBJC_WANTED_MAX = 4;
 struct objc_hook_t
 {
     Class cls;
@@ -115,15 +115,14 @@ static objc_hook_t* objc_find(id self, SEL _cmd)
     if (!start) return nullptr;
     objc_hook_t* bySelector = nullptr;
     int bySelectorCount = 0;
-    for (int i = 0; i < OBJC_HOOK_MAX; i++)
+    for (objc_hook_t& hook : g_objc_hooks)
     {
-        objc_hook_t* hook = &g_objc_hooks[i];
-        if (!hook->used || hook->sel != _cmd) continue;
-        bySelector = hook;
+        if (!hook.used || hook.sel != _cmd) continue;
+        bySelector = &hook;
         bySelectorCount++;
         for (Class c = start; c; c = class_getSuperclass(c))
         {
-            if (c == hook->cls) return hook;
+            if (c == hook.cls) return &hook;
         }
     }
     if (bySelectorCount == 1) return bySelector;
@@ -256,16 +255,15 @@ int objc_arm(uintptr_t imageBase,
     {
         return 0;
     }
-    for (int i = 0; i < OBJC_HOOK_MAX; i++)
+    for (const objc_hook_t& hook : g_objc_hooks)
     {
-        if (!g_objc_hooks[i].used) continue;
-        if (g_objc_hooks[i].cls != ownerClass || g_objc_hooks[i].sel != sel)
-            continue;
+        if (!hook.used) continue;
+        if (hook.cls != ownerClass || hook.sel != sel) continue;
         return 0;
     }
-    for (int i = 0; i < OBJC_HOOK_MAX; i++)
+    for (objc_hook_t& hook : g_objc_hooks)
     {
-        if (g_objc_hooks[i].used) continue;
+        if (hook.used) continue;
         IMP previous = method_setImplementation(method, replacement);
         if (!previous) return 0;
         if (objc_strip_imp(previous) == objc_strip_imp(replacement))
@@ -273,13 +271,13 @@ int objc_arm(uintptr_t imageBase,
             method_setImplementation(method, previous);
             return 0;
         }
-        g_objc_hooks[i].used = 1;
-        g_objc_hooks[i].cls = ownerClass;
-        g_objc_hooks[i].sel = sel;
-        g_objc_hooks[i].original = previous;
-        g_objc_hooks[i].body = body;
-        g_objc_hooks[i].wanted[0] = ownerClass;
-        g_objc_hooks[i].wantedCount = 1;
+        hook.used = 1;
+        hook.cls = ownerClass;
+        hook.sel = sel;
+        hook.original = previous;
+        hook.body = body;
+        hook.wanted[0] = ownerClass;
+        hook.wantedCount = 1;
         return 1;
     }
     return 0;
