@@ -1,11 +1,12 @@
 #include "walls.h"
 #include "../core/scan.h"
+#include <array>
 #include <cstring>
 
 inline constexpr int WALL_TYPE_CACHE_MAX = 128;
 
 static uint8_t wall_grid[WALL_MAX_TOTAL_TILES];
-static uint8_t wall_raw[WALL_MAX_TOTAL_TILES * static_cast<int>(sizeof(uintptr_t))];
+static std::array<uint8_t, static_cast<size_t>(WALL_MAX_TOTAL_TILES) * sizeof(uintptr_t)> wall_raw{};
 static uintptr_t wall_tiles = 0;
 static int wall_tiles_w = 0;
 static int wall_tiles_h = 0;
@@ -177,7 +178,7 @@ int wall_build(void)
     {
         return 0;
     }
-    if (!read_bytes(wall_tiles, wall_raw, static_cast<size_t>(total) * sizeof(uintptr_t)))
+    if (!read_bytes(wall_tiles, wall_raw.data(), static_cast<size_t>(total) * sizeof(uintptr_t)))
     {
         return 0;
     }
@@ -189,7 +190,7 @@ int wall_build(void)
         uint8_t bits = 0;
         wall_grid[i] = 0;
         memcpy(
-            &tile, wall_raw + static_cast<size_t>(i) * sizeof(uintptr_t), sizeof(uintptr_t));
+            &tile, wall_raw.data() + static_cast<size_t>(i) * sizeof(uintptr_t), sizeof(uintptr_t));
         if (!tile)
         {
             continue;
