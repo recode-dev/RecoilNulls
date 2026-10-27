@@ -5,11 +5,11 @@
 #include <cmath>
 #include <map>
 #include <stdint.h>
-#include <stdio.h>
 #include <vector>
 static struct
 {
     float AWARE = 3200.0f;
+    float REACT_S = 0.55f;
     int DIR_COUNT = 64;
     float SKIN = 50.0f;
     uint32_t LOCK_MS = 70;
@@ -61,6 +61,8 @@ struct ProjectileState
 __thread int in_move = 0;
 int active = 0;
 int moving = 0;
+int32_t ad_target_x = 0;
+int32_t ad_target_y = 0;
 static std::map<int, ProjectileState> g_proj_cache;
 static std::vector<V2> g_ring;
 static int g_headingIdx = -1;
@@ -197,9 +199,6 @@ void autododge(void)
         return;
     }
     uint64_t now = us() / 1000;
-    dbg.sent = 0;
-    dbg.mapn = range_map_size();
-    dbg.ranged = 0;
     buildRing();
     float mx = (float)own_x;
     float my = (float)own_y;
@@ -208,7 +207,6 @@ void autododge(void)
     CHAR_SPEED = own_speed;
     static std::vector<Threat> threats;
     threats.clear();
-    int hits = 0;
     {
         float zoneSq = TUNE.AWARE * TUNE.AWARE;
         float bodyR = myRadius + TUNE.SKIN;
@@ -327,7 +325,6 @@ void autododge(void)
                 float left = 1e6f;
                 if (state.castRange > 0.0f)
                 {
-                    dbg.ranged++;
                     left = std::max(0.0f, state.castRange - traveled);
                     if (left <= 10.0f)
                     {
@@ -340,16 +337,21 @@ void autododge(void)
                         continue;
                     }
                 }
-                if (!blob && !state.isIndirect && speedNow >= 1.0f)
+                if (!blob && speedNow >= 1.0f)
                 {
                     float playerAlong = (mx - px) * ux + (my - py) * uy;
                     if (playerAlong < -50.0f) continue;
-                    float hX = px + ux * std::max(playerAlong, 0.0f);
-                    float hY = py + uy * std::max(playerAlong, 0.0f);
-                    if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES))
-                        continue;
-                    if (state.castRange > 0.0f && playerAlong > left + radius)
-                        continue;
+                    if (playerAlong > TUNE.REACT_S * speedNow) continue;
+                    if (!state.isIndirect)
+                    {
+                        float hX = px + ux * std::max(playerAlong, 0.0f);
+                        float hY = py + uy * std::max(playerAlong, 0.0f);
+                        if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES))
+                            continue;
+                        if (state.castRange > 0.0f &&
+                            playerAlong > left + radius)
+                            continue;
+                    }
                 }
                 Threat t;
                 t.x = px;
@@ -359,23 +361,6 @@ void autododge(void)
                 t.rad = radius + bodyR + DEFAULT_PAD + radius * DEFAULT_GROW;
                 t.pathLen = state.castRange > 0.0f ? left + radius : 1e6f;
                 t.left = left;
-                float ax = px - mx;
-                float ay = py - my;
-                float along = 0.0f;
-                if (!blob && speedNow >= 1.0f)
-                {
-                    along = ax * ux + ay * uy;
-                }
-                if (along < 0.0f)
-                {
-                    along = 0.0f;
-                }
-                float hx = ax - ux * along;
-                float hy = ay - uy * along;
-                if (hx * hx + hy * hy <= t.rad * t.rad)
-                {
-                    hits++;
-                }
                 threats.push_back(t);
             }
         }
@@ -393,7 +378,6 @@ void autododge(void)
     }
     if (threats.empty())
     {
-        dbg.threats = 0;
         if (g_headingIdx >= 0 && now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS)
             clearHeading();
         return;
@@ -467,21 +451,9 @@ void autododge(void)
         g_lastSentAt = now;
         move_to(tx, ty, mx, my);
         enqueue(tx, ty);
-        dbg.sent = 1;
     }
+    ad_target_x = tx;
+    ad_target_y = ty;
     active = 1;
     moving = 1;
-    dbg.px = mx;
-    dbg.py = my;
-    dbg.dx = chosen.x;
-    dbg.dy = chosen.y;
-    dbg.tx = (float)tx;
-    dbg.ty = (float)ty;
-    dbg.hazards = (int)threats.size();
-    dbg.threats = hits;
-    snprintf(dbg.note,
-             sizeof(dbg.note),
-             "CLR:%.0f SCR:%.0f",
-             stayClear,
-             chosenScore);
 }

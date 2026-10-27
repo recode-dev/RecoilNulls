@@ -21,6 +21,8 @@ constexpr long long LOG_MAX_BYTES = 8000000;
 constexpr int LOG_INTERVAL_MS = 200;
 constexpr int RAW_EVERY = 50;
 constexpr uintptr_t RAW_BYTES = 0x1F0;
+constexpr float PROJ_NEAR = 1600.0f;
+constexpr float PROJ_NEAR_SQ = PROJ_NEAR * PROJ_NEAR;
 FILE* g_file = nullptr;
 dispatch_source_t g_timer = nullptr;
 unsigned long long g_ticks = 0;
@@ -213,32 +215,88 @@ void dump_own(void)
          team,
          ownerIdx);
 }
+static int live_projectiles(int* nearOut)
+{
+    int i = 0;
+    int n = 0;
+    int near = 0;
+    uintptr_t projVt = 0;
+    float ox = (float)own_x;
+    float oy = (float)own_y;
+    if (!base || obj_snapshot_n <= 0)
+    {
+        return 0;
+    }
+    projVt = base + (uintptr_t)VTABLE_PROJ_DATA_RVA;
+    for (i = 0; i < obj_snapshot_n; i++)
+    {
+        uintptr_t obj = obj_snapshot[i];
+        void* data = nullptr;
+        void* vtable = nullptr;
+        int32_t px = 0;
+        int32_t py = 0;
+        int32_t team = -1;
+        float dx = 0.0f;
+        float dy = 0.0f;
+        if (!obj || !read_ptr(obj + (uintptr_t)ELEM_DEF_OFF, &data) || !data)
+        {
+            continue;
+        }
+        if (!read_ptr((uintptr_t)data, &vtable) || (uintptr_t)vtable != projVt)
+        {
+            continue;
+        }
+        if (!read_int(obj + (uintptr_t)OBJ_TEAM_OFF, &team) ||
+            team == own_team_b)
+        {
+            continue;
+        }
+        n++;
+        if (!read_int(obj + (uintptr_t)OBJ_X_OFF, &px) ||
+            !read_int(obj + (uintptr_t)OBJ_Y_OFF, &py))
+        {
+            continue;
+        }
+        dx = (float)px - ox;
+        dy = (float)py - oy;
+        if (dx * dx + dy * dy <= PROJ_NEAR_SQ)
+        {
+            near++;
+        }
+    }
+    if (nearOut)
+    {
+        *nearOut = near;
+    }
+    return n;
+}
+int scan_stage(void)
+{
+    if (!base) return 0;
+    if (!scene_object) return 1;
+    if (!own_elem) return 2;
+    if (!manager_ptr) return 3;
+    if (!obj_snapshot_n) return 4;
+    return 6;
+}
 void dump_ad(void)
 {
-    line("adg stage=%d haz=%d thr=%d danger=%d dir=(%.2f,%.2f) dmg=%.0f "
-         "first=%.1f map=%d rk=%d "
-         "tgt=(%.0f,%.0f) sent=%d active=%d moving=%d "
-         "wall=%d %dx%d holes=%d\n",
-         dbg.stage,
-         dbg.hazards,
-         dbg.threats,
-         dbg.danger,
-         dbg.dx,
-         dbg.dy,
-         dbg.ix,
-         dbg.iy,
-         dbg.mapn,
-         dbg.ranged,
-         dbg.tx,
-         dbg.ty,
-         dbg.sent,
+    int near = 0;
+    int proj = live_projectiles(&near);
+    line("adg scan=%d active=%d moving=%d tgt=(%d,%d) proj=%d near=%d "
+         "map=%d wall=%d %dx%d holes=%d\n",
+         scan_stage(),
          active,
          moving,
+         (int)ad_target_x,
+         (int)ad_target_y,
+         proj,
+         near,
+         range_map_size(),
          wall_ready(),
          wall_cache_w(),
          wall_cache_h(),
          wall_holes());
-    if (dbg.note[0]) line("adg note=%s\n", dbg.note);
 }
 void dump_raw(void)
 {
@@ -359,11 +417,6 @@ void start(void)
     dispatch_source_set_event_handler(g_timer, ^{ tick(); });
     dispatch_resume(g_timer);
 }
-}
-void stage_note(const char* what)
-{
-    if (what == nullptr) return;
-    line("%s", what);
 }
 __attribute__((constructor)) static void logger_entry(void)
 {

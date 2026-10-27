@@ -228,7 +228,6 @@ uintptr_t callable(uintptr_t rva)
     }
     return address;
 }
-void stage_note(const char* what);
 int gum_live = 0;
 static BOOL module_base_by_name(const char* name, uintptr_t* out_base)
 {
@@ -267,19 +266,15 @@ BOOL find_game_image(uintptr_t* out_base)
     }
     if (!gum_ready)
     {
-        stage_note("stage gum_init begin\n");
         gum_process_set_teardown_requirement(GUM_TEARDOWN_REQUIREMENT_MINIMAL);
         gum_init_embedded();
         gum_ready = 1;
         gum_live = 1;
-        stage_note("stage gum_init end\n");
     }
-    stage_note("stage module_find begin\n");
     if (!module_base_by_name(image_names[0], &found))
     {
         return NO;
     }
-    stage_note("stage module_find end found=1\n");
     *out_base = found;
     return YES;
 }
@@ -495,7 +490,6 @@ int32_t own_x = 0;
 int32_t own_y = 0;
 int32_t own_index_v = -1;
 int own_ok_hp = 0;
-dbg_t dbg;
 static int battle_state(void)
 {
     uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
@@ -545,7 +539,6 @@ void scan_world(void)
     int32_t state = -1;
     uintptr_t slot = 0;
     void* sceneValue = nullptr;
-    dbg.stage = 0;
     if (!base) return;
     state = battle_state();
     if (state != prev_state)
@@ -562,14 +555,12 @@ void scan_world(void)
     if (state != 5)
     {
         world_reset();
-        dbg.stage = 1;
         return;
     }
     clientPtr = controller();
     if (!clientPtr)
     {
         world_reset();
-        dbg.stage = 1;
         return;
     }
     own = addr_getownchar ? call1(addr_getownchar, clientPtr) : 0;
@@ -586,7 +577,6 @@ void scan_world(void)
     if (!pointer_plausible(own))
     {
         own = 0;
-        dbg.stage = 2;
     }
     if (addr_getteam)
     {
@@ -662,7 +652,6 @@ void scan_world(void)
         manager_array_ptr = 0;
         manager_count_v = 0;
         obj_snapshot_n = 0;
-        dbg.stage = 3;
         return;
     }
     mgrPtr = (uintptr_t)value;
@@ -673,7 +662,6 @@ void scan_world(void)
         manager_array_ptr = 0;
         manager_count_v = 0;
         obj_snapshot_n = 0;
-        dbg.stage = 4;
         return;
     }
     if (!read_ptr(mgrPtr + (uintptr_t)MGR_ARRAY_OFF, &value) || !value)
@@ -681,7 +669,6 @@ void scan_world(void)
         manager_array_ptr = 0;
         manager_count_v = 0;
         obj_snapshot_n = 0;
-        dbg.stage = 5;
         return;
     }
     array = (uintptr_t)value;
@@ -691,13 +678,11 @@ void scan_world(void)
         manager_array_ptr = 0;
         manager_count_v = 0;
         obj_snapshot_n = 0;
-        dbg.stage = 5;
         return;
     }
     manager_array_ptr = array;
     manager_count_v = count;
     obj_snapshot_n = count;
-    dbg.stage = 6;
     ticks_a++;
 }
 void run_workload(void)

@@ -297,28 +297,6 @@ extern int32_t own_x;
 extern int32_t own_y;
 extern int32_t own_index_v;
 extern int own_ok_hp;
-typedef struct
-{
-    int stage;
-    int hazards;
-    int threats;
-    int danger;
-    float px;
-    float py;
-    float ix;
-    float iy;
-    float dx;
-    float dy;
-    float tx;
-    float ty;
-    float radius;
-    float speed;
-    int sent;
-    int mapn;
-    int ranged;
-    char note[64];
-} dbg_t;
-extern dbg_t dbg;
 uint64_t us(void);
 void scan_world(void);
 void run_workload(void);
