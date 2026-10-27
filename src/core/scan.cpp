@@ -98,10 +98,11 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    // Validate readability at page granularity instead of `gum_memory_is_readable`,
-    // which allocates a buffer, copies the whole range via `gum_memory_read` and
-    // then discards it — so the same bytes would be read twice per call. A
-    // protection query is a single region lookup with no allocation or copy.
+    // Validate readability at page granularity instead of
+    // `gum_memory_is_readable`, which allocates a buffer, copies the whole
+    // range via `gum_memory_read` and then discards it — so the same bytes
+    // would be read twice per call. A protection query is a single region
+    // lookup with no allocation or copy.
     cursor = address;
     for (int guard = 0; cursor < end && guard < 64; guard++)
     {
