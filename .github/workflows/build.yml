@@ -8,8 +8,6 @@ on:
 permissions:
   contents: write
 
-env:
-
 concurrency:
   group: recoil-${{ github.ref }}
   cancel-in-progress: true
