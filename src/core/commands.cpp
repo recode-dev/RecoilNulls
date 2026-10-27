@@ -247,7 +247,6 @@ void* msg_alloc()
             return mem;
         }
     }
-    // read_ptr принимает void** (out-param) — static_cast не применим
     if (base &&
         read_ptr(base + ALLOC_GOT_RVA, reinterpret_cast<void**>(&got)) && got)
     {

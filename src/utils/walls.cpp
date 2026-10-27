@@ -202,7 +202,6 @@ int wall_build()
         {
             continue;
         }
-        // read_ptr принимает void** (out-param) — static_cast не применим
         if (!pointer_plausible(tile) ||
             !read_ptr(tile, reinterpret_cast<void**>(&type)))
         {
