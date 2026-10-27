@@ -10,6 +10,7 @@
 static struct
 {
     float AWARE = 3200.0f;
+    float RANGE_FALLBACK = 2800.0f;
     uint32_t TICK_MS = 4;
     uint32_t TICK_MS_IDLE = 48;
     int DIR_COUNT = 48;
@@ -142,6 +143,28 @@ static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
         }
     }
     return penalty;
+}
+static int32_t clamp_axis(float value, int tiles)
+{
+    float limit = 0.0f;
+    if (tiles <= 0)
+    {
+        return (int32_t)roundf(value);
+    }
+    limit = (float)tiles * WALL_TILE_SIZE - 1.0f;
+    if (limit <= 0.0f)
+    {
+        return (int32_t)roundf(value);
+    }
+    if (value < 0.0f)
+    {
+        return 0;
+    }
+    if (value > limit)
+    {
+        return (int32_t)limit;
+    }
+    return (int32_t)roundf(value);
 }
 static void clearHeading()
 {
@@ -353,15 +376,25 @@ void autododge(void)
                 float traveled =
                     sqrtf((px - state.spawnX) * (px - state.spawnX) +
                           (py - state.spawnY) * (py - state.spawnY));
-                float left = 1e6f;
-                if (state.castRange > 0.0f)
+                float reach = state.castRange;
+                if (reach <= 0.0f)
+                {
+                    reach = TUNE.RANGE_FALLBACK;
+                }
+                else
                 {
                     dbg.ranged++;
-                    left = std::max(0.0f, state.castRange - traveled);
-                    if (left <= 10.0f) continue;
-                    float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) -
-                                bodyR - state.radius;
-                    if (left < 0.85f * std::max(0.0f, gap)) continue;
+                }
+                float left = std::max(0.0f, reach - traveled);
+                if (left <= 10.0f)
+                {
+                    continue;
+                }
+                float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) -
+                            bodyR - state.radius;
+                if (left < 0.85f * std::max(0.0f, gap))
+                {
+                    continue;
                 }
                 bool blob = !state.isBeam && !state.isIndirect &&
                             state.speed > 0 && state.speed < 1600;
@@ -372,9 +405,7 @@ void autododge(void)
                 t.vy = blob ? 0 : state.dirY * state.speed;
                 t.rad = state.radius + bodyR + DEFAULT_PAD +
                         state.radius * DEFAULT_GROW;
-                t.pathLen = state.castRange > 0.0f
-                                ? state.castRange + state.radius
-                                : 1e6f;
+                t.pathLen = left + state.radius;
                 t.left = left;
                 if (!blob && !state.isIndirect && state.speed >= 1.0f)
                 {
@@ -385,8 +416,7 @@ void autododge(void)
                     float hY = py + state.dirY * std::max(playerAlong, 0.0f);
                     if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES))
                         continue;
-                    if (state.castRange > 0.0f &&
-                        playerAlong > state.castRange + state.radius)
+                    if (playerAlong > left + state.radius)
                         continue;
                 }
                 float ax = px - mx;
@@ -486,8 +516,8 @@ void autododge(void)
     }
     V2 chosen = g_ring[chosenIdx];
     g_headingIdx = chosenIdx;
-    int32_t tx = (int32_t)roundf(mx + chosen.x * TUNE.REACH);
-    int32_t ty = (int32_t)roundf(my + chosen.y * TUNE.REACH);
+    int32_t tx = clamp_axis(mx + chosen.x * TUNE.REACH, wall_cache_w());
+    int32_t ty = clamp_axis(my + chosen.y * TUNE.REACH, wall_cache_h());
     float ddx = (float)tx - g_lastSentX;
     float ddy = (float)ty - g_lastSentY;
     bool moved =
