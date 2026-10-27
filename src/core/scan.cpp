@@ -404,7 +404,7 @@ static void harvest_skill_data(uintptr_t skillData)
 {
     if (!skillData || !pointer_plausible(skillData)) return;
     int tiles = call1i(addr_skillrange, skillData);
-    if (tiles <= 0) return;
+    if (tiles <= 0 || tiles > 64) return;
     int units = tiles * CASTING_RANGE_SCALE;
     for (int i = 0; i < PROJ_INDEX_MAX; i++)
     {
@@ -412,7 +412,7 @@ static void harvest_skill_data(uintptr_t skillData)
         if (!proj || !pointer_plausible(proj)) continue;
         uintptr_t nameStr = call1(addr_dataname, proj);
         char name[128];
-        if (nameStr && read_scstring(nameStr, SCSTRING_DEFAULT_MAX_LENGTH, name,
+        if (nameStr && pointer_plausible(nameStr) && read_scstring(nameStr, SCSTRING_DEFAULT_MAX_LENGTH, name,
                                      sizeof(name)))
         {
             range_note(name, units);
@@ -632,7 +632,6 @@ void scan_world(void)
         memcpy(&hpNow, obj_block[i] + OBJ_HP_OFF, sizeof(hpNow));
         if (team == own_team_b || hpNow <= 0) continue;
         if (ownerIdx < 0 || ownerIdx >= CHAR_REGISTRY_MAX) continue;
-        remember_character(ownerIdx, objPtr);
     }
     ticks_a++;
 }
