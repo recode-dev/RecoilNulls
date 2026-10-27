@@ -445,6 +445,7 @@ static gboolean game_module_cb(GumModule* module, gpointer userData)
     *(uintptr_t*)userData = (uintptr_t)range->base_address;
     return FALSE;
 }
+void stage_note(const char* what);
 int gum_live = 0;
 BOOL find_game_image(uintptr_t* out_base)
 {
@@ -456,11 +457,16 @@ BOOL find_game_image(uintptr_t* out_base)
     }
     if (!gum_ready)
     {
+        stage_note("stage gum_init begin\n");
         gum_init_embedded();
         gum_ready = 1;
         gum_live = 1;
+        stage_note("stage gum_init end\n");
     }
+    stage_note("stage gum_enum begin\n");
     gum_process_enumerate_modules(game_module_cb, &found);
+    stage_note(found ? "stage gum_enum end found=1\n"
+                            : "stage gum_enum end found=0\n");
     if (!found)
     {
         return NO;

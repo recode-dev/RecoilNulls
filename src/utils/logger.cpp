@@ -485,6 +485,11 @@ void start(void)
     dispatch_resume(g_timer);
 }
 }
+void stage_note(const char* what)
+{
+    if (what == nullptr) return;
+    line("%s", what);
+}
 __attribute__((constructor)) static void logger_entry(void)
 {
     dispatch_async(dispatch_get_main_queue(), ^{ start(); });
