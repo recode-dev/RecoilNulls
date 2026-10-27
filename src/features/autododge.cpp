@@ -10,25 +10,25 @@
 #include <vector>
 static struct
 {
-    float AWARE = 3200.0f;
-    float REACT_S = 0.55f;
-    int DIR_COUNT = 64;
-    float SKIN = 50.0f;
-    float REACH = 600.0f;
-    float HORIZON_S = 1.4f;
-    float MOMENTUM = 55.0f;
-    float SWITCH_MARGIN = 120.0f;
-    float SWITCH_MIN = 40.0f;
-    float TURN_DOT = -0.2f;
-    float SMOOTH = 0.55f;
-    float ENGAGE = 100.0f;
-    uint32_t RELEASE_GRACE_MS = 200;
+    float AWARE = 4400.0f;
+    float REACT_S = 0.32f;
+    int DIR_COUNT = 128;
+    float SKIN = 85.0f;
+    float REACH = 750.0f;
+    float HORIZON_S = 1.65f;
+    float MOMENTUM = 35.0f;
+    float SWITCH_MARGIN = 150.0f;
+    float SWITCH_MIN = 35.0f;
+    float TURN_DOT = -0.15f;
+    float SMOOTH = 0.45f;
+    float ENGAGE = 120.0f;
+    uint32_t RELEASE_GRACE_MS = 120;
     float WALL_HIT = 9000.0f;
-    int PROBE_N = 6;
-    float PROBE_T = 0.15f;
-    float WALL_BODY = 240.0f;
-    uint32_t SEND_MIN_MS = 80;
-    float MIN_POS = 50.0f;
+    int PROBE_N = 8;
+    float PROBE_T = 0.12f;
+    float WALL_BODY = 300.0f;
+    uint32_t SEND_MIN_MS = 16;
+    float MIN_POS = 10.0f;
 } TUNE;
 static const float DEFAULT_PAD = 80.0f;
 static const float DEFAULT_GROW = 0.5f;
