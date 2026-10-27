@@ -39,8 +39,6 @@ uintptr_t addr_dataname = 0;
 uintptr_t addr_castrange = 0;
 uintptr_t addr_skillproj = 0;
 uintptr_t addr_weaponskill = 0;
-uintptr_t addr_skillat = 0;
-uintptr_t addr_skilldata = 0;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
@@ -490,6 +488,7 @@ static BOOL obj_ok(uintptr_t p)
 }
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
+static uintptr_t own_data_vt = 0;
 uintptr_t obj_snapshot[COUNT_MAX];
 int obj_snapshot_n = 0;
 int32_t own_x = 0;
@@ -644,8 +643,15 @@ void scan_world(void)
         ownData = addr_getdata ? call1(addr_getdata, own) : 0;
         if (pointer_plausible(ownData) && read_int(ownData, &probe))
         {
-            int32_t radius = call1i(addr_charradius, ownData);
-            int32_t speed = call1i(addr_charspeed, ownData);
+            void* ownDataVt = nullptr;
+            int32_t radius = 0;
+            int32_t speed = 0;
+            if (read_ptr(ownData, &ownDataVt) && ownDataVt)
+            {
+                own_data_vt = (uintptr_t)ownDataVt;
+            }
+            radius = call1i(addr_charradius, ownData);
+            speed = call1i(addr_charspeed, ownData);
             own_r = (float)radius;
             if (speed >= 300 && speed <= 3000) own_speed = (float)speed;
         }
@@ -797,8 +803,6 @@ void resolve_addresses(void)
     addr_castrange = callable(RVA_LOGICSKILLDATA_GETCASTRANGE);
     addr_skillproj = callable(RVA_LOGICSKILLDATA_GETPROJECTILEDATA);
     addr_weaponskill = callable(RVA_LOGICCHARACTERCLIENT_GETWEAPONSKILL);
-    addr_skillat = callable(RVA_LOGICCHARACTERCLIENT_GETSKILLAT);
-    addr_skilldata = callable(RVA_LOGICSKILLCLIENT_GETDATA);
     if (!addr_readable(addr_battlescreen, sizeof(void*)))
     {
         addr_battlescreen = 0;
@@ -949,8 +953,6 @@ static void harvest_skill_data(uintptr_t data)
 static void harvest_character(uintptr_t chr)
 {
     uintptr_t weapon = 0;
-    int slot = 0;
-    int hyper = 0;
     if (!obj_ok(chr))
     {
         return;
@@ -960,50 +962,29 @@ static void harvest_character(uintptr_t chr)
     {
         harvest_skill_data(weapon);
     }
-    for (slot = 0; slot < SKILL_SLOT_MAX; slot++)
-    {
-        uintptr_t skill = call2u(addr_skillat, chr, slot);
-        if (!pointer_plausible(skill))
-        {
-            continue;
-        }
-        for (hyper = 0; hyper < 2; hyper++)
-        {
-            uintptr_t data = call2u(addr_skilldata, skill, hyper);
-            if (!pointer_plausible(data))
-            {
-                continue;
-            }
-            harvest_skill_data(data);
-        }
-    }
 }
 static uintptr_t char_by_owner(int32_t ownerIdx)
 {
     int i = 0;
-    if (ownerIdx < 0 || !manager_array_ptr || manager_count_v <= 0)
+    if (ownerIdx < 0 || !own_data_vt || obj_snapshot_n <= 0)
     {
         return 0;
     }
-    for (i = 0; i < manager_count_v && i < 128; i++)
+    for (i = 0; i < obj_snapshot_n; i++)
     {
-        uintptr_t obj = 0;
-        int32_t id = 0;
+        uintptr_t obj = obj_snapshot[i];
+        uintptr_t data = 0;
+        uintptr_t dataVt = 0;
         int32_t owner = -1;
-        if (!read_ptr(manager_array_ptr + (uintptr_t)i * 8ULL, (void**)&obj) ||
-            !obj)
+        if (!obj || !obj_ok(obj))
         {
             continue;
         }
-        if (!obj_ok(obj))
+        if (!read_ptr(obj + (uintptr_t)ELEM_DEF_OFF, (void**)&data) || !data)
         {
             continue;
         }
-        if (!read_int(obj + (uintptr_t)OBJ_GLOBALID_OFF, &id))
-        {
-            continue;
-        }
-        if (id < 1000000 || id >= 2000000)
+        if (!read_ptr(data, (void**)&dataVt) || dataVt != own_data_vt)
         {
             continue;
         }

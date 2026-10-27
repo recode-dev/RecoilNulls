@@ -31,8 +31,6 @@ extern uintptr_t addr_battlescreen;
 extern uintptr_t addr_projbeam;
 extern uintptr_t addr_dataname;
 extern uintptr_t addr_castrange;
-extern uintptr_t addr_skillat;
-extern uintptr_t addr_skilldata;
 float range_for_proj(uintptr_t projData, int32_t ownerIdx);
 int range_map_size(void);
 extern uintptr_t owner;

@@ -99,14 +99,11 @@ void dump_header(void)
          (void*)addr_getdata,
          (void*)addr_getgid,
          (void*)addr_movedto);
-    line("rva charspeed=%p charradius=%p projbeam=%p dataname=%p "
-         "skillat=%p skilldata=%p\n",
+    line("rva charspeed=%p charradius=%p projbeam=%p dataname=%p\n",
          (void*)addr_charspeed,
          (void*)addr_charradius,
          (void*)addr_projbeam,
-         (void*)addr_dataname,
-         (void*)addr_skillat,
-         (void*)addr_skilldata);
+         (void*)addr_dataname);
     line("off state=%llx stateenum=%llx scene=%llx client=%llx mgr=%llx "
          "array=%llx count=%llx\n",
          (unsigned long long)STATE_RVA,

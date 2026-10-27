@@ -12,7 +12,7 @@ static struct
     float AWARE = 3200.0f;
     uint32_t TICK_MS = 4;
     uint32_t TICK_MS_IDLE = 8;
-    int DIR_COUNT = 48;
+    int DIR_COUNT = 64;
     float SKIN = 50.0f;
     uint32_t LOCK_MS = 70;
     float REACH = 600.0f;
