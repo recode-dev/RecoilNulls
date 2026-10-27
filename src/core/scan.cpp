@@ -546,11 +546,11 @@ void run_autododge()
     autododge();
     in_move = 0;
 }
-// Brawl Stars logic ticks at ~30 Hz (TICK_RATE_S = 0.0333s in autododge.cpp).
-// Throttle the scan to that cadence so we don't rescan at render rate (60/120
-// Hz) or busy-loop, which only wastes CPU — game state can't change faster than
-// 30 Hz.
-static constexpr uint64_t SCAN_PERIOD_US = 33333ULL;
+// Client updates its in-memory world at 60 Hz (16.67 ms) even though the server
+// simulates at 30 Hz — projectiles move every ~16 ms in client memory
+// (autododge.cpp: earlyTicks * 16, SEND_MIN_MS = 16). Scan at that cadence so
+// we catch every client update, but never busy-loop.
+static constexpr uint64_t SCAN_PERIOD_US = 16667ULL;
 static uint64_t g_last_scan_us = 0;
 static void scan_frame()
 {
