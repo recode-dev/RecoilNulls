@@ -409,56 +409,297 @@ static uintptr_t scan_call(uintptr_t fn, uintptr_t a, uintptr_t b)
     return ((fn_t)target)(a, b);
 }
 
-static void scan_projectile_data()
+static void scan_projectile_data(bool newMatch)
 {
-    if (!base || !obj_count) return;
-    uintptr_t projVt = base + static_cast<uintptr_t>(VTABLE_PROJ_DATA_RVA);
+    struct ScanStats
+    {
+        uint32_t objects, invalidSnapshot, nullObject, dataReadFail, vtableReadFail;
+        uint32_t knownProjectileVtable, otherDataVtable, moduleDataVtable;
+        uint32_t outOfModuleVtable, projectileDataReadFail, projectileFieldReadFail;
+        uint32_t projectileIndirectReadFail, projectileZeroPid, projectileOwnTeam;
+        uint32_t projectileDead, projectileOutsideRange, projectileInRange;
+        uint32_t projectileEligible;
+    };
+    struct VtableBucket
+    {
+        uintptr_t vtable;
+        uintptr_t sampleData;
+        int32_t samplePid;
+        uint32_t count;
+        char name[48];
+    };
+    constexpr size_t DETAIL_LIMIT = 128;
+    constexpr size_t VTABLE_LIMIT = 16;
+    static uintptr_t detailedData[DETAIL_LIMIT]{};
+    static size_t detailedCount = 0;
+    static uint32_t detailOverflow = 0;
+    static ScanStats totals{};
+    static VtableBucket vtables[VTABLE_LIMIT]{};
+    static size_t vtableCount = 0;
+    static uint32_t vtableOverflow = 0;
+    static uint64_t lastReportMs = 0;
+
+    if (newMatch)
+    {
+        detailedCount = 0;
+        detailOverflow = 0;
+        totals = {};
+        vtableCount = 0;
+        vtableOverflow = 0;
+        lastReportMs = 0;
+    }
+    if (!base) return;
+    ScanStats current{};
+    current.objects = obj_count > 0 ? static_cast<uint32_t>(obj_count) : 0;
+    const uintptr_t projVt = base + static_cast<uintptr_t>(VTABLE_PROJ_DATA_RVA);
+    const uintptr_t dataEnd = static_cast<uintptr_t>(DC_RVA_LO + DC_RVA_SIZE);
+    const float zoneSq = AWARE * AWARE;
 
     for (int i = 0; i < obj_count; i++)
     {
-        if (!obj_valid[i]) continue;
-        uintptr_t obj = obj_snapshot[i];
-        if (!obj) continue;
+        if (!obj_valid[i])
+        {
+            current.invalidSnapshot++;
+            continue;
+        }
+        const uintptr_t obj = obj_snapshot[i];
+        if (!obj)
+        {
+            current.nullObject++;
+            continue;
+        }
 
         void* dataRaw = nullptr;
         if (!read_ptr(obj + static_cast<uintptr_t>(ELEM_DEF_OFF), &dataRaw) ||
             !dataRaw)
-            continue;
-        uintptr_t data = (uintptr_t)dataRaw;
-
-        void* vtRaw = nullptr;
-        if (!read_ptr(data, &vtRaw) || (uintptr_t)vtRaw != projVt) continue;
-
-        uint8_t buf[0xC8];
-        if (!read_bytes(data, buf, sizeof(buf))) continue;
-
-        char name[64] = "?";
-        uintptr_t nameStr = scan_call(addr_dataname, data, 0);
-        if (nameStr)
-            read_scstring(
-                nameStr, SCSTRING_DEFAULT_MAX_LENGTH, name, sizeof(name));
-
-        char out[2048];
-        int n = snprintf(
-            out, sizeof(out), "[SCANNER] data=%p name=%s", (void*)data, name);
-        for (int off = 0x60; off <= 0xC0; off += 4)
         {
-            int32_t iv = 0;
-            float fv = 0.0f;
-            memcpy(&iv, buf + off, 4);
-            memcpy(&fv, buf + off, 4);
-            bool key = (off == 0x6c || off == 0x74 || off == 0x80 ||
-                        off == 0x9c || off == 0xa4);
-            n += snprintf(out + n,
-                          sizeof(out) - n,
-                          key ? " |%02x=%d(f=%.1f)" : " |%02x=%d",
-                          off,
-                          iv,
-                          fv);
-            if (n >= (int)sizeof(out)) break;
+            current.dataReadFail++;
+            continue;
         }
-        line("%s\n", out);
+        const uintptr_t data = reinterpret_cast<uintptr_t>(dataRaw);
+        void* vtRaw = nullptr;
+        if (!read_ptr(data, &vtRaw) || !vtRaw)
+        {
+            current.vtableReadFail++;
+            continue;
+        }
+        const uintptr_t vtable = reinterpret_cast<uintptr_t>(vtRaw);
+        if (vtable != projVt)
+        {
+            current.otherDataVtable++;
+            if (vtable >= base + static_cast<uintptr_t>(DC_RVA_LO) &&
+                vtable < base + dataEnd)
+            {
+                current.moduleDataVtable++;
+                size_t bucket = 0;
+                while (bucket < vtableCount && vtables[bucket].vtable != vtable)
+                    bucket++;
+                if (bucket == vtableCount && vtableCount < VTABLE_LIMIT)
+                {
+                    VtableBucket& entry = vtables[vtableCount++];
+                    entry.vtable = vtable;
+                    entry.sampleData = data;
+                    entry.samplePid = 0;
+                    entry.count = 0;
+                    snprintf(entry.name, sizeof(entry.name), "?");
+                    int32_t pid = 0;
+                    read_int(obj + static_cast<uintptr_t>(OBJ_GLOBALID_OFF), &pid);
+                    entry.samplePid = pid;
+                    const uintptr_t nameStr = scan_call(addr_dataname, data, 0);
+                    if (nameStr)
+                        read_scstring(nameStr,
+                                      SCSTRING_DEFAULT_MAX_LENGTH,
+                                      entry.name,
+                                      sizeof(entry.name));
+                    bucket = vtableCount - 1;
+                }
+                if (bucket < vtableCount)
+                    vtables[bucket].count++;
+                else
+                    vtableOverflow++;
+            }
+            else
+            {
+                current.outOfModuleVtable++;
+            }
+            continue;
+        }
+        current.knownProjectileVtable++;
+
+        // LogicProjectileData extends through the reference fields at 0x2c0;
+        // capture the full 0x2d0-byte object instead of only the old 0x60..0xc0 window.
+        uint8_t buf[0x2D0];
+        if (!read_bytes(data, buf, sizeof(buf)))
+        {
+            current.projectileDataReadFail++;
+            continue;
+        }
+
+        int32_t pid = 0, team = -1, px = 0, py = 0, deadFlag = 0, indirect = 0;
+        const bool pidOk = read_int(obj + static_cast<uintptr_t>(OBJ_GLOBALID_OFF), &pid);
+        const bool teamOk = read_int(obj + static_cast<uintptr_t>(OBJ_TEAM_OFF), &team);
+        const bool xOk = read_int(obj + static_cast<uintptr_t>(OBJ_X_OFF), &px);
+        const bool yOk = read_int(obj + static_cast<uintptr_t>(OBJ_Y_OFF), &py);
+        const bool deadOk = read_int(obj + static_cast<uintptr_t>(OBJ_DEADFLAG_OFF), &deadFlag);
+        const bool indirectOk = read_int(obj + static_cast<uintptr_t>(PROJECTILE_ISINDIRECT_OFF), &indirect);
+        if (!pidOk || !teamOk || !xOk || !yOk || !deadOk)
+            current.projectileFieldReadFail++;
+        if (!indirectOk) current.projectileIndirectReadFail++;
+        if (pidOk && pid == 0) current.projectileZeroPid++;
+        if (teamOk && team == own_team_b) current.projectileOwnTeam++;
+        if (deadOk && deadFlag != 0) current.projectileDead++;
+
+        bool withinRange = false;
+        if (xOk && yOk)
+        {
+            const float dx = static_cast<float>(px) - static_cast<float>(own_x);
+            const float dy = static_cast<float>(py) - static_cast<float>(own_y);
+            withinRange = dx * dx + dy * dy <= zoneSq;
+            if (withinRange)
+                current.projectileInRange++;
+            else
+                current.projectileOutsideRange++;
+        }
+
+        const bool eligible = pidOk && teamOk && xOk && yOk && deadOk &&
+                              indirectOk && pid != 0 && team != own_team_b &&
+                              deadFlag == 0 && withinRange;
+        if (eligible) current.projectileEligible++;
+        const uintptr_t nameStr = scan_call(addr_dataname, data, 0);
+        char name[64] = "?";
+        if (nameStr)
+            read_scstring(nameStr,
+                          SCSTRING_DEFAULT_MAX_LENGTH,
+                          name,
+                          sizeof(name));
+
+        bool alreadyDetailed = false;
+        for (size_t j = 0; j < detailedCount; j++)
+            if (detailedData[j] == data)
+            {
+                alreadyDetailed = true;
+                break;
+            }
+        if (!alreadyDetailed)
+        {
+            if (detailedCount < DETAIL_LIMIT)
+                detailedData[detailedCount++] = data;
+            else
+                detailOverflow++;
+
+            const int beam = static_cast<int>(scan_call(addr_projbeam, data, 0));
+            const int early = static_cast<int>(scan_call(addr_projearly, data, 0));
+            int32_t configuredSpeed = 0, configuredRadius = 0;
+            memcpy(&configuredSpeed,
+                   buf + static_cast<size_t>(PROJECTILEDATA_SPEED_OFF),
+                   sizeof(configuredSpeed));
+            memcpy(&configuredRadius,
+                   buf + static_cast<size_t>(PROJECTILEDATA_RADIUS_OFF),
+                   sizeof(configuredRadius));
+            line("[SCANNER] projectile data=%p pid=%d team=%d pos=(%d,%d) "
+                 "eligible=%d fields=%d indirect=%d beam=%d early=%d "
+                 "speed@%llx=%d radius@%llx=%d name=%s\n",
+                 (void*)data,
+                 pid,
+                 team,
+                 px,
+                 py,
+                 eligible ? 1 : 0,
+                 (pidOk && teamOk && xOk && yOk && deadOk && indirectOk) ? 1 : 0,
+                 indirect,
+                 beam,
+                 early,
+                 static_cast<unsigned long long>(PROJECTILEDATA_SPEED_OFF),
+                 configuredSpeed,
+                 static_cast<unsigned long long>(PROJECTILEDATA_RADIUS_OFF),
+                 configuredRadius,
+                 name);
+
+            line("[SCANNER] raw-begin data=%p pid=%d bytes=0x%zx\n",
+                 (void*)data,
+                 pid,
+                 sizeof(buf));
+            for (size_t off = 0; off + sizeof(uint32_t) <= sizeof(buf); off += 4)
+            {
+                uint32_t bits = 0;
+                int32_t iv = 0;
+                float fv = 0.0f;
+                memcpy(&bits, buf + off, sizeof(bits));
+                memcpy(&iv, buf + off, sizeof(iv));
+                memcpy(&fv, buf + off, sizeof(fv));
+                line("[SCANNER] raw data=%p pid=%d off=0x%03zx bits=%08x "
+                     "i=%d f=%.6g\n",
+                     (void*)data,
+                     pid,
+                     off,
+                     bits,
+                     iv,
+                     fv);
+            }
+            line("[SCANNER] raw-end data=%p pid=%d\n", (void*)data, pid);
+        }
     }
+
+#define SCAN_ACCUMULATE(field) totals.field += current.field
+    SCAN_ACCUMULATE(objects);
+    SCAN_ACCUMULATE(invalidSnapshot);
+    SCAN_ACCUMULATE(nullObject);
+    SCAN_ACCUMULATE(dataReadFail);
+    SCAN_ACCUMULATE(vtableReadFail);
+    SCAN_ACCUMULATE(knownProjectileVtable);
+    SCAN_ACCUMULATE(otherDataVtable);
+    SCAN_ACCUMULATE(moduleDataVtable);
+    SCAN_ACCUMULATE(outOfModuleVtable);
+    SCAN_ACCUMULATE(projectileDataReadFail);
+    SCAN_ACCUMULATE(projectileFieldReadFail);
+    SCAN_ACCUMULATE(projectileIndirectReadFail);
+    SCAN_ACCUMULATE(projectileZeroPid);
+    SCAN_ACCUMULATE(projectileOwnTeam);
+    SCAN_ACCUMULATE(projectileDead);
+    SCAN_ACCUMULATE(projectileOutsideRange);
+    SCAN_ACCUMULATE(projectileInRange);
+    SCAN_ACCUMULATE(projectileEligible);
+#undef SCAN_ACCUMULATE
+
+    const uint64_t now = static_cast<uint64_t>(g_get_real_time() / 1000);
+    if (lastReportMs && now - lastReportMs < 1000) return;
+    lastReportMs = now;
+    line("[SCANNER] summary objs=%u invalidSnap=%u nullObj=%u noData=%u "
+         "badVtable=%u projVtable=%u otherVtable=%u dataVtableInImage=%u "
+         "otherVtableOutsideImage=%u projDataUnreadable=%u projFieldsFail=%u "
+         "indirectReadFail=%u pidZero=%u ownTeam=%u dead=%u "
+         "outsideRange=%u inRange=%u eligible=%u detailOverflow=%u "
+         "vtableOverflow=%u\n",
+         totals.objects,
+         totals.invalidSnapshot,
+         totals.nullObject,
+         totals.dataReadFail,
+         totals.vtableReadFail,
+         totals.knownProjectileVtable,
+         totals.otherDataVtable,
+         totals.moduleDataVtable,
+         totals.outOfModuleVtable,
+         totals.projectileDataReadFail,
+         totals.projectileFieldReadFail,
+         totals.projectileIndirectReadFail,
+         totals.projectileZeroPid,
+         totals.projectileOwnTeam,
+         totals.projectileDead,
+         totals.projectileOutsideRange,
+         totals.projectileInRange,
+         totals.projectileEligible,
+         detailOverflow,
+         vtableOverflow);
+    for (size_t i = 0; i < vtableCount; i++)
+        line("[SCANNER] other-data-vtable rva=0x%llx count=%u sample=%p pid=%d name=%s\n",
+             static_cast<unsigned long long>(vtables[i].vtable - base),
+             vtables[i].count,
+             (void*)vtables[i].sampleData,
+             vtables[i].samplePid,
+             vtables[i].name);
+    totals = {};
+    vtableCount = 0;
+    vtableOverflow = 0;
 }
 
 void tick()
@@ -481,6 +722,7 @@ void tick()
     if (lastMs.load() == 0)
     {
         line("\n##### match #####\n");
+        scan_projectile_data(true);
         last_hp = -1;
         last_tx = INT32_MAX;
         last_ty = INT32_MAX;
@@ -489,7 +731,7 @@ void tick()
     }
     line("\n--- t=%llu ---\n", ticks.load(std::memory_order_relaxed));
     dump_ad();
-    scan_projectile_data();
+    scan_projectile_data(false);
     lastMs.store(now);
     fflush(file);
     rotate_if_needed();
