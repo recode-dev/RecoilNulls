@@ -29,8 +29,6 @@ static struct
     float WALL_BODY = 300.0f;
     uint32_t SEND_MIN_MS = 16;
     float MIN_POS = 15.0f;
-    static const float DEFAULT_PAD = 80.0f;
-    static const float DEFAULT_GROW = 0.5f;
 } TUNE;
 static const float DEFAULT_PAD = 80.0f;
 static const float DEFAULT_GROW = 0.5f;
