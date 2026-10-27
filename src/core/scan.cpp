@@ -342,6 +342,8 @@ static int32_t call1i(uintptr_t fn, uintptr_t self)
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
 uintptr_t obj_snapshot[COUNT_MAX];
+uint8_t obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
+uint8_t obj_valid[COUNT_MAX];
 int obj_snapshot_n = 0;
 int32_t own_x = 0;
 int32_t own_y = 0;
@@ -527,6 +529,14 @@ void scan_world(void)
     manager_array_ptr = array;
     manager_count_v = count;
     obj_snapshot_n = count;
+    for (int i = 0; i < count; i++)
+    {
+        uintptr_t objPtr = obj_snapshot[i];
+        obj_valid[i] = (objPtr && pointer_plausible(objPtr) &&
+                        read_bytes(objPtr, obj_block[i], OBJ_BLOCK_SIZE))
+                           ? 1
+                           : 0;
+    }
     ticks_a++;
 }
 void run_workload(void)

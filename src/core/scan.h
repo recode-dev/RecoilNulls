@@ -2,6 +2,7 @@
 #define SCAN_SCAN_H
 #include "./offsets.h"
 #include <stdint.h>
+#define OBJ_BLOCK_SIZE (OBJ_DEADFLAG_OFF + sizeof(uint32_t))
 #ifndef NSEC_PER_SEC
 #define NSEC_PER_SEC 1000000000ull
 #endif
@@ -134,6 +135,8 @@ extern uintptr_t manager_ptr;
 extern uintptr_t manager_array_ptr;
 extern int32_t manager_count_v;
 extern uintptr_t obj_snapshot[COUNT_MAX];
+extern uint8_t obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
+extern uint8_t obj_valid[COUNT_MAX];
 extern int obj_snapshot_n;
 extern uint64_t ticks_a;
 extern uint32_t own_hp;

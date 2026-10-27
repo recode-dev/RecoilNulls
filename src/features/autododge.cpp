@@ -45,7 +45,6 @@ struct Threat
     float vx, vy;
     float rad;
 };
-#define OBJ_BLOCK_SIZE (OBJ_DEADFLAG_OFF + sizeof(uint32_t))
 struct ProjectileState
 {
     float vx, vy;
@@ -247,11 +246,8 @@ void autododge(void)
         {
             for (int i = 0; i < obj_snapshot_n; i++)
             {
-                uintptr_t objPtr = obj_snapshot[i];
-                if (!objPtr) continue;
-                if (!pointer_plausible(objPtr)) continue;
-                uint8_t obj[OBJ_BLOCK_SIZE];
-                if (!read_bytes(objPtr, obj, sizeof(obj))) continue;
+                if (!obj_valid[i]) continue;
+                const uint8_t* obj = obj_block[i];
                 uintptr_t dataPtr = 0;
                 memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
                 if (!dataPtr)
