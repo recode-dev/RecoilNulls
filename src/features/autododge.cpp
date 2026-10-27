@@ -12,20 +12,19 @@ static struct
     float REACT_S = 0.55f;
     int DIR_COUNT = 64;
     float SKIN = 50.0f;
-    uint32_t LOCK_MS = 70;
     float REACH = 600.0f;
     float HORIZON_S = 1.4f;
-    float KEEP_BAND = 100.0f;
     float MOMENTUM = 55.0f;
+    float SWITCH_MARGIN = 120.0f;
+    float SWITCH_MIN = 40.0f;
     float ENGAGE = 100.0f;
     uint32_t RELEASE_GRACE_MS = 200;
     float COAST_S = 0.2f;
     float WALL_HIT = 9000.0f;
-    int PROBE_N = 3;
-    float PROBE_T = 0.35f;
+    int PROBE_N = 6;
+    float PROBE_T = 0.15f;
     float WALL_BODY = 240.0f;
     uint32_t SEND_MIN_MS = 250;
-    float SEND_TURN_DOT = 0.99f;
     float MIN_POS = 50.0f;
 } TUNE;
 static const float DEFAULT_PAD = 80.0f;
@@ -65,8 +64,9 @@ static std::map<int, ProjectileState> g_proj_cache;
 static std::vector<V2> g_ring;
 static int g_headingIdx = -1;
 static V2 g_lastDir = V2(0, 0);
-static uint64_t g_holdUntil = 0;
 static uint64_t g_lastDangerTs = 0;
+static uint64_t g_lastGoodTs = 0;
+static int g_sentIdx = -1;
 static float g_sentDirX = 0.0f;
 static float g_sentDirY = 0.0f;
 static uint64_t g_lastSentAt = 0;
@@ -120,19 +120,20 @@ static float clearanceFor(const std::vector<Threat>& threats,
 }
 static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
 {
+    int blocked = 0;
+    float step = 0.0f;
     if (!wall_ready()) return 0.0f;
-    float step = speed * TUNE.PROBE_T;
-    float penalty = 0.0f;
+    step = speed * TUNE.PROBE_T;
     for (int s = 1; s <= TUNE.PROBE_N; s++)
     {
         float px = myX + dir.x * step * (float)s;
         float py = myY + dir.y * step * (float)s;
         if (wall_is_blocked_wide(px, py, bodyR, WALL_BLOCKS_MOVEMENT))
         {
-            penalty += TUNE.WALL_HIT * (float)(TUNE.PROBE_N - s + 1);
+            blocked++;
         }
     }
-    return penalty;
+    return TUNE.WALL_HIT * (float)blocked / (float)TUNE.PROBE_N;
 }
 static int32_t clamp_axis(float value, int tiles)
 {
@@ -159,7 +160,7 @@ static int32_t clamp_axis(float value, int tiles)
 static void clearHeading()
 {
     g_headingIdx = -1;
-    g_holdUntil = 0;
+    g_sentIdx = -1;
 }
 static void releaseHeading(uint64_t now, float mx, float my)
 {
@@ -378,7 +379,7 @@ void autododge(void)
         releaseHeading(now, mx, my);
         return;
     }
-    int prevIdx = g_headingIdx;
+    int prevIdx = (g_sentIdx >= 0) ? g_sentIdx : g_headingIdx;
     V2 prevDir = (prevIdx >= 0) ? g_ring[prevIdx] : g_lastDir;
     bool hasPrevDir = (prevDir.x != 0.0f || prevDir.y != 0.0f);
     float bodyR = TUNE.WALL_BODY;
@@ -402,37 +403,38 @@ void autododge(void)
     }
     int chosenIdx = bestIdx;
     float chosenScore = bestScore;
-    if (prevIdx >= 0 && now < g_holdUntil && chosenIdx != prevIdx)
+    if (prevIdx >= 0 && bestIdx != prevIdx)
     {
-        if (prevScore > 0.0f && prevScore + TUNE.KEEP_BAND >= bestScore)
+        const V2& next = g_ring[bestIdx];
+        float dot = next.x * prevDir.x + next.y * prevDir.y;
+        float margin = (prevScore > 0.0f)
+                           ? TUNE.SWITCH_MARGIN * (2.0f - dot)
+                           : TUNE.SWITCH_MIN;
+        bool rescue = (prevScore <= 0.0f && bestScore > 0.0f);
+        if (!rescue && bestScore <= prevScore + margin)
         {
             chosenIdx = prevIdx;
             chosenScore = prevScore;
         }
-        else
-        {
-            g_holdUntil = now + TUNE.LOCK_MS;
-        }
-    }
-    else if (now >= g_holdUntil)
-    {
-        g_holdUntil = now + TUNE.LOCK_MS;
     }
     if (chosenScore <= stayClear)
     {
-        releaseHeading(now, mx, my);
+        if (now - g_lastGoodTs > TUNE.RELEASE_GRACE_MS)
+        {
+            releaseHeading(now, mx, my);
+        }
         return;
     }
     V2 chosen = g_ring[chosenIdx];
     g_headingIdx = chosenIdx;
-    g_lastDir = g_ring[chosenIdx];
+    g_lastDir = chosen;
+    g_lastGoodTs = now;
     int32_t tx = clamp_axis(mx + chosen.x * TUNE.REACH, wall_cache_w());
     int32_t ty = clamp_axis(my + chosen.y * TUNE.REACH, wall_cache_h());
-    float dirDot = chosen.x * g_sentDirX + chosen.y * g_sentDirY;
-    bool turned = (dirDot < TUNE.SEND_TURN_DOT);
     bool stale = (now - g_lastSentAt > TUNE.SEND_MIN_MS);
-    if (turned || stale)
+    if (chosenIdx != g_sentIdx || stale)
     {
+        g_sentIdx = chosenIdx;
         g_sentDirX = chosen.x;
         g_sentDirY = chosen.y;
         g_lastSentAt = now;
