@@ -355,7 +355,7 @@ void autododge(void)
         }
         for (auto it = g_proj_cache.begin(); it != g_proj_cache.end();)
         {
-            if (now - it->second.lastSeen > 450)
+            if (now - it->second.lastSeen > 800)
             {
                 it = g_proj_cache.erase(it);
             }
