@@ -312,6 +312,7 @@ typedef struct
     float ty;
     float radius;
     float speed;
+    float range;
     int sent;
     int mapn;
     int ranged;

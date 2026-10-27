@@ -1,5 +1,6 @@
 #include "../core/scan.h"
 #include "../features/autododge.h"
+#include "../utils/walls.h"
 #include <dispatch/dispatch.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -147,10 +148,6 @@ void dump_chain(void)
     if (read_ptr(slot + SCENE_OFF, &value) && value) scene = (uintptr_t)value;
     if (scene && read_ptr(scene + CLIENT_OFF, &value) && value)
         clientPtr = (uintptr_t)value;
-    if (!clientPtr && addr_getinstance)
-    {
-        clientPtr = ((uintptr_t(*)(void))addr_getinstance)();
-    }
     if (clientPtr)
     {
         if (read_ptr(clientPtr + MODE_MANAGER_OFF, &value) && value)
@@ -222,7 +219,8 @@ void dump_ad(void)
 {
     line("adg stage=%d haz=%d thr=%d danger=%d dir=(%.2f,%.2f) dmg=%.0f "
          "first=%.1f range=%.0f map=%d rk=%d "
-         "tgt=(%.0f,%.0f) sent=%d active=%d moving=%d\n",
+         "tgt=(%.0f,%.0f) sent=%d active=%d moving=%d "
+         "wall=%d %dx%d holes=%d\n",
          dbg.stage,
          dbg.hazards,
          dbg.threats,
@@ -231,14 +229,18 @@ void dump_ad(void)
          dbg.dy,
          dbg.ix,
          dbg.iy,
-         own_cast_range(),
+         dbg.range,
          dbg.mapn,
          dbg.ranged,
          dbg.tx,
          dbg.ty,
          dbg.sent,
          active,
-         moving);
+         moving,
+         wall_ready(),
+         wall_cache_w(),
+         wall_cache_h(),
+         wall_holes());
     if (dbg.note[0]) line("adg note=%s\n", dbg.note);
 }
 void dump_raw(void)
@@ -319,8 +321,6 @@ void tick(void)
 {
     uint64_t now = 0;
     uint64_t scan = 0;
-    int32_t probeTeam = -1;
-    int32_t probeIdx = -1;
     if (g_file == nullptr) return;
     g_ticks++;
     now = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
@@ -337,17 +337,6 @@ void tick(void)
          g_rate);
     dump_chain();
     dump_own();
-    if (addr_getteam && controller())
-    {
-        uintptr_t clientPtr = controller();
-        probeTeam = ((int32_t(*)(uintptr_t))addr_getteam)(clientPtr);
-        if (addr_getownidx)
-            probeIdx = ((int32_t(*)(uintptr_t))addr_getownidx)(clientPtr);
-        line("client probe team=%d idx=%d ctrl=%p\n",
-             probeTeam,
-             probeIdx,
-             (void*)clientPtr);
-    }
     dump_ad();
     if ((g_ticks % 4) == 0) dump_objects();
     if ((g_ticks % RAW_EVERY) == 0) dump_raw();

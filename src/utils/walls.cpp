@@ -1,73 +1,108 @@
 #include "walls.h"
 #include "../core/scan.h"
-uintptr_t tiles = 0;
-int w = 0;
-int h = 0;
-int cell(int tx, int ty, int* proj, int* move)
-{
-    void* tile = nullptr;
-    void* type = nullptr;
-    *proj = -1;
-    *move = -1;
-    if (!tiles)
-    {
-        return 0;
-    }
-    if (tx < 0 || ty < 0 || tx >= w || ty >= h)
-    {
-        return 0;
-    }
-    if (!read_ptr(tiles + (uintptr_t)(ty * w + tx) * (uintptr_t)TILE_PTR_STRIDE,
-                  &tile))
-    {
-        return 0;
-    }
-    if (!tile)
-    {
-        *proj = 0;
-        *move = 0;
-        return 1;
-    }
-    if (!read_ptr((uintptr_t)tile, &type) || !type)
-    {
-        return 0;
-    }
-    uint16_t packed = 0;
-    if (!read_bytes((uintptr_t)type + TILE_TYPE_MOVE_OFF, &packed, 2))
-    {
-        return 0;
-    }
-    *move = (packed & 0xff) ? 1 : 0;
-    *proj = (packed >> 8) ? 1 : 0;
-    return 1;
-}
+#include <string.h>
+
+#define WALL_TYPE_CACHE_MAX 128
+
 static uint8_t wall_grid[WALL_MAX_TOTAL_TILES];
+static uint8_t wall_raw[WALL_MAX_TOTAL_TILES * (int)sizeof(uintptr_t)];
+static uintptr_t wall_tiles = 0;
+static int wall_tiles_w = 0;
+static int wall_tiles_h = 0;
 static int wall_w = 0;
 static int wall_h = 0;
 static int wall_have = 0;
+static int wall_hole_n = 0;
 static uintptr_t wall_map = 0;
 static int wall_dirty = 1;
 static uint64_t wall_fail_ms = 0;
+static uintptr_t wall_type_key[WALL_TYPE_CACHE_MAX];
+static uint8_t wall_type_bits[WALL_TYPE_CACHE_MAX];
+static int wall_type_n = 0;
+static int wall_type_next = 0;
+
+static void wall_types_clear(void)
+{
+    wall_type_n = 0;
+    wall_type_next = 0;
+}
+
+static int wall_type_bits_for(uintptr_t type, uint8_t* out)
+{
+    uint16_t packed = 0;
+    uint8_t bits = 0;
+    int i = 0;
+    for (i = 0; i < wall_type_n; i++)
+    {
+        if (wall_type_key[i] == type)
+        {
+            *out = wall_type_bits[i];
+            return 1;
+        }
+    }
+    if (!read_bytes(type + (uintptr_t)TILE_TYPE_MOVE_OFF, &packed, 2))
+    {
+        return 0;
+    }
+    if (packed & 0xff)
+    {
+        bits |= WALL_BLOCKS_MOVEMENT;
+    }
+    if (packed >> 8)
+    {
+        bits |= WALL_BLOCKS_PROJECTILES;
+    }
+    if (wall_type_n < WALL_TYPE_CACHE_MAX)
+    {
+        wall_type_key[wall_type_n] = type;
+        wall_type_bits[wall_type_n] = bits;
+        wall_type_n++;
+    }
+    else
+    {
+        wall_type_key[wall_type_next] = type;
+        wall_type_bits[wall_type_next] = bits;
+        wall_type_next = (wall_type_next + 1) % WALL_TYPE_CACHE_MAX;
+    }
+    *out = bits;
+    return 1;
+}
+
 int wall_cache_w(void)
 {
     return wall_w;
 }
+
 int wall_cache_h(void)
 {
     return wall_h;
 }
+
+int wall_ready(void)
+{
+    return wall_have;
+}
+
+int wall_holes(void)
+{
+    return wall_hole_n;
+}
+
 void wall_drop(void)
 {
-    tiles = 0;
-    w = 0;
-    h = 0;
+    wall_tiles = 0;
+    wall_tiles_w = 0;
+    wall_tiles_h = 0;
     wall_map = 0;
     wall_w = 0;
     wall_h = 0;
     wall_have = 0;
+    wall_hole_n = 0;
     wall_dirty = 1;
     wall_fail_ms = 0;
+    wall_types_clear();
 }
+
 void wall_bind(uintptr_t tileMap)
 {
     void* tileArray = nullptr;
@@ -80,11 +115,14 @@ void wall_bind(uintptr_t tileMap)
     if (tileMap != wall_map)
     {
         wall_map = tileMap;
-        tiles = 0;
-        w = 0;
-        h = 0;
-        wall_dirty = 1;
+        wall_tiles = 0;
+        wall_tiles_w = 0;
+        wall_tiles_h = 0;
+        wall_w = 0;
+        wall_h = 0;
         wall_have = 0;
+        wall_hole_n = 0;
+        wall_dirty = 1;
         wall_fail_ms = 0;
     }
     if (!read_int(tileMap + (uintptr_t)TILEMAP_W_OFF, &mapW) || mapW <= 0 ||
@@ -102,32 +140,30 @@ void wall_bind(uintptr_t tileMap)
     {
         return;
     }
-    if ((uintptr_t)tileArray != tiles || mapW != w || mapH != h)
+    if ((uintptr_t)tileArray != wall_tiles || mapW != wall_tiles_w ||
+        mapH != wall_tiles_h)
     {
-        tiles = (uintptr_t)tileArray;
-        w = mapW;
-        h = mapH;
-        wall_dirty = 1;
+        wall_tiles = (uintptr_t)tileArray;
+        wall_tiles_w = mapW;
+        wall_tiles_h = mapH;
         wall_have = 0;
+        wall_dirty = 1;
     }
 }
-int wall_ready(void)
-{
-    return wall_have;
-}
+
 int wall_build(void)
 {
-    int width = 0;
-    int height = 0;
+    int width = wall_tiles_w;
+    int height = wall_tiles_h;
     int total = 0;
+    int holes = 0;
     int i = 0;
     wall_have = 0;
-    if (!tiles)
+    wall_hole_n = 0;
+    if (!wall_tiles)
     {
         return 0;
     }
-    width = w;
-    height = h;
     if (width <= 0 || width > WALL_MAX_MAP_TILES)
     {
         return 0;
@@ -141,25 +177,44 @@ int wall_build(void)
     {
         return 0;
     }
+    if (!read_bytes(wall_tiles, wall_raw, (size_t)total * sizeof(uintptr_t)))
+    {
+        return 0;
+    }
+    wall_types_clear();
     for (i = 0; i < total; i++)
     {
-        int tx = i % width;
-        int ty = i / width;
-        int proj = 0;
-        int move = 0;
-        uint8_t flags = 0;
-        if (cell(tx, ty, &proj, &move))
+        uintptr_t tile = 0;
+        uintptr_t type = 0;
+        uint8_t bits = 0;
+        wall_grid[i] = 0;
+        memcpy(&tile,
+               wall_raw + (size_t)i * sizeof(uintptr_t),
+               sizeof(uintptr_t));
+        if (!tile)
         {
-            if (move)
-            {
-                flags |= WALL_BLOCKS_MOVEMENT;
-            }
-            if (proj)
-            {
-                flags |= WALL_BLOCKS_PROJECTILES;
-            }
+            continue;
         }
-        wall_grid[i] = flags;
+        if (!pointer_plausible(tile) || !read_ptr(tile, (void**)&type))
+        {
+            holes++;
+            continue;
+        }
+        if (!type)
+        {
+            continue;
+        }
+        if (!pointer_plausible(type) || !wall_type_bits_for(type, &bits))
+        {
+            holes++;
+            continue;
+        }
+        wall_grid[i] = bits;
+    }
+    if (holes)
+    {
+        wall_hole_n = holes;
+        return 0;
     }
     wall_w = width;
     wall_h = height;
@@ -167,6 +222,7 @@ int wall_build(void)
     wall_dirty = 0;
     return 1;
 }
+
 int wall_maybe_refresh(uint64_t now_ms)
 {
     if (!wall_dirty)
@@ -184,6 +240,7 @@ int wall_maybe_refresh(uint64_t now_ms)
     wall_fail_ms = now_ms;
     return 0;
 }
+
 int wall_is_blocked_at(float x, float y, int mask)
 {
     int tx = 0;
@@ -204,6 +261,7 @@ int wall_is_blocked_at(float x, float y, int mask)
     }
     return (wall_grid[ty * wall_w + tx] & mask) ? 1 : 0;
 }
+
 int wall_is_blocked_wide(float x, float y, float r, int mask)
 {
     float rr = 0.0f;
@@ -234,6 +292,7 @@ int wall_is_blocked_wide(float x, float y, float r, int mask)
     }
     return 0;
 }
+
 int wall_los(float ax, float ay, float bx, float by, int mask)
 {
     int cx = 0;

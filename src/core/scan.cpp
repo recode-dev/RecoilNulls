@@ -700,6 +700,7 @@ void run_workload(void)
 {
     wall_maybe_refresh((uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0));
     scan_world();
+    dbg.range = own_cast_range();
     run_autododge();
 }
 void run_autododge(void)
