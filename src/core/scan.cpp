@@ -292,20 +292,7 @@ float own_r = 60.0f;
 uint32_t own_hp = 0;
 uint64_t us(void)
 {
-    static mach_timebase_info_data_t tb;
-    static int ready = 0;
-    uint64_t t = 0;
-    if (!ready)
-    {
-        ready = 1;
-        mach_timebase_info(&tb);
-    }
-    t = mach_absolute_time();
-    if (tb.denom == 0)
-    {
-        return t / 1000ULL;
-    }
-    return (t / (uint64_t)tb.denom) * (uint64_t)tb.numer / 1000ULL;
+    return (uint64_t)g_get_monotonic_time();
 }
 typedef uintptr_t (*fn1)(uintptr_t);
 typedef int32_t (*fn1i)(uintptr_t);
@@ -403,7 +390,7 @@ void scan_world(void)
         if (pointer_plausible(tileMap))
         {
             wall_bind(tileMap);
-            wall_maybe_refresh((uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0));
+            wall_maybe_refresh((uint64_t)(g_get_real_time() / 1000));
         }
     }
     if (!pointer_plausible(own))
@@ -511,7 +498,7 @@ void scan_world(void)
 }
 void run_workload(void)
 {
-    wall_maybe_refresh((uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0));
+    wall_maybe_refresh((uint64_t)(g_get_real_time() / 1000));
     scan_world();
     run_autododge();
 }

@@ -399,7 +399,7 @@ void tick(void)
         g_lastScan = 0;
     }
     g_ticks++;
-    now = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
+    now = (uint64_t)(g_get_real_time() / 1000);
     scan = (uint64_t)ticks_a;
     if (g_lastMs && now > g_lastMs)
     {
@@ -407,7 +407,7 @@ void tick(void)
     }
     line("\n--- t=%llu ms=%.3f dt=%llu scan=%llu rate=%d/s ---\n",
          g_ticks,
-         CFAbsoluteTimeGetCurrent(),
+         (double)g_get_real_time() / 1000.0,
          (unsigned long long)(g_lastMs ? now - g_lastMs : 0),
          (unsigned long long)scan,
          g_rate);
