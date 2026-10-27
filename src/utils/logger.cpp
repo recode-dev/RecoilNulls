@@ -36,20 +36,14 @@ uint64_t lastMs = 0;
 uint64_t lastScan = 0;
 int rate = 0;
 char path[1024];
-const char* document_path(void)
+// Writes into $HOME/Documents (the app sandbox on iOS). No /tmp fallback:
+// the sandbox /tmp is not the Documents directory the log must live in.
+// Returns an empty string when HOME is unset.
+void document_path(char* out, size_t cap)
 {
-    static char resolved[1024];
     const char* home = getenv("HOME");
-    resolved[0] = 0;
-    if (home != nullptr)
-    {
-        snprintf(resolved, sizeof(resolved), "%s/Documents", home);
-    }
-    if (resolved[0] == 0)
-    {
-        snprintf(resolved, sizeof(resolved), "%s", "/tmp");
-    }
-    return resolved;
+    out[0] = 0;
+    if (home != nullptr) snprintf(out, cap, "%s/Documents", home);
 }
 void rotate_if_needed(void)
 {
@@ -71,7 +65,8 @@ bool in_battle(void)
 }
 bool open_log(void)
 {
-    const char* dir = document_path();
+    char dir[1024];
+    document_path(dir, sizeof(dir));
     if (dir[0] == 0) return false;
     snprintf(path, sizeof(path), "%s/Recoil.log", dir);
     file = fopen(path, "a");
@@ -99,7 +94,9 @@ void write_crash_marks(const char* format, ...)
     FILE* f = nullptr;
     if (path[0] == 0)
     {
-        snprintf(path, sizeof(path), "%s/Recoil.log", document_path());
+        char dir[1024];
+        document_path(dir, sizeof(dir));
+        if (dir[0] != 0) snprintf(path, sizeof(path), "%s/Recoil.log", dir);
     }
     if (file != nullptr) fflush(file);
     f = fopen(path, "a");
