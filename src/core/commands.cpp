@@ -4,33 +4,6 @@
 #include "scan.h"
 #include <malloc/malloc.h>
 #include <cstring>
-#ifdef DEBUG_MSG_ALLOC
-static unsigned long long dbg_alloc_ok = 0;
-static unsigned long long dbg_alloc_fail = 0;
-static unsigned long long dbg_input_calls = 0;
-static void dbg_log(const char* tag, void* ptr)
-{
-    char dir[1024];
-    char path[1100];
-    FILE* f = nullptr;
-    const char* home = getenv("HOME");
-    if (home == nullptr) return;
-    snprintf(dir, sizeof(dir), "%s/Documents", home);
-    snprintf(path, sizeof(path), "%s/Recoil_msg_alloc.log", dir);
-    f = fopen(path, "a");
-    if (f == nullptr) return;
-    fprintf(f, "[RECOIL-DBG] %s ptr=%p alloc_ok=%llu alloc_fail=%llu input=%llu\n",
-            tag, ptr, dbg_alloc_ok, dbg_alloc_fail, dbg_input_calls);
-    fclose(f);
-}
-#define DBG_ALLOC_OK(p) (++dbg_alloc_ok, dbg_log("alloc_ok", (p)))
-#define DBG_ALLOC_FAIL() (++dbg_alloc_fail, dbg_log("alloc_fail", nullptr))
-#define DBG_INPUT(p) (++dbg_input_calls, dbg_log("input", (p)))
-#else
-#define DBG_ALLOC_OK(p) ((void)0)
-#define DBG_ALLOC_FAIL() ((void)0)
-#define DBG_INPUT(p) ((void)0)
-#endif
 #if CI_HASH_INNER_MASK_RVA && CI_HASH_OUTER_MASK_RVA && BM_HASH_ENABLED_OFF && \
     BM_HASH_KEY_OFF
 #define CI_SIGNING_ON 1
@@ -209,7 +182,6 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     {
         (void)pred_set(x, y);
     }
-    DBG_INPUT(msg);
     ((void (*)(void*, void*))inputFn)(mgr, msg);
     return 1;
 }
@@ -259,7 +231,6 @@ void* msg_alloc(void)
     if (msg_ok(mem, size))
     {
         memset(mem, 0, size);
-        DBG_ALLOC_OK(mem);
         return mem;
     }
     if (stub)
@@ -268,7 +239,6 @@ void* msg_alloc(void)
         if (msg_ok(mem, size))
         {
             memset(mem, 0, size);
-            DBG_ALLOC_OK(mem);
             return mem;
         }
     }
@@ -279,11 +249,9 @@ void* msg_alloc(void)
         if (msg_ok(mem, size))
         {
             memset(mem, 0, size);
-            DBG_ALLOC_OK(mem);
             return mem;
         }
     }
-    DBG_ALLOC_FAIL();
     return nullptr;
 }
 void* manager(void)
