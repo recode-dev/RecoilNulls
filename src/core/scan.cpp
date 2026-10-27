@@ -72,6 +72,10 @@ BOOL addr_writable(uintptr_t address, size_t length)
 }
 BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
+    GumPageProtection protection = GUM_PAGE_NO_ACCESS;
+    guint pageSize = 0;
+    uintptr_t end = 0;
+    uintptr_t cursor = 0;
     if (!out || !length)
     {
         return NO;
@@ -84,8 +88,35 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    if (!gum_memory_is_readable((gconstpointer)address,
-                                static_cast<gsize>(length)))
+    end = address + length;
+    if (end <= address)
+    {
+        return NO;
+    }
+    pageSize = gum_query_page_size();
+    if (!pageSize)
+    {
+        return NO;
+    }
+    // Validate readability at page granularity instead of `gum_memory_is_readable`,
+    // which allocates a buffer, copies the whole range via `gum_memory_read` and
+    // then discards it — so the same bytes would be read twice per call. A
+    // protection query is a single region lookup with no allocation or copy.
+    cursor = address;
+    for (int guard = 0; cursor < end && guard < 64; guard++)
+    {
+        if (!gum_memory_query_protection((gconstpointer)cursor, &protection))
+        {
+            return NO;
+        }
+        if ((protection & GUM_PAGE_READ) == 0)
+        {
+            return NO;
+        }
+        cursor = (cursor & ~(static_cast<uintptr_t>(pageSize) - 1)) +
+                 static_cast<uintptr_t>(pageSize);
+    }
+    if (cursor < end)
     {
         return NO;
     }
