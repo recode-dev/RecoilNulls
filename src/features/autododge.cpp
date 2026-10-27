@@ -60,7 +60,6 @@ struct ProjectileState
     bool isBeam;
 };
 __thread int in_move = 0;
-int32_t pl_mine[12] = {0};
 int active = 0;
 int moving = 0;
 static std::map<int, ProjectileState> g_proj_cache;
@@ -475,11 +474,4 @@ void autododge(void)
              "CLR:%.0f SCR:%.0f",
              stayClear,
              chosenScore);
-}
-void autododge_reset(void)
-{
-    g_proj_cache.clear();
-    clearHeading();
-    active = 0;
-    moving = 0;
 }

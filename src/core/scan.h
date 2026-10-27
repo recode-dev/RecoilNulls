@@ -63,7 +63,6 @@ BOOL copy(uintptr_t source, void* destination, size_t length);
 BOOL text_section(uintptr_t* address, uint64_t* size);
 BOOL find_game_image(uintptr_t* out_base);
 const char* image_segment_name(uintptr_t value);
-BOOL vtable_shaped(uintptr_t value);
 BOOL heap_resident(uintptr_t value);
 BOOL manager_shape(uintptr_t manager);
 void poll_for_game(int tick);

@@ -434,27 +434,6 @@ const char* image_segment_name(uintptr_t value)
     }
     return nullptr;
 }
-BOOL vtable_shaped(uintptr_t value)
-{
-    const char* segment = image_segment_name(value);
-    if (!segment)
-    {
-        return NO;
-    }
-    if (value % 8)
-    {
-        return NO;
-    }
-    if (strcmp(segment, "__DATA_CONST") == 0)
-    {
-        return YES;
-    }
-    if (strcmp(segment, "__DATA") == 0)
-    {
-        return YES;
-    }
-    return NO;
-}
 BOOL heap_resident(uintptr_t value)
 {
     if (!value)
