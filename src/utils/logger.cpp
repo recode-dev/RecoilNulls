@@ -413,10 +413,13 @@ static void scan_projectile_data(bool newMatch)
 {
     struct ScanStats
     {
-        uint32_t objects, invalidSnapshot, nullObject, dataReadFail, vtableReadFail;
+        uint32_t objects, invalidSnapshot, nullObject, dataReadFail,
+            vtableReadFail;
         uint32_t knownProjectileVtable, otherDataVtable, moduleDataVtable;
-        uint32_t outOfModuleVtable, projectileDataReadFail, projectileFieldReadFail;
-        uint32_t projectileIndirectReadFail, projectileZeroPid, projectileOwnTeam;
+        uint32_t outOfModuleVtable, projectileDataReadFail,
+            projectileFieldReadFail;
+        uint32_t projectileIndirectReadFail, projectileZeroPid,
+            projectileOwnTeam;
         uint32_t projectileDead, projectileOutsideRange, projectileInRange;
         uint32_t projectileEligible;
     };
@@ -451,7 +454,8 @@ static void scan_projectile_data(bool newMatch)
     if (!base) return;
     ScanStats current{};
     current.objects = obj_count > 0 ? static_cast<uint32_t>(obj_count) : 0;
-    const uintptr_t projVt = base + static_cast<uintptr_t>(VTABLE_PROJ_DATA_RVA);
+    const uintptr_t projVt =
+        base + static_cast<uintptr_t>(VTABLE_PROJ_DATA_RVA);
     const uintptr_t dataEnd = static_cast<uintptr_t>(DC_RVA_LO + DC_RVA_SIZE);
     const float zoneSq = AWARE * AWARE;
 
@@ -503,7 +507,8 @@ static void scan_projectile_data(bool newMatch)
                     entry.count = 0;
                     snprintf(entry.name, sizeof(entry.name), "?");
                     int32_t pid = 0;
-                    read_int(obj + static_cast<uintptr_t>(OBJ_GLOBALID_OFF), &pid);
+                    read_int(obj + static_cast<uintptr_t>(OBJ_GLOBALID_OFF),
+                             &pid);
                     entry.samplePid = pid;
                     const uintptr_t nameStr = scan_call(addr_dataname, data, 0);
                     if (nameStr)
@@ -527,7 +532,8 @@ static void scan_projectile_data(bool newMatch)
         current.knownProjectileVtable++;
 
         // LogicProjectileData extends through the reference fields at 0x2c0;
-        // capture the full 0x2d0-byte object instead of only the old 0x60..0xc0 window.
+        // capture the full 0x2d0-byte object instead of only the old 0x60..0xc0
+        // window.
         uint8_t buf[0x2D0];
         if (!read_bytes(data, buf, sizeof(buf)))
         {
@@ -536,12 +542,16 @@ static void scan_projectile_data(bool newMatch)
         }
 
         int32_t pid = 0, team = -1, px = 0, py = 0, deadFlag = 0, indirect = 0;
-        const bool pidOk = read_int(obj + static_cast<uintptr_t>(OBJ_GLOBALID_OFF), &pid);
-        const bool teamOk = read_int(obj + static_cast<uintptr_t>(OBJ_TEAM_OFF), &team);
+        const bool pidOk =
+            read_int(obj + static_cast<uintptr_t>(OBJ_GLOBALID_OFF), &pid);
+        const bool teamOk =
+            read_int(obj + static_cast<uintptr_t>(OBJ_TEAM_OFF), &team);
         const bool xOk = read_int(obj + static_cast<uintptr_t>(OBJ_X_OFF), &px);
         const bool yOk = read_int(obj + static_cast<uintptr_t>(OBJ_Y_OFF), &py);
-        const bool deadOk = read_int(obj + static_cast<uintptr_t>(OBJ_DEADFLAG_OFF), &deadFlag);
-        const bool indirectOk = read_int(obj + static_cast<uintptr_t>(PROJECTILE_ISINDIRECT_OFF), &indirect);
+        const bool deadOk =
+            read_int(obj + static_cast<uintptr_t>(OBJ_DEADFLAG_OFF), &deadFlag);
+        const bool indirectOk = read_int(
+            obj + static_cast<uintptr_t>(PROJECTILE_ISINDIRECT_OFF), &indirect);
         if (!pidOk || !teamOk || !xOk || !yOk || !deadOk)
             current.projectileFieldReadFail++;
         if (!indirectOk) current.projectileIndirectReadFail++;
@@ -568,10 +578,8 @@ static void scan_projectile_data(bool newMatch)
         const uintptr_t nameStr = scan_call(addr_dataname, data, 0);
         char name[64] = "?";
         if (nameStr)
-            read_scstring(nameStr,
-                          SCSTRING_DEFAULT_MAX_LENGTH,
-                          name,
-                          sizeof(name));
+            read_scstring(
+                nameStr, SCSTRING_DEFAULT_MAX_LENGTH, name, sizeof(name));
 
         bool alreadyDetailed = false;
         for (size_t j = 0; j < detailedCount; j++)
@@ -587,8 +595,10 @@ static void scan_projectile_data(bool newMatch)
             else
                 detailOverflow++;
 
-            const int beam = static_cast<int>(scan_call(addr_projbeam, data, 0));
-            const int early = static_cast<int>(scan_call(addr_projearly, data, 0));
+            const int beam =
+                static_cast<int>(scan_call(addr_projbeam, data, 0));
+            const int early =
+                static_cast<int>(scan_call(addr_projearly, data, 0));
             int32_t configuredSpeed = 0, configuredRadius = 0;
             memcpy(&configuredSpeed,
                    buf + static_cast<size_t>(PROJECTILEDATA_SPEED_OFF),
@@ -605,7 +615,8 @@ static void scan_projectile_data(bool newMatch)
                  px,
                  py,
                  eligible ? 1 : 0,
-                 (pidOk && teamOk && xOk && yOk && deadOk && indirectOk) ? 1 : 0,
+                 (pidOk && teamOk && xOk && yOk && deadOk && indirectOk) ? 1
+                                                                         : 0,
                  indirect,
                  beam,
                  early,
@@ -619,7 +630,8 @@ static void scan_projectile_data(bool newMatch)
                  (void*)data,
                  pid,
                  sizeof(buf));
-            for (size_t off = 0; off + sizeof(uint32_t) <= sizeof(buf); off += 4)
+            for (size_t off = 0; off + sizeof(uint32_t) <= sizeof(buf);
+                 off += 4)
             {
                 uint32_t bits = 0;
                 int32_t iv = 0;
@@ -691,7 +703,8 @@ static void scan_projectile_data(bool newMatch)
          detailOverflow,
          vtableOverflow);
     for (size_t i = 0; i < vtableCount; i++)
-        line("[SCANNER] other-data-vtable rva=0x%llx count=%u sample=%p pid=%d name=%s\n",
+        line("[SCANNER] other-data-vtable rva=0x%llx count=%u sample=%p pid=%d "
+             "name=%s\n",
              static_cast<unsigned long long>(vtables[i].vtable - base),
              vtables[i].count,
              (void*)vtables[i].sampleData,
