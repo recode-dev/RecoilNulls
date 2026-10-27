@@ -6,7 +6,10 @@
 #define TYPE_MOVE 0x2
 #define PRED_FLAG 1
 uintptr_t entry_callable(uintptr_t rva);
-void* msg_alloc(void);
+// The returned block is passed to the game's input function (ADDINPUT),
+// which takes it over. Freeing it here after that call would be a
+// use-after-free. Ownership after ADDINPUT is the game's, not verified here.
+[[nodiscard]] void* msg_alloc(void);
 void* manager(void);
 int pred_set(int x, int y);
 int move_to(int32_t x, int32_t y);
