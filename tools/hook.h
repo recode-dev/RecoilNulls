@@ -8,18 +8,6 @@
 extern "C"
 {
 #endif
-#define HOOK_SLOTS_MAX 32
-    typedef struct
-    {
-        uintptr_t rva;
-        void* replacement;
-        int control;
-    } hook_t;
-    int hooks_install(uintptr_t imageBase,
-                      const hook_t* hooks,
-                      int count,
-                      void** originals);
-    int hooks_uninstall(void);
     uintptr_t hook_image_base(uintptr_t address);
 #ifdef __cplusplus
 }

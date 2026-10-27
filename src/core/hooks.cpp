@@ -10,30 +10,6 @@ extern "C"
 
 extern int gum_live;
 
-int hooks_install(uintptr_t imageBase,
-                  const hook_t* hooks,
-                  int count,
-                  void** originals)
-{
-    int i = 0;
-    (void)imageBase;
-    (void)hooks;
-    (void)count;
-    if (originals)
-    {
-        for (i = 0; i < count; i++)
-        {
-            originals[i] = NULL;
-        }
-    }
-    return 0;
-}
-
-int hooks_uninstall(void)
-{
-    return 0;
-}
-
 typedef struct
 {
     uintptr_t address;
