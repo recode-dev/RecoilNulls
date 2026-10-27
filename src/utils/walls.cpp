@@ -103,44 +103,6 @@ int wall_ready(void)
 {
     return wall_have;
 }
-int walls_near(float x, float y, float radius, float* out, int max)
-{
-    int x0 = 0;
-    int y0 = 0;
-    int x1 = 0;
-    int y1 = 0;
-    int n = 0;
-    int tx = 0;
-    int ty = 0;
-    if (!wall_have || !out || max <= 0)
-    {
-        return 0;
-    }
-    x0 = (int)((x - radius) / WALL_TILE_SIZE);
-    y0 = (int)((y - radius) / WALL_TILE_SIZE);
-    x1 = (int)((x + radius) / WALL_TILE_SIZE);
-    y1 = (int)((y + radius) / WALL_TILE_SIZE);
-    if (x0 < 0) x0 = 0;
-    if (y0 < 0) y0 = 0;
-    if (x1 >= wall_w) x1 = wall_w - 1;
-    if (y1 >= wall_h) y1 = wall_h - 1;
-    for (ty = y0; ty <= y1 && n < max; ty++)
-    {
-        for (tx = x0; tx <= x1 && n < max; tx++)
-        {
-            if (!(wall_grid[ty * wall_w + tx] & WALL_BLOCKS_MOVEMENT))
-            {
-                continue;
-            }
-            out[n * 4 + 0] = (float)tx * WALL_TILE_SIZE;
-            out[n * 4 + 1] = (float)ty * WALL_TILE_SIZE;
-            out[n * 4 + 2] = WALL_TILE_SIZE;
-            out[n * 4 + 3] = WALL_TILE_SIZE;
-            n++;
-        }
-    }
-    return n;
-}
 int wall_build(void)
 {
     int width = 0;
@@ -327,39 +289,4 @@ int wall_los(float ax, float ay, float bx, float by, int mask)
         }
     }
     return 1;
-}
-float wall_trace(float x, float y, float dx, float dy, float max_dist, int mask)
-{
-    float dist = 0.0f;
-    if (!wall_have || max_dist <= 0.0f)
-    {
-        return max_dist;
-    }
-    if (wall_w <= 0 || wall_h <= 0)
-    {
-        return max_dist;
-    }
-    while (dist < max_dist)
-    {
-        int tx = 0;
-        int ty = 0;
-        dist += WALL_TRACE_STEP;
-        if (dist > max_dist)
-        {
-            dist = max_dist;
-        }
-        tx = (int)((x + dx * dist) / WALL_TILE_SIZE);
-        ty = (int)((y + dy * dist) / WALL_TILE_SIZE);
-        if (tx < 0 || tx >= wall_w || ty < 0 || ty >= wall_h)
-        {
-            float hit = dist - WALL_TRACE_BACKOFF;
-            return hit > 0.0f ? hit : 0.0f;
-        }
-        if (wall_grid[ty * wall_w + tx] & mask)
-        {
-            float hit = dist - WALL_TRACE_BACKOFF;
-            return hit > 0.0f ? hit : 0.0f;
-        }
-    }
-    return max_dist;
 }

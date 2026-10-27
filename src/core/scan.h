@@ -14,28 +14,6 @@
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
 #include <string.h>
-typedef struct
-{
-    int32_t gid;
-    int32_t team;
-    int dead;
-} objhit_t;
-typedef struct
-{
-    int32_t count;
-} trail_t;
-typedef struct
-{
-    uintptr_t object;
-    int32_t gid;
-    int32_t x;
-    int32_t y;
-    int32_t ownerIndex;
-    int32_t teamOld;
-    int32_t teamNew;
-    uint8_t dead;
-    uint8_t activeFlag;
-} obj_t;
 #include <CoreFoundation/CFDate.h>
 #include <frida-gum.h>
 #include <mach-o/loader.h>
@@ -46,15 +24,7 @@ extern uintptr_t* starts;
 extern size_t starts_count;
 extern BOOL setup_done;
 extern __thread BOOL inside_hook;
-extern int dump_np;
 extern BOOL mode_strong;
-extern uintptr_t players_object;
-extern uintptr_t objvote_best_owner;
-extern int objvote_best_teamcount;
-extern objhit_t objhits[64];
-extern int objhit_count;
-extern int objvote_max_votes;
-extern int trail_best;
 extern int votescan_attempts;
 extern double votescan_last;
 extern uintptr_t addr_getinstance;
@@ -67,22 +37,12 @@ extern uintptr_t addr_projspeed;
 extern uintptr_t addr_projradius;
 extern uintptr_t addr_projbeam;
 extern uintptr_t addr_castrange;
-float call1f(uintptr_t fn, uintptr_t self);
 float own_cast_range(void);
 float range_for_proj(uintptr_t projData, int32_t ownerIdx);
 int range_map_size(void);
-extern volatile int at;
-extern int sig_ticks;
-extern uintptr_t sig_last;
-extern uintptr_t players_array;
-extern int players_count;
-extern uint64_t walk_tick;
-extern int walk_count;
 extern uintptr_t owner;
 extern int wired;
 extern dispatch_source_t scan_timer;
-extern trail_t trail[8];
-extern int trail_count;
 extern uintptr_t own_elem_scan;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
@@ -94,7 +54,6 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length);
 BOOL pointer_plausible(uintptr_t value);
 BOOL read_byte(uintptr_t address, uint8_t* out);
 BOOL read_int(uintptr_t address, int32_t* out);
-BOOL read_float(uintptr_t address, float* out);
 BOOL writable(uintptr_t address, size_t length);
 BOOL write_bytes(uintptr_t address, const void* src, size_t length);
 BOOL read_ptr(uintptr_t address, void** out);
@@ -106,9 +65,7 @@ BOOL find_game_image(uintptr_t* out_base);
 const char* image_segment_name(uintptr_t value);
 BOOL vtable_shaped(uintptr_t value);
 BOOL heap_resident(uintptr_t value);
-BOOL instance_shaped(uintptr_t object);
 BOOL manager_shape(uintptr_t manager);
-uintptr_t strip_ptr(uintptr_t value);
 void poll_for_game(int tick);
 static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
 {
@@ -374,31 +331,14 @@ typedef struct
     char note[64];
 } dbg_t;
 extern dbg_t dbg;
-extern int logs_a;
-extern int seeded;
-extern int32_t last_x_a;
-extern int32_t last_y_a;
-int collect(uintptr_t mgrPtr, obj_t* out, int capacity);
 uint64_t us(void);
-#define COORD_SOFT 0
-#define AREA_RADIUS_MIN 1
-#define AREA_RADIUS_MAX 6000
-#define AREA_TIME_MIN 1
-#define AREA_TIME_MAX 60000
 void load_function_starts(void);
 BOOL start_boundary(const uint8_t* bytes, size_t offset);
 BOOL start_word(uint32_t word);
-extern int fb_on;
-extern uint64_t idle_start;
-extern int live_objs;
-extern int live_teams;
-extern unsigned long long obj_prev;
 extern uintptr_t pub_array;
 extern int32_t pub_count;
 extern uintptr_t pub_object;
-extern int scan_armed;
 extern volatile uint32_t seq;
-extern uintptr_t setpred;
 extern uintptr_t site;
 extern int site_state;
 extern uintptr_t tick_array;
@@ -411,9 +351,6 @@ void publish(uintptr_t object,
              const char* why);
 int snapshot(uintptr_t* objectOut, uintptr_t* arrayOut, int32_t* countOut);
 void tick_begin(void);
-extern int battle_active;
-extern int battle_last_tick;
-extern int hb_sig_prev;
 extern uint64_t ticks_b;
 void start_timer(void);
 int state_tick(void);
@@ -427,82 +364,18 @@ void run_autododge(void);
 extern uintptr_t scene_object;
 int scene_live(void);
 extern int prev_state;
-extern uintptr_t own_ptr_a;
 extern int hop_chosen;
 extern int hop_sticky;
-extern int modesig_hits;
-extern uintptr_t own_ptr_b;
-extern int own_index_3;
-extern uintptr_t scan_container;
 extern uintptr_t hop_scene;
 extern int last_choice;
 extern int hop_logs;
-extern uint64_t probe_last_ms;
 extern int coord_ok;
-extern int coord_usable;
-extern int gidless;
 extern int dead;
 extern int own_team_a;
 extern int own_team_seen;
-extern uintptr_t proj_addr;
-extern uint8_t proj_bytes[0x100];
-extern int proj_have;
-extern int proj_dumps;
-extern uint64_t proj_diff_logs;
 extern uintptr_t own_elem;
-extern int32_t own_gid;
-extern int no_source_passes;
-typedef struct
-{
-    const char* name;
-    float angle;
-    int32_t spawnX;
-    int32_t spawnY;
-    int32_t x;
-    int32_t y;
-} proj_death_t;
-typedef struct
-{
-    float x;
-    float y;
-    float radius;
-    const char* name;
-} hazard_t;
 #define WORK_GAP_US 200
 #define HOT_INTERVAL_US 2000
-typedef struct
-{
-    uintptr_t elem;
-    uintptr_t classRva;
-    int32_t x;
-    int32_t y;
-    int32_t px;
-    int32_t py;
-    int32_t team;
-    int32_t spawnX;
-    int32_t spawnY;
-    int32_t gid;
-    uint64_t pms;
-    uint64_t qms;
-    int hasPrev;
-    const char* name;
-    int32_t targetX;
-    int32_t targetY;
-    float radius;
-    float angle;
-    uint64_t spawnedAt;
-    float speed;
-    float vx;
-    float vy;
-    int isThrower;
-    int isBeam;
-    int32_t spawnAreaRadius;
-    int32_t spawnAreaActiveTime;
-    int32_t castRange;
-} proj_t;
-extern proj_t projs[16];
-extern proj_death_t proj_deaths[16];
-extern int proj_death_n;
 int container_header(uintptr_t object,
                      uintptr_t* arrayOut,
                      int32_t* countOut,
@@ -511,68 +384,21 @@ int32_t gid(uintptr_t element, int32_t* offOut);
 int container_score(uintptr_t container);
 void resolve_addresses(void);
 void locate_battle_mode(void);
-void gidless_scan(uintptr_t mgrPtr);
-void proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
 uintptr_t hop(uintptr_t base, int* whyOut);
 uintptr_t client(void);
 void state_note(int state);
-int proj_scan(uintptr_t mgrPtr,
-              int32_t count,
-              const obj_t* rosterArr,
-              int rosterUsable);
 uintptr_t controller(void);
 const char* header_reason(uintptr_t mgrPtr, int32_t* countOut, int32_t* capOut);
-uintptr_t coord_x_off(void);
-uintptr_t coord_y_off(void);
 int ctrl_bounds(uintptr_t base, int32_t* wOut, int32_t* hOut);
-extern int cand_changes[3];
-extern int cand_frame[3];
-extern int dead_slot;
-extern int dead_value;
-extern int enemy_n;
-extern int32_t enemy_x[12];
-extern int32_t enemy_y[12];
-extern int mate_n;
-extern int32_t mate_x[8];
-extern int32_t mate_y[8];
-extern const char* own_from;
-extern int own_index;
-extern uintptr_t own_ptr;
 extern int own_team_b;
-extern int pending;
-extern int pending_tick;
-extern int pl_n;
-extern int32_t pl_team[12];
-extern int32_t pl_x[12];
-extern int32_t pl_y[12];
-extern int pre[3];
-extern int prev_valid;
-extern int respawn_tick;
-extern int state_code;
-extern int team_trust;
-int own_side_spawn(int32_t sx, int32_t sy);
-void roster(uintptr_t ownElem,
-            int ownIndex,
-            int ownTeam,
-            const obj_t* objects,
-            int usable);
-int team_at(const obj_t* objects, int index);
-#define CLUSTER 10000.0f
-#define GIDLESS 1
 #define POS_BONUS 8
 #define DIST_BONUS 6
 #define SOFT_BASE 2
 #define SOFT_MIN_POS 2
 #define SOFT_MIN_DIST 2
-#define ATTRIB_R (1200.0f * 1200.0f)
-#define ATTRIB_MARGIN 1.2f
-#define STATE_INIT 0
-#define DUMPS 3
-#define DIFF_LOGS 48
 #define COUNT_MAX 96
 #define ASCII_RATIO 30
 #define COORD_MAX 100000
-#define VOTESCAN_GLOBAL_EVERY 10
 #define VOTESCAN_INTERVAL 1.0
 #define VOTESCAN_ATTEMPTS 600
 int ascii_word(uintptr_t address);

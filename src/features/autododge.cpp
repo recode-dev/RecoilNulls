@@ -229,7 +229,8 @@ void autododge(void)
                 uintptr_t vtRva = dataVtable - base;
                 if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
                     continue;
-                int pid = gid(objPtr, nullptr);
+                int32_t pid = 0;
+                if (!read_int(objPtr + OBJ_GLOBALID_OFF, &pid)) continue;
                 bool isProj = (pid >= 2000000) ||
                               (dataVtable - base == VTABLE_PROJ_DATA_RVA);
                 if (!isProj || pid == 0) continue;
@@ -270,6 +271,7 @@ void autododge(void)
                     state.isBeam =
                         (call1i_local(addr_projbeam, dataPtr) != 0);
                     state.speed = (float)call1i_local(addr_projspeed, dataPtr);
+                    state.radius = (float)call1i_local(addr_projradius, dataPtr);
                     int32_t angleDegrees = -1;
                     if (read_int(objPtr + PROJ_ANGLE_OFF, &angleDegrees) &&
                         angleDegrees >= 0 && angleDegrees <= 360)
@@ -296,12 +298,11 @@ void autododge(void)
                         state.sampleTime = now;
                     }
                 }
-                state.lastSeen = now;
-                state.radius = (float)call1i_local(addr_projradius, dataPtr);
                 if (state.radius <= 0.0f)
                 {
                     continue;
                 }
+                state.lastSeen = now;
                 float traveled =
                     sqrtf((px - state.spawnX) * (px - state.spawnX) +
                           (py - state.spawnY) * (py - state.spawnY));

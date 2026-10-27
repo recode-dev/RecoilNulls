@@ -23,12 +23,6 @@ constexpr float CASTING_RANGE_SCALE = 100.0f;
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
 BOOL mode_strong = NO;
-uintptr_t objvote_best_owner = 0;
-int objvote_best_teamcount = 0;
-objhit_t objhits[64];
-int objhit_count = 0;
-int objvote_max_votes = 0;
-int trail_best = 0;
 int votescan_attempts = 0;
 double votescan_last = 0.0;
 uintptr_t addr_getinstance = 0;
@@ -49,11 +43,6 @@ uintptr_t addr_projbeam = 0;
 uintptr_t addr_castrange = 0;
 uintptr_t addr_skillproj = 0;
 uintptr_t addr_weaponskill = 0;
-volatile int at = 0;
-int sig_ticks = 0;
-uintptr_t sig_last = 0;
-uint64_t walk_tick = 0;
-int walk_count = -1;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
@@ -140,14 +129,6 @@ BOOL read_int(uintptr_t address, int32_t* out)
     {
         return NO;
     }
-    if (address & 3)
-    {
-        return NO;
-    }
-    return read_bytes(address, out, 4);
-}
-BOOL read_float(uintptr_t address, float* out)
-{
     if (address & 3)
     {
         return NO;
@@ -482,35 +463,6 @@ BOOL heap_resident(uintptr_t value)
     }
     return image_segment_name(value) ? NO : YES;
 }
-BOOL instance_shaped(uintptr_t object)
-{
-    void* vtable = nullptr;
-    if (!pointer_plausible(object))
-    {
-        return NO;
-    }
-    if (!heap_resident(object))
-    {
-        return NO;
-    }
-    if (!read_ptr(object, &vtable))
-    {
-        return NO;
-    }
-    if (!vtable)
-    {
-        return NO;
-    }
-    if ((uintptr_t)vtable == object)
-    {
-        return NO;
-    }
-    if (!vtable_shaped((uintptr_t)vtable))
-    {
-        return NO;
-    }
-    return YES;
-}
 BOOL manager_shape(uintptr_t mgrPtr)
 {
     void* array = nullptr;
@@ -575,28 +527,6 @@ BOOL manager_shape(uintptr_t mgrPtr)
     }
     return YES;
 }
-int trail_count = 0;
-uintptr_t strip_ptr(uintptr_t value)
-{
-    uintptr_t stripped = value;
-#if __has_feature(ptrauth_calls)
-    stripped =
-        (uintptr_t)ptrauth_strip((void*)value, ptrauth_key_function_pointer);
-#endif
-    if (stripped >= base && stripped < base + IMAGE_SPAN)
-    {
-        return stripped;
-    }
-    if ((stripped & 0xffffffffULL) < IMAGE_SPAN)
-    {
-        uintptr_t viaLow = base + (stripped & 0xffffffffULL);
-        if (viaLow >= base && viaLow < base + IMAGE_SPAN)
-        {
-            return viaLow;
-        }
-    }
-    return stripped;
-}
 void poll_for_game(int tick)
 {
     if (setup_done)
@@ -625,104 +555,6 @@ uint64_t ticks_a = 0;
 float own_speed = 720.0f;
 float own_r = 0.0f;
 uint32_t own_hp = 0;
-int collect(uintptr_t mgrPtr, obj_t* out, int capacity)
-{
-    void* data = nullptr;
-    int32_t count = 0;
-    int usable = 0;
-    uint32_t walkSeq = 0;
-    gidless_scan(mgrPtr);
-    if (!mgrPtr)
-    {
-        return 0;
-    }
-    if (!read_ptr(mgrPtr + MGR_ARRAY_OFF, &data) || !data)
-    {
-        return 0;
-    }
-    if (!read_int((uintptr_t)mgrPtr + MGR_COUNT_OFF, &count))
-    {
-        return 0;
-    }
-    if (count <= 0)
-    {
-        return 0;
-    }
-    if (count > capacity)
-    {
-        count = capacity;
-    }
-    walkSeq = seq;
-    for (int32_t i = 0; i < count && usable < capacity; i++)
-    {
-        void* element = nullptr;
-        void* vtable = nullptr;
-        obj_t entry;
-        uintptr_t vtRva = 0;
-        memset(&entry, 0, sizeof(entry));
-        if (seq != walkSeq)
-        {
-            break;
-        }
-        if (!read_ptr((uintptr_t)data + (uintptr_t)i * sizeof(void*), &element))
-        {
-            continue;
-        }
-        if (!element)
-        {
-            continue;
-        }
-        entry.object = (uintptr_t)element;
-        if (element_ascii(entry.object))
-        {
-            continue;
-        }
-        if (!read_ptr(entry.object, &vtable) || !vtable)
-        {
-            continue;
-        }
-        vtRva = (uintptr_t)vtable - base;
-        if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
-        {
-            continue;
-        }
-        entry.gid = gid(entry.object, nullptr);
-        if (!read_int(entry.object + coord_x_off(), &entry.x) ||
-            !read_int(entry.object + coord_y_off(), &entry.y) ||
-            !read_int(entry.object + OBJ_OWNERINDEX_OFF, &entry.ownerIndex) ||
-            !read_int(entry.object + OBJ_TEAM_OFF, &entry.teamOld) ||
-            !read_int(entry.object + OBJ_TEAM_OFF, &entry.teamNew) ||
-            !read_byte(entry.object + OBJ_DEADFLAG_OFF, &entry.dead) ||
-            !read_byte(entry.object + OBJ_ACTIVEFLAG_OFF, &entry.activeFlag))
-        {
-            continue;
-        }
-        if (entry.gid >= 2000000)
-        {
-            proj_track(entry.object, vtRva, entry.gid, entry.teamOld);
-            continue;
-        }
-        if (entry.gid == 0 && !gidless)
-        {
-            continue;
-        }
-        if (entry.x <= -1000000 || entry.x >= 1000000 || entry.y <= -1000000 ||
-            entry.y >= 1000000)
-        {
-            if (!COORD_SOFT)
-            {
-                continue;
-            }
-        }
-        if ((entry.teamOld < 0 || entry.teamOld > 7) &&
-            (entry.teamNew < 0 || entry.teamNew > 7))
-        {
-            continue;
-        }
-        out[usable++] = entry;
-    }
-    return usable;
-}
 uint64_t us(void)
 {
     static mach_timebase_info_data_t tb;
@@ -858,7 +690,6 @@ void load_function_starts(void)
 }
 uintptr_t* starts = nullptr;
 size_t starts_count = 0;
-uintptr_t setpred = 0;
 uintptr_t site = 0;
 int site_state = -1;
 volatile uint32_t seq = 0;
@@ -877,9 +708,6 @@ void publish(
     pub_object = object;
     pub_array = array;
     pub_count = count;
-    players_object = object;
-    players_array = array;
-    players_count = count;
     __sync_synchronize();
     seq++;
     __sync_synchronize();
@@ -1030,9 +858,6 @@ int state_tick(void)
         if (read_ptr(owner + MGR_ARRAY_OFF, &directArray) && directArray &&
             read_int(owner + MGR_COUNT_OFF, &directCount) && directCount > 0)
         {
-            players_object = owner;
-            players_array = (uintptr_t)directArray;
-            players_count = directCount;
             hop_chosen = HOPCHOSEN_DIRECT;
             if (!wired)
             {
@@ -1122,11 +947,6 @@ static BOOL obj_ok(uintptr_t p)
     if (!read_ptr(p, (void**)&vt) || !pointer_plausible(vt)) return NO;
     uintptr_t rva = vt - base;
     return (rva >= DC_RVA_LO && rva < DC_RVA_LO + DC_RVA_SIZE) ? YES : NO;
-}
-float call1f(uintptr_t fn, uintptr_t self)
-{
-    if (!fn || !self) return 0.0f;
-    return ((fn1f)fn)(self);
 }
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
@@ -1378,7 +1198,6 @@ void setup(void)
 int prev_state = -1;
 int hop_chosen = -1;
 int hop_sticky = 0;
-uintptr_t scan_container = 0;
 uintptr_t hop_scene = 0;
 int container_header(uintptr_t object,
                      uintptr_t* arrayOut,
@@ -1623,122 +1442,10 @@ void locate_battle_mode(void)
     votescan_last = now;
     votescan_attempts++;
 }
-uint64_t probe_last_ms = 0;
 int coord_ok = 0;
-int coord_usable = 0;
-int gidless = 0;
-void gidless_scan(uintptr_t mgrPtr)
-{
-    void* data = nullptr;
-    int32_t count = 0;
-    int32_t i = 0;
-    int seen = 0;
-    int withGid = 0;
-    gidless = 0;
-    if (!GIDLESS)
-    {
-        return;
-    }
-    if (!mgrPtr)
-    {
-        return;
-    }
-    if (!read_ptr(mgrPtr + MGR_ARRAY_OFF, &data) || !data)
-    {
-        return;
-    }
-    if (!read_int(mgrPtr + MGR_COUNT_OFF, &count))
-    {
-        return;
-    }
-    for (i = 0; i < count && i < 8; i++)
-    {
-        void* element = nullptr;
-        if (!read_ptr((uintptr_t)data + (uintptr_t)i * 8ULL, &element) ||
-            !element)
-        {
-            continue;
-        }
-        seen++;
-        if (gid((uintptr_t)element, nullptr) != 0)
-        {
-            withGid++;
-        }
-    }
-    if (seen > 0 && withGid == 0)
-    {
-        gidless = 1;
-        return;
-    }
-}
 int dead = 0;
 int own_team_a = -1;
 int own_team_seen = 0;
-uintptr_t proj_addr = 0;
-uint8_t proj_bytes[0x100];
-int proj_have = 0;
-int proj_dumps = 0;
-uint64_t proj_diff_logs = 0;
-void proj_track(uintptr_t elem, uintptr_t, int32_t, int32_t)
-{
-    uint8_t now[0x100];
-    int i;
-    if (!elem)
-    {
-        return;
-    }
-    if (!read_bytes(elem, now, sizeof(now)))
-    {
-        return;
-    }
-    if (elem != proj_addr)
-    {
-        proj_addr = elem;
-        memcpy(proj_bytes, now, sizeof(now));
-        proj_have = 1;
-        if (proj_dumps < DUMPS)
-        {
-            proj_dumps++;
-            for (i = 0; i < 0x100; i += 8)
-            {
-                uint64_t q = 0;
-                int32_t lo = 0;
-                int32_t hi = 0;
-                float loF = 0.0f;
-                float hiF = 0.0f;
-                memcpy(&q, now + i, 8);
-                memcpy(&lo, now + i, 4);
-                memcpy(&hi, now + i + 4, 4);
-                memcpy(&loF, now + i, 4);
-                memcpy(&hiF, now + i + 4, 4);
-            }
-        }
-        return;
-    }
-    if (!proj_have)
-    {
-        memcpy(proj_bytes, now, sizeof(now));
-        proj_have = 1;
-        return;
-    }
-    for (i = 0; i < 0x100; i++)
-    {
-        if (proj_bytes[i] == now[i])
-        {
-            continue;
-        }
-        proj_diff_logs++;
-        if (proj_diff_logs <= DIFF_LOGS)
-        {
-            uint64_t oldQ = 0;
-            uint64_t newQ = 0;
-            int blockBase = i & ~7;
-            memcpy(&oldQ, proj_bytes + blockBase, 8);
-            memcpy(&newQ, now + blockBase, 8);
-        }
-    }
-    memcpy(proj_bytes, now, sizeof(now));
-}
 uintptr_t hop(uintptr_t imageBase, int* whyOut)
 {
     void* p = nullptr;
@@ -2024,9 +1731,6 @@ void state_note(int state)
     if (prev_state == 5 && state != 5)
     {
         range_map_reset();
-        own_index = -1;
-        own_ptr = 0;
-        own_ptr_a = 0;
     }
     if (state == 5 && prev_state != 5)
     {
@@ -2035,9 +1739,6 @@ void state_note(int state)
     }
     prev_state = state;
 }
-proj_t projs[16];
-proj_death_t proj_deaths[16];
-int proj_death_n = 0;
 static char proj_name_buf[16][64];
 static int proj_read_name(uintptr_t data, char* dst, int cap)
 {
@@ -2081,314 +1782,6 @@ static int proj_read_name(uintptr_t data, char* dst, int cap)
     }
     dst[len] = 0;
     return 1;
-}
-int proj_scan(uintptr_t mgrPtr,
-              int32_t count,
-              const obj_t* rosterArr,
-              int rosterUsable)
-{
-    int32_t ownerTeam[64];
-    void* array = nullptr;
-    int found = 0;
-    int k;
-    int32_t i;
-    uint64_t nowMs = 0;
-    if (!mgrPtr || count <= 0)
-    {
-        return 0;
-    }
-    if (count > COUNT_MAX)
-    {
-        count = COUNT_MAX;
-    }
-    if (!read_ptr(mgrPtr + MGR_ARRAY_OFF, &array) || !array)
-    {
-        return 0;
-    }
-    for (k = 0; k < 16; k++)
-    {
-        projs[k].classRva = (uintptr_t)-1;
-    }
-    proj_death_n = 0;
-    nowMs = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
-    {
-        int rk = 0;
-        for (rk = 0; rk < 64; rk++)
-        {
-            ownerTeam[rk] = -1;
-        }
-        for (rk = 0; rk < rosterUsable && rk < 64; rk++)
-        {
-            int32_t idx = rosterArr[rk].ownerIndex;
-            if (idx < 0 || idx >= 64)
-            {
-                continue;
-            }
-            if (rosterArr[rk].gid < 1000000 || rosterArr[rk].gid >= 2000000)
-            {
-                continue;
-            }
-            ownerTeam[idx] = team_at(rosterArr, rk);
-        }
-    }
-    for (i = 0; i < count && found < 16; i++)
-    {
-        void* element = nullptr;
-        void* vtable = nullptr;
-        uintptr_t vtRva = 0;
-        int32_t projGid = 0;
-        int32_t px = 0;
-        int32_t py = 0;
-        int slot = -1;
-        if (!read_ptr((uintptr_t)array + (uintptr_t)i * 8ULL, &element) ||
-            !element)
-        {
-            continue;
-        }
-        if (!read_ptr((uintptr_t)element, &vtable) || !vtable)
-        {
-            continue;
-        }
-        vtRva = (uintptr_t)vtable - base;
-        projGid = gid((uintptr_t)element, nullptr);
-        if (projGid < 2000000)
-        {
-            projGid = 0;
-        }
-        {
-            static uintptr_t seenCls[4] = {0, 0, 0, 0};
-            static int seenClsN = 0;
-            int si;
-            int known = 0;
-            for (si = 0; si < seenClsN; si++)
-            {
-                if (seenCls[si] == vtRva)
-                {
-                    known = 1;
-                    break;
-                }
-            }
-            if (!known && seenClsN < 4)
-            {
-                seenCls[seenClsN++] = vtRva;
-            }
-        }
-        if (projGid == 0 && vtRva != (uintptr_t)CLASS_PROJ_RVA)
-        {
-            continue;
-        }
-        if (!read_int((uintptr_t)element + OBJ_X_OFF, &px))
-        {
-            continue;
-        }
-        if (!read_int((uintptr_t)element + OBJ_Y_OFF, &py))
-        {
-            continue;
-        }
-        for (k = 0; k < 16; k++)
-        {
-            if (projs[k].elem != (uintptr_t)element)
-            {
-                continue;
-            }
-            slot = k;
-            break;
-        }
-        if (slot < 0)
-        {
-            for (k = 0; k < 16; k++)
-            {
-                if (projs[k].classRva != (uintptr_t)-1)
-                {
-                    continue;
-                }
-                slot = k;
-                break;
-            }
-        }
-        if (slot < 0)
-        {
-            continue;
-        }
-        if (projs[slot].elem == (uintptr_t)element)
-        {
-            if (px != projs[slot].x || py != projs[slot].y)
-            {
-                projs[slot].px = projs[slot].x;
-                projs[slot].py = projs[slot].y;
-                projs[slot].pms = projs[slot].qms;
-                projs[slot].hasPrev = 1;
-            }
-        }
-        else
-        {
-            projs[slot].elem = (uintptr_t)element;
-            projs[slot].px = px;
-            projs[slot].py = py;
-            projs[slot].spawnX = px;
-            projs[slot].spawnY = py;
-            projs[slot].pms = nowMs;
-            projs[slot].qms = nowMs;
-            projs[slot].hasPrev = 0;
-            projs[slot].spawnedAt = nowMs;
-            projs[slot].vx = 0.0f;
-            projs[slot].vy = 0.0f;
-        }
-        {
-            uintptr_t teamOff = OBJ_TEAM_OFF;
-            int32_t pteam = -1;
-            int32_t ownerIdx = -1;
-            int settled = 0;
-            if (rosterArr && rosterUsable > 0 &&
-                read_int((uintptr_t)element + (uintptr_t)OBJ_OWNERINDEX_OFF,
-                         &ownerIdx) &&
-                ownerIdx >= 0 && ownerIdx < 64)
-            {
-                pteam = ownerTeam[ownerIdx];
-                settled = pteam >= 0;
-            }
-            if (!settled && read_int((uintptr_t)element + teamOff, &pteam) &&
-                pteam >= 0 && pteam <= 7)
-            {
-                settled = 1;
-            }
-            if (settled && pteam >= 0 && pteam <= 15)
-            {
-                projs[slot].team = pteam;
-            }
-            else
-            {
-                int side = own_side_spawn(px, py);
-                if (side == 1 && own_team_b >= 0)
-                {
-                    projs[slot].team = own_team_b;
-                }
-                else
-                {
-                    projs[slot].team = -1;
-                }
-            }
-        }
-        {
-            void* def = nullptr;
-            uint8_t indirect = 0;
-            projs[slot].name = nullptr;
-            projs[slot].angle = 0.0f;
-            projs[slot].radius = 0.0f;
-            projs[slot].isThrower = 0;
-            projs[slot].isBeam = 0;
-            projs[slot].targetX = 0;
-            projs[slot].targetY = 0;
-            projs[slot].spawnAreaRadius = 0;
-            projs[slot].spawnAreaActiveTime = 0;
-            projs[slot].castRange = 0;
-            if (read_ptr((uintptr_t)element + (uintptr_t)ELEM_DEF_OFF, &def) &&
-                def)
-            {
-                if (proj_read_name((uintptr_t)def, proj_name_buf[slot], 64))
-                {
-                    projs[slot].name = proj_name_buf[slot];
-                }
-                if (read_bytes((uintptr_t)def + (uintptr_t)PROJ_ISTHROWER_OFF,
-                               &indirect,
-                               sizeof(indirect)))
-                {
-                    projs[slot].isThrower = indirect ? 1 : 0;
-                }
-                {
-                    uint8_t beam = 0;
-                    if (read_bytes((uintptr_t)def +
-                                       (uintptr_t)OFF_PROJECTILEDATA_ISBEAM,
-                                   &beam,
-                                   sizeof(beam)))
-                    {
-                        projs[slot].isBeam = beam ? 1 : 0;
-                    }
-                }
-                {
-                    int32_t rad = 0;
-                    if (read_int((uintptr_t)def +
-                                     (uintptr_t)OFF_PROJECTILEDATA_RADIUS,
-                                 &rad) &&
-                        rad > 0)
-                    {
-                        projs[slot].radius = (float)rad;
-                    }
-                }
-                {
-                    void* area = nullptr;
-                    if (read_ptr((uintptr_t)def +
-                                     (uintptr_t)OFF_PROJECTILEDATA_SPAWNAREA,
-                                 &area) &&
-                        area)
-                    {
-                        int32_t areaRadius = 0;
-                        int32_t areaTime = 0;
-                        if (read_int((uintptr_t)area +
-                                         (uintptr_t)OFF_AREAEFFECT_RADIUS,
-                                     &areaRadius) &&
-                            areaRadius >= AREA_RADIUS_MIN &&
-                            areaRadius <= AREA_RADIUS_MAX)
-                        {
-                            projs[slot].spawnAreaRadius = areaRadius;
-                        }
-                        if (read_int((uintptr_t)area +
-                                         (uintptr_t)OFF_AREAEFFECT_TIMEMS,
-                                     &areaTime) &&
-                            areaTime >= AREA_TIME_MIN &&
-                            areaTime <= AREA_TIME_MAX)
-                        {
-                            projs[slot].spawnAreaActiveTime = areaTime;
-                        }
-                    }
-                }
-            }
-            {
-                int32_t raw = 0;
-                if (read_int((uintptr_t)element + (uintptr_t)PROJ_ANGLE_OFF,
-                             &raw) &&
-                    raw > 0 && raw <= 360)
-                {
-                    projs[slot].angle = (float)raw;
-                }
-            }
-        }
-        if (projs[slot].hasPrev && nowMs > projs[slot].pms)
-        {
-            float dt = (float)(nowMs - projs[slot].pms);
-            if (dt < 1.0f) dt = 1.0f;
-            projs[slot].vx = (float)(px - projs[slot].px) * 1000.0f / dt;
-            projs[slot].vy = (float)(py - projs[slot].py) * 1000.0f / dt;
-        }
-        projs[slot].classRva = vtRva;
-        projs[slot].x = px;
-        projs[slot].y = py;
-        projs[slot].gid = projGid;
-        projs[slot].qms = nowMs;
-        found++;
-    }
-    for (k = 0; k < 16; k++)
-    {
-        if (projs[k].classRva != (uintptr_t)-1)
-        {
-            continue;
-        }
-        if (projs[k].elem && projs[k].name && proj_death_n < 16)
-        {
-            proj_death_t* rec = &proj_deaths[proj_death_n];
-            rec->name = projs[k].name;
-            rec->angle = projs[k].angle;
-            rec->spawnX = projs[k].spawnX;
-            rec->spawnY = projs[k].spawnY;
-            rec->x = projs[k].x;
-            rec->y = projs[k].y;
-            proj_death_n++;
-        }
-        projs[k].elem = 0;
-        projs[k].hasPrev = 0;
-        projs[k].name = nullptr;
-    }
-    return found;
 }
 static int ctrl_logs = 0;
 static int bounds_try(uintptr_t receiver, int32_t* wOut, int32_t* hOut)
@@ -2532,253 +1925,10 @@ const char* header_reason(uintptr_t mgrPtr, int32_t* countOut, int32_t* capOut)
     }
     return nullptr;
 }
-uintptr_t coord_x_off(void)
-{
-    return OBJ_X_OFF;
-}
-uintptr_t coord_y_off(void)
-{
-    return OBJ_Y_OFF;
-}
-trail_t trail[8];
 uintptr_t scene_object = 0;
-int team_at(const obj_t* objects, int index)
-{
-    if (!objects || index < 0)
-    {
-        return -1;
-    }
-    return objects[index].teamOld;
-}
-int own_side_spawn(int32_t sx, int32_t sy)
-{
-    int i = 0;
-    int best = -1;
-    float bestD = 0.0f;
-    float secondD = -1.0f;
-    if (own_team_b < 0)
-    {
-        return -1;
-    }
-    if (pl_n <= 0)
-    {
-        return -1;
-    }
-    for (i = 0; i < pl_n; i++)
-    {
-        float dx = (float)sx - (float)pl_x[i];
-        float dy = (float)sy - (float)pl_y[i];
-        float d2 = dx * dx + dy * dy;
-        if (best < 0 || d2 < bestD)
-        {
-            secondD = (best < 0) ? -1.0f : bestD;
-            bestD = d2;
-            best = i;
-        }
-        else if (secondD < 0.0f || d2 < secondD)
-        {
-            secondD = d2;
-        }
-    }
-    if (best < 0)
-    {
-        return -1;
-    }
-    if (bestD > ATTRIB_R)
-    {
-        return -1;
-    }
-    if (secondD >= 0.0f && bestD * ATTRIB_MARGIN > secondD)
-    {
-        return -1;
-    }
-    return (pl_team[best] == own_team_b) ? 1 : 0;
-}
-uintptr_t own_ptr = 0;
-int own_index = -1;
-const char* own_from = "none";
-uintptr_t players_object = 0;
-uintptr_t players_array = 0;
-int players_count = 0;
 uintptr_t own_elem_scan = 0;
-int state_code = STATE_INIT;
-int pl_n = 0;
-int32_t pl_x[12];
-int32_t pl_y[12];
-int32_t pl_team[12];
-int mate_n = 0;
-int32_t mate_x[8];
-int32_t mate_y[8];
 int own_team_b = -1;
-int team_trust = 1;
-int32_t enemy_x[12];
-int32_t enemy_y[12];
-int enemy_n = 0;
-void roster(uintptr_t ownElem,
-            int ownIndex,
-            int ownTeam,
-            const obj_t* objects,
-            int usable)
-{
-    int i = 0;
-    int ownSide = 0;
-    int hist[12];
-    int hn = 0;
-    pl_n = 0;
-    mate_n = 0;
-    enemy_n = 0;
-    own_team_b = ownTeam;
-    team_trust = 1;
-    for (i = 0; i < usable && pl_n < 12; i++)
-    {
-        int32_t team = 0;
-        int isOwn = 0;
-        int rowIdx = 0;
-        if (objects[i].gid < 1000000)
-        {
-            continue;
-        }
-        if (objects[i].gid >= 2000000)
-        {
-            continue;
-        }
-        team = team_at(objects, i);
-        isOwn = (ownElem && objects[i].object == ownElem)
-                    ? 1
-                    : ((!ownElem && i == ownIndex) ? 1 : 0);
-        pl_x[pl_n] = objects[i].x;
-        pl_y[pl_n] = objects[i].y;
-        pl_team[pl_n] = team;
-        pl_mine[pl_n] = isOwn;
-        pl_n++;
-        if (isOwn)
-        {
-            continue;
-        }
-        for (rowIdx = 0; rowIdx < hn; rowIdx++)
-        {
-            if (hist[rowIdx] == team)
-            {
-                break;
-            }
-        }
-        if (rowIdx == hn && hn < 12)
-        {
-            hist[hn++] = team;
-        }
-        if (team != ownTeam)
-        {
-            continue;
-        }
-        ownSide++;
-        if (mate_n >= 8)
-        {
-            continue;
-        }
-        mate_x[mate_n] = objects[i].x;
-        mate_y[mate_n] = objects[i].y;
-        mate_n++;
-    }
-    ownSide++;
-    if (pl_n >= 4 && (ownSide > (pl_n / 2) || hn < 2))
-    {
-        team_trust = 0;
-        mate_n = 0;
-    }
-    {
-        int ownSpawn = -1;
-        int k = 0;
-        for (k = 0; k < pl_n; k++)
-        {
-            if (pl_mine[k])
-            {
-                ownSpawn = k;
-                break;
-            }
-        }
-        {
-            int same = 1;
-            for (k = 1; k < pl_n; k++)
-            {
-                if (pl_team[k] != pl_team[0])
-                {
-                    same = 0;
-                }
-            }
-            if (pl_n > 1 && same && team_trust)
-            {
-                team_trust = 0;
-            }
-        }
-        if (!team_trust)
-        {
-            int m = 0;
-            int e = 0;
-            mate_n = 0;
-            enemy_n = 0;
-            for (k = 0; k < pl_n; k++)
-            {
-                float dx = 0.0f;
-                float dy = 0.0f;
-                if (pl_mine[k])
-                {
-                    continue;
-                }
-                dx = (float)(pl_x[k] - pl_x[ownSpawn]);
-                dy = (float)(pl_y[k] - pl_y[ownSpawn]);
-                if (sqrtf(dx * dx + dy * dy) <= CLUSTER)
-                {
-                    if (m < 8)
-                    {
-                        mate_x[m] = pl_x[k];
-                        mate_y[m] = pl_y[k];
-                        m++;
-                    }
-                }
-                else if (e < 12)
-                {
-                    enemy_x[e] = pl_x[k];
-                    enemy_y[e] = pl_y[k];
-                    e++;
-                }
-            }
-            mate_n = m;
-            enemy_n = e;
-        }
-    }
-    if (team_trust)
-    {
-        for (i = 0; i < pl_n && enemy_n < 12; i++)
-        {
-            if (pl_mine[i])
-            {
-                continue;
-            }
-            if (pl_team[i] == ownTeam)
-            {
-                continue;
-            }
-            enemy_x[enemy_n] = pl_x[i];
-            enemy_y[enemy_n] = pl_y[i];
-            enemy_n++;
-        }
-    }
-}
-int cand_frame[3];
-int cand_changes[3];
-int dead_slot = -1;
-int dead_value = 0;
-int pending = 0;
-int pending_tick = 0;
-int pre[3];
-int prev_valid = 0;
-int respawn_tick = 0;
-uintptr_t own_ptr_a = 0;
-uintptr_t own_ptr_b = 0;
-int own_index_3 = -1;
 uintptr_t own_elem = 0;
-int32_t own_gid = 0;
-int no_source_passes = 0;
 int ascii_word(uintptr_t address)
 {
     uint8_t bytes[8];

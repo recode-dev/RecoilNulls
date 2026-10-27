@@ -18,7 +18,6 @@ namespace
 {
 constexpr long long LOG_MAX_BYTES = 8000000;
 constexpr int LOG_INTERVAL_MS = 200;
-constexpr int PROJ_SLOTS = 16;
 constexpr int RAW_EVERY = 50;
 constexpr uintptr_t RAW_BYTES = 0x1F0;
 FILE* g_file = nullptr;
@@ -115,20 +114,16 @@ void dump_header(void)
          (unsigned long long)MODE_MANAGER_OFF,
          (unsigned long long)MGR_ARRAY_OFF,
          (unsigned long long)MGR_COUNT_OFF);
-    line("off ownidx=%llx ownteam=%llx x=%llx y=%llx team=%llx owner=%llx "
+    line("off x=%llx y=%llx team=%llx owner=%llx "
          "hp=%llx dead=%llx\n",
-         (unsigned long long)OWNIDX_OFF,
-         (unsigned long long)OWNTEAM_OFF,
          (unsigned long long)OBJ_X_OFF,
          (unsigned long long)OBJ_Y_OFF,
          (unsigned long long)OBJ_TEAM_OFF,
          (unsigned long long)OBJ_OWNERINDEX_OFF,
          (unsigned long long)OBJ_HP_OFF,
          (unsigned long long)OBJ_DEADFLAG_OFF);
-    line("off projdata vtable=%llx speed=%llx radius=%llx\n",
-         (unsigned long long)VTABLE_PROJ_DATA_RVA,
-         (unsigned long long)PROJDATA_SPEED_OFF,
-         (unsigned long long)PROJDATA_RADIUS_OFF);
+    line("off projdata vtable=%llx\n",
+         (unsigned long long)VTABLE_PROJ_DATA_RVA);
 }
 void dump_chain(void)
 {
@@ -223,43 +218,6 @@ void dump_own(void)
          team,
          ownerIdx);
 }
-void dump_projectiles(void)
-{
-    int i = 0;
-    int n = 0;
-    for (i = 0; i < PROJ_SLOTS; i++)
-    {
-        if (projs[i].elem) n++;
-    }
-    line("proj n=%d\n", n);
-    for (i = 0; i < PROJ_SLOTS; i++)
-    {
-        proj_t* p = &projs[i];
-        if (!p->elem) continue;
-        line("  p%d elem=%p gid=%d team=%d x=%d y=%d px=%d py=%d vx=%.0f "
-             "vy=%.0f t=%llu->%llu prev=%d "
-             "r=%.1f spd=%.1f beam=%d thr=%d cast=%d ang=%.0f\n",
-             i,
-             (void*)p->elem,
-             p->gid,
-             p->team,
-             p->x,
-             p->y,
-             p->px,
-             p->py,
-             p->vx,
-             p->vy,
-             (unsigned long long)p->pms,
-             (unsigned long long)p->qms,
-             p->hasPrev,
-             p->radius,
-             p->speed,
-             p->isBeam,
-             p->isThrower,
-             p->castRange,
-             p->angle);
-    }
-}
 void dump_ad(void)
 {
     line("adg stage=%d haz=%d thr=%d danger=%d dir=(%.2f,%.2f) dmg=%.0f "
@@ -292,20 +250,6 @@ void dump_ad(void)
              dbg.thrad[i]);
     }
     if (dbg.note[0]) line("adg note=%s\n", dbg.note);
-}
-void dump_roster(void)
-{
-    int i = 0;
-    line("roster enemy=%d mate=%d team=%d\n", enemy_n, mate_n, own_team_b);
-    for (i = 0; i < enemy_n && i < 12; i++)
-    {
-        line(
-            "  e%d x=%d y=%d team=%d\n", i, enemy_x[i], enemy_y[i], pl_team[i]);
-    }
-    for (i = 0; i < mate_n && i < 8; i++)
-    {
-        line("  m%d x=%d y=%d\n", i, mate_x[i], mate_y[i]);
-    }
 }
 void dump_raw(void)
 {
@@ -414,9 +358,7 @@ void tick(void)
              probeIdx,
              (void*)clientPtr);
     }
-    dump_projectiles();
     dump_ad();
-    if ((g_ticks % 2) == 0) dump_roster();
     if ((g_ticks % 4) == 0) dump_objects();
     if ((g_ticks % RAW_EVERY) == 0) dump_raw();
     if ((g_ticks % 50) == 0) dump_header();
