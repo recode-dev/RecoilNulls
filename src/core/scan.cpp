@@ -84,7 +84,8 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    if (!gum_memory_is_readable((gconstpointer)address, static_cast<gsize>(length)))
+    if (!gum_memory_is_readable((gconstpointer)address,
+                                static_cast<gsize>(length)))
     {
         return NO;
     }
@@ -149,7 +150,8 @@ BOOL writable(uintptr_t address, size_t length)
         {
             return NO;
         }
-        next = (cursor & ~(static_cast<uintptr_t>(pageSize) - 1)) + static_cast<uintptr_t>(pageSize);
+        next = (cursor & ~(static_cast<uintptr_t>(pageSize) - 1)) +
+               static_cast<uintptr_t>(pageSize);
         if (next <= cursor)
         {
             return NO;
@@ -172,8 +174,9 @@ BOOL write_bytes(uintptr_t address, const void* src, size_t length)
     {
         return NO;
     }
-    return gum_memory_write(
-               (gpointer)address, static_cast<const guint8*>(src), static_cast<gsize>(length))
+    return gum_memory_write((gpointer)address,
+                            static_cast<const guint8*>(src),
+                            static_cast<gsize>(length))
                ? YES
                : NO;
 }
@@ -282,10 +285,10 @@ void poll_for_game(int tick)
         setup();
         return;
     }
-    dispatch_after(
-        dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(0.5 * NSEC_PER_SEC)),
-        dispatch_get_main_queue(),
-        ^{ poll_for_game(tick + 1); });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                 static_cast<int64_t>(0.5 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(),
+                   ^{ poll_for_game(tick + 1); });
 }
 uintptr_t base = 0;
 uintptr_t manager_ptr = 0;
@@ -301,12 +304,14 @@ typedef uintptr_t (*fn_self_t)(uintptr_t);
 typedef int32_t (*fn_self_int_t)(uintptr_t);
 static uintptr_t call(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self) return 0;
+    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self)
+        return 0;
     return ((fn_self_t)fn)(self);
 }
 static int32_t call_int(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self) return 0;
+    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self)
+        return 0;
     return ((fn_self_int_t)fn)(self);
 }
 uintptr_t manager_array_ptr = 0;
@@ -373,7 +378,8 @@ void scan_world(void)
     state = battle_state();
     slot = (uintptr_t)read_global_ptr(STATE_RVA);
     scene_object = 0;
-    if (slot && read_ptr(slot + static_cast<uintptr_t>(SCENE_OFF), &sceneValue) &&
+    if (slot &&
+        read_ptr(slot + static_cast<uintptr_t>(SCENE_OFF), &sceneValue) &&
         sceneValue)
     {
         scene_object = (uintptr_t)sceneValue;
@@ -433,8 +439,8 @@ void scan_world(void)
             own_x = x;
             own_y = y;
         }
-        if (read_int(own + static_cast<uintptr_t>(OBJ_HP_OFF), &hp) && hp >= 0 &&
-            hp < 1000000)
+        if (read_int(own + static_cast<uintptr_t>(OBJ_HP_OFF), &hp) &&
+            hp >= 0 && hp < 1000000)
         {
             own_ok_hp = 1;
             own_hp = static_cast<uint32_t>(hp);
@@ -462,10 +468,13 @@ void scan_world(void)
             radius = call_int(addr_charradius, ownData);
             speed = call_int(addr_charspeed, ownData);
             own_r = static_cast<float>(radius);
-            if (speed >= 300 && speed <= 3000) own_speed = static_cast<float>(speed);
+            if (speed >= 300 && speed <= 3000)
+                own_speed = static_cast<float>(speed);
         }
     }
-    if (!read_ptr(clientPtr + static_cast<uintptr_t>(MODE_MANAGER_OFF), &value) || !value)
+    if (!read_ptr(clientPtr + static_cast<uintptr_t>(MODE_MANAGER_OFF),
+                  &value) ||
+        !value)
     {
         manager_ptr = 0;
         manager_array_ptr = 0;
@@ -475,15 +484,16 @@ void scan_world(void)
     }
     mgrPtr = (uintptr_t)value;
     manager_ptr = mgrPtr;
-    if (!read_int(mgrPtr + static_cast<uintptr_t>(MGR_COUNT_OFF), &count) || count <= 0 ||
-        count > OBJECT_COUNT_MAX)
+    if (!read_int(mgrPtr + static_cast<uintptr_t>(MGR_COUNT_OFF), &count) ||
+        count <= 0 || count > OBJECT_COUNT_MAX)
     {
         manager_array_ptr = 0;
         manager_count_v = 0;
         obj_count = 0;
         return;
     }
-    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(MGR_ARRAY_OFF), &value) || !value)
+    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(MGR_ARRAY_OFF), &value) ||
+        !value)
     {
         manager_array_ptr = 0;
         manager_count_v = 0;
@@ -492,7 +502,9 @@ void scan_world(void)
     }
     array = (uintptr_t)value;
     if (count > COUNT_MAX) count = COUNT_MAX;
-    if (!read_bytes(array, obj_snapshot, static_cast<size_t>(count) * sizeof(uintptr_t)))
+    if (!read_bytes(array,
+                    obj_snapshot,
+                    static_cast<size_t>(count) * sizeof(uintptr_t)))
     {
         manager_array_ptr = 0;
         manager_count_v = 0;

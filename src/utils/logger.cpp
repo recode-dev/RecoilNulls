@@ -120,7 +120,8 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
         lr = static_cast<uintptr_t>(uc->uc_mcontext64->__ss.__lr);
     }
     if (info != nullptr) fault = (uintptr_t)info->si_addr;
-    len = snprintf(buf, sizeof(buf),
+    len = snprintf(buf,
+                   sizeof(buf),
                    "[crash-signal] sig=%d fault=%p pc=%p lr=%p\n",
                    sig,
                    (void*)fault,
@@ -135,11 +136,13 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
             if (len > 0) write(fd, buf, static_cast<size_t>(len));
             if (dladdr((void*)pc, &di) && di.dli_fname)
             {
-                len = snprintf(buf, sizeof(buf),
-                               "[crash-signal] pc in %s off=%lx sym=%s\n",
-                               di.dli_fname,
-                               static_cast<unsigned long>(pc - (uintptr_t)di.dli_fbase),
-                               di.dli_sname ? di.dli_sname : "?");
+                len = snprintf(
+                    buf,
+                    sizeof(buf),
+                    "[crash-signal] pc in %s off=%lx sym=%s\n",
+                    di.dli_fname,
+                    static_cast<unsigned long>(pc - (uintptr_t)di.dli_fbase),
+                    di.dli_sname ? di.dli_sname : "?");
                 if (len > 0) write(fd, buf, static_cast<size_t>(len));
             }
             close(fd);
@@ -318,7 +321,9 @@ static int live_projectiles(int* nearOut)
         int32_t team = -1;
         float dx = 0.0f;
         float dy = 0.0f;
-        if (!obj || !read_ptr(obj + static_cast<uintptr_t>(ELEM_DEF_OFF), &data) || !data)
+        if (!obj ||
+            !read_ptr(obj + static_cast<uintptr_t>(ELEM_DEF_OFF), &data) ||
+            !data)
         {
             continue;
         }
@@ -382,7 +387,8 @@ void dump_raw(void)
     uintptr_t addr = 0;
     uintptr_t off = 0;
     if (!own_elem) return;
-    line("own raw dump (%llu bytes)\n", static_cast<unsigned long long>(RAW_BYTES));
+    line("own raw dump (%llu bytes)\n",
+         static_cast<unsigned long long>(RAW_BYTES));
     for (off = 0; off < RAW_BYTES; off += 0x10)
     {
         uint32_t w0 = 0;
@@ -425,7 +431,8 @@ void dump_objects(void)
         int32_t y = 0;
         int32_t hp = 0;
         uint8_t deadFlag = 0;
-        if (!read_ptr(array + static_cast<uintptr_t>(i) * 8ULL, &raw) || !raw) continue;
+        if (!read_ptr(array + static_cast<uintptr_t>(i) * 8ULL, &raw) || !raw)
+            continue;
         object = (uintptr_t)raw;
         if (!pointer_plausible(object)) continue;
         if (!read_ptr(object, &raw)) continue;
@@ -486,7 +493,11 @@ void tick(void)
     scan = ticks_a;
     if (lastMsV && now > lastMsV)
     {
-        rate.store(static_cast<int>(((scan - lastScan.load(std::memory_order_relaxed)) * 1000ULL) / (now - lastMsV)), std::memory_order_relaxed);
+        rate.store(
+            static_cast<int>(
+                ((scan - lastScan.load(std::memory_order_relaxed)) * 1000ULL) /
+                (now - lastMsV)),
+            std::memory_order_relaxed);
     }
     line("\n--- t=%llu ms=%.3f dt=%llu scan=%llu rate=%d/s ---\n",
          ticks.load(std::memory_order_relaxed),
@@ -494,23 +505,29 @@ void tick(void)
          static_cast<unsigned long long>(lastMsV ? now - lastMsV : 0),
          static_cast<unsigned long long>(scan),
          rate.load(std::memory_order_relaxed));
-    write_crash_marks("[crash-mark] tick=%llu stage=chain\n", ticks.load(std::memory_order_relaxed));
+    write_crash_marks("[crash-mark] tick=%llu stage=chain\n",
+                      ticks.load(std::memory_order_relaxed));
     dump_chain();
-    write_crash_marks("[crash-mark] tick=%llu stage=own\n", ticks.load(std::memory_order_relaxed));
+    write_crash_marks("[crash-mark] tick=%llu stage=own\n",
+                      ticks.load(std::memory_order_relaxed));
     dump_own();
-    write_crash_marks("[crash-mark] tick=%llu stage=ad\n", ticks.load(std::memory_order_relaxed));
+    write_crash_marks("[crash-mark] tick=%llu stage=ad\n",
+                      ticks.load(std::memory_order_relaxed));
     dump_ad();
     if ((ticks.load(std::memory_order_relaxed) % 4) == 0)
     {
-        write_crash_marks("[crash-mark] tick=%llu stage=objects\n", ticks.load(std::memory_order_relaxed));
+        write_crash_marks("[crash-mark] tick=%llu stage=objects\n",
+                          ticks.load(std::memory_order_relaxed));
         dump_objects();
     }
     if ((ticks.load(std::memory_order_relaxed) % RAW_EVERY) == 0)
     {
-        write_crash_marks("[crash-mark] tick=%llu stage=raw\n", ticks.load(std::memory_order_relaxed));
+        write_crash_marks("[crash-mark] tick=%llu stage=raw\n",
+                          ticks.load(std::memory_order_relaxed));
         dump_raw();
     }
-    write_crash_marks("[crash-mark] tick=%llu stage=done\n", ticks.load(std::memory_order_relaxed));
+    write_crash_marks("[crash-mark] tick=%llu stage=done\n",
+                      ticks.load(std::memory_order_relaxed));
     if ((ticks.load(std::memory_order_relaxed) % 50) == 0) dump_header();
     lastMs.store(now, std::memory_order_relaxed);
     lastScan.store(scan, std::memory_order_relaxed);
@@ -524,7 +541,8 @@ void start(void)
     if (!timer) return;
     dispatch_source_set_timer(
         timer,
-        dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(150 * NSEC_PER_MSEC)),
+        dispatch_time(DISPATCH_TIME_NOW,
+                      static_cast<int64_t>(150 * NSEC_PER_MSEC)),
         static_cast<uint64_t>(LOG_INTERVAL_MS * NSEC_PER_MSEC),
         static_cast<uint64_t>(10 * NSEC_PER_MSEC));
     dispatch_source_set_event_handler(timer, ^{ tick(); });
@@ -536,5 +554,4 @@ __attribute__((constructor)) static void logger_entry(void)
     write_crash_marks("[crash-mark] process start\n");
     install_crash_handler();
     dispatch_async(dispatch_get_main_queue(), ^{ start(); });
-
 }

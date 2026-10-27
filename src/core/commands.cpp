@@ -29,7 +29,8 @@ int ci_load_constants(void)
     }
     for (i = 0; i < static_cast<int>(CI_TABLE_TYPES); i++)
     {
-        if (!read_bytes(base + CI_TYPE_TABLE_RVA + static_cast<uintptr_t>(i) * 4ULL,
+        if (!read_bytes(base + CI_TYPE_TABLE_RVA +
+                            static_cast<uintptr_t>(i) * 4ULL,
                         &ci_table[i],
                         sizeof(uint32_t)))
         {
@@ -162,18 +163,21 @@ int enqueue_skill(int x, int y, int type, void* skillData)
         }
     }
     msg = msg_alloc();
-    if (!msg_ok(msg, static_cast<size_t>(MSG_SIZE) + static_cast<size_t>(MSG_SLACK)))
+    if (!msg_ok(msg,
+                static_cast<size_t>(MSG_SIZE) + static_cast<size_t>(MSG_SLACK)))
     {
         return 0;
     }
-    memset(msg, 0, static_cast<size_t>(MSG_SIZE) + static_cast<size_t>(MSG_SLACK));
+    memset(
+        msg, 0, static_cast<size_t>(MSG_SIZE) + static_cast<size_t>(MSG_SLACK));
     ((void (*)(void*, int))ctorFn)(msg, TYPE_MOVE);
     write_bytes((uintptr_t)msg + TYPE_OFF, &type, sizeof(type));
     write_bytes((uintptr_t)msg + X_OFF, &vx, sizeof(vx));
     write_bytes((uintptr_t)msg + Y_OFF, &vy, sizeof(vy));
     if (skillData && ptr_is_heap(skillData))
     {
-        write_bytes((uintptr_t)msg + static_cast<uintptr_t>(OFF_CLIENTINPUT_SKILLDATA),
+        write_bytes((uintptr_t)msg +
+                        static_cast<uintptr_t>(OFF_CLIENTINPUT_SKILLDATA),
                     &skillData,
                     sizeof(skillData));
     }
@@ -225,7 +229,8 @@ void* msg_alloc(void)
 {
     uintptr_t stub = entry_callable(ALLOC_RVA);
     uintptr_t got = 0;
-    size_t size = static_cast<size_t>(MSG_SIZE) + static_cast<size_t>(MSG_SLACK);
+    size_t size =
+        static_cast<size_t>(MSG_SIZE) + static_cast<size_t>(MSG_SLACK);
     void* mem = nullptr;
     mem = malloc(size);
     if (msg_ok(mem, size))
@@ -243,7 +248,8 @@ void* msg_alloc(void)
         }
     }
     // read_ptr принимает void** (out-param) — static_cast не применим
-    if (base && read_ptr(base + ALLOC_GOT_RVA, reinterpret_cast<void**>(&got)) && got)
+    if (base &&
+        read_ptr(base + ALLOC_GOT_RVA, reinterpret_cast<void**>(&got)) && got)
     {
         mem = ((void* (*)(size_t))got)(size);
         if (msg_ok(mem, size))
@@ -320,6 +326,7 @@ int move_to(int32_t x, int32_t y)
     {
         return 0;
     }
-    ((void (*)(void*, int, int, int))fn)((void*)ctrl, static_cast<int>(x), static_cast<int>(y), 1);
+    ((void (*)(void*, int, int, int))fn)(
+        (void*)ctrl, static_cast<int>(x), static_cast<int>(y), 1);
     return 1;
 }

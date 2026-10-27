@@ -15,7 +15,9 @@ int read_scstring(uintptr_t value, size_t maxLength, char* out, size_t outSize)
         data = value + SCSTRING_DATA_OFF;
     }
     // read_ptr принимает void** (out-param) — static_cast не применим
-    else if (!read_ptr(value + SCSTRING_DATA_OFF, reinterpret_cast<void**>(&data)) || !data)
+    else if (!read_ptr(value + SCSTRING_DATA_OFF,
+                       reinterpret_cast<void**>(&data)) ||
+             !data)
     {
         return 0;
     }

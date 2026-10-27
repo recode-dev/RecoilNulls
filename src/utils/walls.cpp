@@ -6,7 +6,9 @@
 inline constexpr int WALL_TYPE_CACHE_MAX = 128;
 
 static uint8_t wall_grid[WALL_MAX_TOTAL_TILES];
-static std::array<uint8_t, static_cast<size_t>(WALL_MAX_TOTAL_TILES) * sizeof(uintptr_t)> wall_raw{};
+static std::array<uint8_t,
+                  static_cast<size_t>(WALL_MAX_TOTAL_TILES) * sizeof(uintptr_t)>
+    wall_raw{};
 static uintptr_t wall_tiles = 0;
 static int wall_tiles_w = 0;
 static int wall_tiles_h = 0;
@@ -41,7 +43,8 @@ static int wall_type_bits_for(uintptr_t type, uint8_t* out)
             return 1;
         }
     }
-    if (!read_bytes(type + static_cast<uintptr_t>(TILE_TYPE_MOVE_OFF), &packed, 2))
+    if (!read_bytes(
+            type + static_cast<uintptr_t>(TILE_TYPE_MOVE_OFF), &packed, 2))
     {
         return 0;
     }
@@ -126,17 +129,18 @@ void wall_bind(uintptr_t tileMap)
         wall_dirty = 1;
         wall_fail_ms = 0;
     }
-    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_W_OFF), &mapW) || mapW <= 0 ||
-        mapW > WALL_MAX_MAP_TILES)
+    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_W_OFF), &mapW) ||
+        mapW <= 0 || mapW > WALL_MAX_MAP_TILES)
     {
         return;
     }
-    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_H_OFF), &mapH) || mapH <= 0 ||
-        mapH > WALL_MAX_MAP_TILES)
+    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_H_OFF), &mapH) ||
+        mapH <= 0 || mapH > WALL_MAX_MAP_TILES)
     {
         return;
     }
-    if (!read_ptr(tileMap + static_cast<uintptr_t>(TILEMAP_ARRAY_OFF), &tileArray) ||
+    if (!read_ptr(tileMap + static_cast<uintptr_t>(TILEMAP_ARRAY_OFF),
+                  &tileArray) ||
         !tileArray)
     {
         return;
@@ -178,7 +182,9 @@ int wall_build(void)
     {
         return 0;
     }
-    if (!read_bytes(wall_tiles, wall_raw.data(), static_cast<size_t>(total) * sizeof(uintptr_t)))
+    if (!read_bytes(wall_tiles,
+                    wall_raw.data(),
+                    static_cast<size_t>(total) * sizeof(uintptr_t)))
     {
         return 0;
     }
@@ -189,14 +195,16 @@ int wall_build(void)
         uintptr_t type = 0;
         uint8_t bits = 0;
         wall_grid[i] = 0;
-        memcpy(
-            &tile, wall_raw.data() + static_cast<size_t>(i) * sizeof(uintptr_t), sizeof(uintptr_t));
+        memcpy(&tile,
+               wall_raw.data() + static_cast<size_t>(i) * sizeof(uintptr_t),
+               sizeof(uintptr_t));
         if (!tile)
         {
             continue;
         }
         // read_ptr принимает void** (out-param) — static_cast не применим
-        if (!pointer_plausible(tile) || !read_ptr(tile, reinterpret_cast<void**>(&type)))
+        if (!pointer_plausible(tile) ||
+            !read_ptr(tile, reinterpret_cast<void**>(&type)))
         {
             holes++;
             continue;

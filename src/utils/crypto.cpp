@@ -48,8 +48,10 @@ static void sha_block(sha_ctx_t* c, const uint8_t* p)
     int i = 0;
     for (i = 0; i < 16; i++)
     {
-        ws[i] = (static_cast<uint32_t>(p[i * 4]) << 24) | (static_cast<uint32_t>(p[i * 4 + 1]) << 16) |
-                (static_cast<uint32_t>(p[i * 4 + 2]) << 8) | static_cast<uint32_t>(p[i * 4 + 3]);
+        ws[i] = (static_cast<uint32_t>(p[i * 4]) << 24) |
+                (static_cast<uint32_t>(p[i * 4 + 1]) << 16) |
+                (static_cast<uint32_t>(p[i * 4 + 2]) << 8) |
+                static_cast<uint32_t>(p[i * 4 + 3]);
     }
     for (i = 16; i < 64; i++)
     {
@@ -124,13 +126,15 @@ static void sha_final(sha_ctx_t* c, uint8_t out[32])
 {
     uint8_t pad[72];
     uint64_t bits = c->bits;
-    size_t padlen = (c->n < 56) ? (static_cast<size_t>(56) - c->n) : (static_cast<size_t>(120) - c->n);
+    size_t padlen = (c->n < 56) ? (static_cast<size_t>(56) - c->n)
+                                : (static_cast<size_t>(120) - c->n);
     int i = 0;
     pad[0] = 0x80;
     memset(pad + 1, 0, padlen - 1);
     for (i = 0; i < 8; i++)
     {
-        pad[padlen + static_cast<size_t>(i)] = static_cast<uint8_t>(bits >> (56 - 8 * i));
+        pad[padlen + static_cast<size_t>(i)] =
+            static_cast<uint8_t>(bits >> (56 - 8 * i));
     }
     sha_update(c, pad, padlen + 8);
     for (i = 0; i < 8; i++)
@@ -177,8 +181,10 @@ uint32_t ci_compute_token(const uint8_t key16[16],
     uint32_t typeC = 0;
     uint32_t token = 0;
     int i = 0;
-    typeRaw = static_cast<uint32_t>(cmd16[4]) | (static_cast<uint32_t>(cmd16[5]) << 8) |
-              (static_cast<uint32_t>(cmd16[6]) << 16) | (static_cast<uint32_t>(cmd16[7]) << 24);
+    typeRaw = static_cast<uint32_t>(cmd16[4]) |
+              (static_cast<uint32_t>(cmd16[5]) << 8) |
+              (static_cast<uint32_t>(cmd16[6]) << 16) |
+              (static_cast<uint32_t>(cmd16[7]) << 24);
     typeC = (typeRaw <= 0x16) ? table[typeRaw] : fallback;
     for (i = 0; i < 16; i++)
     {
@@ -196,7 +202,9 @@ uint32_t ci_compute_token(const uint8_t key16[16],
     memcpy(outerBuf, block, 64);
     memcpy(outerBuf + 64, inner, 32);
     sha(outerBuf, sizeof(outerBuf), digest);
-    token = static_cast<uint32_t>(digest[0]) | ((static_cast<uint32_t>(digest[1]) & static_cast<uint32_t>(0x7f)) << 8);
+    token =
+        static_cast<uint32_t>(digest[0]) |
+        ((static_cast<uint32_t>(digest[1]) & static_cast<uint32_t>(0x7f)) << 8);
     if (token <= static_cast<uint32_t>(1))
     {
         token = static_cast<uint32_t>(1);

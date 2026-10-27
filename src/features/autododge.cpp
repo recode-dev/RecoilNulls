@@ -84,7 +84,8 @@ static void buildRing()
     ring.clear();
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
-        float a = static_cast<float>(M_PI) * 2.0f * static_cast<float>(i) / static_cast<float>(TUNE.DIR_COUNT);
+        float a = static_cast<float>(M_PI) * 2.0f * static_cast<float>(i) /
+                  static_cast<float>(TUNE.DIR_COUNT);
         ring.push_back(V2(cosf(a), sinf(a)));
     }
     headingIdx = -1;
@@ -140,7 +141,8 @@ static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
             blocked++;
         }
     }
-    return TUNE.WALL_HIT * static_cast<float>(blocked) / static_cast<float>(TUNE.PROBE_N);
+    return TUNE.WALL_HIT * static_cast<float>(blocked) /
+           static_cast<float>(TUNE.PROBE_N);
 }
 static int32_t clamp_axis(float value, int tiles)
 {
@@ -250,8 +252,7 @@ void autododge()
                 if (!read_bytes(dataPtr, data, sizeof(data))) continue;
                 uintptr_t dataVtable = 0;
                 memcpy(&dataVtable, data, sizeof(dataVtable));
-                if (!dataVtable)
-                    continue;
+                if (!dataVtable) continue;
                 if (!pointer_plausible(dataVtable)) continue;
                 uintptr_t vtRva = dataVtable - base;
                 if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
@@ -286,20 +287,23 @@ void autododge()
                     {
                         continue;
                     }
-                    memcpy(&projSpeed, data + PROJECTILEDATA_SPEED_OFF,
+                    memcpy(&projSpeed,
+                           data + PROJECTILEDATA_SPEED_OFF,
                            sizeof(projSpeed));
-                    memcpy(&projRadius, data + PROJECTILEDATA_RADIUS_OFF,
+                    memcpy(&projRadius,
+                           data + PROJECTILEDATA_RADIUS_OFF,
                            sizeof(projRadius));
                     state.isIndirect = (ind != 0);
                     state.isBeam = (call_fn(addr_projbeam, dataPtr, 0) != 0);
                     state.speed = static_cast<float>(projSpeed);
                     state.radius = static_cast<float>(projRadius);
-                    state.earlyTicks = static_cast<int>(call_fn(addr_projearly, dataPtr, 0));
-                    state.spawnedAt = now - static_cast<uint64_t>(state.earlyTicks) * 16;
+                    state.earlyTicks =
+                        static_cast<int>(call_fn(addr_projearly, dataPtr, 0));
+                    state.spawnedAt =
+                        now - static_cast<uint64_t>(state.earlyTicks) * 16;
                     state.name[0] = '\0';
                     {
-                        uintptr_t nameStr =
-                            call_fn(addr_dataname, dataPtr, 0);
+                        uintptr_t nameStr = call_fn(addr_dataname, dataPtr, 0);
                         if (nameStr)
                         {
                             read_scstring(nameStr,
@@ -314,8 +318,10 @@ void autododge()
                 else
                 {
                     float dt = static_cast<float>(now - state.lastTs) / 1000.0f;
-                    float ddx = static_cast<float>(px_i) - static_cast<float>(state.lastX);
-                    float ddy = static_cast<float>(py_i) - static_cast<float>(state.lastY);
+                    float ddx = static_cast<float>(px_i) -
+                                static_cast<float>(state.lastX);
+                    float ddy = static_cast<float>(py_i) -
+                                static_cast<float>(state.lastY);
                     if (dt > 0.002f && dt < 0.3f &&
                         ddx * ddx + ddy * ddy >= 16.0f)
                     {
@@ -472,8 +478,7 @@ void autododge()
     lastGoodTs = now;
     int32_t tx = clamp_axis(mx + dir.x * TUNE.REACH, wall_cache_w());
     int32_t ty = clamp_axis(my + dir.y * TUNE.REACH, wall_cache_h());
-    bool turned =
-        ((dir.x * sentDirX + dir.y * sentDirY) < TUNE.SEND_TURN_DOT);
+    bool turned = ((dir.x * sentDirX + dir.y * sentDirY) < TUNE.SEND_TURN_DOT);
     bool stale = (now - lastSentAt > TUNE.SEND_MIN_MS);
     if (turned || stale)
     {
