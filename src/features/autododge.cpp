@@ -19,6 +19,7 @@ static struct
     float MOMENTUM = 55.0f;
     float ENGAGE = 100.0f;
     uint32_t RELEASE_GRACE_MS = 200;
+    float COAST_S = 0.2f;
     float WALL_HIT = 9000.0f;
     int PROBE_N = 3;
     float PROBE_T = 0.35f;
@@ -63,6 +64,7 @@ int32_t ad_target_y = 0;
 static std::map<int, ProjectileState> g_proj_cache;
 static std::vector<V2> g_ring;
 static int g_headingIdx = -1;
+static V2 g_lastDir = V2(0, 0);
 static uint64_t g_holdUntil = 0;
 static uint64_t g_lastDangerTs = 0;
 static float g_lastSentX = 1e9f;
@@ -161,12 +163,16 @@ static void clearHeading()
 }
 static void releaseHeading(uint64_t now, float mx, float my)
 {
+    V2 dir = V2(0, 0);
     int32_t tx = 0;
     int32_t ty = 0;
+    float coast = 0.0f;
     if (g_headingIdx < 0) return;
+    dir = g_ring[g_headingIdx];
+    coast = CHAR_SPEED * TUNE.COAST_S;
     clearHeading();
-    tx = clamp_axis(mx, wall_cache_w());
-    ty = clamp_axis(my, wall_cache_h());
+    tx = clamp_axis(mx + dir.x * coast, wall_cache_w());
+    ty = clamp_axis(my + dir.y * coast, wall_cache_h());
     move_to(tx, ty, mx, my);
     enqueue(tx, ty);
     g_lastSentX = (float)tx;
@@ -191,6 +197,7 @@ void autododge_reset(void)
 {
     g_proj_cache.clear();
     g_headingIdx = -1;
+    g_lastDir = V2(0, 0);
     g_holdUntil = 0;
     g_lastDangerTs = 0;
     g_lastSentX = 1e9f;
@@ -372,7 +379,8 @@ void autododge(void)
         return;
     }
     int prevIdx = g_headingIdx;
-    V2 prevDir = (prevIdx >= 0) ? g_ring[prevIdx] : V2(0, 0);
+    V2 prevDir = (prevIdx >= 0) ? g_ring[prevIdx] : g_lastDir;
+    bool hasPrevDir = (prevDir.x != 0.0f || prevDir.y != 0.0f);
     float bodyR = TUNE.WALL_BODY;
     int bestIdx = 0;
     float bestScore = -1e18f;
@@ -383,7 +391,7 @@ void autododge(void)
         float s =
             clearanceFor(threats, mx, my, CHAR_SPEED * d.x, CHAR_SPEED * d.y);
         s -= wallAhead(mx, my, d, CHAR_SPEED, bodyR);
-        if (prevIdx >= 0)
+        if (hasPrevDir)
             s += TUNE.MOMENTUM * (d.x * prevDir.x + d.y * prevDir.y);
         if (i == prevIdx) prevScore = s;
         if (s > bestScore)
@@ -417,6 +425,7 @@ void autododge(void)
     }
     V2 chosen = g_ring[chosenIdx];
     g_headingIdx = chosenIdx;
+    g_lastDir = g_ring[chosenIdx];
     int32_t tx = clamp_axis(mx + chosen.x * TUNE.REACH, wall_cache_w());
     int32_t ty = clamp_axis(my + chosen.y * TUNE.REACH, wall_cache_h());
     float ddx = (float)tx - g_lastSentX;
