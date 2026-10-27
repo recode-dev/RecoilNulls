@@ -27,11 +27,6 @@ extern uintptr_t addr_gety;
 extern uintptr_t addr_projbeam;
 extern uintptr_t addr_projearly;
 extern uintptr_t addr_dataname;
-extern uintptr_t addr_charweapon;
-extern uintptr_t addr_charskillat;
-extern uintptr_t addr_skilldata;
-extern uintptr_t addr_skillrange;
-extern uintptr_t addr_skillproj;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
@@ -45,7 +40,6 @@ BOOL read_int(uintptr_t address, int32_t* out);
 BOOL writable(uintptr_t address, size_t length);
 BOOL write_bytes(uintptr_t address, const void* src, size_t length);
 BOOL read_ptr(uintptr_t address, void** out);
-int cast_range_for(const char* name);
 void* read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 BOOL find_game_image(uintptr_t* out_base);

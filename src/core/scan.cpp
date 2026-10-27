@@ -27,11 +27,6 @@ uintptr_t addr_charradius = 0;
 uintptr_t addr_projbeam = 0;
 uintptr_t addr_projearly = 0;
 uintptr_t addr_dataname = 0;
-uintptr_t addr_charweapon = 0;
-uintptr_t addr_charskillat = 0;
-uintptr_t addr_skilldata = 0;
-uintptr_t addr_skillrange = 0;
-uintptr_t addr_skillproj = 0;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
@@ -302,23 +297,17 @@ uint64_t us(void)
 {
     return (uint64_t)g_get_monotonic_time();
 }
-typedef uintptr_t (*fn1)(uintptr_t);
-typedef int32_t (*fn1i)(uintptr_t);
-static uintptr_t call1(uintptr_t fn, uintptr_t self)
+typedef uintptr_t (*fn_self_t)(uintptr_t);
+typedef int32_t (*fn_self_int_t)(uintptr_t);
+static uintptr_t call(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self) return 0;
-    return ((fn1)fn)(self);
+    return ((fn_self_t)fn)(self);
 }
-static int32_t call1i(uintptr_t fn, uintptr_t self)
+static int32_t call_int(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self) return 0;
-    return ((fn1i)fn)(self);
-}
-typedef uintptr_t (*fn2)(uintptr_t, uintptr_t);
-static uintptr_t call2(uintptr_t fn, uintptr_t self, uintptr_t arg)
-{
-    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self) return 0;
-    return ((fn2)fn)(self, arg);
+    return ((fn_self_int_t)fn)(self);
 }
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
@@ -345,7 +334,6 @@ static int battle_state(void)
     return state;
 }
 static int battle_ticks = 0;
-static void character_registry_reset(void);
 static void world_reset(void)
 {
     own_elem = 0;
@@ -361,109 +349,8 @@ static void world_reset(void)
     obj_count = 0;
     scene_object = 0;
     battle_ticks = 0;
-    character_registry_reset();
     wall_drop();
     autododge_reset();
-}
-#define CHAR_REGISTRY_MAX 64
-#define RANGE_CACHE_MAX 256
-typedef struct
-{
-    char name[128];
-    int units;
-} range_entry_t;
-static range_entry_t g_range[RANGE_CACHE_MAX];
-static int g_rangeN = 0;
-static uintptr_t g_charHarvested[CHAR_REGISTRY_MAX];
-static void range_note(const char* name, int units)
-{
-    if (!name || !name[0] || units <= 0) return;
-    for (int i = 0; i < g_rangeN; i++)
-    {
-        if (strcmp(g_range[i].name, name) == 0)
-        {
-            if (units > g_range[i].units) g_range[i].units = units;
-            return;
-        }
-    }
-    if (g_rangeN >= RANGE_CACHE_MAX) return;
-    snprintf(g_range[g_rangeN].name, sizeof(g_range[g_rangeN].name), "%s", name);
-    g_range[g_rangeN].units = units;
-    g_rangeN++;
-}
-int cast_range_for(const char* name)
-{
-    if (!name || !name[0]) return 0;
-    for (int i = 0; i < g_rangeN; i++)
-    {
-        if (strcmp(g_range[i].name, name) == 0) return g_range[i].units;
-    }
-    return 0;
-}
-static void harvest_skill_data(uintptr_t skillData)
-{
-    if (!skillData || !pointer_plausible(skillData)) return;
-    int tiles = call1i(addr_skillrange, skillData);
-    if (tiles <= 0 || tiles > 64) return;
-    int units = tiles * CASTING_RANGE_SCALE;
-    for (int i = 0; i < PROJ_INDEX_MAX; i++)
-    {
-        uintptr_t proj = call2(addr_skillproj, skillData, (uintptr_t)i);
-        if (!proj || !pointer_plausible(proj)) continue;
-        uintptr_t nameStr = call1(addr_dataname, proj);
-        char name[128];
-        if (nameStr && pointer_plausible(nameStr) && read_scstring(nameStr, SCSTRING_DEFAULT_MAX_LENGTH, name,
-                                     sizeof(name)))
-        {
-            range_note(name, units);
-        }
-    }
-}
-static int harvest_character(uintptr_t character)
-{
-    int found = 0;
-    if (!character || !pointer_plausible(character)) return 0;
-    uintptr_t weapon = call1(addr_charweapon, character);
-    if (weapon && pointer_plausible(weapon))
-    {
-        harvest_skill_data(weapon);
-        found = 1;
-    }
-    for (int slot = 0; slot < SKILL_SLOT_MAX; slot++)
-    {
-        uintptr_t skill = call2(addr_charskillat, character, (uintptr_t)slot);
-        if (!skill || !pointer_plausible(skill)) continue;
-        for (int hyper = 0; hyper < 2; hyper++)
-        {
-            uintptr_t data = call2(addr_skilldata, skill, (uintptr_t)hyper);
-            if (data && pointer_plausible(data))
-            {
-                harvest_skill_data(data);
-                found = 1;
-            }
-        }
-    }
-    return found;
-}
-static void remember_character(int index, uintptr_t character)
-{
-    if (!CHARACTER_HARVEST_ON || battle_ticks < 30) return;
-    if (!addr_charweapon || !addr_charskillat || !addr_skilldata ||
-        !addr_skillrange || !addr_skillproj || !addr_dataname) return;
-    if (index < 0 || index >= CHAR_REGISTRY_MAX) return;
-    if (!character || !pointer_plausible(character)) return;
-    if (g_charHarvested[index] == character) return;
-    if (harvest_character(character))
-    {
-        g_charHarvested[index] = character;
-    }
-}
-static void character_registry_reset(void)
-{
-    for (int i = 0; i < CHAR_REGISTRY_MAX; i++)
-    {
-        g_charHarvested[i] = 0;
-    }
 }
 void scan_world(void)
 {
@@ -503,11 +390,11 @@ void scan_world(void)
         world_reset();
         return;
     }
-    own = addr_getownchar ? call1(addr_getownchar, clientPtr) : 0;
+    own = addr_getownchar ? call(addr_getownchar, clientPtr) : 0;
     if (base)
     {
         uintptr_t tileMapFn = callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP);
-        uintptr_t tileMap = tileMapFn ? call1(tileMapFn, clientPtr) : 0;
+        uintptr_t tileMap = tileMapFn ? call(tileMapFn, clientPtr) : 0;
         if (pointer_plausible(tileMap))
         {
             wall_bind(tileMap);
@@ -520,11 +407,11 @@ void scan_world(void)
     }
     if (addr_getteam)
     {
-        ownTeam = call1i(addr_getteam, clientPtr);
+        ownTeam = call_int(addr_getteam, clientPtr);
     }
     if (addr_getownidx)
     {
-        ownIndex = call1i(addr_getownidx, clientPtr);
+        ownIndex = call_int(addr_getownidx, clientPtr);
     }
     if (own)
     {
@@ -567,13 +454,13 @@ void scan_world(void)
     if (own)
     {
         int32_t probe = 0;
-        ownData = addr_getdata ? call1(addr_getdata, own) : 0;
+        ownData = addr_getdata ? call(addr_getdata, own) : 0;
         if (pointer_plausible(ownData) && read_int(ownData, &probe))
         {
             int32_t radius = 0;
             int32_t speed = 0;
-            radius = call1i(addr_charradius, ownData);
-            speed = call1i(addr_charspeed, ownData);
+            radius = call_int(addr_charradius, ownData);
+            speed = call_int(addr_charspeed, ownData);
             own_r = (float)radius;
             if (speed >= 300 && speed <= 3000) own_speed = (float)speed;
         }
@@ -615,7 +502,6 @@ void scan_world(void)
     manager_array_ptr = array;
     manager_count_v = count;
     obj_count = count;
-    if (own) remember_character(own_index_v, own);
     for (int i = 0; i < count; i++)
     {
         uintptr_t objPtr = obj_snapshot[i];
@@ -624,14 +510,11 @@ void scan_world(void)
                            ? 1
                            : 0;
         if (!obj_valid[i]) continue;
-        int32_t ownerIdx = 0;
         int32_t team = 0;
         int32_t hpNow = 0;
-        memcpy(&ownerIdx, obj_block[i] + OBJ_OWNERINDEX_OFF, sizeof(ownerIdx));
         memcpy(&team, obj_block[i] + OBJ_TEAM_OFF, sizeof(team));
         memcpy(&hpNow, obj_block[i] + OBJ_HP_OFF, sizeof(hpNow));
         if (team == own_team_b || hpNow <= 0) continue;
-        if (ownerIdx < 0 || ownerIdx >= CHAR_REGISTRY_MAX) continue;
     }
     ticks_a++;
 }
@@ -707,11 +590,6 @@ void resolve_addresses(void)
     addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
     addr_projearly = callable(RVA_LOGICPROJECTILEDATA_GETNUMEARLYTICKS);
     addr_dataname = callable(RVA_LOGICDATA_GETNAME);
-    addr_charweapon = callable(RVA_LOGICCHARACTERCLIENT_GETWEAPONSKILL);
-    addr_charskillat = callable(RVA_LOGICCHARACTERCLIENT_GETSKILLAT);
-    addr_skilldata = callable(RVA_LOGICSKILLCLIENT_GETDATA);
-    addr_skillrange = callable(RVA_LOGICSKILLDATA_GETCASTINGRANGE);
-    addr_skillproj = callable(RVA_LOGICSKILLDATA_GETPROJECTILEDATA);
 }
 int coord_ok = 0;
 int dead = 0;

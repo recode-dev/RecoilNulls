@@ -54,7 +54,6 @@ struct ProjectileState
     float radius;
     char name[128];
     float spawnX, spawnY;
-    int castRange;
     int earlyTicks;
     uint64_t spawnedAt;
     uint64_t lastSeen;
@@ -69,26 +68,26 @@ int active = 0;
 int moving = 0;
 int32_t ad_target_x = 0;
 int32_t ad_target_y = 0;
-static std::map<int, ProjectileState> g_proj_cache;
-static std::vector<V2> g_ring;
-static int g_headingIdx = -1;
-static uint64_t g_lastDangerTs = 0;
-static uint64_t g_lastGoodTs = 0;
-static V2 g_commitDir = V2(0, 0);
-static float g_sentDirX = 0.0f;
-static float g_sentDirY = 0.0f;
-static uint64_t g_lastSentAt = 0;
+static std::map<int, ProjectileState> proj_cache;
+static std::vector<V2> ring;
+static int headingIdx = -1;
+static uint64_t lastDangerTs = 0;
+static uint64_t lastGoodTs = 0;
+static V2 commitDir = V2(0, 0);
+static float sentDirX = 0.0f;
+static float sentDirY = 0.0f;
+static uint64_t lastSentAt = 0;
 static float CHAR_SPEED = 720.0f;
 static void buildRing()
 {
-    if ((int)g_ring.size() == TUNE.DIR_COUNT) return;
-    g_ring.clear();
+    if ((int)ring.size() == TUNE.DIR_COUNT) return;
+    ring.clear();
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
         float a = (float)M_PI * 2.0f * (float)i / (float)TUNE.DIR_COUNT;
-        g_ring.push_back(V2(cosf(a), sinf(a)));
+        ring.push_back(V2(cosf(a), sinf(a)));
     }
-    g_headingIdx = -1;
+    headingIdx = -1;
 }
 static float clearanceFor(const std::vector<Threat>& threats,
                           float myX,
@@ -167,8 +166,8 @@ static int32_t clamp_axis(float value, int tiles)
 }
 static void clearHeading()
 {
-    g_headingIdx = -1;
-    g_commitDir = V2(0, 0);
+    headingIdx = -1;
+    commitDir = V2(0, 0);
 }
 static void releaseHeading(uint64_t now, float mx, float my)
 {
@@ -176,17 +175,17 @@ static void releaseHeading(uint64_t now, float mx, float my)
     int32_t tx = 0;
     int32_t ty = 0;
     float coast = 0.0f;
-    if (g_headingIdx < 0) return;
-    dir = g_ring[g_headingIdx];
+    if (headingIdx < 0) return;
+    dir = ring[headingIdx];
     coast = CHAR_SPEED * TUNE.COAST_S;
     clearHeading();
     tx = clamp_axis(mx + dir.x * coast, wall_cache_w());
     ty = clamp_axis(my + dir.y * coast, wall_cache_h());
     move_to(tx, ty);
     enqueue(tx, ty);
-    g_sentDirX = dir.x;
-    g_sentDirY = dir.y;
-    g_lastSentAt = now;
+    sentDirX = dir.x;
+    sentDirY = dir.y;
+    lastSentAt = now;
     ad_target_x = tx;
     ad_target_y = ty;
     active = 0;
@@ -203,14 +202,14 @@ static uintptr_t call_fn(uintptr_t fn, uintptr_t a, uintptr_t b)
 }
 void autododge_reset(void)
 {
-    g_proj_cache.clear();
-    g_headingIdx = -1;
-    g_lastDangerTs = 0;
-    g_lastGoodTs = 0;
-    g_commitDir = V2(0, 0);
-    g_sentDirX = 0.0f;
-    g_sentDirY = 0.0f;
-    g_lastSentAt = 0;
+    proj_cache.clear();
+    headingIdx = -1;
+    lastDangerTs = 0;
+    lastGoodTs = 0;
+    commitDir = V2(0, 0);
+    sentDirX = 0.0f;
+    sentDirY = 0.0f;
+    lastSentAt = 0;
     ad_target_x = 0;
     ad_target_y = 0;
     active = 0;
@@ -274,7 +273,7 @@ void autododge(void)
                 uint32_t deadFlag = 0;
                 memcpy(&deadFlag, obj + OBJ_DEADFLAG_OFF, sizeof(deadFlag));
                 if (deadFlag != 0) continue;
-                ProjectileState& state = g_proj_cache[pid];
+                ProjectileState& state = proj_cache[pid];
                 if (state.lastSeen == 0)
                 {
                     state.lastX = px_i;
@@ -311,7 +310,6 @@ void autododge(void)
                     }
                     state.spawnX = (float)px_i;
                     state.spawnY = (float)py_i;
-                    state.castRange = cast_range_for(state.name);
                 }
                 else
                 {
@@ -370,11 +368,11 @@ void autododge(void)
                 threats.push_back(t);
             }
         }
-        for (auto it = g_proj_cache.begin(); it != g_proj_cache.end();)
+        for (auto it = proj_cache.begin(); it != proj_cache.end();)
         {
             if (now - it->second.lastSeen > 1024)
             {
-                it = g_proj_cache.erase(it);
+                it = proj_cache.erase(it);
             }
             else
             {
@@ -384,21 +382,21 @@ void autododge(void)
     }
     if (threats.empty())
     {
-        if (now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS)
+        if (now - lastDangerTs > TUNE.RELEASE_GRACE_MS)
             releaseHeading(now, mx, my);
         return;
     }
     float stayClear = clearanceFor(threats, mx, my, 0, 0);
     bool inDanger = stayClear < TUNE.ENGAGE;
-    if (inDanger) g_lastDangerTs = now;
+    if (inDanger) lastDangerTs = now;
     if (!inDanger &&
-        (g_headingIdx < 0 || now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS))
+        (headingIdx < 0 || now - lastDangerTs > TUNE.RELEASE_GRACE_MS))
     {
         releaseHeading(now, mx, my);
         return;
     }
-    bool hasPrev = (g_commitDir.x != 0.0f || g_commitDir.y != 0.0f);
-    V2 prevDir = g_commitDir;
+    bool hasPrev = (commitDir.x != 0.0f || commitDir.y != 0.0f);
+    V2 prevDir = commitDir;
     float bodyR = TUNE.WALL_BODY;
     int bestIdx = 0;
     float bestScore = -1e18f;
@@ -412,7 +410,7 @@ void autododge(void)
     }
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
-        const V2& d = g_ring[i];
+        const V2& d = ring[i];
         bool forward = (d.x * prevDir.x + d.y * prevDir.y) >= TUNE.TURN_DOT;
         float s = 0.0f;
         if (prevScore > 0.0f && hasPrev && !forward)
@@ -431,7 +429,7 @@ void autododge(void)
             bestIdx = i;
         }
     }
-    V2 chosen = g_ring[bestIdx];
+    V2 chosen = ring[bestIdx];
     float chosenScore = bestScore;
     if (hasPrev)
     {
@@ -447,7 +445,7 @@ void autododge(void)
     }
     if (chosenScore <= stayClear)
     {
-        if (now - g_lastGoodTs > TUNE.RELEASE_GRACE_MS)
+        if (now - lastGoodTs > TUNE.RELEASE_GRACE_MS)
         {
             releaseHeading(now, mx, my);
         }
@@ -469,19 +467,19 @@ void autododge(void)
             dir = chosen;
         }
     }
-    g_commitDir = dir;
-    g_headingIdx = bestIdx;
-    g_lastGoodTs = now;
+    commitDir = dir;
+    headingIdx = bestIdx;
+    lastGoodTs = now;
     int32_t tx = clamp_axis(mx + dir.x * TUNE.REACH, wall_cache_w());
     int32_t ty = clamp_axis(my + dir.y * TUNE.REACH, wall_cache_h());
     bool turned =
-        ((dir.x * g_sentDirX + dir.y * g_sentDirY) < TUNE.SEND_TURN_DOT);
-    bool stale = (now - g_lastSentAt > TUNE.SEND_MIN_MS);
+        ((dir.x * sentDirX + dir.y * sentDirY) < TUNE.SEND_TURN_DOT);
+    bool stale = (now - lastSentAt > TUNE.SEND_MIN_MS);
     if (turned || stale)
     {
-        g_sentDirX = dir.x;
-        g_sentDirY = dir.y;
-        g_lastSentAt = now;
+        sentDirX = dir.x;
+        sentDirY = dir.y;
+        lastSentAt = now;
         move_to(tx, ty);
         enqueue(tx, ty);
         ad_target_x = tx;

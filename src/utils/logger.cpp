@@ -29,13 +29,13 @@ constexpr int RAW_EVERY = 50;
 constexpr uintptr_t RAW_BYTES = 0x1F0;
 constexpr float PROJ_NEAR = 1600.0f;
 constexpr float PROJ_NEAR_SQ = PROJ_NEAR * PROJ_NEAR;
-FILE* g_file = nullptr;
-dispatch_source_t g_timer = nullptr;
-unsigned long long g_ticks = 0;
-uint64_t g_lastMs = 0;
-uint64_t g_lastScan = 0;
-int g_rate = 0;
-char g_path[1024];
+FILE* file = nullptr;
+dispatch_source_t timer = nullptr;
+unsigned long long ticks = 0;
+uint64_t lastMs = 0;
+uint64_t lastScan = 0;
+int rate = 0;
+char path[1024];
 const char* document_path(void)
 {
     static char resolved[1024];
@@ -55,15 +55,15 @@ void rotate_if_needed(void)
 {
     long long size = 0;
     FILE* probe = nullptr;
-    probe = fopen(g_path, "rb");
+    probe = fopen(path, "rb");
     if (probe == nullptr) return;
     fseek(probe, 0, SEEK_END);
     size = ftell(probe);
     fclose(probe);
     if (size <= LOG_MAX_BYTES) return;
     char backup[1100];
-    snprintf(backup, sizeof(backup), "%s.1", g_path);
-    rename(g_path, backup);
+    snprintf(backup, sizeof(backup), "%s.1", path);
+    rename(path, backup);
 }
 bool in_battle(void)
 {
@@ -73,36 +73,36 @@ bool open_log(void)
 {
     const char* dir = document_path();
     if (dir[0] == 0) return false;
-    snprintf(g_path, sizeof(g_path), "%s/Recoil.log", dir);
-    g_file = fopen(g_path, "a");
-    if (g_file == nullptr) return false;
-    fseek(g_file, 0, SEEK_END);
-    if (ftell(g_file) == 0)
+    snprintf(path, sizeof(path), "%s/Recoil.log", dir);
+    file = fopen(path, "a");
+    if (file == nullptr) return false;
+    fseek(file, 0, SEEK_END);
+    if (ftell(file) == 0)
     {
-        fprintf(g_file, "=== log ===\n");
-        fprintf(g_file, "documents: %s\n", dir);
+        fprintf(file, "=== log ===\n");
+        fprintf(file, "documents: %s\n", dir);
     }
     return true;
 }
 void line(const char* format, ...)
 {
     va_list args;
-    if (g_file == nullptr) return;
+    if (file == nullptr) return;
     va_start(args, format);
-    vfprintf(g_file, format, args);
-    fflush(g_file);
+    vfprintf(file, format, args);
+    fflush(file);
     va_end(args);
 }
 void write_crash_marks(const char* format, ...)
 {
     va_list args;
     FILE* f = nullptr;
-    if (g_path[0] == 0)
+    if (path[0] == 0)
     {
-        snprintf(g_path, sizeof(g_path), "%s/Recoil.log", document_path());
+        snprintf(path, sizeof(path), "%s/Recoil.log", document_path());
     }
-    if (g_file != nullptr) fflush(g_file);
-    f = fopen(g_path, "a");
+    if (file != nullptr) fflush(file);
+    f = fopen(path, "a");
     if (f == nullptr) return;
     va_start(args, format);
     vfprintf(f, format, args);
@@ -132,9 +132,9 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
                    (void*)pc,
                    (void*)lr);
     if (len > 0) write(STDERR_FILENO, buf, (size_t)len);
-    if (g_path[0] != 0)
+    if (path[0] != 0)
     {
-        int fd = open(g_path, O_WRONLY | O_APPEND | O_CREAT, 0644);
+        int fd = open(path, O_WRONLY | O_APPEND | O_CREAT, 0644);
         if (fd >= 0)
         {
             if (len > 0) write(fd, buf, (size_t)len);
@@ -174,8 +174,8 @@ void dump_header(void)
     line("base=%p setup=%d ticks=%llu rate=%d/s\n",
          (void*)base,
          (int)setup_done,
-         g_ticks,
-         g_rate);
+         ticks,
+         rate);
     line("rva getinstance=%p getownchar=%p getteam=%p getownidx=%p\n",
          (void*)addr_getinstance,
          (void*)addr_getownchar,
@@ -460,78 +460,78 @@ void tick(void)
 {
     uint64_t now = 0;
     uint64_t scan = 0;
-    if (g_file == nullptr)
+    if (file == nullptr)
     {
         if (!open_log()) return;
         line("\n##### session #####\n");
     }
-    g_ticks++;
+    ticks++;
     if (!in_battle())
     {
         line("idle t=%llu base=%p own=%p\n",
-             g_ticks,
+             ticks,
              (void*)base,
              (void*)own_elem);
-        if ((g_ticks % 20) == 0) dump_header();
-        g_lastMs = 0;
-        g_lastScan = 0;
-        g_rate = 0;
-        fflush(g_file);
+        if ((ticks % 20) == 0) dump_header();
+        lastMs = 0;
+        lastScan = 0;
+        rate = 0;
+        fflush(file);
         rotate_if_needed();
         return;
     }
-    if (g_lastMs == 0)
+    if (lastMs == 0)
     {
         line("\n##### match #####\n");
         dump_header();
     }
     now = (uint64_t)(g_get_real_time() / 1000);
     scan = (uint64_t)ticks_a;
-    if (g_lastMs && now > g_lastMs)
+    if (lastMs && now > lastMs)
     {
-        g_rate = (int)(((scan - g_lastScan) * 1000ULL) / (now - g_lastMs));
+        rate = (int)(((scan - lastScan) * 1000ULL) / (now - lastMs));
     }
     line("\n--- t=%llu ms=%.3f dt=%llu scan=%llu rate=%d/s ---\n",
-         g_ticks,
+         ticks,
          (double)g_get_real_time() / 1000.0,
-         (unsigned long long)(g_lastMs ? now - g_lastMs : 0),
+         (unsigned long long)(lastMs ? now - lastMs : 0),
          (unsigned long long)scan,
-         g_rate);
-    write_crash_marks("[crash-mark] tick=%llu stage=chain\n", g_ticks);
+         rate);
+    write_crash_marks("[crash-mark] tick=%llu stage=chain\n", ticks);
     dump_chain();
-    write_crash_marks("[crash-mark] tick=%llu stage=own\n", g_ticks);
+    write_crash_marks("[crash-mark] tick=%llu stage=own\n", ticks);
     dump_own();
-    write_crash_marks("[crash-mark] tick=%llu stage=ad\n", g_ticks);
+    write_crash_marks("[crash-mark] tick=%llu stage=ad\n", ticks);
     dump_ad();
-    if ((g_ticks % 4) == 0)
+    if ((ticks % 4) == 0)
     {
-        write_crash_marks("[crash-mark] tick=%llu stage=objects\n", g_ticks);
+        write_crash_marks("[crash-mark] tick=%llu stage=objects\n", ticks);
         dump_objects();
     }
-    if ((g_ticks % RAW_EVERY) == 0)
+    if ((ticks % RAW_EVERY) == 0)
     {
-        write_crash_marks("[crash-mark] tick=%llu stage=raw\n", g_ticks);
+        write_crash_marks("[crash-mark] tick=%llu stage=raw\n", ticks);
         dump_raw();
     }
-    write_crash_marks("[crash-mark] tick=%llu stage=done\n", g_ticks);
-    if ((g_ticks % 50) == 0) dump_header();
-    g_lastMs = now;
-    g_lastScan = scan;
-    fflush(g_file);
+    write_crash_marks("[crash-mark] tick=%llu stage=done\n", ticks);
+    if ((ticks % 50) == 0) dump_header();
+    lastMs = now;
+    lastScan = scan;
+    fflush(file);
     rotate_if_needed();
 }
 void start(void)
 {
     dispatch_queue_t queue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
-    g_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
-    if (!g_timer) return;
+    timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
+    if (!timer) return;
     dispatch_source_set_timer(
-        g_timer,
+        timer,
         dispatch_time(DISPATCH_TIME_NOW, (int64_t)(150 * NSEC_PER_MSEC)),
         (uint64_t)(LOG_INTERVAL_MS * NSEC_PER_MSEC),
         (uint64_t)(10 * NSEC_PER_MSEC));
-    dispatch_source_set_event_handler(g_timer, ^{ tick(); });
-    dispatch_resume(g_timer);
+    dispatch_source_set_event_handler(timer, ^{ tick(); });
+    dispatch_resume(timer);
 }
 }
 __attribute__((constructor)) static void logger_entry(void)
