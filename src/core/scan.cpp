@@ -8,6 +8,7 @@
 #include "objc.h"
 #include "offsets.h"
 #include "scan.h"
+#include "scstring.h"
 #include <frida-gum.h>
 const char* image_names[2] = {"Nulls Brawl", nullptr};
 BOOL setup_done = NO;
@@ -313,6 +314,12 @@ static int32_t call1i(uintptr_t fn, uintptr_t self)
     if (!fn || !self) return 0;
     return ((fn1i)fn)(self);
 }
+typedef uintptr_t (*fn2)(uintptr_t, uintptr_t);
+static uintptr_t call2(uintptr_t fn, uintptr_t self, uintptr_t arg)
+{
+    if (!fn || !self) return 0;
+    return ((fn2)fn)(self, arg);
+}
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
 uintptr_t obj_snapshot[COUNT_MAX];
@@ -353,6 +360,103 @@ static void world_reset(void)
     scene_object = 0;
     wall_drop();
     autododge_reset();
+}
+#define CHAR_REGISTRY_MAX 64
+#define RANGE_CACHE_MAX 256
+typedef struct
+{
+    char name[128];
+    int units;
+} range_entry_t;
+static range_entry_t g_range[RANGE_CACHE_MAX];
+static int g_rangeN = 0;
+static uint32_t g_charHarvested[CHAR_REGISTRY_MAX];
+static void range_note(const char* name, int units)
+{
+    if (!name || !name[0] || units <= 0) return;
+    for (int i = 0; i < g_rangeN; i++)
+    {
+        if (strcmp(g_range[i].name, name) == 0)
+        {
+            if (units > g_range[i].units) g_range[i].units = units;
+            return;
+        }
+    }
+    if (g_rangeN >= RANGE_CACHE_MAX) return;
+    snprintf(g_range[g_rangeN].name, sizeof(g_range[g_rangeN].name), "%s", name);
+    g_range[g_rangeN].units = units;
+    g_rangeN++;
+}
+int cast_range_for(const char* name)
+{
+    if (!name || !name[0]) return 0;
+    for (int i = 0; i < g_rangeN; i++)
+    {
+        if (strcmp(g_range[i].name, name) == 0) return g_range[i].units;
+    }
+    return 0;
+}
+static void harvest_skill_data(uintptr_t skillData)
+{
+    if (!skillData || !pointer_plausible(skillData)) return;
+    int tiles = call1i(addr_skillrange, skillData);
+    if (tiles <= 0) return;
+    int units = tiles * CASTING_RANGE_SCALE;
+    for (int i = 0; i < PROJ_INDEX_MAX; i++)
+    {
+        uintptr_t proj = call2(addr_skillproj, skillData, (uintptr_t)i);
+        if (!proj || !pointer_plausible(proj)) continue;
+        uintptr_t nameStr = call1(addr_dataname, proj);
+        char name[128];
+        if (nameStr && read_scstring(nameStr, SCSTRING_DEFAULT_MAX_LENGTH, name,
+                                     sizeof(name)))
+        {
+            range_note(name, units);
+        }
+    }
+}
+static int harvest_character(uintptr_t character)
+{
+    int found = 0;
+    if (!character || !pointer_plausible(character)) return 0;
+    uintptr_t weapon = call1(addr_charweapon, character);
+    if (weapon && pointer_plausible(weapon))
+    {
+        harvest_skill_data(weapon);
+        found = 1;
+    }
+    for (int slot = 0; slot < SKILL_SLOT_MAX; slot++)
+    {
+        uintptr_t skill = call2(addr_charskillat, character, (uintptr_t)slot);
+        if (!skill || !pointer_plausible(skill)) continue;
+        for (int hyper = 0; hyper < 2; hyper++)
+        {
+            uintptr_t data = call2(addr_skilldata, skill, (uintptr_t)hyper);
+            if (data && pointer_plausible(data))
+            {
+                harvest_skill_data(data);
+                found = 1;
+            }
+        }
+    }
+    return found;
+}
+static void remember_character(int index, uintptr_t character)
+{
+    if (index < 0 || index >= CHAR_REGISTRY_MAX) return;
+    if (!character || !pointer_plausible(character)) return;
+    if (g_charHarvested[index] == (uint32_t)(character & 0xffffffffu)) return;
+    if (harvest_character(character))
+    {
+        g_charHarvested[index] = (uint32_t)(character & 0xffffffffu);
+    }
+}
+static void character_registry_reset(void)
+{
+    for (int i = 0; i < CHAR_REGISTRY_MAX; i++)
+    {
+        g_charHarvested[i] = 0;
+    }
 }
 void scan_world(void)
 {
@@ -503,6 +607,8 @@ void scan_world(void)
     manager_array_ptr = array;
     manager_count_v = count;
     obj_count = count;
+    character_registry_reset();
+    if (own) remember_character(own_index_v, own);
     for (int i = 0; i < count; i++)
     {
         uintptr_t objPtr = obj_snapshot[i];
@@ -510,6 +616,16 @@ void scan_world(void)
                         read_bytes(objPtr, obj_block[i], OBJ_BLOCK_SIZE))
                            ? 1
                            : 0;
+        if (!obj_valid[i]) continue;
+        int32_t ownerIdx = 0;
+        int32_t team = 0;
+        int32_t hpNow = 0;
+        memcpy(&ownerIdx, obj_block[i] + OBJ_OWNERINDEX_OFF, sizeof(ownerIdx));
+        memcpy(&team, obj_block[i] + OBJ_TEAM_OFF, sizeof(team));
+        memcpy(&hpNow, obj_block[i] + OBJ_HP_OFF, sizeof(hpNow));
+        if (team == own_team_b || hpNow <= 0) continue;
+        if (ownerIdx < 0 || ownerIdx >= CHAR_REGISTRY_MAX) continue;
+        remember_character(ownerIdx, objPtr);
     }
     ticks_a++;
 }

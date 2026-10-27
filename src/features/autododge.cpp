@@ -53,6 +53,8 @@ struct ProjectileState
     float speed;
     float radius;
     char name[128];
+    float spawnX, spawnY;
+    int castRange;
     int earlyTicks;
     uint64_t spawnedAt;
     uint64_t lastSeen;
@@ -306,6 +308,9 @@ void autododge(void)
                                           sizeof(state.name));
                         }
                     }
+                    state.spawnX = (float)px_i;
+                    state.spawnY = (float)py_i;
+                    state.castRange = cast_range_for(state.name);
                 }
                 else
                 {
