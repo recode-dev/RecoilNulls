@@ -36,8 +36,17 @@ static struct
     float MIN_POS = 15.0f;
 } TUNE;
 
-struct V2 { float x, y; V2(float x_ = 0, float y_ = 0) : x(x_), y(y_) {} };
-struct Threat { float x, y, vx, vy, rad; };
+struct V2
+{
+    float x, y;
+    V2(float x_ = 0, float y_ = 0) : x(x_), y(y_)
+    {
+    }
+};
+struct Threat
+{
+    float x, y, vx, vy, rad;
+};
 struct ProjectileState
 {
     float vx, vy, speed, radius;
@@ -73,7 +82,11 @@ static void buildRing()
     headingIdx = -1;
 }
 
-static float clearanceFor(const std::vector<Threat>& threats, float mx, float my, float mvx, float mvy)
+static float clearanceFor(const std::vector<Threat>& threats,
+                          float mx,
+                          float my,
+                          float mvx,
+                          float mvy)
 {
     float minClear = 1e18f;
     for (const auto& t : threats)
@@ -98,7 +111,8 @@ static float wallAhead(float mx, float my, V2 dir, float speed, float bodyR)
     {
         float px = mx + dir.x * step * (float)s;
         float py = my + dir.y * step * (float)s;
-        if (wall_is_blocked_wide(px, py, bodyR, WALL_BLOCKS_MOVEMENT)) blocked++;
+        if (wall_is_blocked_wide(px, py, bodyR, WALL_BLOCKS_MOVEMENT))
+            blocked++;
     }
     return TUNE.WALL_HIT * (float)blocked / (float)TUNE.PROBE_N;
 }
@@ -108,7 +122,9 @@ static int32_t clamp_axis(float value, int tiles)
     if (tiles <= 0) return (int32_t)roundf(value);
     float limit = (float)tiles * BS_TILE_SIZE - 1.0f;
     if (limit <= 0.0f) return (int32_t)roundf(value);
-    return (value <= 0.0f) ? 0 : ((value >= limit) ? (int32_t)limit : (int32_t)roundf(value));
+    return (value <= 0.0f)
+               ? 0
+               : ((value >= limit) ? (int32_t)limit : (int32_t)roundf(value));
 }
 
 static void clearHeading()
@@ -121,8 +137,10 @@ static void endDodge()
 {
     if (headingIdx < 0) return;
     clearHeading();
-    ad_target_x = NO_TARGET; ad_target_y = NO_TARGET;
-    active = 0; moving = 0;
+    ad_target_x = NO_TARGET;
+    ad_target_y = NO_TARGET;
+    active = 0;
+    moving = 0;
 }
 
 static uintptr_t call_fn(uintptr_t fn, uintptr_t a, uintptr_t b)
@@ -139,15 +157,24 @@ void autododge_reset()
 {
     proj_cache.clear();
     headingIdx = -1;
-    lastDangerTs = 0; lastGoodTs = 0; lastSentAt = 0;
+    lastDangerTs = 0;
+    lastGoodTs = 0;
+    lastSentAt = 0;
     commitDir = V2(0, 0);
-    ad_target_x = NO_TARGET; ad_target_y = NO_TARGET;
-    active = 0; moving = 0;
+    ad_target_x = NO_TARGET;
+    ad_target_y = NO_TARGET;
+    active = 0;
+    moving = 0;
 }
 
 void autododge()
 {
-    if (!base || !own_elem || dead) { active = 0; moving = 0; return; }
+    if (!base || !own_elem || dead)
+    {
+        active = 0;
+        moving = 0;
+        return;
+    }
 
     uint64_t now = us() / 1000;
     buildRing();
@@ -171,26 +198,28 @@ void autododge()
             uintptr_t objPtr = obj_snapshot[i];
             uintptr_t dataPtr = 0;
             memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
-            
+
             if (!dataPtr || !pointer_plausible(dataPtr)) continue;
             uint8_t data[PROJ_DATA_BLOCK_SIZE];
             if (!read_bytes(dataPtr, data, sizeof(data))) continue;
-            
+
             uintptr_t dataVtable = 0;
             memcpy(&dataVtable, data, sizeof(dataVtable));
             if (!dataVtable || !pointer_plausible(dataVtable)) continue;
             uintptr_t vtRva = dataVtable - base;
-            if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE || dataVtable - base != VTABLE_PROJ_DATA_RVA) continue;
-            
+            if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE ||
+                dataVtable - base != VTABLE_PROJ_DATA_RVA)
+                continue;
+
             int32_t pid = 0, teamId = 0, px_i = 0, py_i = 0;
             memcpy(&pid, obj + OBJ_GLOBALID_OFF, sizeof(pid));
             memcpy(&teamId, obj + OBJ_TEAM_OFF, sizeof(teamId));
             memcpy(&px_i, obj + OBJ_X_OFF, sizeof(px_i));
             memcpy(&py_i, obj + OBJ_Y_OFF, sizeof(py_i));
-            
+
             float px = (float)px_i, py = (float)py_i;
             if (pid == 0 || teamId == own_team_b) continue;
-            
+
             uint32_t deadFlag = 0;
             memcpy(&deadFlag, obj + OBJ_DEADFLAG_OFF, sizeof(deadFlag));
             if (deadFlag != 0) continue;
@@ -198,22 +227,34 @@ void autododge()
             ProjectileState& state = proj_cache[pid];
             if (state.lastSeen == 0)
             {
-                state.lastX = px_i; state.lastY = py_i; state.lastTs = now;
+                state.lastX = px_i;
+                state.lastY = py_i;
+                state.lastTs = now;
                 int32_t ind = 0, projSpeed = 0, projRadius = 0;
-                if (!read_int(objPtr + PROJECTILE_ISINDIRECT_OFF, &ind)) continue;
-                
-                memcpy(&projSpeed, data + PROJECTILEDATA_SPEED_OFF, sizeof(projSpeed));
-                memcpy(&projRadius, data + PROJECTILEDATA_RADIUS_OFF, sizeof(projRadius));
+                if (!read_int(objPtr + PROJECTILE_ISINDIRECT_OFF, &ind))
+                    continue;
+
+                memcpy(&projSpeed,
+                       data + PROJECTILEDATA_SPEED_OFF,
+                       sizeof(projSpeed));
+                memcpy(&projRadius,
+                       data + PROJECTILEDATA_RADIUS_OFF,
+                       sizeof(projRadius));
                 state.isIndirect = (ind != 0);
                 state.isBeam = (call_fn(addr_projbeam, dataPtr, 0) != 0);
                 state.speed = (float)projSpeed;
                 state.radius = (float)projRadius;
                 state.earlyTicks = (int)call_fn(addr_projearly, dataPtr, 0);
                 state.spawnedAt = now - (uint64_t)state.earlyTicks * 16;
-                state.spawnX = px; state.spawnY = py;
+                state.spawnX = px;
+                state.spawnY = py;
                 state.name[0] = '\0';
                 uintptr_t nameStr = call_fn(addr_dataname, dataPtr, 0);
-                if (nameStr) read_scstring(nameStr, SCSTRING_DEFAULT_MAX_LENGTH, state.name, sizeof(state.name));
+                if (nameStr)
+                    read_scstring(nameStr,
+                                  SCSTRING_DEFAULT_MAX_LENGTH,
+                                  state.name,
+                                  sizeof(state.name));
             }
             else
             {
@@ -227,14 +268,17 @@ void autododge()
                     state.vy = state.vy * (1.0f - alpha) + (ddy / dt) * alpha;
                     state.hasVelocity = true;
                 }
-                state.lastX = px_i; state.lastY = py_i; state.lastTs = now;
+                state.lastX = px_i;
+                state.lastY = py_i;
+                state.lastTs = now;
             }
             state.lastSeen = now;
 
             float dx_dist = px - mx, dy_dist = py - my;
             if (dx_dist * dx_dist + dy_dist * dy_dist > zoneSq) continue;
-            
-            bool blob = !state.isBeam && !state.isIndirect && state.speed > 0.0f && state.speed < BS_PROJ_BLOB_SPEED;
+
+            bool blob = !state.isBeam && !state.isIndirect &&
+                        state.speed > 0.0f && state.speed < BS_PROJ_BLOB_SPEED;
             float speedNow = sqrtf(state.vx * state.vx + state.vy * state.vy);
             float ux = (blob || speedNow < 1.0f) ? 0.0f : state.vx / speedNow;
             float uy = (blob || speedNow < 1.0f) ? 0.0f : state.vy / speedNow;
@@ -242,8 +286,16 @@ void autododge()
             if (ux != 0.0f || uy != 0.0f)
             {
                 float playerAlong = (mx - px) * ux + (my - py) * uy;
-                if (playerAlong < -50.0f || playerAlong > TUNE.REACT_S * speedNow) continue;
-                if (!state.isIndirect && !wall_los(px, py, px + ux * std::max(playerAlong, 0.0f), py + uy * std::max(playerAlong, 0.0f), WALL_BLOCKS_PROJECTILES)) continue;
+                if (playerAlong < -50.0f ||
+                    playerAlong > TUNE.REACT_S * speedNow)
+                    continue;
+                if (!state.isIndirect &&
+                    !wall_los(px,
+                              py,
+                              px + ux * std::max(playerAlong, 0.0f),
+                              py + uy * std::max(playerAlong, 0.0f),
+                              WALL_BLOCKS_PROJECTILES))
+                    continue;
             }
 
             float extDt = (float)(now - state.lastTs) / 1000.0f;
@@ -253,14 +305,20 @@ void autododge()
                 py += state.vy * extDt;
             }
 
-            threats.push_back({px, py, blob ? 0.0f : state.vx, blob ? 0.0f : state.vy, state.radius + bodyR});
+            threats.push_back({px,
+                               py,
+                               blob ? 0.0f : state.vx,
+                               blob ? 0.0f : state.vy,
+                               state.radius + bodyR});
         }
     }
 
     for (auto it = proj_cache.begin(); it != proj_cache.end();)
     {
-        if (now - it->second.lastSeen > 1024) it = proj_cache.erase(it);
-        else ++it;
+        if (now - it->second.lastSeen > 1024)
+            it = proj_cache.erase(it);
+        else
+            ++it;
     }
 
     if (threats.empty())
@@ -272,7 +330,8 @@ void autododge()
     float stayClear = clearanceFor(threats, mx, my, 0, 0);
     bool inDanger = stayClear < TUNE.ENGAGE;
     if (inDanger) lastDangerTs = now;
-    if (!inDanger && (headingIdx < 0 || now - lastDangerTs > TUNE.RELEASE_GRACE_MS))
+    if (!inDanger &&
+        (headingIdx < 0 || now - lastDangerTs > TUNE.RELEASE_GRACE_MS))
     {
         endDodge();
         return;
@@ -285,8 +344,13 @@ void autododge()
 
     if (hasPrev)
     {
-        prevScore = clearanceFor(threats, mx, my, CHAR_SPEED * prevDir.x, CHAR_SPEED * prevDir.y)
-                    - wallAhead(mx, my, prevDir, CHAR_SPEED, bodyR) + TUNE.MOMENTUM;
+        prevScore = clearanceFor(threats,
+                                 mx,
+                                 my,
+                                 CHAR_SPEED * prevDir.x,
+                                 CHAR_SPEED * prevDir.y) -
+                    wallAhead(mx, my, prevDir, CHAR_SPEED, bodyR) +
+                    TUNE.MOMENTUM;
     }
 
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
@@ -294,12 +358,17 @@ void autododge()
         const V2& d = ring[i];
         float dot = d.x * prevDir.x + d.y * prevDir.y;
         if (hasPrev && prevScore > 0.0f && dot < TUNE.TURN_DOT) continue;
-        
-        float s = clearanceFor(threats, mx, my, CHAR_SPEED * d.x, CHAR_SPEED * d.y)
-                  - wallAhead(mx, my, d, CHAR_SPEED, bodyR);
+
+        float s =
+            clearanceFor(threats, mx, my, CHAR_SPEED * d.x, CHAR_SPEED * d.y) -
+            wallAhead(mx, my, d, CHAR_SPEED, bodyR);
         if (hasPrev) s += TUNE.MOMENTUM * dot;
-        
-        if (s > bestScore) { bestScore = s; bestIdx = i; }
+
+        if (s > bestScore)
+        {
+            bestScore = s;
+            bestIdx = i;
+        }
     }
 
     V2 chosen = ring[bestIdx];
@@ -308,8 +377,10 @@ void autododge()
     if (hasPrev)
     {
         float dot = chosen.x * prevDir.x + chosen.y * prevDir.y;
-        float margin = (prevScore > 0.0f) ? TUNE.SWITCH_MARGIN * (2.0f - dot) : TUNE.SWITCH_MIN;
-        if (!(prevScore <= 0.0f && bestScore > 0.0f) && bestScore <= prevScore + margin)
+        float margin = (prevScore > 0.0f) ? TUNE.SWITCH_MARGIN * (2.0f - dot)
+                                          : TUNE.SWITCH_MIN;
+        if (!(prevScore <= 0.0f && bestScore > 0.0f) &&
+            bestScore <= prevScore + margin)
         {
             chosen = prevDir;
             chosenScore = prevScore;
@@ -328,7 +399,11 @@ void autododge()
         float bx = prevDir.x * TUNE.SMOOTH + chosen.x * (1.0f - TUNE.SMOOTH);
         float by = prevDir.y * TUNE.SMOOTH + chosen.y * (1.0f - TUNE.SMOOTH);
         float len = sqrtf(bx * bx + by * by);
-        if (len > 0.001f) { dir.x = bx / len; dir.y = by / len; }
+        if (len > 0.001f)
+        {
+            dir.x = bx / len;
+            dir.y = by / len;
+        }
         if (wallAhead(mx, my, dir, CHAR_SPEED, bodyR) > 0.0f) dir = chosen;
     }
 
@@ -344,7 +419,9 @@ void autododge()
     {
         lastSentAt = now;
         enqueue(tx, ty);
-        ad_target_x = tx; ad_target_y = ty;
+        ad_target_x = tx;
+        ad_target_y = ty;
     }
-    active = 1; moving = 1;
+    active = 1;
+    moving = 1;
 }
