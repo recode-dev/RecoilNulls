@@ -150,7 +150,7 @@ extern int coord_ok;
 extern int dead;
 extern uintptr_t own_elem;
 #define WORK_GAP_US 200
-#define HOT_INTERVAL_US 2000
+#define HOT_INTERVAL_US 0
 void resolve_addresses(void);
 uintptr_t client(void);
 uintptr_t controller(void);
