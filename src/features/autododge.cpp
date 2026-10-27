@@ -1,78 +1,51 @@
 #include "../core/commands.h"
 #include "../core/scan.h"
 #include "../utils/walls.h"
-#include "dodge_core.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
 #include <stdint.h>
 #include <vector>
-typedef DodgeThreat Threat;
-// The decision maths lives in dodge_core.h, the same file the offline
-// simulation (sim/sim.cpp) includes, so the numbers below are the numbers that
-// were measured -- nothing is tuned blind on the device.
-// Chosen over 20s x 200 seeds, replayed on a second independent seed base:
-//   DOOM_CLEAR = -160: the defensive bubble of a mid-range shot here is
-//     radius + bodyR + PAD + radius*GROW ~= 410 while the real collision
-//     radius is 250, so a best raw clearance under -160 means no heading can
-//     get the body out of the shot any more -- it has already landed. The
-//     shipped trace showed every 150deg+ reversal happening in exactly this
-//     state: the character spins around the instant a hit registers, which is
-//     the "разворот после того как отдоджил".
-//   RELEASE_HOLD_MS = 900: remember the heading after a release instead of
-//     forgetting it, so the next fight does not open with an instant 180deg
-//     reversal.
-//   SMOOTH = 0.7: rides on top of the two above without costing survival.
-//   DECIDE_MS = 0: throttling decisions to 40ms was measured to LOSE hits
-//     (2183/2204 vs the 1975/1988 baseline) -- reaction has to stay per-frame,
-//     the smoothness has to come from the rules above instead.
-struct AdTune
+static struct
 {
-    DodgeTune core;
-    // Threat extraction only: how much of the map we look at, how far ahead a
-    // shot is considered live, the body skin, the glide length on release and
-    // the "we are not on the map yet" guard.
-    float AWARE;
-    float REACT_S;
-    float SKIN;
-    float COAST_S;
-    float MIN_POS;
-};
-static const AdTune TUNE = {
-    {
-        1.4f,    // HORIZON_S
-        55.0f,   // MOMENTUM
-        120.0f,  // SWITCH_MARGIN
-        40.0f,   // SWITCH_MIN
-        -0.2f,   // TURN_DOT
-        0.7f,    // SMOOTH
-        100.0f,  // ENGAGE
-        200.0f,  // RELEASE_GRACE_MS
-        600.0f,  // REACH
-        9000.0f, // WALL_HIT
-        6,       // PROBE_N
-        0.15f,   // PROBE_T
-        240.0f,  // WALL_BODY
-        64,      // DIR_COUNT
-        250.0f,  // SEND_MIN_MS
-        0.99f,   // SEND_TURN_DOT
-        0,       // DECIDE_MS
-        0.0f,    // TURN_RATE
-        1.0f,    // DEADBAND_COS
-        900.0f,  // RELEASE_HOLD_MS
-        0,       // WALL_GRAD
-        1,       // STABLE_N
-        0.0f,    // URGENT_MS
-        -160.0f  // DOOM_CLEAR
-    },
-    3200.0f, // AWARE
-    0.55f,   // REACT_S
-    50.0f,   // SKIN
-    0.2f,    // COAST_S
-    50.0f    // MIN_POS
-};
+    float AWARE = 3200.0f;
+    float REACT_S = 0.55f;
+    int DIR_COUNT = 64;
+    float SKIN = 50.0f;
+    float REACH = 600.0f;
+    float HORIZON_S = 1.4f;
+    float MOMENTUM = 55.0f;
+    float SWITCH_MARGIN = 120.0f;
+    float SWITCH_MIN = 40.0f;
+    float TURN_DOT = -0.2f;
+    float SMOOTH = 0.55f;
+    uint32_t DECIDE_MS = 40;
+    float ENGAGE = 100.0f;
+    uint32_t RELEASE_GRACE_MS = 200;
+    float COAST_S = 0.2f;
+    float WALL_HIT = 9000.0f;
+    int PROBE_N = 6;
+    float PROBE_T = 0.15f;
+    float WALL_BODY = 240.0f;
+    uint32_t SEND_MIN_MS = 250;
+    float SEND_TURN_DOT = 0.99f;
+    float MIN_POS = 50.0f;
+} TUNE;
 static const float DEFAULT_PAD = 80.0f;
 static const float DEFAULT_GROW = 0.5f;
+struct V2
+{
+    float x, y;
+    V2(float x_ = 0, float y_ = 0) : x(x_), y(y_)
+    {
+    }
+};
+struct Threat
+{
+    float x, y;
+    float vx, vy;
+    float rad;
+};
 struct ProjectileState
 {
     float vx, vy;
@@ -92,22 +65,80 @@ int moving = 0;
 int32_t ad_target_x = 0;
 int32_t ad_target_y = 0;
 static std::map<int, ProjectileState> g_proj_cache;
-// Zero-initialised is fine: the core only trusts the fields it wrote itself,
-// and engaged = 0 makes every other field inert.
-static DodgeState g_st;
-// The one wall hook the core needs. It probes the path on its own, so both the
-// step and the gradient modes work without a game-specific second copy.
-static int blockedAt(void*,
-                     float px,
-                     float py,
-                     float,
-                     float,
-                     float,
-                     float bodyR)
+static std::vector<V2> g_ring;
+static int g_headingIdx = -1;
+static V2 g_lastDir = V2(0, 0);
+static uint64_t g_lastDangerTs = 0;
+static uint64_t g_lastGoodTs = 0;
+static uint64_t g_lastDecideTs = 0;
+static V2 g_commitDir = V2(0, 0);
+static float g_sentDirX = 0.0f;
+static float g_sentDirY = 0.0f;
+static uint64_t g_lastSentAt = 0;
+static float CHAR_SPEED = 720.0f;
+static void buildRing()
 {
-    if (!wall_ready())
-        return 0;
-    return wall_is_blocked_wide(px, py, bodyR, WALL_BLOCKS_MOVEMENT) ? 1 : 0;
+    if ((int)g_ring.size() == TUNE.DIR_COUNT) return;
+    g_ring.clear();
+    for (int i = 0; i < TUNE.DIR_COUNT; i++)
+    {
+        float a = (float)M_PI * 2.0f * (float)i / (float)TUNE.DIR_COUNT;
+        g_ring.push_back(V2(cosf(a), sinf(a)));
+    }
+    g_headingIdx = -1;
+}
+static float clearanceFor(const std::vector<Threat>& threats,
+                          float myX,
+                          float myY,
+                          float mvx,
+                          float mvy)
+{
+    float minClear = 1e18f;
+    float horizon = TUNE.HORIZON_S;
+    for (const auto& t : threats)
+    {
+        float relx = t.x - myX;
+        float rely = t.y - myY;
+        float vrx = t.vx - mvx;
+        float vry = t.vy - mvy;
+        float vv = vrx * vrx + vry * vry;
+        float cx, cy;
+        if (vv < 1e-6f)
+        {
+            cx = relx;
+            cy = rely;
+        }
+        else
+        {
+            float ts = -(relx * vrx + rely * vry) / vv;
+            if (ts < 0)
+                ts = 0;
+            else if (ts > horizon)
+                ts = horizon;
+            cx = relx + vrx * ts;
+            cy = rely + vry * ts;
+        }
+        float clear = sqrtf(cx * cx + cy * cy) - t.rad;
+        if (clear < minClear) minClear = clear;
+    }
+    return minClear;
+}
+static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
+{
+    int blocked = 0;
+    float step = 0.0f;
+    if (!wall_ready()) return 0.0f;
+    step = speed * TUNE.PROBE_T;
+    for (int s = 1; s <= TUNE.PROBE_N; s++)
+    {
+        float px = myX + dir.x * step * (float)s;
+        float py = myY + dir.y * step * (float)s;
+        if (wall_is_blocked_wide(px, py, bodyR, WALL_BLOCKS_MOVEMENT))
+        {
+            blocked++;
+        }
+    }
+    return TUNE.WALL_HIT * (float)blocked / (float)TUNE.PROBE_N;
 }
 static int32_t clamp_axis(float value, int tiles)
 {
@@ -131,6 +162,33 @@ static int32_t clamp_axis(float value, int tiles)
     }
     return (int32_t)roundf(value);
 }
+static void clearHeading()
+{
+    g_headingIdx = -1;
+    g_commitDir = V2(0, 0);
+}
+static void releaseHeading(uint64_t now, float mx, float my)
+{
+    V2 dir = V2(0, 0);
+    int32_t tx = 0;
+    int32_t ty = 0;
+    float coast = 0.0f;
+    if (g_headingIdx < 0) return;
+    dir = g_ring[g_headingIdx];
+    coast = CHAR_SPEED * TUNE.COAST_S;
+    clearHeading();
+    tx = clamp_axis(mx + dir.x * coast, wall_cache_w());
+    ty = clamp_axis(my + dir.y * coast, wall_cache_h());
+    move_to(tx, ty, mx, my);
+    enqueue(tx, ty);
+    g_sentDirX = dir.x;
+    g_sentDirY = dir.y;
+    g_lastSentAt = now;
+    ad_target_x = tx;
+    ad_target_y = ty;
+    active = 0;
+    moving = 0;
+}
 static int32_t call1i_local(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self || !base) return 0;
@@ -144,7 +202,15 @@ static int32_t call1i_local(uintptr_t fn, uintptr_t self)
 void autododge_reset(void)
 {
     g_proj_cache.clear();
-    dodge_reset(g_st);
+    g_headingIdx = -1;
+    g_lastDir = V2(0, 0);
+    g_lastDangerTs = 0;
+    g_lastGoodTs = 0;
+    g_lastDecideTs = 0;
+    g_commitDir = V2(0, 0);
+    g_sentDirX = 0.0f;
+    g_sentDirY = 0.0f;
+    g_lastSentAt = 0;
     ad_target_x = 0;
     ad_target_y = 0;
     active = 0;
@@ -152,18 +218,18 @@ void autododge_reset(void)
 }
 void autododge(void)
 {
-    const DodgeTune& C = TUNE.core;
     if (!base || !own_elem || dead)
     {
         active = 0;
         return;
     }
     uint64_t now = us() / 1000;
+    buildRing();
     float mx = (float)own_x;
     float my = (float)own_y;
     float myRadius = own_r;
     if (fabsf(mx) < TUNE.MIN_POS && fabsf(my) < TUNE.MIN_POS) return;
-    float speed = own_speed;
+    CHAR_SPEED = own_speed;
     static std::vector<Threat> threats;
     threats.clear();
     {
@@ -305,48 +371,112 @@ void autododge(void)
             }
         }
     }
-    DodgeDecision dec = dodge_decide(g_st,
-                                     C,
-                                     mx,
-                                     my,
-                                     speed,
-                                     threats.empty() ? nullptr : &threats[0],
-                                     (int)threats.size(),
-                                     now,
-                                     blockedAt,
-                                     nullptr);
-    if (dec.intent == DODGE_INTENT_MOVE)
+    if (threats.empty())
     {
-        active = 1;
-        moving = 1;
-        // The core owns the send policy: it only asks for a wire command once
-        // the heading really turned or the last one went stale.
-        if (!dec.resend)
-            return;
-        int32_t tx = clamp_axis(mx + dec.dirX * C.REACH, wall_cache_w());
-        int32_t ty = clamp_axis(my + dec.dirY * C.REACH, wall_cache_h());
+        if (now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS)
+            releaseHeading(now, mx, my);
+        return;
+    }
+    float stayClear = clearanceFor(threats, mx, my, 0, 0);
+    bool inDanger = stayClear < TUNE.ENGAGE;
+    if (inDanger) g_lastDangerTs = now;
+    if (!inDanger &&
+        (g_headingIdx < 0 || now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS))
+    {
+        releaseHeading(now, mx, my);
+        return;
+    }
+    bool hasPrev = (g_commitDir.x != 0.0f || g_commitDir.y != 0.0f);
+    V2 prevDir = g_commitDir;
+    float bodyR = TUNE.WALL_BODY;
+    int bestIdx = 0;
+    float bestScore = -1e18f;
+    float prevScore = -1e18f;
+    if (hasPrev)
+    {
+        prevScore =
+            clearanceFor(threats, mx, my, CHAR_SPEED * prevDir.x, CHAR_SPEED * prevDir.y);
+        prevScore -= wallAhead(mx, my, prevDir, CHAR_SPEED, bodyR);
+        prevScore += TUNE.MOMENTUM;
+    }
+    for (int i = 0; i < TUNE.DIR_COUNT; i++)
+    {
+        const V2& d = g_ring[i];
+        bool forward = (d.x * prevDir.x + d.y * prevDir.y) >= TUNE.TURN_DOT;
+        float s = 0.0f;
+        if (prevScore > 0.0f && hasPrev && !forward)
+        {
+            continue;
+        }
+        s = clearanceFor(threats, mx, my, CHAR_SPEED * d.x, CHAR_SPEED * d.y);
+        s -= wallAhead(mx, my, d, CHAR_SPEED, bodyR);
+        if (hasPrev)
+        {
+            s += TUNE.MOMENTUM * (d.x * prevDir.x + d.y * prevDir.y);
+        }
+        if (s > bestScore)
+        {
+            bestScore = s;
+            bestIdx = i;
+        }
+    }
+    V2 chosen = g_ring[bestIdx];
+    float chosenScore = bestScore;
+    if (hasPrev)
+    {
+        float dot = chosen.x * prevDir.x + chosen.y * prevDir.y;
+        float margin = (prevScore > 0.0f)
+                           ? TUNE.SWITCH_MARGIN * (2.0f - dot)
+                           : TUNE.SWITCH_MIN;
+        bool rescue = (prevScore <= 0.0f && bestScore > 0.0f);
+        if (!rescue && bestScore <= prevScore + margin)
+        {
+            chosen = prevDir;
+            chosenScore = prevScore;
+        }
+    }
+    if (chosenScore <= stayClear)
+    {
+        if (now - g_lastGoodTs > TUNE.RELEASE_GRACE_MS)
+        {
+            releaseHeading(now, mx, my);
+        }
+        return;
+    }
+    V2 dir = chosen;
+    if (hasPrev)
+    {
+        float bx = prevDir.x * TUNE.SMOOTH + chosen.x * (1.0f - TUNE.SMOOTH);
+        float by = prevDir.y * TUNE.SMOOTH + chosen.y * (1.0f - TUNE.SMOOTH);
+        float len = sqrtf(bx * bx + by * by);
+        if (len > 0.001f)
+        {
+            dir.x = bx / len;
+            dir.y = by / len;
+        }
+        if (wallAhead(mx, my, dir, CHAR_SPEED, bodyR) > 0.0f)
+        {
+            dir = chosen;
+        }
+    }
+    g_commitDir = dir;
+    g_lastDir = dir;
+    g_headingIdx = bestIdx;
+    g_lastGoodTs = now;
+    int32_t tx = clamp_axis(mx + dir.x * TUNE.REACH, wall_cache_w());
+    int32_t ty = clamp_axis(my + dir.y * TUNE.REACH, wall_cache_h());
+    bool turned = ((dir.x * g_sentDirX + dir.y * g_sentDirY) < TUNE.SEND_TURN_DOT);
+    bool stale = (now - g_lastSentAt > TUNE.SEND_MIN_MS);
+    if (turned || stale)
+    {
+        g_sentDirX = dir.x;
+        g_sentDirY = dir.y;
+        g_lastSentAt = now;
         move_to(tx, ty, mx, my);
         enqueue(tx, ty);
         ad_target_x = tx;
         ad_target_y = ty;
-        return;
     }
-    if (dec.intent == DODGE_INTENT_RELEASE)
-    {
-        // Glide out along the heading the body was actually travelling on.
-        // Unlike the old build, the core keeps that heading remembered for
-        // RELEASE_HOLD_MS, so the next engage does not start with a reversal.
-        float coast = speed * TUNE.COAST_S;
-        int32_t tx = clamp_axis(mx + dec.dirX * coast, wall_cache_w());
-        int32_t ty = clamp_axis(my + dec.dirY * coast, wall_cache_h());
-        move_to(tx, ty, mx, my);
-        enqueue(tx, ty);
-        ad_target_x = tx;
-        ad_target_y = ty;
-        active = 0;
-        moving = 0;
-        return;
-    }
-    active = 0;
-    moving = 0;
+    active = 1;
+    moving = 1;
 }
