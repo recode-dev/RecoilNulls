@@ -4,10 +4,7 @@
 #define MSG_SIZE 0x48
 #define MSG_SLACK 0x58
 #define TYPE_MOVE 0x2
-#define QUEUE_GUARD_MGR 0
-#define PRED_SET 1
 #define PRED_FLAG 1
-#define MOVE_ON 1
 uintptr_t entry_callable(uintptr_t rva);
 void* msg_alloc(void);
 void* manager(void);

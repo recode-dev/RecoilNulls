@@ -3,6 +3,7 @@
 #include "offsets.h"
 #include "scan.h"
 #include <malloc/malloc.h>
+#include <string.h>
 #if CI_HASH_INNER_MASK_RVA && CI_HASH_OUTER_MASK_RVA && BM_HASH_ENABLED_OFF && \
     BM_HASH_KEY_OFF
 #define CI_SIGNING_ON 1
@@ -162,10 +163,6 @@ int enqueue_skill(int x, int y, int type, void* skillData)
             return 0;
         }
     }
-    if (QUEUE_GUARD_MGR && !manager_shape((uintptr_t)mgr))
-    {
-        return 0;
-    }
     msg = msg_alloc();
     if (!msg_ok(msg, (size_t)MSG_SIZE + (size_t)MSG_SLACK))
     {
@@ -287,7 +284,7 @@ int pred_set(int x, int y)
 {
     uintptr_t setFn = 0;
     uintptr_t ctrl = 0;
-    if (!PRED_SET || !coord_ok)
+    if (!coord_ok)
     {
         return 0;
     }
@@ -309,7 +306,7 @@ int move_to(int32_t x, int32_t y, float ox, float oy)
     uintptr_t ctrl = 0;
     (void)ox;
     (void)oy;
-    if (!MOVE_ON || dead)
+    if (dead)
     {
         return 0;
     }

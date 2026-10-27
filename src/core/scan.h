@@ -11,12 +11,8 @@
 #ifndef NSEC_PER_USEC
 #define NSEC_PER_USEC 1000ull
 #endif
-#include <dispatch/dispatch.h>
 #include <mach/mach.h>
-#include <string.h>
-#include <CoreFoundation/CFDate.h>
 #include <frida-gum.h>
-#include <mach-o/loader.h>
 #include <objc/runtime.h>
 extern uintptr_t base;
 extern const char* image_names[2];
@@ -27,12 +23,7 @@ extern uintptr_t addr_getownchar;
 extern uintptr_t addr_getteam;
 extern uintptr_t addr_getx;
 extern uintptr_t addr_gety;
-extern uintptr_t addr_battlescreen;
 extern uintptr_t addr_projbeam;
-extern uintptr_t owner;
-extern int wired;
-extern dispatch_source_t scan_timer;
-extern uintptr_t own_elem_scan;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
@@ -49,9 +40,6 @@ BOOL read_ptr(uintptr_t address, void** out);
 void* read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 BOOL find_game_image(uintptr_t* out_base);
-const char* image_segment_name(uintptr_t value);
-BOOL heap_resident(uintptr_t value);
-BOOL manager_shape(uintptr_t manager);
 void poll_for_game(int tick);
 static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
 {
@@ -92,148 +80,6 @@ static inline BOOL addr_executable(uintptr_t address)
         return NO;
     }
     return (flags & VM_PROT_EXECUTE) ? YES : NO;
-}
-static inline uintptr_t image_slide(uintptr_t imageBase)
-{
-    if (!imageBase)
-    {
-        return 0;
-    }
-    const struct mach_header_64* header =
-        (const struct mach_header_64*)imageBase;
-    if (!addr_readable(imageBase, sizeof(struct mach_header_64)))
-    {
-        return 0;
-    }
-    if (header->magic != MH_MAGIC_64)
-    {
-        return 0;
-    }
-    if (header->ncmds == 0 || header->ncmds > 4096)
-    {
-        return 0;
-    }
-    if (header->sizeofcmds == 0 || header->sizeofcmds > (4u * 1024u * 1024u))
-    {
-        return 0;
-    }
-    const uint8_t* cursor = (const uint8_t*)(header + 1);
-    const uint8_t* limit = cursor + header->sizeofcmds;
-    for (uint32_t i = 0; i < header->ncmds; i++)
-    {
-        if (cursor + sizeof(struct load_command) > limit)
-        {
-            return 0;
-        }
-        const struct load_command* command = (const struct load_command*)cursor;
-        if (command->cmdsize < sizeof(struct load_command))
-        {
-            return 0;
-        }
-        if (cursor + command->cmdsize > limit)
-        {
-            return 0;
-        }
-        if (command->cmd == LC_SEGMENT_64)
-        {
-            if (command->cmdsize < sizeof(struct segment_command_64))
-            {
-                return 0;
-            }
-            const struct segment_command_64* segment =
-                (const struct segment_command_64*)command;
-            if (strcmp(segment->segname, "__TEXT") == 0)
-            {
-                return imageBase - (uintptr_t)segment->vmaddr;
-            }
-        }
-        cursor += command->cmdsize;
-    }
-    return 0;
-}
-static inline BOOL image_segment_contains(uintptr_t imageBase,
-                                          uintptr_t address,
-                                          BOOL requireExec,
-                                          uintptr_t* outStart,
-                                          uintptr_t* outEnd,
-                                          uint32_t* outProt)
-{
-    if (!imageBase || !address)
-    {
-        return NO;
-    }
-    const struct mach_header_64* header =
-        (const struct mach_header_64*)imageBase;
-    if (!addr_readable(imageBase, sizeof(struct mach_header_64)))
-    {
-        return NO;
-    }
-    if (header->magic != MH_MAGIC_64)
-    {
-        return NO;
-    }
-    if (header->ncmds == 0 || header->ncmds > 4096)
-    {
-        return NO;
-    }
-    if (header->sizeofcmds == 0 || header->sizeofcmds > (4u * 1024u * 1024u))
-    {
-        return NO;
-    }
-    uintptr_t slide = image_slide(imageBase);
-    const uint8_t* cursor = (const uint8_t*)(header + 1);
-    const uint8_t* limit = cursor + header->sizeofcmds;
-    for (uint32_t i = 0; i < header->ncmds; i++)
-    {
-        if (cursor + sizeof(struct load_command) > limit)
-        {
-            return NO;
-        }
-        const struct load_command* command = (const struct load_command*)cursor;
-        if (command->cmdsize < sizeof(struct load_command))
-        {
-            return NO;
-        }
-        if (cursor + command->cmdsize > limit)
-        {
-            return NO;
-        }
-        if (command->cmd == LC_SEGMENT_64)
-        {
-            if (command->cmdsize < sizeof(struct segment_command_64))
-            {
-                return NO;
-            }
-            const struct segment_command_64* segment =
-                (const struct segment_command_64*)command;
-            uintptr_t start = (uintptr_t)segment->vmaddr + slide;
-            uintptr_t end = start + (uintptr_t)segment->vmsize;
-            if (address >= start && address < end)
-            {
-                BOOL executable =
-                    (segment->initprot & VM_PROT_EXECUTE) ? YES : NO;
-                if (requireExec && !executable)
-                {
-                    return NO;
-                }
-                if (outStart)
-                {
-                    *outStart = start;
-                }
-                if (outEnd)
-                {
-                    *outEnd = end;
-                }
-                if (outProt)
-                {
-                    *outProt = (uint32_t)segment->initprot;
-                }
-                return YES;
-            }
-        }
-        cursor += command->cmdsize;
-    }
-    return NO;
 }
 static inline BOOL object_plausible(void* object)
 {
@@ -302,8 +148,6 @@ extern uintptr_t scene_object;
 int scene_live(void);
 extern int coord_ok;
 extern int dead;
-extern int own_team_a;
-extern int own_team_seen;
 extern uintptr_t own_elem;
 #define WORK_GAP_US 200
 #define HOT_INTERVAL_US 2000

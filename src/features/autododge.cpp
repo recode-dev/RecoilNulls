@@ -19,7 +19,6 @@ static struct
     float SWITCH_MIN = 40.0f;
     float TURN_DOT = -0.2f;
     float SMOOTH = 0.55f;
-    uint32_t DECIDE_MS = 40;
     float ENGAGE = 100.0f;
     uint32_t RELEASE_GRACE_MS = 200;
     float COAST_S = 0.2f;
@@ -54,7 +53,6 @@ struct ProjectileState
     uint64_t lastSeen;
     int32_t lastX, lastY;
     uint64_t lastTs;
-    float spawnX, spawnY;
     bool isIndirect;
     bool isBeam;
     bool hasVelocity;
@@ -67,10 +65,8 @@ int32_t ad_target_y = 0;
 static std::map<int, ProjectileState> g_proj_cache;
 static std::vector<V2> g_ring;
 static int g_headingIdx = -1;
-static V2 g_lastDir = V2(0, 0);
 static uint64_t g_lastDangerTs = 0;
 static uint64_t g_lastGoodTs = 0;
-static uint64_t g_lastDecideTs = 0;
 static V2 g_commitDir = V2(0, 0);
 static float g_sentDirX = 0.0f;
 static float g_sentDirY = 0.0f;
@@ -203,10 +199,8 @@ void autododge_reset(void)
 {
     g_proj_cache.clear();
     g_headingIdx = -1;
-    g_lastDir = V2(0, 0);
     g_lastDangerTs = 0;
     g_lastGoodTs = 0;
-    g_lastDecideTs = 0;
     g_commitDir = V2(0, 0);
     g_sentDirX = 0.0f;
     g_sentDirY = 0.0f;
@@ -278,8 +272,6 @@ void autododge(void)
                 ProjectileState& state = g_proj_cache[pid];
                 if (state.lastSeen == 0)
                 {
-                    state.spawnX = px;
-                    state.spawnY = py;
                     state.lastX = px_i;
                     state.lastY = py_i;
                     state.lastTs = now;
@@ -460,7 +452,6 @@ void autododge(void)
         }
     }
     g_commitDir = dir;
-    g_lastDir = dir;
     g_headingIdx = bestIdx;
     g_lastGoodTs = now;
     int32_t tx = clamp_axis(mx + dir.x * TUNE.REACH, wall_cache_w());

@@ -1,18 +1,9 @@
+#include <CoreFoundation/CFDate.h>
 #include <dispatch/dispatch.h>
-#include <mach-o/loader.h>
-#include <mach/mach.h>
 #include <mach/mach_time.h>
-#include <mach/vm_map.h>
-#include <math.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#if __has_include(<ptrauth.h>)
-#include <ptrauth.h>
-#endif
 #include "../features/autododge.h"
-#include "../utils/crypto.h"
 #include "../utils/walls.h"
 #include "objc.h"
 #include "offsets.h"
@@ -26,7 +17,6 @@ uintptr_t addr_getownchar = 0;
 uintptr_t addr_getteam = 0;
 uintptr_t addr_getx = 0;
 uintptr_t addr_gety = 0;
-uintptr_t addr_battlescreen = 0;
 uintptr_t addr_getownidx = 0;
 uintptr_t addr_movedto = 0;
 uintptr_t addr_getdata = 0;
@@ -273,133 +263,6 @@ BOOL find_game_image(uintptr_t* out_base)
     *out_base = found;
     return YES;
 }
-uintptr_t owner = 0;
-int wired = 0;
-dispatch_source_t scan_timer = nullptr;
-const char* image_segment_name(uintptr_t value)
-{
-    if (!base || !value)
-    {
-        return nullptr;
-    }
-    if (!addr_readable(base, sizeof(struct mach_header_64)))
-    {
-        return nullptr;
-    }
-    const struct mach_header_64* header = (const struct mach_header_64*)base;
-    if (header->magic != MH_MAGIC_64)
-    {
-        return nullptr;
-    }
-    const uint8_t* cursor = (const uint8_t*)(header + 1);
-    const uint8_t* limit = cursor + header->sizeofcmds;
-    uintptr_t slide = image_slide(base);
-    for (uint32_t i = 0; i < header->ncmds; i++)
-    {
-        if (cursor + sizeof(struct load_command) > limit)
-        {
-            return nullptr;
-        }
-        const struct load_command* command = (const struct load_command*)cursor;
-        if (command->cmdsize < sizeof(struct load_command))
-        {
-            return nullptr;
-        }
-        if (cursor + command->cmdsize > limit)
-        {
-            return nullptr;
-        }
-        if (command->cmd == LC_SEGMENT_64 &&
-            command->cmdsize >= sizeof(struct segment_command_64))
-        {
-            const struct segment_command_64* segment =
-                (const struct segment_command_64*)command;
-            if (segment->vmsize)
-            {
-                uintptr_t start = slide + (uintptr_t)segment->vmaddr;
-                if (value >= start &&
-                    value < (start + (uintptr_t)segment->vmsize))
-                {
-                    return segment->segname;
-                }
-            }
-        }
-        cursor += command->cmdsize;
-    }
-    return nullptr;
-}
-BOOL heap_resident(uintptr_t value)
-{
-    if (!value)
-    {
-        return NO;
-    }
-    return image_segment_name(value) ? NO : YES;
-}
-BOOL manager_shape(uintptr_t mgrPtr)
-{
-    void* array = nullptr;
-    void* probe = nullptr;
-    int32_t count = 0;
-    int32_t capacity = 0;
-    if (!heap_resident(mgrPtr))
-    {
-        return NO;
-    }
-    if (!read_ptr(mgrPtr + MGR_ARRAY_OFF, &array))
-    {
-        return NO;
-    }
-    if (!read_int(mgrPtr + MGR_COUNT_OFF, &count))
-    {
-        return NO;
-    }
-    if (!read_int(mgrPtr + MGR_CAP_OFF, &capacity))
-    {
-        return NO;
-    }
-    if (count < 0 || count > 96)
-    {
-        return NO;
-    }
-    if (capacity < count || capacity > 4096)
-    {
-        return NO;
-    }
-    if (array && !heap_resident((uintptr_t)array))
-    {
-        return NO;
-    }
-    if (count > 0)
-    {
-        if (!array)
-        {
-            return NO;
-        }
-        if (!read_ptr((uintptr_t)array, &probe))
-        {
-            return NO;
-        }
-        if (!heap_resident((uintptr_t)probe))
-        {
-            return NO;
-        }
-        if (count > 1)
-        {
-            if (!read_ptr((uintptr_t)array +
-                              (uintptr_t)(count - 1) * sizeof(void*),
-                          &probe))
-            {
-                return NO;
-            }
-            if (!heap_resident((uintptr_t)probe))
-            {
-                return NO;
-            }
-        }
-    }
-    return YES;
-}
 void poll_for_game(int tick)
 {
     if (setup_done)
@@ -447,7 +310,6 @@ uint64_t us(void)
 }
 typedef uintptr_t (*fn1)(uintptr_t);
 typedef int32_t (*fn1i)(uintptr_t);
-typedef float (*fn1f)(uintptr_t);
 static uintptr_t call1(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self) return 0;
@@ -483,7 +345,6 @@ static int battle_state(void)
 static void world_reset(void)
 {
     own_elem = 0;
-    own_elem_scan = 0;
     own_x = 0;
     own_y = 0;
     own_hp = 0;
@@ -561,13 +422,10 @@ void scan_world(void)
     if (own)
     {
         own_elem = own;
-        own_elem_scan = own;
     }
     if (ownTeam >= 0 && ownTeam <= 15)
     {
         own_team_b = ownTeam;
-        own_team_a = ownTeam;
-        own_team_seen = 1;
     }
     if (ownIndex >= 0 && ownIndex < 64)
     {
@@ -742,7 +600,6 @@ void resolve_addresses(void)
     addr_getteam = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM);
     addr_getx = callable(RVA_LOGICGAMEOBJECTCLIENT_GETX);
     addr_gety = callable(RVA_LOGICGAMEOBJECTCLIENT_GETY);
-    addr_battlescreen = base;
     addr_getownidx = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX);
     addr_movedto = callable(MOVE_RVA);
     addr_getdata = callable(RVA_LOGICGAMEOBJECTCLIENT_GETDATA);
@@ -750,15 +607,9 @@ void resolve_addresses(void)
     addr_charspeed = callable(RVA_LOGICCHARACTERDATA_GETSPEED);
     addr_charradius = callable(RVA_LOGICCHARACTERDATA_GETCOLLISIONRADIUS);
     addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
-    if (!addr_readable(addr_battlescreen, sizeof(void*)))
-    {
-        addr_battlescreen = 0;
-    }
 }
 int coord_ok = 0;
 int dead = 0;
-int own_team_a = -1;
-int own_team_seen = 0;
 int scene_live(void)
 {
     uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
@@ -796,6 +647,5 @@ uintptr_t controller(void)
     return client();
 }
 uintptr_t scene_object = 0;
-uintptr_t own_elem_scan = 0;
 int own_team_b = -1;
 uintptr_t own_elem = 0;

@@ -14,10 +14,6 @@ typedef struct
     int wantedCount;
     SEL sel;
     IMP original;
-    IMP replacement;
-    const char* selName;
-    const char* signature;
-    int hits;
     int used;
     objc_body_t body;
 } objc_hook_t;
@@ -179,7 +175,6 @@ static int objc_targets(id self, objc_hook_t* hook)
 static void objc_rep_a(id self, SEL _cmd)
 {
     objc_hook_t* hook = objc_find(self, _cmd);
-    if (hook) hook->hits++;
     if (hook && hook->body && objc_targets(self, hook)) hook->body();
     if (hook && hook->original)
     {
@@ -276,10 +271,6 @@ int objc_arm(uintptr_t imageBase,
         g_objc_hooks[i].cls = ownerClass;
         g_objc_hooks[i].sel = sel;
         g_objc_hooks[i].original = previous;
-        g_objc_hooks[i].replacement = replacement;
-        g_objc_hooks[i].selName = selName;
-        g_objc_hooks[i].signature = types;
-        g_objc_hooks[i].hits = 0;
         g_objc_hooks[i].body = body;
         g_objc_hooks[i].wanted[0] = ownerClass;
         g_objc_hooks[i].wantedCount = 1;

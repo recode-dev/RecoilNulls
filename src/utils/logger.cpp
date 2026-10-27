@@ -1,6 +1,7 @@
 #include "../core/scan.h"
 #include "../features/autododge.h"
 #include "../utils/walls.h"
+#include <CoreFoundation/CFDate.h>
 #include <dispatch/dispatch.h>
 #include <stdarg.h>
 #include <stdio.h>
