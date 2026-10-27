@@ -1,4 +1,5 @@
 #include <dispatch/dispatch.h>
+#include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -416,34 +417,38 @@ static BOOL contains_ci(const char* haystack, const char* needle)
     }
     return NO;
 }
-static gboolean game_module_cb(GumModule* module, gpointer userData)
+static BOOL find_game_image_dyld(uintptr_t* out_base)
 {
-    const GumMemoryRange* range = NULL;
-    const gchar* moduleName = NULL;
-    if (!module || !userData)
+    uint32_t count = _dyld_image_count();
+    uint32_t i = 0;
+    if (count > 8192)
     {
-        return TRUE;
+        count = 8192;
     }
-    moduleName = gum_module_get_name(module);
-    if (!moduleName)
+    for (i = 0; i < count; i++)
     {
-        return TRUE;
+        const char* path = _dyld_get_image_name(i);
+        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
+        if (!path || !imageBase)
+        {
+            continue;
+        }
+        if (!contains_ci(path, "nulls"))
+        {
+            continue;
+        }
+        if (!strstr(path, ".app"))
+        {
+            continue;
+        }
+        if (!valid_header(imageBase))
+        {
+            continue;
+        }
+        *out_base = imageBase;
+        return YES;
     }
-    if (!contains_ci(moduleName, "nulls"))
-    {
-        return TRUE;
-    }
-    range = gum_module_get_range(module);
-    if (!range)
-    {
-        return TRUE;
-    }
-    if (!valid_header((uintptr_t)range->base_address))
-    {
-        return TRUE;
-    }
-    *(uintptr_t*)userData = (uintptr_t)range->base_address;
-    return FALSE;
+    return NO;
 }
 void stage_note(const char* what);
 int gum_live = 0;
@@ -463,14 +468,11 @@ BOOL find_game_image(uintptr_t* out_base)
         gum_live = 1;
         stage_note("stage gum_init end\n");
     }
-    stage_note("stage gum_enum begin\n");
-    gum_process_enumerate_modules(game_module_cb, &found);
-    stage_note(found ? "stage gum_enum end found=1\n"
-                            : "stage gum_enum end found=0\n");
-    if (!found)
+    if (!find_game_image_dyld(&found))
     {
         return NO;
     }
+    stage_note("stage dyld_find end found=1\n");
     *out_base = found;
     return YES;
 }

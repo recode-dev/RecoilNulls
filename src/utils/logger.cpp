@@ -1,6 +1,7 @@
 #include "../core/scan.h"
 #include "../features/autododge.h"
 #include <dispatch/dispatch.h>
+#include <mach-o/dyld.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,12 +29,6 @@ uint64_t g_lastMs = 0;
 uint64_t g_lastScan = 0;
 int g_rate = 0;
 char g_path[1024];
-typedef struct
-{
-    uintptr_t base;
-    uint32_t index;
-    int found;
-} module_dump_t;
 const char* document_path(void)
 {
     static char resolved[1024];
@@ -86,39 +81,11 @@ void line(const char* format, ...)
     vfprintf(g_file, format, args);
     va_end(args);
 }
-static gboolean dump_module_cb(GumModule* module, gpointer userData)
-{
-    module_dump_t* ctx = (module_dump_t*)userData;
-    const GumMemoryRange* range = NULL;
-    const gchar* name = NULL;
-    if (!module || !ctx)
-    {
-        return TRUE;
-    }
-    ctx->index++;
-    range = gum_module_get_range(module);
-    if (!range)
-    {
-        return TRUE;
-    }
-    if ((uintptr_t)range->base_address != ctx->base)
-    {
-        return TRUE;
-    }
-    name = gum_module_get_name(module);
-    ctx->found = 1;
-    line("[game] idx=%u base=%p name=%s\n",
-         ctx->index - 1,
-         (void*)ctx->base,
-         name ? name : "");
-    return FALSE;
-}
 void dump_header(void)
 {
-    module_dump_t dump;
-    dump.base = (uintptr_t)base;
-    dump.index = 0;
-    dump.found = 0;
+    uint32_t count = _dyld_image_count();
+    uint32_t i = 0;
+    uintptr_t found = 0;
     line("\n########## recoil header ##########\n");
     line("base=%p setup=%d ticks=%llu rate=%d/s\n",
          (void*)base,
@@ -166,12 +133,20 @@ void dump_header(void)
          (unsigned long long)VTABLE_PROJ_DATA_RVA,
          (unsigned long long)PROJDATA_SPEED_OFF,
          (unsigned long long)PROJDATA_RADIUS_OFF);
-    if (gum_live)
+    for (i = 0; i < count; i++)
     {
-        gum_process_enumerate_modules(dump_module_cb, &dump);
+        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
+        if (imageBase != (uintptr_t)base) continue;
+        found = imageBase;
+        line("[game] idx=%u base=%p name=%s\n",
+             i,
+             (void*)imageBase,
+             _dyld_get_image_name(i));
     }
-    if (!dump.found)
-        line("[game] base %p not found in module list\n", (void*)base);
+    if (!found)
+        line("[game] base %p not found in dyld list (count=%u)\n",
+             (void*)base,
+             count);
 }
 void dump_chain(void)
 {
