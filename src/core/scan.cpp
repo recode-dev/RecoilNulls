@@ -306,18 +306,18 @@ typedef uintptr_t (*fn1)(uintptr_t);
 typedef int32_t (*fn1i)(uintptr_t);
 static uintptr_t call1(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !self) return 0;
+    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self) return 0;
     return ((fn1)fn)(self);
 }
 static int32_t call1i(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !self) return 0;
+    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self) return 0;
     return ((fn1i)fn)(self);
 }
 typedef uintptr_t (*fn2)(uintptr_t, uintptr_t);
 static uintptr_t call2(uintptr_t fn, uintptr_t self, uintptr_t arg)
 {
-    if (!fn || !self) return 0;
+    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self) return 0;
     return ((fn2)fn)(self, arg);
 }
 uintptr_t manager_array_ptr = 0;
@@ -374,7 +374,7 @@ typedef struct
 } range_entry_t;
 static range_entry_t g_range[RANGE_CACHE_MAX];
 static int g_rangeN = 0;
-static uint32_t g_charHarvested[CHAR_REGISTRY_MAX];
+static uintptr_t g_charHarvested[CHAR_REGISTRY_MAX];
 static void range_note(const char* name, int units)
 {
     if (!name || !name[0] || units <= 0) return;
@@ -448,12 +448,14 @@ static int harvest_character(uintptr_t character)
 static void remember_character(int index, uintptr_t character)
 {
     if (!CHARACTER_HARVEST_ON || battle_ticks < 30) return;
+    if (!addr_charweapon || !addr_charskillat || !addr_skilldata ||
+        !addr_skillrange || !addr_skillproj || !addr_dataname) return;
     if (index < 0 || index >= CHAR_REGISTRY_MAX) return;
     if (!character || !pointer_plausible(character)) return;
-    if (g_charHarvested[index] == (uint32_t)(character & 0xffffffffu)) return;
+    if (g_charHarvested[index] == character) return;
     if (harvest_character(character))
     {
-        g_charHarvested[index] = (uint32_t)(character & 0xffffffffu);
+        g_charHarvested[index] = character;
     }
 }
 static void character_registry_reset(void)
