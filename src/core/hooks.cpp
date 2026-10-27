@@ -6,7 +6,6 @@
 extern "C"
 {
 #include "hook.h"
-#include <mach-o/dyld.h>
 }
 
 extern int gum_live;
@@ -66,35 +65,12 @@ static gboolean image_lookup_cb(GumModule* module, gpointer userData)
 uintptr_t hook_image_base(uintptr_t address)
 {
     image_lookup_t ctx;
-    if (!address)
+    if (!address || !gum_live)
     {
         return 0;
     }
     ctx.address = address;
     ctx.base = 0;
-    if (gum_live)
-    {
-        gum_process_enumerate_modules(image_lookup_cb, &ctx);
-        if (ctx.base)
-        {
-            return ctx.base;
-        }
-    }
-    uint32_t count = 0;
-    uint32_t i = 0;
-    uintptr_t best = 0;
-    count = _dyld_image_count();
-    if (count > 8192)
-    {
-        count = 8192;
-    }
-    for (i = 0; i < count; i++)
-    {
-        uintptr_t base = (uintptr_t)_dyld_get_image_header(i);
-        if (base && base <= address && base > best)
-        {
-            best = base;
-        }
-    }
-    return best;
+    gum_process_enumerate_modules(image_lookup_cb, &ctx);
+    return ctx.base;
 }

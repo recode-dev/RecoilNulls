@@ -47,7 +47,6 @@ typedef struct
 } obj_t;
 #include <CoreFoundation/CFDate.h>
 #include <frida-gum.h>
-#include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <objc/runtime.h>
 extern uintptr_t base;
@@ -114,8 +113,6 @@ BOOL copy(uintptr_t source, void* destination, size_t length);
 BOOL text_section(uintptr_t* address, uint64_t* size);
 BOOL valid_header(uintptr_t imageBase);
 BOOL find_game_image(uintptr_t* out_base);
-BOOL segment_range(const char* name, uintptr_t* lo, uintptr_t* hi);
-void image_span_refresh(void);
 const char* image_segment_name(uintptr_t value);
 BOOL vtable_shaped(uintptr_t value);
 BOOL heap_resident(uintptr_t value);
@@ -148,54 +145,12 @@ static inline BOOL addr_readable(uintptr_t address, size_t length)
     {
         return NO;
     }
-    if (gum_live)
-    {
-        return gum_memory_is_readable((gconstpointer)address, (gsize)length)
-                   ? YES
-                   : NO;
-    }
-    uintptr_t end = address + length;
-    uintptr_t cursor = address;
-    if (end < address)
+    if (!gum_live)
     {
         return NO;
     }
-    for (int guard = 0; cursor < end && guard < 64; guard++)
-    {
-        vm_prot_t flags = 0;
-        vm_address_t region = (vm_address_t)cursor;
-        vm_size_t size = 0;
-        vm_region_basic_info_data_64_t info;
-        mach_msg_type_number_t infoCount = VM_REGION_BASIC_INFO_COUNT_64;
-        mach_port_t objectName = MACH_PORT_NULL;
-        kern_return_t kr = vm_region_64(mach_task_self(),
-                                        &region,
-                                        &size,
-                                        VM_REGION_BASIC_INFO_64,
-                                        (vm_region_info_t)&info,
-                                        &infoCount,
-                                        &objectName);
-        if (objectName != MACH_PORT_NULL)
-        {
-            mach_port_deallocate(mach_task_self(), objectName);
-        }
-        if (kr != KERN_SUCCESS || size == 0)
-        {
-            return NO;
-        }
-        if ((info.protection & VM_PROT_READ) == 0)
-        {
-            return NO;
-        }
-        uintptr_t next = (uintptr_t)region + (uintptr_t)size;
-        if (next <= cursor)
-        {
-            return NO;
-        }
-        cursor = next;
-        (void)flags;
-    }
-    return cursor >= end;
+    return gum_memory_is_readable((gconstpointer)address, (gsize)length) ? YES
+                                                                       : NO;
 }
 static inline BOOL addr_executable(uintptr_t address)
 {

@@ -1,7 +1,6 @@
 #include "./core/offsets.h"
 #include "hook.h"
 #include <dispatch/dispatch.h>
-#include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>

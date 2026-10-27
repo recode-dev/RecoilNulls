@@ -1,5 +1,4 @@
 #include <dispatch/dispatch.h>
-#include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -63,89 +62,42 @@ BOOL query_region(uintptr_t address,
                   mach_vm_size_t* regionSize,
                   uintptr_t* regionStart)
 {
-    vm_address_t regionAddress = (vm_address_t)address;
-    vm_size_t size = 0;
-    vm_region_basic_info_data_64_t info;
-    mach_msg_type_number_t infoCount = VM_REGION_BASIC_INFO_COUNT_64;
-    mach_port_t objectName = MACH_PORT_NULL;
-    kern_return_t result = vm_region_64(mach_task_self(),
-                                        &regionAddress,
-                                        &size,
-                                        VM_REGION_BASIC_INFO_64,
-                                        (vm_region_info_t)&info,
-                                        &infoCount,
-                                        &objectName);
-    if (objectName != MACH_PORT_NULL)
-    {
-        mach_port_deallocate(mach_task_self(), objectName);
-    }
-    if (result != KERN_SUCCESS || size == 0)
+    GumPageProtection pageProtection = GUM_PAGE_NO_ACCESS;
+    guint pageSize = 0;
+    if (!address || !gum_live)
     {
         return NO;
     }
-    if ((uintptr_t)regionAddress > address)
+    pageSize = gum_query_page_size();
+    if (!pageSize)
     {
         return NO;
     }
-    if ((uintptr_t)regionAddress + (uintptr_t)size <= address)
+    if (!gum_memory_query_protection((gconstpointer)address, &pageProtection))
     {
         return NO;
     }
     if (protection)
     {
-        *protection = info.protection;
+        *protection = (vm_prot_t)pageProtection;
     }
     if (maxProtection)
     {
-        *maxProtection = info.max_protection;
+        *maxProtection = (vm_prot_t)pageProtection;
     }
     if (regionSize)
     {
-        *regionSize = (mach_vm_size_t)size;
+        *regionSize = (mach_vm_size_t)pageSize;
     }
     if (regionStart)
     {
-        *regionStart = (uintptr_t)regionAddress;
+        *regionStart = address & ~((uintptr_t)pageSize - 1);
     }
     return YES;
 }
 BOOL addr_writable(uintptr_t address, size_t length)
 {
-    if (!address || !length)
-    {
-        return NO;
-    }
-    uintptr_t end = address + length;
-    if (end < address)
-    {
-        return NO;
-    }
-    uintptr_t cursor = address;
-    for (int guard = 0; cursor < end && guard < 64; guard++)
-    {
-        vm_prot_t protection = 0;
-        mach_vm_size_t size = 0;
-        uintptr_t start = 0;
-        if (!query_region(cursor, &protection, nullptr, &size, &start))
-        {
-            return NO;
-        }
-        if (size == 0)
-        {
-            return NO;
-        }
-        if ((protection & VM_PROT_WRITE) == 0)
-        {
-            return NO;
-        }
-        uintptr_t next = start + (uintptr_t)size;
-        if (next <= cursor)
-        {
-            return NO;
-        }
-        cursor = next;
-    }
-    return cursor >= end;
+    return writable(address, length);
 }
 BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
@@ -154,6 +106,10 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
         return NO;
     }
     if (!address)
+    {
+        return NO;
+    }
+    if (!gum_live)
     {
         return NO;
     }
@@ -204,7 +160,8 @@ BOOL writable(uintptr_t address, size_t length)
 {
     uintptr_t end = address + length;
     uintptr_t cursor = address;
-    if (!address || !length)
+    guint pageSize = 0;
+    if (!address || !length || !gum_live)
     {
         return NO;
     }
@@ -212,25 +169,24 @@ BOOL writable(uintptr_t address, size_t length)
     {
         return NO;
     }
+    pageSize = gum_query_page_size();
+    if (!pageSize)
+    {
+        return NO;
+    }
     for (int guard = 0; cursor < end && guard < 64; guard++)
     {
-        vm_prot_t protection = 0;
-        mach_vm_size_t size = 0;
-        uintptr_t start = 0;
+        GumPageProtection protection = GUM_PAGE_NO_ACCESS;
         uintptr_t next = 0;
-        if (!query_region(cursor, &protection, nullptr, &size, &start))
+        if (!gum_memory_query_protection((gconstpointer)cursor, &protection))
         {
             return NO;
         }
-        if ((protection & VM_PROT_WRITE) == 0)
+        if ((protection & GUM_PAGE_WRITE) == 0)
         {
             return NO;
         }
-        if (size == 0)
-        {
-            return NO;
-        }
-        next = start + (uintptr_t)size;
+        next = (cursor & ~((uintptr_t)pageSize - 1)) + (uintptr_t)pageSize;
         if (next <= cursor)
         {
             return NO;
@@ -249,12 +205,15 @@ BOOL write_bytes(uintptr_t address, const void* src, size_t length)
     {
         return NO;
     }
-    if (!writable(address, length))
+    if (!gum_live)
     {
         return NO;
     }
-    memcpy((void*)address, src, length);
-    return YES;
+    return gum_memory_write((gpointer)address,
+                            (const guint8*)src,
+                            (gsize)length)
+               ? YES
+               : NO;
 }
 BOOL read_ptr(uintptr_t address, void** out)
 {
@@ -297,6 +256,10 @@ uintptr_t callable(uintptr_t rva)
 BOOL copy(uintptr_t source, void* destination, size_t length)
 {
     if (!source || !destination || !length)
+    {
+        return NO;
+    }
+    if (!gum_live)
     {
         return NO;
     }
@@ -478,41 +441,12 @@ static gboolean game_module_cb(GumModule* module, gpointer userData)
     {
         return TRUE;
     }
+    if (!valid_header((uintptr_t)range->base_address))
+    {
+        return TRUE;
+    }
     *(uintptr_t*)userData = (uintptr_t)range->base_address;
     return FALSE;
-}
-static BOOL find_game_image_dyld(uintptr_t* out_base)
-{
-    uint32_t count = _dyld_image_count();
-    uint32_t i = 0;
-    if (count > 8192)
-    {
-        count = 8192;
-    }
-    for (i = 0; i < count; i++)
-    {
-        const char* path = _dyld_get_image_name(i);
-        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
-        if (!path || !imageBase)
-        {
-            continue;
-        }
-        if (!contains_ci(path, "nulls"))
-        {
-            continue;
-        }
-        if (!strstr(path, ".app"))
-        {
-            continue;
-        }
-        if (!valid_header(imageBase))
-        {
-            continue;
-        }
-        *out_base = imageBase;
-        return YES;
-    }
-    return NO;
 }
 int gum_live = 0;
 BOOL find_game_image(uintptr_t* out_base)
@@ -530,103 +464,16 @@ BOOL find_game_image(uintptr_t* out_base)
         gum_live = 1;
     }
     gum_process_enumerate_modules(game_module_cb, &found);
-    if (found)
+    if (!found)
     {
-        *out_base = found;
-        return YES;
+        return NO;
     }
-    return find_game_image_dyld(out_base);
+    *out_base = found;
+    return YES;
 }
 uintptr_t owner = 0;
 int wired = 0;
 dispatch_source_t scan_timer = nullptr;
-BOOL segment_range(const char* name, uintptr_t* lo, uintptr_t* hi)
-{
-    if (!base || !name)
-    {
-        return NO;
-    }
-    if (!addr_readable(base, sizeof(struct mach_header_64)))
-    {
-        return NO;
-    }
-    const struct mach_header_64* header = (const struct mach_header_64*)base;
-    if (header->magic != MH_MAGIC_64)
-    {
-        return NO;
-    }
-    const uint8_t* cursor = (const uint8_t*)(header + 1);
-    const uint8_t* limit = cursor + header->sizeofcmds;
-    uintptr_t slide = image_slide(base);
-    for (uint32_t i = 0; i < header->ncmds; i++)
-    {
-        if (cursor + sizeof(struct load_command) > limit)
-        {
-            return NO;
-        }
-        const struct load_command* command = (const struct load_command*)cursor;
-        if (command->cmdsize < sizeof(struct load_command))
-        {
-            return NO;
-        }
-        if (cursor + command->cmdsize > limit)
-        {
-            return NO;
-        }
-        if (command->cmd == LC_SEGMENT_64 &&
-            command->cmdsize >= sizeof(struct segment_command_64))
-        {
-            const struct segment_command_64* segment =
-                (const struct segment_command_64*)command;
-            if (strcmp(segment->segname, name) == 0)
-            {
-                if (lo)
-                {
-                    *lo = slide + (uintptr_t)segment->vmaddr;
-                }
-                if (hi)
-                {
-                    *hi = slide + (uintptr_t)segment->vmaddr +
-                          (uintptr_t)segment->vmsize;
-                }
-                return YES;
-            }
-        }
-        cursor += command->cmdsize;
-    }
-    return NO;
-}
-void image_span_refresh(void)
-{
-    if (!base || !addr_readable(base, sizeof(struct mach_header_64)))
-    {
-        return;
-    }
-    const struct mach_header_64* header = (const struct mach_header_64*)base;
-    if (header->magic != MH_MAGIC_64)
-    {
-        return;
-    }
-    const uint8_t* cursor = (const uint8_t*)(header + 1);
-    const uint8_t* limit = cursor + header->sizeofcmds;
-    for (uint32_t i = 0; i < header->ncmds; i++)
-    {
-        if (cursor + sizeof(struct load_command) > limit)
-        {
-            break;
-        }
-        const struct load_command* command = (const struct load_command*)cursor;
-        if (command->cmdsize < sizeof(struct load_command))
-        {
-            break;
-        }
-        if (cursor + command->cmdsize > limit)
-        {
-            break;
-        }
-        cursor += command->cmdsize;
-    }
-}
 const char* image_segment_name(uintptr_t value)
 {
     if (!base || !value)
@@ -802,10 +649,59 @@ BOOL manager_shape(uintptr_t mgrPtr)
     return YES;
 }
 int trail_count = 0;
+typedef struct
+{
+    uintptr_t address;
+    uintptr_t base;
+} module_hit_t;
+static gboolean module_hit_cb(GumModule* module, gpointer userData)
+{
+    module_hit_t* ctx = (module_hit_t*)userData;
+    const GumMemoryRange* range = NULL;
+    if (!module || !ctx)
+    {
+        return TRUE;
+    }
+    range = gum_module_get_range(module);
+    if (!range)
+    {
+        return TRUE;
+    }
+    if (ctx->address >= (uintptr_t)range->base_address &&
+        ctx->address < (uintptr_t)range->base_address + (uintptr_t)range->size)
+    {
+        ctx->base = (uintptr_t)range->base_address;
+        return FALSE;
+    }
+    return TRUE;
+}
+static BOOL module_contains(uintptr_t address, uintptr_t* outBase)
+{
+    module_hit_t ctx;
+    if (outBase)
+    {
+        *outBase = 0;
+    }
+    if (!address || !gum_live)
+    {
+        return NO;
+    }
+    ctx.address = address;
+    ctx.base = 0;
+    gum_process_enumerate_modules(module_hit_cb, &ctx);
+    if (!ctx.base)
+    {
+        return NO;
+    }
+    if (outBase)
+    {
+        *outBase = ctx.base;
+    }
+    return YES;
+}
 BOOL vtable_in_image(uintptr_t vtable)
 {
-    uintptr_t lo = 0;
-    uintptr_t hi = 0;
+    uintptr_t moduleBase = 0;
     if (!vtable)
     {
         return NO;
@@ -814,11 +710,11 @@ BOOL vtable_in_image(uintptr_t vtable)
     {
         return YES;
     }
-    if (segment_range("__DATA", &lo, &hi) && vtable >= lo && vtable < hi)
+    if (!module_contains(vtable, &moduleBase))
     {
-        return YES;
+        return NO;
     }
-    return NO;
+    return moduleBase == base ? YES : NO;
 }
 uintptr_t strip_ptr(uintptr_t value)
 {
@@ -2547,14 +2443,6 @@ void locate_battle_mode(void)
     }
     votescan_last = now;
     votescan_attempts++;
-    if (votescan_attempts == 1)
-    {
-        image_span_refresh();
-    }
-    if ((votescan_attempts % VOTESCAN_GLOBAL_EVERY) == 1)
-    {
-        image_span_refresh();
-    }
 }
 uint64_t probe_last_ms = 0;
 int coord_ok = 0;
