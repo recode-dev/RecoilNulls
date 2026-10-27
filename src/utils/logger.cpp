@@ -115,9 +115,13 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
         lr = static_cast<uintptr_t>(uc->uc_mcontext64->__ss.__lr);
     }
     if (info != nullptr) fault = (uintptr_t)info->si_addr;
-    len = snprintf(buf, sizeof(buf),
+    len = snprintf(buf,
+                   sizeof(buf),
                    "[crash-signal] sig=%d fault=%p pc=%p lr=%p\n",
-                   sig, (void*)fault, (void*)pc, (void*)lr);
+                   sig,
+                   (void*)fault,
+                   (void*)pc,
+                   (void*)lr);
     if (len > 0) write(STDERR_FILENO, buf, static_cast<size_t>(len));
     if (path[0] != 0)
     {
@@ -127,11 +131,13 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
             if (len > 0) write(fd, buf, static_cast<size_t>(len));
             if (dladdr((void*)pc, &di) && di.dli_fname)
             {
-                len = snprintf(buf, sizeof(buf),
-                               "[crash-signal] pc in %s off=%lx sym=%s\n",
-                               di.dli_fname,
-                               static_cast<unsigned long>(pc - (uintptr_t)di.dli_fbase),
-                               di.dli_sname ? di.dli_sname : "?");
+                len = snprintf(
+                    buf,
+                    sizeof(buf),
+                    "[crash-signal] pc in %s off=%lx sym=%s\n",
+                    di.dli_fname,
+                    static_cast<unsigned long>(pc - (uintptr_t)di.dli_fbase),
+                    di.dli_sname ? di.dli_sname : "?");
                 if (len > 0) write(fd, buf, static_cast<size_t>(len));
             }
             close(fd);
@@ -159,7 +165,7 @@ void dump_autododge()
 {
     // Эти функции должны быть реализованы в autododge.cpp и экспортированы
     extern bool autododge_get_debug_info(char* buf, size_t cap);
-    
+
     char buf[8192];
     if (autododge_get_debug_info(buf, sizeof(buf)))
     {
@@ -183,7 +189,10 @@ void tick()
     if (!base || !own_elem || dead)
     {
         line("idle t=%llu base=%p own=%p dead=%d\n",
-             ticks.load(), (void*)base, (void*)own_elem, dead);
+             ticks.load(),
+             (void*)base,
+             (void*)own_elem,
+             dead);
         if ((ticks.load() % 20) == 0) dump_autododge();
         lastMs.store(0);
         rate.store(0);
@@ -198,17 +207,18 @@ void tick()
         line("\n##### match start #####\n");
     }
     now = static_cast<uint64_t>(g_get_real_time() / 1000);
-    
+
     line("\n--- t=%llu ms=%.3f ---\n",
          ticks.load(),
          static_cast<double>(g_get_real_time()) / 1000.0);
-    
+
     write_crash_marks("[crash-mark] t=%llu stage=ad\n", ticks.load());
     dump_autododge();
-    
-    if ((ticks.load() % 10) == 0) dump_autododge(); // Дополнительный дамп каждые 2 секунды
+
+    if ((ticks.load() % 10) == 0)
+        dump_autododge(); // Дополнительный дамп каждые 2 секунды
     write_crash_marks("[crash-mark] t=%llu stage=done\n", ticks.load());
-    
+
     lastMs.store(now);
     fflush(file);
     rotate_if_needed();
@@ -221,7 +231,8 @@ void start()
     if (!timer) return;
     dispatch_source_set_timer(
         timer,
-        dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(150 * NSEC_PER_MSEC)),
+        dispatch_time(DISPATCH_TIME_NOW,
+                      static_cast<int64_t>(150 * NSEC_PER_MSEC)),
         static_cast<uint64_t>(LOG_INTERVAL_MS * NSEC_PER_MSEC),
         static_cast<uint64_t>(10 * NSEC_PER_MSEC));
     dispatch_source_set_event_handler(timer, ^{ tick(); });
