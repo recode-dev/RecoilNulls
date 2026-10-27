@@ -1,6 +1,6 @@
 #ifndef CORE_COMMANDS_H
 #define CORE_COMMANDS_H
-#include <stdint.h>
+#include <cstdint>
 inline constexpr int MSG_SIZE = 0x48;
 inline constexpr int MSG_SLACK = 0x58;
 inline constexpr int TYPE_MOVE = 0x2;

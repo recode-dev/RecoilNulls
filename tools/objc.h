@@ -1,7 +1,7 @@
 #ifndef OBJC_H
 #define OBJC_H
 #include <objc/runtime.h>
-#include <stdint.h>
+#include <cstdint>
 #ifdef __cplusplus
 extern "C"
 {

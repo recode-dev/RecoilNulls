@@ -1,7 +1,7 @@
 #ifndef SCAN_SCAN_H
 #define SCAN_SCAN_H
 #include "./offsets.h"
-#include <stdint.h>
+#include <cstdint>
 #define OBJ_BLOCK_SIZE (OBJ_DEADFLAG_OFF + sizeof(uint32_t))
 #ifndef NSEC_PER_SEC
 #define NSEC_PER_SEC 1000000000ull

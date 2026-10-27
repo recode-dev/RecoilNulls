@@ -1,7 +1,7 @@
 #include "objc.h"
 #include <frida-gum.h>
-#include <stddef.h>
-#include <stdlib.h>
+#include <cstddef>
+#include <cstdlib>
 #if __has_include(<ptrauth.h>)
 #include <ptrauth.h>
 #endif

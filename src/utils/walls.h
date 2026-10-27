@@ -1,6 +1,6 @@
 #ifndef UTILS_WALLS_H
 #define UTILS_WALLS_H
-#include <stdint.h>
+#include <cstdint>
 #define WALL_TILE_SIZE 300.0f
 inline constexpr int WALL_BLOCKS_MOVEMENT = 128;
 inline constexpr int WALL_BLOCKS_PROJECTILES = 64;

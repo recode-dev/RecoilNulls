@@ -1,7 +1,7 @@
 #ifndef UTILS_CRYPTO_H
 #define UTILS_CRYPTO_H
-#include <stddef.h>
-#include <stdint.h>
+#include <cstddef>
+#include <cstdint>
 void sha(const uint8_t* data, size_t length, uint8_t out[32]);
 void ci_make_block(const uint8_t key16[16],
                    const uint8_t mask16[16],
