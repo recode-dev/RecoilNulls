@@ -45,11 +45,13 @@ struct Threat
     float vx, vy;
     float rad;
 };
+#define OBJ_BLOCK_SIZE (OBJ_DEADFLAG_OFF + sizeof(uint32_t))
 struct ProjectileState
 {
     float vx, vy;
     float speed;
     float radius;
+    char name[128];
     int earlyTicks;
     uint64_t spawnedAt;
     uint64_t lastSeen;
@@ -197,6 +199,16 @@ static int32_t call1i_local(uintptr_t fn, uintptr_t self)
     typedef int32_t (*fn_t)(uintptr_t);
     return ((fn_t)target)(self);
 }
+static uintptr_t call1p_local(uintptr_t fn, uintptr_t self)
+{
+    if (!fn || !self || !base) return 0;
+    if (!pointer_plausible(self)) return 0;
+    uintptr_t rva = (fn >= base) ? (fn - base) : fn;
+    uintptr_t target = callable(rva);
+    if (!target) return 0;
+    typedef uintptr_t (*fn_t)(uintptr_t);
+    return ((fn_t)target)(self);
+}
 void autododge_reset(void)
 {
     g_proj_cache.clear();
@@ -238,9 +250,11 @@ void autododge(void)
                 uintptr_t objPtr = obj_snapshot[i];
                 if (!objPtr) continue;
                 if (!pointer_plausible(objPtr)) continue;
+                uint8_t obj[OBJ_BLOCK_SIZE];
+                if (!read_bytes(objPtr, obj, sizeof(obj))) continue;
                 uintptr_t dataPtr = 0;
-                if (!read_ptr(objPtr + ELEM_DEF_OFF, (void**)&dataPtr) ||
-                    !dataPtr)
+                memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
+                if (!dataPtr)
                     continue;
                 if (!pointer_plausible(dataPtr)) continue;
                 uintptr_t dataVtable = 0;
@@ -252,23 +266,22 @@ void autododge(void)
                     continue;
                 if (dataVtable - base != VTABLE_PROJ_DATA_RVA) continue;
                 int32_t pid = 0;
-                if (!read_int(objPtr + OBJ_GLOBALID_OFF, &pid)) continue;
+                memcpy(&pid, obj + OBJ_GLOBALID_OFF, sizeof(pid));
                 if (pid == 0) continue;
-                int32_t teamId = -1;
-                if (!read_int(objPtr + OBJ_TEAM_OFF, &teamId) ||
-                    teamId == own_team_b)
+                int32_t teamId = 0;
+                memcpy(&teamId, obj + OBJ_TEAM_OFF, sizeof(teamId));
+                if (teamId == own_team_b)
                     continue;
                 int32_t px_i = 0, py_i = 0;
-                if (!read_int(objPtr + OBJ_X_OFF, &px_i) ||
-                    !read_int(objPtr + OBJ_Y_OFF, &py_i))
-                    continue;
+                memcpy(&px_i, obj + OBJ_X_OFF, sizeof(px_i));
+                memcpy(&py_i, obj + OBJ_Y_OFF, sizeof(py_i));
                 float px = (float)px_i;
                 float py = (float)py_i;
                 float dx_dist = px - mx;
                 float dy_dist = py - my;
                 uint32_t deadFlag = 0;
-                if (!read_int(objPtr + OBJ_DEADFLAG_OFF, (int32_t*)&deadFlag) ||
-                    deadFlag != 0)
+                memcpy(&deadFlag, obj + OBJ_DEADFLAG_OFF, sizeof(deadFlag));
+                if (deadFlag != 0)
                     continue;
                 ProjectileState& state = g_proj_cache[pid];
                 if (state.lastSeen == 0)
@@ -299,6 +312,14 @@ void autododge(void)
                     state.radius = (float)projRadius;
                     state.earlyTicks = call1i_local(addr_projearly, dataPtr);
                     state.spawnedAt = now - (uint64_t)state.earlyTicks * 16;
+                    state.name[0] = '\0';
+                    {
+                        uintptr_t nameStr = call1p_local(addr_dataname, dataPtr);
+                        if (nameStr)
+                        {
+                            read_scstring(nameStr, state.name, sizeof(state.name));
+                        }
+                    }
                 }
                 else
                 {

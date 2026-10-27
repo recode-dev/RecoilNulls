@@ -176,6 +176,37 @@ BOOL write_bytes(uintptr_t address, const void* src, size_t length)
                ? YES
                : NO;
 }
+BOOL read_scstring(uintptr_t value, char* out, size_t outSize)
+{
+    int32_t length = 0;
+    uintptr_t data = 0;
+    if (!out || !outSize || !value)
+    {
+        return NO;
+    }
+    if (!read_int(value + SCSTRING_LENGTH_OFF, &length))
+    {
+        return NO;
+    }
+    if (length <= 0 || length > SCSTRING_MAX_LENGTH || (size_t)length >= outSize)
+    {
+        return NO;
+    }
+    if (length <= SCSTRING_INLINE_MAX)
+    {
+        data = value + SCSTRING_DATA_OFF;
+    }
+    else if (!read_ptr(value + SCSTRING_DATA_OFF, (void**)&data) || !data)
+    {
+        return NO;
+    }
+    if (!read_bytes(data, out, (size_t)length))
+    {
+        return NO;
+    }
+    out[length] = '\0';
+    return YES;
+}
 BOOL read_ptr(uintptr_t address, void** out)
 {
     if (!out)
