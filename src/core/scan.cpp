@@ -447,7 +447,7 @@ static int harvest_character(uintptr_t character)
 }
 static void remember_character(int index, uintptr_t character)
 {
-    if (battle_ticks < 30) return;
+    if (!CHARACTER_HARVEST_ON || battle_ticks < 30) return;
     if (index < 0 || index >= CHAR_REGISTRY_MAX) return;
     if (!character || !pointer_plausible(character)) return;
     if (g_charHarvested[index] == (uint32_t)(character & 0xffffffffu)) return;
