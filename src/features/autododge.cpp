@@ -34,14 +34,8 @@ static struct
 
 static const float SAFE_GAP = 35.0f;
 
-struct Threat
-{
-    float x, y, vx, vy, rad;
-};
-struct Body
-{
-    float x, y, rad;
-};
+struct Threat { float x, y, vx, vy, rad; };
+struct Body { float x, y, rad; };
 
 struct ProjectileState
 {
@@ -59,8 +53,9 @@ int active = 0, moving = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 
 static std::map<int, ProjectileState> proj_cache;
-static std::vector<float> ringX, ringY;
+static float ringX[128], ringY[128];
 static std::vector<Body> bodies;
+static std::vector<Threat> threats;
 static int headingIdx = -1;
 static uint64_t lastDangerTs = 0, lastGoodTs = 0, lastSentAt = 0;
 static float commitDirX = 0.0f, commitDirY = 0.0f;
@@ -68,26 +63,21 @@ static float CHAR_SPEED = 720.0f;
 
 static void buildRing()
 {
-    if ((int)ringX.size() == TUNE.DIR_COUNT) return;
-    ringX.clear();
-    ringY.clear();
+    static int lastCount = -1;
+    if (lastCount == TUNE.DIR_COUNT) return;
+    lastCount = TUNE.DIR_COUNT;
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
         float a = (float)M_PI * 2.0f * (float)i / (float)TUNE.DIR_COUNT;
-        ringX.push_back(cosf(a));
-        ringY.push_back(sinf(a));
+        ringX[i] = cosf(a);
+        ringY[i] = sinf(a);
     }
     headingIdx = -1;
 }
 
-static float clearanceFor(const std::vector<Threat>& threats,
-                          const std::vector<Body>& bodies,
-                          float mx,
-                          float my,
-                          float mvx,
-                          float mvy)
+static float clearanceFor(const std::vector<Threat>& threats, const std::vector<Body>& bodies, float mx, float my, float mvx, float mvy)
 {
-    float minClear = 1e18f;
+    float minClearSq = 1e18f;
     for (const auto& t : threats)
     {
         float relx = t.x - mx;
@@ -96,37 +86,31 @@ static float clearanceFor(const std::vector<Threat>& threats,
         float vry = t.vy - mvy;
         float vv = vrx * vrx + vry * vry;
         float ts = vv > 1e-6f ? -(relx * vrx + rely * vry) / vv : 0.0f;
-        if (ts < 0.0f)
-            ts = 0.0f;
-        else if (ts > TUNE.HORIZON_S)
-            ts = TUNE.HORIZON_S;
+        if (ts < 0.0f) ts = 0.0f;
+        else if (ts > TUNE.HORIZON_S) ts = TUNE.HORIZON_S;
         float cx = relx + vrx * ts;
         float cy = rely + vry * ts;
-        float clear = sqrtf(cx * cx + cy * cy) - t.rad;
-        if (clear < minClear) minClear = clear;
+        float clearSq = (cx * cx + cy * cy) - (t.rad * t.rad);
+        if (clearSq < minClearSq) minClearSq = clearSq;
     }
     for (const auto& b : bodies)
     {
         float dx = b.x - mx;
         float dy = b.y - my;
-        float clear = sqrtf(dx * dx + dy * dy) - (b.rad + 120.0f);
-        if (clear < minClear) minClear = clear;
+        float clearSq = (dx * dx + dy * dy) - ((b.rad + 120.0f) * (b.rad + 120.0f));
+        if (clearSq < minClearSq) minClearSq = clearSq;
     }
-    return minClear;
+    return minClearSq;
 }
 
-static float
-wallAhead(float mx, float my, float dirX, float dirY, float speed, float bodyR)
+static float wallAhead(float mx, float my, float dirX, float dirY, float speed, float bodyR)
 {
     if (!wall_ready()) return 0.0f;
     float step = speed * TUNE.PROBE_T;
     int blocked = 0;
     for (int s = 1; s <= TUNE.PROBE_N; s++)
     {
-        if (wall_is_blocked_wide(mx + dirX * step * s,
-                                 my + dirY * step * s,
-                                 bodyR,
-                                 WALL_BLOCKS_MOVEMENT))
+        if (wall_is_blocked_wide(mx + dirX * step * s, my + dirY * step * s, bodyR, WALL_BLOCKS_MOVEMENT))
             blocked++;
     }
     return TUNE.WALL_HIT * (float)blocked / (float)TUNE.PROBE_N;
@@ -169,15 +153,9 @@ static uintptr_t call_fn(uintptr_t fn, uintptr_t a, uintptr_t b)
     return ((fn_t)target)(a, b);
 }
 
-static void fillDangerMap(float* danger,
-                          const std::vector<Threat>& threats,
-                          const std::vector<Body>& bodies,
-                          float mx,
-                          float my,
-                          float bodyR)
+static void fillDangerMap(float* danger, float mx, float my, float bodyR)
 {
-    for (int i = 0; i < TUNE.DIR_COUNT; i++)
-        danger[i] = 0.0f;
+    for (int i = 0; i < TUNE.DIR_COUNT; i++) danger[i] = 0.0f;
 
     for (const auto& t : threats)
     {
@@ -190,8 +168,7 @@ static void fillDangerMap(float* danger,
         {
             for (int i = 0; i < TUNE.DIR_COUNT; i++)
             {
-                float dot = (ringX[i] * dx + ringY[i] * dy) /
-                            (dist > 1e-6f ? dist : 1.0f);
+                float dot = (ringX[i] * dx + ringY[i] * dy) / (dist > 1e-6f ? dist : 1.0f);
                 if (dot > 0.7f) danger[i] = 1.0f;
             }
         }
@@ -200,8 +177,7 @@ static void fillDangerMap(float* danger,
             float weight = 1.0f - (clear - SAFE_GAP) / (SAFE_GAP * 2.0f);
             for (int i = 0; i < TUNE.DIR_COUNT; i++)
             {
-                float dot = (ringX[i] * dx + ringY[i] * dy) /
-                            (dist > 1e-6f ? dist : 1.0f);
+                float dot = (ringX[i] * dx + ringY[i] * dy) / (dist > 1e-6f ? dist : 1.0f);
                 if (dot > 0.5f)
                 {
                     float val = weight * dot;
@@ -222,8 +198,7 @@ static void fillDangerMap(float* danger,
         {
             for (int i = 0; i < TUNE.DIR_COUNT; i++)
             {
-                float dot = (ringX[i] * dx + ringY[i] * dy) /
-                            (dist > 1e-6f ? dist : 1.0f);
+                float dot = (ringX[i] * dx + ringY[i] * dy) / (dist > 1e-6f ? dist : 1.0f);
                 if (dot > 0.7f) danger[i] = 1.0f;
             }
         }
@@ -241,12 +216,33 @@ static void fillDangerMap(float* danger,
     }
 }
 
-static void fillInterestMap(float* interest, float prevDirX, float prevDirY)
+static void fillInterestMap(float* interest, float mx, float my)
 {
+    float escapeX = 0.0f, escapeY = 0.0f;
+    for (const auto& t : threats)
+    {
+        float dx = mx - t.x;
+        float dy = my - t.y;
+        float dist = sqrtf(dx * dx + dy * dy);
+        if (dist > 1.0f)
+        {
+            float weight = 1.0f / (dist + 100.0f);
+            escapeX += (dx / dist) * weight;
+            escapeY += (dy / dist) * weight;
+        }
+    }
+
+    float escapeLen = sqrtf(escapeX * escapeX + escapeY * escapeY);
+    if (escapeLen > 0.001f)
+    {
+        escapeX /= escapeLen;
+        escapeY /= escapeLen;
+    }
+
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
-        float dot = ringX[i] * prevDirX + ringY[i] * prevDirY;
-        interest[i] = (dot + 1.0f) * 0.5f;
+        float dotEscape = ringX[i] * escapeX + ringY[i] * escapeY;
+        interest[i] = (dotEscape + 1.0f) * 0.5f;
     }
 }
 
@@ -254,9 +250,7 @@ static int selectBestDirection(const float* danger, const float* interest)
 {
     float minDanger = 1e18f;
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
-    {
         if (danger[i] < minDanger) minDanger = danger[i];
-    }
 
     int bestIdx = -1;
     float bestScore = -1e18f;
@@ -321,9 +315,11 @@ void autododge()
     if (fabsf(mx) < TUNE.MIN_POS && fabsf(my) < TUNE.MIN_POS) return;
 
     CHAR_SPEED = own_speed < 1.0f ? 720.0f : own_speed;
-    static std::vector<Threat> threats;
     threats.clear();
     bodies.clear();
+    threats.reserve(32);
+    bodies.reserve(16);
+
     float bodyR = myRadius + TUNE.SKIN;
     float zoneSq = TUNE.AWARE * TUNE.AWARE;
 
@@ -342,9 +338,7 @@ void autododge()
         memcpy(&dataVtable, data, sizeof(dataVtable));
         if (!dataVtable || !pointer_plausible(dataVtable)) continue;
         uintptr_t vtRva = dataVtable - base;
-        if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE ||
-            dataVtable - base != VTABLE_PROJ_DATA_RVA)
-            continue;
+        if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE || dataVtable - base != VTABLE_PROJ_DATA_RVA) continue;
 
         int32_t pid = 0, teamId = 0, px_i = 0, py_i = 0;
         memcpy(&pid, obj + OBJ_GLOBALID_OFF, sizeof(pid));
@@ -370,11 +364,8 @@ void autododge()
             int32_t ind = 0, projSpeed = 0, projRadius = 0;
             if (!read_int(objPtr + PROJECTILE_ISINDIRECT_OFF, &ind)) continue;
 
-            memcpy(
-                &projSpeed, data + PROJECTILEDATA_SPEED_OFF, sizeof(projSpeed));
-            memcpy(&projRadius,
-                   data + PROJECTILEDATA_RADIUS_OFF,
-                   sizeof(projRadius));
+            memcpy(&projSpeed, data + PROJECTILEDATA_SPEED_OFF, sizeof(projSpeed));
+            memcpy(&projRadius, data + PROJECTILEDATA_RADIUS_OFF, sizeof(projRadius));
             state.isIndirect = ind != 0;
             state.isBeam = call_fn(addr_projbeam, dataPtr, 0) != 0;
             state.speed = (float)projSpeed;
@@ -386,11 +377,7 @@ void autododge()
             state.name[0] = '\0';
 
             uintptr_t nameStr = call_fn(addr_dataname, dataPtr, 0);
-            if (nameStr)
-                read_scstring(nameStr,
-                              SCSTRING_DEFAULT_MAX_LENGTH,
-                              state.name,
-                              sizeof(state.name));
+            if (nameStr) read_scstring(nameStr, SCSTRING_DEFAULT_MAX_LENGTH, state.name, sizeof(state.name));
         }
         else
         {
@@ -413,8 +400,7 @@ void autododge()
         float dx = px - mx, dy = py - my;
         if (dx * dx + dy * dy > zoneSq) continue;
 
-        bool blob = !state.isBeam && !state.isIndirect && state.speed > 0.0f &&
-                    state.speed < 1600.0f;
+        bool blob = !state.isBeam && !state.isIndirect && state.speed > 0.0f && state.speed < 1600.0f;
         float speedNow = sqrtf(state.vx * state.vx + state.vy * state.vy);
         float ux = (blob || speedNow < 1.0f) ? 0.0f : state.vx / speedNow;
         float uy = (blob || speedNow < 1.0f) ? 0.0f : state.vy / speedNow;
@@ -423,27 +409,15 @@ void autododge()
         {
             float playerAlong = (mx - px) * ux + (my - py) * uy;
             if (playerAlong < -50.0f) continue;
-            if (!state.isIndirect &&
-                !wall_los(px,
-                          py,
-                          px + ux * (playerAlong > 0.0f ? playerAlong : 0.0f),
-                          py + uy * (playerAlong > 0.0f ? playerAlong : 0.0f),
-                          WALL_BLOCKS_PROJECTILES))
-                continue;
+            if (!state.isIndirect && !wall_los(px, py, px + ux * (playerAlong > 0.0f ? playerAlong : 0.0f), py + uy * (playerAlong > 0.0f ? playerAlong : 0.0f), WALL_BLOCKS_PROJECTILES)) continue;
         }
-        threats.push_back({px,
-                           py,
-                           blob ? 0.0f : state.vx,
-                           blob ? 0.0f : state.vy,
-                           state.radius + myRadius});
+        threats.push_back({px, py, blob ? 0.0f : state.vx, blob ? 0.0f : state.vy, state.radius + myRadius});
     }
 
     for (auto it = proj_cache.begin(); it != proj_cache.end();)
     {
-        if (now - it->second.lastSeen > 1024)
-            it = proj_cache.erase(it);
-        else
-            ++it;
+        if (now - it->second.lastSeen > 1024) it = proj_cache.erase(it);
+        else ++it;
     }
 
     if (threats.empty() && bodies.empty())
@@ -452,12 +426,11 @@ void autododge()
         return;
     }
 
-    float stayClear = clearanceFor(threats, bodies, mx, my, 0.0f, 0.0f);
-    bool inDanger = stayClear < TUNE.ENGAGE;
+    float stayClearSq = clearanceFor(threats, bodies, mx, my, 0.0f, 0.0f);
+    bool inDanger = stayClearSq < (TUNE.ENGAGE * TUNE.ENGAGE);
     if (inDanger) lastDangerTs = now;
 
-    if (!inDanger &&
-        (headingIdx < 0 || now - lastDangerTs > TUNE.RELEASE_GRACE_MS))
+    if (!inDanger && (headingIdx < 0 || now - lastDangerTs > TUNE.RELEASE_GRACE_MS))
     {
         endDodge();
         return;
@@ -469,8 +442,8 @@ void autododge()
     float dangerMap[128];
     float interestMap[128];
 
-    fillDangerMap(dangerMap, threats, bodies, mx, my, bodyR);
-    fillInterestMap(interestMap, prevDirX, prevDirY);
+    fillDangerMap(dangerMap, mx, my, bodyR);
+    fillInterestMap(interestMap, mx, my);
 
     int bestIdx = selectBestDirection(dangerMap, interestMap);
 
@@ -490,18 +463,14 @@ void autododge()
     float outDirX = bestDirX, outDirY = bestDirY;
     if (hasPrev)
     {
-        float smoothX =
-            prevDirX * TUNE.SMOOTH + bestDirX * (1.0f - TUNE.SMOOTH);
-        float smoothY =
-            prevDirY * TUNE.SMOOTH + bestDirY * (1.0f - TUNE.SMOOTH);
+        float smoothX = prevDirX * TUNE.SMOOTH + bestDirX * (1.0f - TUNE.SMOOTH);
+        float smoothY = prevDirY * TUNE.SMOOTH + bestDirY * (1.0f - TUNE.SMOOTH);
         float len = sqrtf(smoothX * smoothX + smoothY * smoothY);
         if (len > 0.001f)
         {
             float nx = smoothX / len;
             float ny = smoothY / len;
-            if (clearanceFor(
-                    threats, bodies, mx, my, CHAR_SPEED * nx, CHAR_SPEED * ny) >
-                SAFE_GAP)
+            if (clearanceFor(threats, bodies, mx, my, CHAR_SPEED * nx, CHAR_SPEED * ny) > (SAFE_GAP * SAFE_GAP))
             {
                 outDirX = nx;
                 outDirY = ny;
