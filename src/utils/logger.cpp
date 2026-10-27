@@ -99,13 +99,14 @@ void dump_header(void)
          (void*)addr_getdata,
          (void*)addr_getgid,
          (void*)addr_movedto);
-    line("rva charspeed=%p charradius=%p projspeed=%p projradius=%p "
-         "projbeam=%p\n",
+    line("rva charspeed=%p charradius=%p projbeam=%p dataname=%p "
+         "skillat=%p skilldata=%p\n",
          (void*)addr_charspeed,
          (void*)addr_charradius,
-         (void*)addr_projspeed,
-         (void*)addr_projradius,
-         (void*)addr_projbeam);
+         (void*)addr_projbeam,
+         (void*)addr_dataname,
+         (void*)addr_skillat,
+         (void*)addr_skilldata);
     line("off state=%llx stateenum=%llx scene=%llx client=%llx mgr=%llx "
          "array=%llx count=%llx\n",
          (unsigned long long)STATE_RVA,
@@ -218,7 +219,7 @@ void dump_own(void)
 void dump_ad(void)
 {
     line("adg stage=%d haz=%d thr=%d danger=%d dir=(%.2f,%.2f) dmg=%.0f "
-         "first=%.1f range=%.0f map=%d rk=%d "
+         "first=%.1f map=%d rk=%d "
          "tgt=(%.0f,%.0f) sent=%d active=%d moving=%d "
          "wall=%d %dx%d holes=%d\n",
          dbg.stage,
@@ -229,7 +230,6 @@ void dump_ad(void)
          dbg.dy,
          dbg.ix,
          dbg.iy,
-         dbg.range,
          dbg.mapn,
          dbg.ranged,
          dbg.tx,

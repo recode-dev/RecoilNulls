@@ -34,12 +34,13 @@ uintptr_t addr_getdata = 0;
 uintptr_t addr_getgid = 0;
 uintptr_t addr_charspeed = 0;
 uintptr_t addr_charradius = 0;
-uintptr_t addr_projspeed = 0;
-uintptr_t addr_projradius = 0;
 uintptr_t addr_projbeam = 0;
+uintptr_t addr_dataname = 0;
 uintptr_t addr_castrange = 0;
 uintptr_t addr_skillproj = 0;
 uintptr_t addr_weaponskill = 0;
+uintptr_t addr_skillat = 0;
+uintptr_t addr_skilldata = 0;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
@@ -228,23 +229,6 @@ uintptr_t callable(uintptr_t rva)
         return 0;
     }
     return address;
-}
-BOOL copy(uintptr_t source, void* destination, size_t length)
-{
-    if (!source || !destination || !length)
-    {
-        return NO;
-    }
-    if (!gum_live)
-    {
-        return NO;
-    }
-    if (!gum_memory_is_readable((gconstpointer)source, (gsize)length))
-    {
-        return NO;
-    }
-    memcpy(destination, (const void*)source, length);
-    return YES;
 }
 void stage_note(const char* what);
 int gum_live = 0;
@@ -454,7 +438,7 @@ uintptr_t base = 0;
 uintptr_t manager_ptr = 0;
 uint64_t ticks_a = 0;
 float own_speed = 720.0f;
-float own_r = 0.0f;
+float own_r = 60.0f;
 uint32_t own_hp = 0;
 uint64_t us(void)
 {
@@ -657,11 +641,9 @@ void scan_world(void)
         ownData = addr_getdata ? call1(addr_getdata, own) : 0;
         if (pointer_plausible(ownData) && read_int(ownData, &probe))
         {
-            int32_t radius =
-                addr_charradius ? call1i(addr_charradius, ownData) : 0;
-            int32_t speed =
-                addr_charspeed ? call1i(addr_charspeed, ownData) : 0;
-            if (radius >= 20 && radius <= 400) own_r = (float)radius;
+            int32_t radius = call1i(addr_charradius, ownData);
+            int32_t speed = call1i(addr_charspeed, ownData);
+            own_r = (float)radius;
             if (speed >= 300 && speed <= 3000) own_speed = (float)speed;
         }
     }
@@ -700,7 +682,6 @@ void run_workload(void)
 {
     wall_maybe_refresh((uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0));
     scan_world();
-    dbg.range = own_cast_range();
     run_autododge();
 }
 void run_autododge(void)
@@ -795,12 +776,13 @@ void resolve_addresses(void)
     addr_getgid = callable(RVA_LOGICGAMEOBJECTCLIENT_GETGLOBALID);
     addr_charspeed = callable(RVA_LOGICCHARACTERDATA_GETSPEED);
     addr_charradius = callable(RVA_LOGICCHARACTERDATA_GETCOLLISIONRADIUS);
-    addr_projspeed = callable(RVA_LOGICPROJECTILEDATA_GETSPEED);
-    addr_projradius = callable(RVA_LOGICPROJECTILEDATA_GETRADIUS);
     addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
+    addr_dataname = callable(RVA_LOGICDATA_GETNAME);
     addr_castrange = callable(RVA_LOGICSKILLDATA_GETCASTRANGE);
     addr_skillproj = callable(RVA_LOGICSKILLDATA_GETPROJECTILEDATA);
     addr_weaponskill = callable(RVA_LOGICCHARACTERCLIENT_GETWEAPONSKILL);
+    addr_skillat = callable(RVA_LOGICCHARACTERCLIENT_GETSKILLAT);
+    addr_skilldata = callable(RVA_LOGICSKILLCLIENT_GETDATA);
     if (!addr_readable(addr_battlescreen, sizeof(void*)))
     {
         addr_battlescreen = 0;
@@ -882,7 +864,7 @@ static void harvested_add(uintptr_t chr)
 static void range_note(const char* name, float units)
 {
     int i = 0;
-    if (!name || !name[0] || units <= 0.0f)
+    if (!name || !name[0] || units <= 0.0f || units >= RANGE_UNITS_MAX)
     {
         return;
     }
@@ -925,8 +907,9 @@ static float range_lookup(const char* name)
 static void harvest_skill_data(uintptr_t data)
 {
     int32_t tiles = 0;
+    float units = 0.0f;
     int i = 0;
-    if (!obj_ok(data) || !addr_castrange || !addr_skillproj)
+    if (!pointer_plausible(data))
     {
         return;
     }
@@ -935,6 +918,7 @@ static void harvest_skill_data(uintptr_t data)
     {
         return;
     }
+    units = (float)tiles * CASTING_RANGE_SCALE;
     for (i = 0; i < PROJ_INDEX_MAX; i++)
     {
         uintptr_t proj = call2u(addr_skillproj, data, i);
@@ -943,22 +927,40 @@ static void harvest_skill_data(uintptr_t data)
         {
             continue;
         }
-        range_note(name, (float)tiles * CASTING_RANGE_SCALE);
+        range_note(name, units);
     }
 }
 static void harvest_character(uintptr_t chr)
 {
     uintptr_t weapon = 0;
-    if (!obj_ok(chr) || !addr_weaponskill)
+    int slot = 0;
+    int hyper = 0;
+    if (!obj_ok(chr))
     {
         return;
     }
     weapon = call1u(addr_weaponskill, chr);
-    if (!obj_ok(weapon))
+    if (obj_ok(weapon))
     {
-        return;
+        harvest_skill_data(weapon);
     }
-    harvest_skill_data(weapon);
+    for (slot = 0; slot < SKILL_SLOT_MAX; slot++)
+    {
+        uintptr_t skill = call2u(addr_skillat, chr, slot);
+        if (!pointer_plausible(skill))
+        {
+            continue;
+        }
+        for (hyper = 0; hyper < 2; hyper++)
+        {
+            uintptr_t data = call2u(addr_skilldata, skill, hyper);
+            if (!pointer_plausible(data))
+            {
+                continue;
+            }
+            harvest_skill_data(data);
+        }
+    }
 }
 static uintptr_t char_by_owner(int32_t ownerIdx)
 {
@@ -1027,35 +1029,6 @@ int range_map_size(void)
 {
     return range_map_n;
 }
-float own_cast_range(void)
-{
-    static float cached = 0.0f;
-    static uint64_t stamp = 0;
-    uint64_t now = us();
-    uintptr_t weapon = 0;
-    int32_t tiles = 0;
-    if (stamp != 0 && now - stamp < 500000ULL)
-    {
-        return cached;
-    }
-    stamp = now;
-    if (!own_elem || !addr_weaponskill || !addr_castrange)
-    {
-        return cached;
-    }
-    if (!obj_ok(own_elem))
-    {
-        return cached;
-    }
-    weapon = call1u(addr_weaponskill, own_elem);
-    if (!obj_ok(weapon))
-    {
-        return cached;
-    }
-    tiles = call1i(addr_castrange, weapon);
-    cached = tiles > 0 ? (float)tiles * CASTING_RANGE_SCALE : 0.0f;
-    return cached;
-}
 void state_note(int state)
 {
     if (prev_state == 5 && state != 5)
@@ -1075,7 +1048,8 @@ static int proj_read_name(uintptr_t data, char* dst, int cap)
     {
         return 0;
     }
-    if (!read_ptr(data + (uintptr_t)PROJ_DATA_NAME_OFF, &strp) || !strp)
+    strp = (void*)call1u(addr_dataname, data);
+    if (!strp)
     {
         return 0;
     }

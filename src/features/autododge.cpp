@@ -272,16 +272,27 @@ void autododge(void)
                     state.lastX = px_i;
                     state.lastY = py_i;
                     state.lastTs = now;
-                    uint8_t ind = 0;
-                    if (!read_byte(dataPtr + PROJ_ISTHROWER_OFF, &ind))
+                    int32_t ind = 0;
+                    int32_t projSpeed = 0;
+                    int32_t projRadius = 0;
+                    if (!read_int(objPtr + PROJECTILE_ISINDIRECT_OFF, &ind))
+                    {
+                        continue;
+                    }
+                    if (!read_int(dataPtr + PROJECTILEDATA_SPEED_OFF, &projSpeed))
+                    {
+                        continue;
+                    }
+                    if (!read_int(dataPtr + PROJECTILEDATA_RADIUS_OFF,
+                                  &projRadius))
                     {
                         continue;
                     }
                     state.isIndirect = (ind != 0);
                     state.isBeam =
                         (call1i_local(addr_projbeam, dataPtr) != 0);
-                    state.speed = (float)call1i_local(addr_projspeed, dataPtr);
-                    state.radius = (float)call1i_local(addr_projradius, dataPtr);
+                    state.speed = (float)projSpeed;
+                    state.radius = (float)projRadius;
                     state.castRange = range_for_proj(dataPtr, ownerIdx);
                 }
                 else
@@ -308,7 +319,7 @@ void autododge(void)
                     }
                 }
                 state.lastSeen = now;
-                float radius = state.radius > 0.0f ? state.radius : 100.0f;
+                float radius = state.radius;
                 bool blob = !state.isBeam && !state.isIndirect &&
                             state.speed > 0.0f && state.speed < 1600.0f;
                 float speedNow = sqrtf(state.vx * state.vx + state.vy * state.vy);
