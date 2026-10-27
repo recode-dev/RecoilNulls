@@ -1,7 +1,7 @@
 #ifndef FEATURES_AUTODODGE_AUTODODGE_H
 #define FEATURES_AUTODODGE_AUTODODGE_H
 #include <cstdint>
-extern __thread int in_move;
+extern int in_move;
 extern int active;
 extern int moving;
 extern int32_t ad_target_x;

@@ -11,6 +11,7 @@
 #include <vector>
 #include <array>
 
+int in_move = 0;
 int active = 0;
 int moving = 0;
 int32_t ad_target_x = INT32_MAX;
