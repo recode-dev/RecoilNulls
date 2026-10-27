@@ -1,5 +1,5 @@
 #include "objc.h"
-#include "hook.h"
+#include <frida-gum.h>
 #include <stddef.h>
 #include <stdlib.h>
 #if __has_include(<ptrauth.h>)
@@ -22,6 +22,28 @@ typedef struct
     objc_body_t body;
 } objc_hook_t;
 static objc_hook_t g_objc_hooks[OBJC_HOOK_MAX];
+static int image_owns(uintptr_t address, uintptr_t imageBase)
+{
+    GumModule* module = NULL;
+    const GumMemoryRange* range = NULL;
+    int owned = 0;
+    if (!address || !imageBase)
+    {
+        return 0;
+    }
+    module = gum_process_find_module_by_address((GumAddress)address);
+    if (!module)
+    {
+        return 0;
+    }
+    range = gum_module_get_range(module);
+    if (range && (uintptr_t)range->base_address == imageBase)
+    {
+        owned = 1;
+    }
+    g_object_unref(module);
+    return owned;
+}
 static uintptr_t objc_strip_imp(IMP imp)
 {
 #if defined(__has_feature)
@@ -198,11 +220,11 @@ int objc_arm(uintptr_t imageBase,
     if (!imageBase || !clsName || !selName || !body) return 0;
     Class wanted = objc_getClass(clsName);
     if (!wanted) return 0;
-    if (hook_image_base((uintptr_t)wanted) != imageBase) return 0;
+    if (!image_owns((uintptr_t)wanted, imageBase)) return 0;
     SEL sel = sel_registerName(selName);
     Class ownerClass = objc_owner(wanted, sel);
     if (!ownerClass) return 0;
-    if (hook_image_base((uintptr_t)ownerClass) != imageBase) return 0;
+    if (!image_owns((uintptr_t)ownerClass, imageBase)) return 0;
     Method method = class_getInstanceMethod(ownerClass, sel);
     if (!method) return 0;
     if (!sel_isEqual(method_getName(method), sel)) return 0;

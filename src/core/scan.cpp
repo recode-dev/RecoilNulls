@@ -19,6 +19,7 @@
 #include "scan.h"
 #include <frida-gum.h>
 const char* image_names[2] = {"Nulls Brawl", nullptr};
+constexpr float CASTING_RANGE_SCALE = 100.0f;
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
 BOOL mode_strong = NO;

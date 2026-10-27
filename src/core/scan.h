@@ -292,17 +292,6 @@ static inline BOOL image_segment_contains(uintptr_t imageBase,
     }
     return NO;
 }
-static inline BOOL image_text_contains(uintptr_t imageBase, uintptr_t address)
-{
-    uintptr_t start = 0;
-    uintptr_t end = 0;
-    uint32_t prot = 0;
-    if (!image_segment_contains(imageBase, address, NO, &start, &end, &prot))
-    {
-        return NO;
-    }
-    return (prot & VM_PROT_EXECUTE) ? YES : NO;
-}
 static inline BOOL object_plausible(void* object)
 {
     if (!object)
@@ -399,7 +388,6 @@ uint64_t us(void);
 void load_function_starts(void);
 BOOL start_boundary(const uint8_t* bytes, size_t offset);
 BOOL start_word(uint32_t word);
-#include "hook.h"
 extern int fb_on;
 extern uint64_t idle_start;
 extern int live_objs;
