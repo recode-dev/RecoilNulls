@@ -23,13 +23,13 @@ static const uint32_t SHA_IV[8] = {0x6a09e667UL,
                                    0x9b05688cUL,
                                    0x1f83d9abUL,
                                    0x5be0cd19UL};
-typedef struct
+struct sha_ctx_t
 {
     uint32_t h[8];
     uint8_t buf[64];
     uint64_t bits;
     size_t n;
-} sha_ctx_t;
+};
 static uint32_t ror(uint32_t v, int s)
 {
     return (v >> s) | (v << (32 - s));

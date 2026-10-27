@@ -221,8 +221,8 @@ uintptr_t callable(uintptr_t rva)
 int gum_live = 0;
 static BOOL module_base_by_name(const char* name, uintptr_t* out_base)
 {
-    GumModule* module = NULL;
-    const GumMemoryRange* range = NULL;
+    GumModule* module = nullptr;
+    const GumMemoryRange* range = nullptr;
     uintptr_t found = 0;
     if (!name || !name[0] || !out_base)
     {
@@ -300,8 +300,8 @@ uint64_t us(void)
 {
     return static_cast<uint64_t>(g_get_monotonic_time());
 }
-typedef uintptr_t (*fn_self_t)(uintptr_t);
-typedef int32_t (*fn_self_int_t)(uintptr_t);
+using fn_self_t = uintptr_t (*)(uintptr_t);
+using fn_self_int_t = int32_t (*)(uintptr_t);
 static uintptr_t call(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self)

@@ -113,7 +113,7 @@ static int ptr_is_heap(const void* p)
     {
         return 0;
     }
-    return malloc_zone_from_ptr(const_cast<void*>(p)) != NULL;
+    return malloc_zone_from_ptr(const_cast<void*>(p)) != nullptr;
 }
 int enqueue_skill(int x, int y, int type, void* skillData)
 {

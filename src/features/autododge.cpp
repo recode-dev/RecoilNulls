@@ -199,7 +199,7 @@ static uintptr_t call_fn(uintptr_t fn, uintptr_t a, uintptr_t b)
     uintptr_t rva = (fn >= base) ? (fn - base) : fn;
     uintptr_t target = callable(rva);
     if (!target) return 0;
-    typedef uintptr_t (*fn_t)(uintptr_t, uintptr_t);
+    using fn_t = uintptr_t (*)(uintptr_t, uintptr_t);
     return ((fn_t)target)(a, b);
 }
 void autododge_reset()

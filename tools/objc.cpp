@@ -7,7 +7,7 @@
 #endif
 #define OBJC_HOOK_MAX 32
 #define OBJC_WANTED_MAX 4
-typedef struct
+struct objc_hook_t
 {
     Class cls;
     Class wanted[OBJC_WANTED_MAX];
@@ -16,12 +16,12 @@ typedef struct
     IMP original;
     int used;
     objc_hook_fn body;
-} objc_hook_t;
+};
 static objc_hook_t g_objc_hooks[OBJC_HOOK_MAX];
 static int image_owns(uintptr_t address, uintptr_t imageBase)
 {
-    GumModule* module = NULL;
-    const GumMemoryRange* range = NULL;
+    GumModule* module = nullptr;
+    const GumMemoryRange* range = nullptr;
     int owned = 0;
     if (!address || !imageBase)
     {
@@ -112,8 +112,8 @@ static int objc_arg_types(const char* types, char* out, size_t capacity)
 static objc_hook_t* objc_find(id self, SEL _cmd)
 {
     Class start = object_getClass(self);
-    if (!start) return NULL;
-    objc_hook_t* bySelector = NULL;
+    if (!start) return nullptr;
+    objc_hook_t* bySelector = nullptr;
     int bySelectorCount = 0;
     for (int i = 0; i < OBJC_HOOK_MAX; i++)
     {
@@ -127,7 +127,7 @@ static objc_hook_t* objc_find(id self, SEL _cmd)
         }
     }
     if (bySelectorCount == 1) return bySelector;
-    return NULL;
+    return nullptr;
 }
 static int objc_targets(id self, objc_hook_t* hook)
 {
@@ -180,11 +180,11 @@ static void objc_rep_c(id self, SEL _cmd, id a1, id a2)
             self, _cmd, a1, a2);
     }
 }
-typedef struct
+struct objc_resolve_ctx_t
 {
     GumAddress address;
     int found;
-} objc_resolve_ctx_t;
+};
 static gboolean objc_resolve_cb(const GumApiDetails* details, gpointer user)
 {
     objc_resolve_ctx_t* ctx = (objc_resolve_ctx_t*)user;
@@ -196,7 +196,7 @@ static Class objc_owner_by_resolver(const char* clsName,
                                     const char* selName,
                                     GumAddress* outImp)
 {
-    GError* error = NULL;
+    GError* error = nullptr;
     GumApiResolver* resolver = gum_api_resolver_make("objc");
     if (!resolver) return Nil;
     gchar* query = g_strdup_printf("-[%s %s]", clsName, selName);
@@ -235,7 +235,7 @@ int objc_arm(uintptr_t imageBase,
     int argc = objc_arg_types(types, args, sizeof(args));
     if (argc < 3) return 0;
     if (args[0] != 'v') return 0;
-    IMP replacement = NULL;
+    IMP replacement = nullptr;
     if (argc == 3)
     {
         replacement = reinterpret_cast<IMP>(objc_rep_a);
