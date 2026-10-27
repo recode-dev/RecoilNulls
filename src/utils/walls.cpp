@@ -188,9 +188,8 @@ int wall_build(void)
         uintptr_t type = 0;
         uint8_t bits = 0;
         wall_grid[i] = 0;
-        memcpy(&tile,
-               wall_raw + (size_t)i * sizeof(uintptr_t),
-               sizeof(uintptr_t));
+        memcpy(
+            &tile, wall_raw + (size_t)i * sizeof(uintptr_t), sizeof(uintptr_t));
         if (!tile)
         {
             continue;

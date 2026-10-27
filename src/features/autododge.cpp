@@ -234,8 +234,7 @@ void autododge(void)
             for (int i = 0; i < obj_snapshot_n; i++)
             {
                 uintptr_t objPtr = obj_snapshot[i];
-                if (!objPtr)
-                    continue;
+                if (!objPtr) continue;
                 if (!pointer_plausible(objPtr)) continue;
                 uintptr_t dataPtr = 0;
                 if (!read_ptr(objPtr + ELEM_DEF_OFF, (void**)&dataPtr) ||
@@ -282,7 +281,8 @@ void autododge(void)
                     {
                         continue;
                     }
-                    if (!read_int(dataPtr + PROJECTILEDATA_SPEED_OFF, &projSpeed))
+                    if (!read_int(dataPtr + PROJECTILEDATA_SPEED_OFF,
+                                  &projSpeed))
                     {
                         continue;
                     }
@@ -292,8 +292,7 @@ void autododge(void)
                         continue;
                     }
                     state.isIndirect = (ind != 0);
-                    state.isBeam =
-                        (call1i_local(addr_projbeam, dataPtr) != 0);
+                    state.isBeam = (call1i_local(addr_projbeam, dataPtr) != 0);
                     state.speed = (float)projSpeed;
                     state.radius = (float)projRadius;
                 }
@@ -308,8 +307,10 @@ void autododge(void)
                         float observedX = ddx / dt;
                         float observedY = ddy / dt;
                         float alpha = state.hasVelocity ? 0.4f : 1.0f;
-                        state.vx = state.vx * (1.0f - alpha) + observedX * alpha;
-                        state.vy = state.vy * (1.0f - alpha) + observedY * alpha;
+                        state.vx =
+                            state.vx * (1.0f - alpha) + observedX * alpha;
+                        state.vy =
+                            state.vy * (1.0f - alpha) + observedY * alpha;
                         state.hasVelocity = true;
                     }
                     state.lastX = px_i;
@@ -321,7 +322,8 @@ void autododge(void)
                 float radius = state.radius;
                 bool blob = !state.isBeam && !state.isIndirect &&
                             state.speed > 0.0f && state.speed < 1600.0f;
-                float speedNow = sqrtf(state.vx * state.vx + state.vy * state.vy);
+                float speedNow =
+                    sqrtf(state.vx * state.vx + state.vy * state.vy);
                 float ux = 0.0f;
                 float uy = 0.0f;
                 if (!blob && speedNow >= 1.0f)
@@ -386,8 +388,8 @@ void autododge(void)
     float prevScore = -1e18f;
     if (hasPrev)
     {
-        prevScore =
-            clearanceFor(threats, mx, my, CHAR_SPEED * prevDir.x, CHAR_SPEED * prevDir.y);
+        prevScore = clearanceFor(
+            threats, mx, my, CHAR_SPEED * prevDir.x, CHAR_SPEED * prevDir.y);
         prevScore -= wallAhead(mx, my, prevDir, CHAR_SPEED, bodyR);
         prevScore += TUNE.MOMENTUM;
     }
@@ -417,9 +419,8 @@ void autododge(void)
     if (hasPrev)
     {
         float dot = chosen.x * prevDir.x + chosen.y * prevDir.y;
-        float margin = (prevScore > 0.0f)
-                           ? TUNE.SWITCH_MARGIN * (2.0f - dot)
-                           : TUNE.SWITCH_MIN;
+        float margin = (prevScore > 0.0f) ? TUNE.SWITCH_MARGIN * (2.0f - dot)
+                                          : TUNE.SWITCH_MIN;
         bool rescue = (prevScore <= 0.0f && bestScore > 0.0f);
         if (!rescue && bestScore <= prevScore + margin)
         {
@@ -456,7 +457,8 @@ void autododge(void)
     g_lastGoodTs = now;
     int32_t tx = clamp_axis(mx + dir.x * TUNE.REACH, wall_cache_w());
     int32_t ty = clamp_axis(my + dir.y * TUNE.REACH, wall_cache_h());
-    bool turned = ((dir.x * g_sentDirX + dir.y * g_sentDirY) < TUNE.SEND_TURN_DOT);
+    bool turned =
+        ((dir.x * g_sentDirX + dir.y * g_sentDirY) < TUNE.SEND_TURN_DOT);
     bool stale = (now - g_lastSentAt > TUNE.SEND_MIN_MS);
     if (turned || stale)
     {

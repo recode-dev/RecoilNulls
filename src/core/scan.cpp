@@ -169,9 +169,8 @@ BOOL write_bytes(uintptr_t address, const void* src, size_t length)
     {
         return NO;
     }
-    return gum_memory_write((gpointer)address,
-                            (const guint8*)src,
-                            (gsize)length)
+    return gum_memory_write(
+               (gpointer)address, (const guint8*)src, (gsize)length)
                ? YES
                : NO;
 }

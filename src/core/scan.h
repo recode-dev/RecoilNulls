@@ -70,7 +70,7 @@ static inline BOOL addr_readable(uintptr_t address, size_t length)
         return NO;
     }
     return gum_memory_is_readable((gconstpointer)address, (gsize)length) ? YES
-                                                                       : NO;
+                                                                         : NO;
 }
 static inline BOOL addr_executable(uintptr_t address)
 {
