@@ -109,33 +109,6 @@ static int objc_arg_types(const char* types, char* out, size_t capacity)
     out[used] = 0;
     return (int)used;
 }
-static int objc_class_owns(Class cls, SEL sel)
-{
-    if (!cls || !sel) return 0;
-    unsigned count = 0;
-    Method* list = class_copyMethodList(cls, &count);
-    if (!list) return 0;
-    int found = 0;
-    for (unsigned i = 0; i < count; i++)
-    {
-        if (method_getName(list[i]) == sel)
-        {
-            found = 1;
-            break;
-        }
-    }
-    free(list);
-    return found;
-}
-static Class objc_owner(Class cls, SEL sel)
-{
-    if (!cls || !sel) return Nil;
-    for (Class c = cls; c; c = class_getSuperclass(c))
-    {
-        if (objc_class_owns(c, sel)) return c;
-    }
-    return Nil;
-}
 static objc_hook_t* objc_find(id self, SEL _cmd)
 {
     Class start = object_getClass(self);
@@ -207,6 +180,35 @@ static void objc_rep_c(id self, SEL _cmd, id a1, id a2)
             self, _cmd, a1, a2);
     }
 }
+typedef struct
+{
+    GumAddress address;
+    int found;
+} objc_resolve_ctx_t;
+static gboolean objc_resolve_cb(const GumApiDetails* details, gpointer user)
+{
+    objc_resolve_ctx_t* ctx = (objc_resolve_ctx_t*)user;
+    ctx->address = details->address;
+    ctx->found = 1;
+    return FALSE;
+}
+static Class objc_owner_by_resolver(const char* clsName, const char* selName,
+                                    GumAddress* outImp)
+{
+    GError* error = NULL;
+    GumApiResolver* resolver = gum_api_resolver_make("objc");
+    if (!resolver) return Nil;
+    gchar* query = g_strdup_printf("-[%s %s]", clsName, selName);
+    objc_resolve_ctx_t ctx = {0, 0};
+    gum_api_resolver_enumerate_matches(resolver, query, objc_resolve_cb, &ctx,
+                                       &error);
+    g_free(query);
+    if (error) g_error_free(error);
+    g_object_unref(resolver);
+    if (!ctx.found) return Nil;
+    *outImp = ctx.address;
+    return objc_getClass(clsName);
+}
 int objc_arm(uintptr_t imageBase,
              const char* clsName,
              const char* selName,
@@ -217,12 +219,15 @@ int objc_arm(uintptr_t imageBase,
     if (!wanted) return 0;
     if (!image_owns((uintptr_t)wanted, imageBase)) return 0;
     SEL sel = sel_registerName(selName);
-    Class ownerClass = objc_owner(wanted, sel);
-    if (!ownerClass) return 0;
+    GumAddress imp = 0;
+    Class ownerClass = objc_owner_by_resolver(clsName, selName, &imp);
+    if (!ownerClass || !imp) return 0;
     if (!image_owns((uintptr_t)ownerClass, imageBase)) return 0;
     Method method = class_getInstanceMethod(ownerClass, sel);
     if (!method) return 0;
     if (!sel_isEqual(method_getName(method), sel)) return 0;
+    if (objc_strip_imp(method_getImplementation(method)) != (uintptr_t)imp)
+        return 0;
     const char* types = method_getTypeEncoding(method);
     if (!types) return 0;
     char args[10];
