@@ -1,7 +1,6 @@
 #include "../core/scan.h"
 #include "../features/autododge.h"
 #include <dispatch/dispatch.h>
-#include <mach-o/dyld.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,9 +82,6 @@ void line(const char* format, ...)
 }
 void dump_header(void)
 {
-    uint32_t count = _dyld_image_count();
-    uint32_t i = 0;
-    uintptr_t found = 0;
     line("\n########## recoil header ##########\n");
     line("base=%p setup=%d ticks=%llu rate=%d/s\n",
          (void*)base,
@@ -133,20 +129,6 @@ void dump_header(void)
          (unsigned long long)VTABLE_PROJ_DATA_RVA,
          (unsigned long long)PROJDATA_SPEED_OFF,
          (unsigned long long)PROJDATA_RADIUS_OFF);
-    for (i = 0; i < count; i++)
-    {
-        uintptr_t imageBase = (uintptr_t)_dyld_get_image_header(i);
-        if (imageBase != (uintptr_t)base) continue;
-        found = imageBase;
-        line("[game] idx=%u base=%p name=%s\n",
-             i,
-             (void*)imageBase,
-             _dyld_get_image_name(i));
-    }
-    if (!found)
-        line("[game] base %p not found in dyld list (count=%u)\n",
-             (void*)base,
-             count);
 }
 void dump_chain(void)
 {

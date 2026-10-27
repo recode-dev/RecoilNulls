@@ -1,34 +1,30 @@
+#include <frida-gum.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
 extern "C"
 {
 #include "hook.h"
-#include <mach-o/dyld.h>
 }
 
 uintptr_t hook_image_base(uintptr_t address)
 {
-    uint32_t count = 0;
-    uint32_t i = 0;
-    uintptr_t best = 0;
+    GumModule* module = NULL;
+    const GumMemoryRange* range = NULL;
+    uintptr_t found = 0;
     if (!address)
     {
         return 0;
     }
-    count = _dyld_image_count();
-    if (count > 8192)
+    module = gum_process_find_module_by_address((GumAddress)address);
+    if (!module)
     {
-        count = 8192;
+        return 0;
     }
-    for (i = 0; i < count; i++)
+    range = gum_module_get_range(module);
+    if (range)
     {
-        uintptr_t base = (uintptr_t)_dyld_get_image_header(i);
-        if (base && base <= address && base > best)
-        {
-            best = base;
-        }
+        found = (uintptr_t)range->base_address;
     }
-    return best;
+    g_object_unref(module);
+    return found;
 }
