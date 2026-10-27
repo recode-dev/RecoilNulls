@@ -29,10 +29,6 @@ extern uintptr_t addr_getx;
 extern uintptr_t addr_gety;
 extern uintptr_t addr_battlescreen;
 extern uintptr_t addr_projbeam;
-extern uintptr_t addr_dataname;
-extern uintptr_t addr_castrange;
-float range_for_proj(uintptr_t projData, int32_t ownerIdx);
-int range_map_size(void);
 extern uintptr_t owner;
 extern int wired;
 extern dispatch_source_t scan_timer;
@@ -304,7 +300,6 @@ void setup(void);
 void run_autododge(void);
 extern uintptr_t scene_object;
 int scene_live(void);
-extern int prev_state;
 extern int coord_ok;
 extern int dead;
 extern int own_team_a;
@@ -314,7 +309,6 @@ extern uintptr_t own_elem;
 #define HOT_INTERVAL_US 2000
 void resolve_addresses(void);
 uintptr_t client(void);
-void state_note(int state);
 uintptr_t controller(void);
 extern int own_team_b;
 #endif

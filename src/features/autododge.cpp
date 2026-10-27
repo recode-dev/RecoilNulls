@@ -41,8 +41,6 @@ struct Threat
     float x, y;
     float vx, vy;
     float rad;
-    float left;
-    float pathLen;
 };
 struct ProjectileState
 {
@@ -53,7 +51,6 @@ struct ProjectileState
     int32_t lastX, lastY;
     uint64_t lastTs;
     float spawnX, spawnY;
-    float castRange;
     bool isIndirect;
     bool isBeam;
     bool hasVelocity;
@@ -93,13 +90,6 @@ static float clearanceFor(const std::vector<Threat>& threats,
     float horizon = TUNE.HORIZON_S;
     for (const auto& t : threats)
     {
-        float spd = sqrtf(t.vx * t.vx + t.vy * t.vy);
-        float maxT = horizon;
-        if (spd > 1.0f)
-        {
-            if (t.left > 0) maxT = std::min(maxT, t.left / spd);
-            if (t.pathLen > 0) maxT = std::min(maxT, t.pathLen / spd);
-        }
         float relx = t.x - myX;
         float rely = t.y - myY;
         float vrx = t.vx - mvx;
@@ -116,8 +106,8 @@ static float clearanceFor(const std::vector<Threat>& threats,
             float ts = -(relx * vrx + rely * vry) / vv;
             if (ts < 0)
                 ts = 0;
-            else if (ts > maxT)
-                ts = maxT;
+            else if (ts > horizon)
+                ts = horizon;
             cx = relx + vrx * ts;
             cy = rely + vry * ts;
         }
@@ -169,6 +159,24 @@ static void clearHeading()
     g_headingIdx = -1;
     g_holdUntil = 0;
 }
+static void releaseHeading(uint64_t now, float mx, float my)
+{
+    int32_t tx = 0;
+    int32_t ty = 0;
+    if (g_headingIdx < 0) return;
+    clearHeading();
+    tx = clamp_axis(mx, wall_cache_w());
+    ty = clamp_axis(my, wall_cache_h());
+    move_to(tx, ty, mx, my);
+    enqueue(tx, ty);
+    g_lastSentX = (float)tx;
+    g_lastSentY = (float)ty;
+    g_lastSentAt = now;
+    ad_target_x = tx;
+    ad_target_y = ty;
+    active = 0;
+    moving = 0;
+}
 static int32_t call1i_local(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self || !base) return 0;
@@ -188,6 +196,8 @@ void autododge_reset(void)
     g_lastSentX = 1e9f;
     g_lastSentY = 1e9f;
     g_lastSentAt = 0;
+    ad_target_x = 0;
+    ad_target_y = 0;
     active = 0;
     moving = 0;
 }
@@ -251,8 +261,6 @@ void autododge(void)
                     deadFlag != 0)
                     continue;
                 ProjectileState& state = g_proj_cache[pid];
-                int32_t ownerIdx = -1;
-                read_int(objPtr + OBJ_OWNERINDEX_OFF, &ownerIdx);
                 if (state.lastSeen == 0)
                 {
                     state.spawnX = px;
@@ -281,7 +289,6 @@ void autododge(void)
                         (call1i_local(addr_projbeam, dataPtr) != 0);
                     state.speed = (float)projSpeed;
                     state.radius = (float)projRadius;
-                    state.castRange = range_for_proj(dataPtr, ownerIdx);
                 }
                 else
                 {
@@ -301,10 +308,6 @@ void autododge(void)
                     state.lastX = px_i;
                     state.lastY = py_i;
                     state.lastTs = now;
-                    if (state.castRange <= 0.0f)
-                    {
-                        state.castRange = range_for_proj(dataPtr, ownerIdx);
-                    }
                 }
                 state.lastSeen = now;
                 if (dx_dist * dx_dist + dy_dist * dy_dist > zoneSq) continue;
@@ -319,24 +322,6 @@ void autododge(void)
                     ux = state.vx / speedNow;
                     uy = state.vy / speedNow;
                 }
-                float traveled =
-                    sqrtf((px - state.spawnX) * (px - state.spawnX) +
-                          (py - state.spawnY) * (py - state.spawnY));
-                float left = 1e6f;
-                if (state.castRange > 0.0f)
-                {
-                    left = std::max(0.0f, state.castRange - traveled);
-                    if (left <= 10.0f)
-                    {
-                        continue;
-                    }
-                    float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) -
-                                bodyR - radius;
-                    if (left < 0.85f * std::max(0.0f, gap))
-                    {
-                        continue;
-                    }
-                }
                 if (!blob && speedNow >= 1.0f)
                 {
                     float playerAlong = (mx - px) * ux + (my - py) * uy;
@@ -348,9 +333,6 @@ void autododge(void)
                         float hY = py + uy * std::max(playerAlong, 0.0f);
                         if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES))
                             continue;
-                        if (state.castRange > 0.0f &&
-                            playerAlong > left + radius)
-                            continue;
                     }
                 }
                 Threat t;
@@ -359,8 +341,6 @@ void autododge(void)
                 t.vx = blob ? 0.0f : state.vx;
                 t.vy = blob ? 0.0f : state.vy;
                 t.rad = radius + bodyR + DEFAULT_PAD + radius * DEFAULT_GROW;
-                t.pathLen = state.castRange > 0.0f ? left + radius : 1e6f;
-                t.left = left;
                 threats.push_back(t);
             }
         }
@@ -378,8 +358,8 @@ void autododge(void)
     }
     if (threats.empty())
     {
-        if (g_headingIdx >= 0 && now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS)
-            clearHeading();
+        if (now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS)
+            releaseHeading(now, mx, my);
         return;
     }
     float stayClear = clearanceFor(threats, mx, my, 0, 0);
@@ -388,7 +368,7 @@ void autododge(void)
     if (!inDanger &&
         (g_headingIdx < 0 || now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS))
     {
-        if (g_headingIdx >= 0) clearHeading();
+        releaseHeading(now, mx, my);
         return;
     }
     int prevIdx = g_headingIdx;
@@ -432,7 +412,7 @@ void autododge(void)
     }
     if (chosenScore <= stayClear)
     {
-        if (g_headingIdx >= 0) clearHeading();
+        releaseHeading(now, mx, my);
         return;
     }
     V2 chosen = g_ring[chosenIdx];

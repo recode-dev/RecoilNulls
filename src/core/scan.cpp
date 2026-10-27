@@ -19,7 +19,6 @@
 #include "scan.h"
 #include <frida-gum.h>
 const char* image_names[2] = {"Nulls Brawl", nullptr};
-constexpr float CASTING_RANGE_SCALE = 3.0f;
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
 uintptr_t addr_getinstance = 0;
@@ -35,10 +34,6 @@ uintptr_t addr_getgid = 0;
 uintptr_t addr_charspeed = 0;
 uintptr_t addr_charradius = 0;
 uintptr_t addr_projbeam = 0;
-uintptr_t addr_dataname = 0;
-uintptr_t addr_castrange = 0;
-uintptr_t addr_skillproj = 0;
-uintptr_t addr_weaponskill = 0;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
@@ -463,27 +458,8 @@ static int32_t call1i(uintptr_t fn, uintptr_t self)
     if (!fn || !self) return 0;
     return ((fn1i)fn)(self);
 }
-static uintptr_t call1u(uintptr_t fn, uintptr_t self)
-{
-    if (!fn || !self) return 0;
-    return ((uintptr_t(*)(uintptr_t))fn)(self);
-}
-static uintptr_t call2u(uintptr_t fn, uintptr_t self, int32_t arg)
-{
-    if (!fn || !self) return 0;
-    return ((uintptr_t(*)(uintptr_t, int32_t))fn)(self, arg);
-}
-static BOOL obj_ok(uintptr_t p)
-{
-    uintptr_t vt = 0;
-    if (!pointer_plausible(p) || !base) return NO;
-    if (!read_ptr(p, (void**)&vt) || !pointer_plausible(vt)) return NO;
-    uintptr_t rva = vt - base;
-    return (rva >= DC_RVA_LO && rva < DC_RVA_LO + DC_RVA_SIZE) ? YES : NO;
-}
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
-static uintptr_t own_data_vt = 0;
 uintptr_t obj_snapshot[COUNT_MAX];
 int obj_snapshot_n = 0;
 int32_t own_x = 0;
@@ -541,10 +517,6 @@ void scan_world(void)
     void* sceneValue = nullptr;
     if (!base) return;
     state = battle_state();
-    if (state != prev_state)
-    {
-        state_note(state);
-    }
     slot = (uintptr_t)read_global_ptr(STATE_RVA);
     scene_object = 0;
     if (slot && read_ptr(slot + (uintptr_t)SCENE_OFF, &sceneValue) &&
@@ -633,13 +605,8 @@ void scan_world(void)
         ownData = addr_getdata ? call1(addr_getdata, own) : 0;
         if (pointer_plausible(ownData) && read_int(ownData, &probe))
         {
-            void* ownDataVt = nullptr;
             int32_t radius = 0;
             int32_t speed = 0;
-            if (read_ptr(ownData, &ownDataVt) && ownDataVt)
-            {
-                own_data_vt = (uintptr_t)ownDataVt;
-            }
             radius = call1i(addr_charradius, ownData);
             speed = call1i(addr_charspeed, ownData);
             own_r = (float)radius;
@@ -764,7 +731,6 @@ void setup(void)
     objc_arm(base, "NullView", "render", objc_body);
     start_hot_timer();
 }
-int prev_state = -1;
 void resolve_addresses(void)
 {
     if (!base)
@@ -784,10 +750,6 @@ void resolve_addresses(void)
     addr_charspeed = callable(RVA_LOGICCHARACTERDATA_GETSPEED);
     addr_charradius = callable(RVA_LOGICCHARACTERDATA_GETCOLLISIONRADIUS);
     addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
-    addr_dataname = callable(RVA_LOGICDATA_GETNAME);
-    addr_castrange = callable(RVA_LOGICSKILLDATA_GETCASTRANGE);
-    addr_skillproj = callable(RVA_LOGICSKILLDATA_GETPROJECTILEDATA);
-    addr_weaponskill = callable(RVA_LOGICCHARACTERCLIENT_GETWEAPONSKILL);
     if (!addr_readable(addr_battlescreen, sizeof(void*)))
     {
         addr_battlescreen = 0;
@@ -828,245 +790,6 @@ uintptr_t client(void)
         return 0;
     }
     return (uintptr_t)clientPtr;
-}
-static int proj_read_name(uintptr_t data, char* dst, int cap);
-typedef struct
-{
-    char name[64];
-    float range;
-} range_entry_t;
-#define RANGE_MAP_MAX 32
-#define HARVEST_MAX 32
-static range_entry_t range_map[RANGE_MAP_MAX];
-static int range_map_n = 0;
-static uintptr_t harvested[HARVEST_MAX];
-static int harvested_n = 0;
-static void range_map_reset(void)
-{
-    range_map_n = 0;
-    harvested_n = 0;
-}
-static int harvested_has(uintptr_t chr)
-{
-    int i = 0;
-    for (i = 0; i < harvested_n; i++)
-    {
-        if (harvested[i] == chr)
-        {
-            return 1;
-        }
-    }
-    return 0;
-}
-static void harvested_add(uintptr_t chr)
-{
-    if (harvested_n >= HARVEST_MAX)
-    {
-        return;
-    }
-    harvested[harvested_n++] = chr;
-}
-static void range_note(const char* name, float units)
-{
-    int i = 0;
-    if (!name || !name[0] || units <= 0.0f || units >= RANGE_UNITS_MAX)
-    {
-        return;
-    }
-    for (i = 0; i < range_map_n; i++)
-    {
-        if (strcmp(range_map[i].name, name) == 0)
-        {
-            if (units > range_map[i].range)
-            {
-                range_map[i].range = units;
-            }
-            return;
-        }
-    }
-    if (range_map_n >= RANGE_MAP_MAX)
-    {
-        return;
-    }
-    strncpy(range_map[range_map_n].name, name, 63);
-    range_map[range_map_n].name[63] = 0;
-    range_map[range_map_n].range = units;
-    range_map_n++;
-}
-static float range_lookup(const char* name)
-{
-    int i = 0;
-    if (!name || !name[0])
-    {
-        return 0.0f;
-    }
-    for (i = 0; i < range_map_n; i++)
-    {
-        if (strcmp(range_map[i].name, name) == 0)
-        {
-            return range_map[i].range;
-        }
-    }
-    return 0.0f;
-}
-static void harvest_skill_data(uintptr_t data)
-{
-    int32_t tiles = 0;
-    float units = 0.0f;
-    int i = 0;
-    if (!pointer_plausible(data))
-    {
-        return;
-    }
-    tiles = call1i(addr_castrange, data);
-    if (tiles <= 0)
-    {
-        return;
-    }
-    units = (float)tiles * CASTING_RANGE_SCALE;
-    for (i = 0; i < PROJ_INDEX_MAX; i++)
-    {
-        uintptr_t proj = call2u(addr_skillproj, data, i);
-        char name[64];
-        if (!obj_ok(proj) || !proj_read_name(proj, name, 64))
-        {
-            continue;
-        }
-        range_note(name, units);
-    }
-}
-static void harvest_character(uintptr_t chr)
-{
-    uintptr_t weapon = 0;
-    if (!obj_ok(chr))
-    {
-        return;
-    }
-    weapon = call1u(addr_weaponskill, chr);
-    if (obj_ok(weapon))
-    {
-        harvest_skill_data(weapon);
-    }
-}
-static uintptr_t char_by_owner(int32_t ownerIdx)
-{
-    int i = 0;
-    if (ownerIdx < 0 || !own_data_vt || obj_snapshot_n <= 0)
-    {
-        return 0;
-    }
-    for (i = 0; i < obj_snapshot_n; i++)
-    {
-        uintptr_t obj = obj_snapshot[i];
-        uintptr_t data = 0;
-        uintptr_t dataVt = 0;
-        int32_t owner = -1;
-        int32_t hp = 0;
-        if (!obj || !obj_ok(obj))
-        {
-            continue;
-        }
-        if (!read_ptr(obj + (uintptr_t)ELEM_DEF_OFF, (void**)&data) || !data)
-        {
-            continue;
-        }
-        if (!read_ptr(data, (void**)&dataVt) || dataVt != own_data_vt)
-        {
-            continue;
-        }
-        if (!read_int(obj + (uintptr_t)OBJ_HP_OFF, &hp) || hp <= 0)
-        {
-            continue;
-        }
-        if (!read_int(obj + (uintptr_t)OBJ_OWNERINDEX_OFF, &owner))
-        {
-            continue;
-        }
-        if (owner == ownerIdx)
-        {
-            return obj;
-        }
-    }
-    return 0;
-}
-float range_for_proj(uintptr_t projData, int32_t ownerIdx)
-{
-    char name[64];
-    float hit = 0.0f;
-    uintptr_t chr = 0;
-    if (!obj_ok(projData) || !proj_read_name(projData, name, 64))
-    {
-        return 0.0f;
-    }
-    hit = range_lookup(name);
-    if (hit > 0.0f)
-    {
-        return hit;
-    }
-    chr = char_by_owner(ownerIdx);
-    if (!chr || harvested_has(chr))
-    {
-        return 0.0f;
-    }
-    harvested_add(chr);
-    harvest_character(chr);
-    return range_lookup(name);
-}
-int range_map_size(void)
-{
-    return range_map_n;
-}
-void state_note(int state)
-{
-    if (prev_state == 5 && state != 5)
-    {
-        range_map_reset();
-    }
-    prev_state = state;
-}
-static int proj_read_name(uintptr_t data, char* dst, int cap)
-{
-    void* strp = nullptr;
-    void* farp = nullptr;
-    uintptr_t str = 0;
-    uintptr_t src = 0;
-    int32_t len = 0;
-    if (!data || !dst || cap <= 1)
-    {
-        return 0;
-    }
-    strp = (void*)call1u(addr_dataname, data);
-    if (!strp)
-    {
-        return 0;
-    }
-    str = (uintptr_t)strp;
-    if (!read_int(str + (uintptr_t)SC_LEN_OFF, &len))
-    {
-        return 0;
-    }
-    if (len <= 0 || len >= cap)
-    {
-        return 0;
-    }
-    if (len <= 7)
-    {
-        src = str + (uintptr_t)SC_DATA_OFF;
-    }
-    else
-    {
-        if (!read_ptr(str + (uintptr_t)SC_DATA_OFF, &farp) || !farp)
-        {
-            return 0;
-        }
-        src = (uintptr_t)farp;
-    }
-    if (!read_bytes(src, dst, (size_t)len))
-    {
-        return 0;
-    }
-    dst[len] = 0;
-    return 1;
 }
 uintptr_t controller(void)
 {

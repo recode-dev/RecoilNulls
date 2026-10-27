@@ -105,11 +105,10 @@ void dump_header(void)
          (void*)addr_getdata,
          (void*)addr_getgid,
          (void*)addr_movedto);
-    line("rva charspeed=%p charradius=%p projbeam=%p dataname=%p\n",
+    line("rva charspeed=%p charradius=%p projbeam=%p\n",
          (void*)addr_charspeed,
          (void*)addr_charradius,
-         (void*)addr_projbeam,
-         (void*)addr_dataname);
+         (void*)addr_projbeam);
     line("off state=%llx stateenum=%llx scene=%llx client=%llx mgr=%llx "
          "array=%llx count=%llx\n",
          (unsigned long long)STATE_RVA,
@@ -288,7 +287,7 @@ void dump_ad(void)
     int near = 0;
     int proj = live_projectiles(&near);
     line("adg scan=%d active=%d moving=%d tgt=(%d,%d) proj=%d near=%d "
-         "map=%d wall=%d %dx%d holes=%d\n",
+         "wall=%d %dx%d holes=%d\n",
          scan_stage(),
          active,
          moving,
@@ -296,7 +295,6 @@ void dump_ad(void)
          (int)ad_target_y,
          proj,
          near,
-         range_map_size(),
          wall_ready(),
          wall_cache_w(),
          wall_cache_h(),
