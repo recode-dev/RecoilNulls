@@ -18,7 +18,7 @@
 #include "objc.h"
 #include "offsets.h"
 #include "scan.h"
-#include "gum_boot.h"
+#include <frida-gum.h>
 const char* image_names[2] = {"Nulls Brawl", nullptr};
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
@@ -459,11 +459,17 @@ static BOOL contains_ci(const char* haystack, const char* needle)
 static gboolean game_module_cb(GumModule* module, gpointer userData)
 {
     const GumMemoryRange* range = NULL;
+    const gchar* moduleName = NULL;
     if (!module || !userData)
     {
         return TRUE;
     }
-    if (!contains_ci(gum_module_get_name(module), "nulls"))
+    moduleName = gum_module_get_name(module);
+    if (!moduleName)
+    {
+        return TRUE;
+    }
+    if (!contains_ci(moduleName, "nulls"))
     {
         return TRUE;
     }
@@ -515,7 +521,8 @@ BOOL find_game_image(uintptr_t* out_base)
     {
         return NO;
     }
-    if (gum_enumerate_modules(game_module_cb, &found) && found)
+    gum_process_enumerate_modules(game_module_cb, &found);
+    if (found)
     {
         *out_base = found;
         return YES;
