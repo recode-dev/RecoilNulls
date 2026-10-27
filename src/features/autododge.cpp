@@ -1,6 +1,7 @@
 #include "../core/commands.h"
 #include "../core/scan.h"
 #include "../core/scstring.h"
+#define PROJ_DATA_BLOCK_SIZE (PROJECTILEDATA_RADIUS_OFF + sizeof(int32_t))
 #include "../utils/walls.h"
 #include <algorithm>
 #include <cmath>
@@ -254,8 +255,11 @@ void autododge(void)
                 memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
                 if (!dataPtr) continue;
                 if (!pointer_plausible(dataPtr)) continue;
+                uint8_t data[PROJ_DATA_BLOCK_SIZE];
+                if (!read_bytes(dataPtr, data, sizeof(data))) continue;
                 uintptr_t dataVtable = 0;
-                if (!read_ptr(dataPtr, (void**)&dataVtable) || !dataVtable)
+                memcpy(&dataVtable, data, sizeof(dataVtable));
+                if (!dataVtable)
                     continue;
                 if (!pointer_plausible(dataVtable)) continue;
                 uintptr_t vtRva = dataVtable - base;
@@ -291,16 +295,10 @@ void autododge(void)
                     {
                         continue;
                     }
-                    if (!read_int(dataPtr + PROJECTILEDATA_SPEED_OFF,
-                                  &projSpeed))
-                    {
-                        continue;
-                    }
-                    if (!read_int(dataPtr + PROJECTILEDATA_RADIUS_OFF,
-                                  &projRadius))
-                    {
-                        continue;
-                    }
+                    memcpy(&projSpeed, data + PROJECTILEDATA_SPEED_OFF,
+                           sizeof(projSpeed));
+                    memcpy(&projRadius, data + PROJECTILEDATA_RADIUS_OFF,
+                           sizeof(projRadius));
                     state.isIndirect = (ind != 0);
                     state.isBeam = (call1i_local(addr_projbeam, dataPtr) != 0);
                     state.speed = (float)projSpeed;
