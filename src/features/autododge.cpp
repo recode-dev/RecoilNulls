@@ -111,7 +111,6 @@ static void rebuild_projectile_cache_index()
         proj_cache_index[proj_cache_storage[i].pid] = i;
 }
 
-
 static std::vector<Body> bodies;
 static std::vector<Threat> threats;
 static int headingIdx = -1;
@@ -504,7 +503,7 @@ void autododge()
                           py,
                           px + ux * (playerAlong > 0.0f ? playerAlong : 0.0f),
                           py + uy * (playerAlong > 0.0f ? playerAlong : 0.0f),
-                           WALL_BLOCKS_PROJECTILES))
+                          WALL_BLOCKS_PROJECTILES))
             {
                 autododge_scanner_event(SCAN_AD_WALL_BLOCKED);
                 continue;
@@ -532,7 +531,8 @@ void autododge()
             writeIdx++;
         }
         proj_cache_storage.resize(writeIdx);
-        if (writeIdx != proj_cache_index.size()) rebuild_projectile_cache_index();
+        if (writeIdx != proj_cache_index.size())
+            rebuild_projectile_cache_index();
     }
     if (threats.size() >= 32) autododge_scanner_event(SCAN_AD_MAX_THREATS);
     autododge_scanner_report();
