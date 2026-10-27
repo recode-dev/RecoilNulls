@@ -1,8 +1,8 @@
 #include <CoreFoundation/CFDate.h>
 #include <dispatch/dispatch.h>
 #include <mach/mach_time.h>
-#include <stdint.h>
-#include <string.h>
+#include <cstdint>
+#include <cstring>
 #include "../features/autododge.h"
 #include "../utils/walls.h"
 #include "objc.h"

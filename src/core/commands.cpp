@@ -3,7 +3,7 @@
 #include "offsets.h"
 #include "scan.h"
 #include <malloc/malloc.h>
-#include <string.h>
+#include <cstring>
 #if CI_HASH_INNER_MASK_RVA && CI_HASH_OUTER_MASK_RVA && BM_HASH_ENABLED_OFF && \
     BM_HASH_KEY_OFF
 #define CI_SIGNING_ON 1

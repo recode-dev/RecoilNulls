@@ -3,13 +3,13 @@
 #include "../utils/walls.h"
 #include <CoreFoundation/CFDate.h>
 #include <dispatch/dispatch.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <dlfcn.h>
 #include <fcntl.h>
-#include <signal.h>
+#include <csignal>
 #include <sys/_types/_ucontext64.h>
 #include <unistd.h>
 

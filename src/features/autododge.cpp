@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
-#include <stdint.h>
+#include <cstdint>
 #include <vector>
 static struct
 {

@@ -1,6 +1,6 @@
 #include "walls.h"
 #include "../core/scan.h"
-#include <string.h>
+#include <cstring>
 
 #define WALL_TYPE_CACHE_MAX 128
 
