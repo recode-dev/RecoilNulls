@@ -29,8 +29,9 @@ jobs:
         run: |
           set -euo pipefail
           # Only tracked files matching known junk patterns are removed.
+          # grep exits 1 when nothing matches; that is not an error here.
           git ls-files -z |
-            grep -zE '(^|/)(core|\.DS_Store|Thumbs\.db)$|\.(orig|rej|bak|swp)$|~$' |
+            { grep -zE '(^|/)(core|\.DS_Store|Thumbs\.db)$|\.(orig|rej|bak|swp)$|~$' || true; } |
             xargs -0 -r git rm -q --
 
       - name: Format
