@@ -10,7 +10,6 @@
 static struct
 {
     float AWARE = 3200.0f;
-    float RANGE_FALLBACK = 2800.0f;
     uint32_t TICK_MS = 4;
     uint32_t TICK_MS_IDLE = 48;
     int DIR_COUNT = 48;
@@ -201,25 +200,7 @@ void autododge(void)
     float my = (float)own_y;
     float myRadius = own_r;
     if (fabsf(mx) < TUNE.MIN_POS && fabsf(my) < TUNE.MIN_POS) return;
-    if (own_speed >= 300.0f && own_speed <= 8500.0f)
-    {
-        CHAR_SPEED = own_speed;
-    }
-    else
-    {
-        uintptr_t data = 0;
-        if (read_ptr(own_elem + ELEM_DEF_OFF, (void**)&data) && data)
-        {
-            int32_t readSpd = 0;
-            if (read_int(data + 0x1c4, &readSpd))
-            {
-                if (readSpd >= 300 && readSpd <= 8500)
-                {
-                    CHAR_SPEED = (float)readSpd;
-                }
-            }
-        }
-    }
+    CHAR_SPEED = own_speed;
     std::vector<Threat> threats;
     int hits = 0;
     {
@@ -281,53 +262,14 @@ void autododge(void)
                     read_int(objPtr + OBJ_OWNERINDEX_OFF, &ownerIdx);
                     state.castRange = range_for_proj(dataPtr, ownerIdx);
                     uint8_t ind = 0;
-                    if (read_byte(dataPtr + PROJ_ISTHROWER_OFF, &ind))
+                    if (!read_byte(dataPtr + PROJ_ISTHROWER_OFF, &ind))
                     {
-                        state.isIndirect = (ind != 0);
+                        continue;
                     }
-                    else
-                    {
-                        state.isIndirect = false;
-                    }
-                    if (addr_projbeam)
-                    {
-                        state.isBeam =
-                            (call1i_local(addr_projbeam, dataPtr) != 0);
-                    }
-                    else
-                    {
-                        uint8_t beam = 0;
-                        if (read_byte(dataPtr + OFF_PROJECTILEDATA_ISBEAM,
-                                      &beam))
-                        {
-                            state.isBeam = (beam != 0);
-                        }
-                        else
-                        {
-                            state.isBeam = false;
-                        }
-                    }
-                    if (state.speed <= 0.0f)
-                    {
-                        if (addr_projspeed)
-                        {
-                            state.speed =
-                                (float)call1i_local(addr_projspeed, dataPtr);
-                        }
-                        else
-                        {
-                            int32_t spd = 0;
-                            if (read_int(dataPtr + PROJDATA_SPEED_OFF, &spd) &&
-                                spd > 0)
-                            {
-                                state.speed = (float)spd;
-                            }
-                        }
-                    }
-                    if (state.speed <= 0.0f)
-                    {
-                        state.speed = 3000.0f;
-                    }
+                    state.isIndirect = (ind != 0);
+                    state.isBeam =
+                        (call1i_local(addr_projbeam, dataPtr) != 0);
+                    state.speed = (float)call1i_local(addr_projspeed, dataPtr);
                     int32_t angleDegrees = -1;
                     if (read_int(objPtr + PROJ_ANGLE_OFF, &angleDegrees) &&
                         angleDegrees >= 0 && angleDegrees <= 360)
@@ -355,46 +297,29 @@ void autododge(void)
                     }
                 }
                 state.lastSeen = now;
-                if (addr_projradius)
+                state.radius = (float)call1i_local(addr_projradius, dataPtr);
+                if (state.radius <= 0.0f)
                 {
-                    state.radius =
-                        (float)call1i_local(addr_projradius, dataPtr);
+                    continue;
                 }
-                else
-                {
-                    int32_t r = 0;
-                    if (read_int(dataPtr + PROJDATA_RADIUS_OFF, &r) && r > 0)
-                    {
-                        state.radius = (float)r;
-                    }
-                    else
-                    {
-                        state.radius = 100.0f;
-                    }
-                }
-                if (state.radius <= 0) state.radius = 100.0f;
                 float traveled =
                     sqrtf((px - state.spawnX) * (px - state.spawnX) +
                           (py - state.spawnY) * (py - state.spawnY));
-                float reach = state.castRange;
-                if (reach <= 0.0f)
-                {
-                    reach = TUNE.RANGE_FALLBACK;
-                }
-                else
+                float left = 1e6f;
+                if (state.castRange > 0.0f)
                 {
                     dbg.ranged++;
-                }
-                float left = std::max(0.0f, reach - traveled);
-                if (left <= 10.0f)
-                {
-                    continue;
-                }
-                float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) -
-                            bodyR - state.radius;
-                if (left < 0.85f * std::max(0.0f, gap))
-                {
-                    continue;
+                    left = std::max(0.0f, state.castRange - traveled);
+                    if (left <= 10.0f)
+                    {
+                        continue;
+                    }
+                    float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) -
+                                bodyR - state.radius;
+                    if (left < 0.85f * std::max(0.0f, gap))
+                    {
+                        continue;
+                    }
                 }
                 bool blob = !state.isBeam && !state.isIndirect &&
                             state.speed > 0 && state.speed < 1600;
@@ -405,7 +330,8 @@ void autododge(void)
                 t.vy = blob ? 0 : state.dirY * state.speed;
                 t.rad = state.radius + bodyR + DEFAULT_PAD +
                         state.radius * DEFAULT_GROW;
-                t.pathLen = left + state.radius;
+                t.pathLen =
+                    state.castRange > 0.0f ? left + state.radius : 1e6f;
                 t.left = left;
                 if (!blob && !state.isIndirect && state.speed >= 1.0f)
                 {
@@ -416,7 +342,8 @@ void autododge(void)
                     float hY = py + state.dirY * std::max(playerAlong, 0.0f);
                     if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES))
                         continue;
-                    if (playerAlong > left + state.radius)
+                    if (state.castRange > 0.0f &&
+                        playerAlong > left + state.radius)
                         continue;
                 }
                 float ax = px - mx;
