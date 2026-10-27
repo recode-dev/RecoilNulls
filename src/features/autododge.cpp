@@ -28,7 +28,7 @@ static struct
     int PROBE_N = 6;
     float PROBE_T = 0.15f;
     float WALL_BODY = 240.0f;
-    uint32_t SEND_MIN_MS = 250;
+    uint32_t SEND_MIN_MS = 80;
     float SEND_TURN_DOT = 0.99f;
     float MIN_POS = 50.0f;
 } TUNE;
