@@ -13,8 +13,6 @@
 #include <limits>
 #include <unistd.h>
 
-void autododge_scanner_log(uint64_t now, const char* format, ...);
-
 extern int active;
 extern int moving;
 extern int32_t ad_target_x;

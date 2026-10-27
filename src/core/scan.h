@@ -175,6 +175,7 @@ enum : uint32_t
 };
 void autododge_scanner_event(uint32_t reason);
 void autododge_scanner_report();
+void autododge_scanner_log(uint64_t now, const char* format, ...);
 extern uintptr_t scene_object;
 int scene_live();
 extern int coord_ok;
