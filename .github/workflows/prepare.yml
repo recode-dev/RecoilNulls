@@ -26,22 +26,35 @@ jobs:
         run: |
           set -euo pipefail
           style='{BasedOnStyle: LLVM, BreakBeforeBraces: Allman, IndentWidth: 4, ContinuationIndentWidth: 4, ColumnLimit: 80, AllowShortIfStatementsOnASingleLine: WithoutElse, AllowShortBlocksOnASingleLine: Empty, AllowShortFunctionsOnASingleLine: None, AllowShortLambdasOnASingleLine: None, BreakBeforeTernaryOperators: true, BinPackArguments: false, BinPackParameters: false, PointerAlignment: Left, SortIncludes: false, FixNamespaceComments: false}'
-          find src tools -type f \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 |
-            xargs -0 clang-format -i -style="$style"
+          # Only tracked C/C++ sources; -r avoids running on an empty list.
+          git ls-files -z -- 'src/*.c' 'src/*.cpp' 'src/*.h' 'src/*.hpp' 'tools/*.c' 'tools/*.cpp' 'tools/*.h' 'tools/*.hpp' |
+            xargs -0 -r clang-format -i -style="$style"
+          # Trailing whitespace cleanup on the same tracked files.
+          git ls-files -z -- 'src/*.c' 'src/*.cpp' 'src/*.h' 'src/*.hpp' 'tools/*.c' 'tools/*.cpp' 'tools/*.h' 'tools/*.hpp' |
+            xargs -0 -r sed -i -e 's/[[:space:]]\+$//'
 
       - name: Push
         id: push
+        env:
+          BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+            echo "Protected branch $BRANCH: skip push"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -A
+          # Only tracked modifications: never add untracked files or deletions.
+          git add -u
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit -m "chore(prepare): format"
-          git push
+          git pull --rebase origin "$BRANCH"
+          git push origin "HEAD:$BRANCH"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Build
