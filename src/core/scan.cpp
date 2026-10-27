@@ -344,6 +344,8 @@ static int battle_state(void)
     }
     return state;
 }
+static int battle_ticks = 0;
+static void character_registry_reset(void);
 static void world_reset(void)
 {
     own_elem = 0;
@@ -358,6 +360,8 @@ static void world_reset(void)
     manager_count_v = 0;
     obj_count = 0;
     scene_object = 0;
+    battle_ticks = 0;
+    character_registry_reset();
     wall_drop();
     autododge_reset();
 }
@@ -443,6 +447,7 @@ static int harvest_character(uintptr_t character)
 }
 static void remember_character(int index, uintptr_t character)
 {
+    if (battle_ticks < 30) return;
     if (index < 0 || index >= CHAR_REGISTRY_MAX) return;
     if (!character || !pointer_plausible(character)) return;
     if (g_charHarvested[index] == (uint32_t)(character & 0xffffffffu)) return;
@@ -489,6 +494,7 @@ void scan_world(void)
         world_reset();
         return;
     }
+    battle_ticks++;
     clientPtr = controller();
     if (!clientPtr)
     {
@@ -607,7 +613,6 @@ void scan_world(void)
     manager_array_ptr = array;
     manager_count_v = count;
     obj_count = count;
-    character_registry_reset();
     if (own) remember_character(own_index_v, own);
     for (int i = 0; i < count; i++)
     {
