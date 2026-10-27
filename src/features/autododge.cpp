@@ -23,7 +23,6 @@ static struct
     float SMOOTH = 0.55f;
     float ENGAGE = 100.0f;
     uint32_t RELEASE_GRACE_MS = 200;
-    float COAST_S = 0.2f;
     float WALL_HIT = 9000.0f;
     int PROBE_N = 6;
     float PROBE_T = 0.15f;
@@ -169,22 +168,12 @@ static void clearHeading()
     headingIdx = -1;
     commitDir = V2(0, 0);
 }
-static void releaseHeading(uint64_t now, float mx, float my)
+static void endDodge()
 {
-    V2 dir = V2(0, 0);
-    int32_t tx = 0;
-    int32_t ty = 0;
-    float coast = 0.0f;
     if (headingIdx < 0) return;
-    dir = ring[headingIdx];
-    coast = CHAR_SPEED * TUNE.COAST_S;
     clearHeading();
-    tx = clamp_axis(mx + dir.x * coast, wall_cache_w());
-    ty = clamp_axis(my + dir.y * coast, wall_cache_h());
-    enqueue(tx, ty);
-    lastSentAt = now;
-    ad_target_x = tx;
-    ad_target_y = ty;
+    ad_target_x = NO_TARGET;
+    ad_target_y = NO_TARGET;
     active = 0;
     moving = 0;
 }
@@ -382,7 +371,7 @@ void autododge()
     if (threats.empty())
     {
         if (now - lastDangerTs > TUNE.RELEASE_GRACE_MS)
-            releaseHeading(now, mx, my);
+            endDodge();
         return;
     }
     float stayClear = clearanceFor(threats, mx, my, 0, 0);
@@ -391,7 +380,7 @@ void autododge()
     if (!inDanger &&
         (headingIdx < 0 || now - lastDangerTs > TUNE.RELEASE_GRACE_MS))
     {
-        releaseHeading(now, mx, my);
+        endDodge();
         return;
     }
     bool hasPrev = (commitDir.x != 0.0f || commitDir.y != 0.0f);
@@ -446,7 +435,7 @@ void autododge()
     {
         if (now - lastGoodTs > TUNE.RELEASE_GRACE_MS)
         {
-            releaseHeading(now, mx, my);
+            endDodge();
         }
         return;
     }
