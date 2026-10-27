@@ -514,12 +514,38 @@ static BOOL find_game_image_dyld(uintptr_t* out_base)
     }
     return NO;
 }
+static BOOL host_is_livecontainer(void)
+{
+    static int cached = -1;
+    char path[1024];
+    uint32_t size = (uint32_t)sizeof(path);
+    if (cached >= 0)
+    {
+        return cached ? YES : NO;
+    }
+    cached = 0;
+    if (_NSGetExecutablePath(path, &size) == 0 && strstr(path, "LiveContainer"))
+    {
+        cached = 1;
+    }
+    return cached ? YES : NO;
+}
 BOOL find_game_image(uintptr_t* out_base)
 {
+    static int gum_ready = 0;
     uintptr_t found = 0;
     if (!out_base)
     {
         return NO;
+    }
+    if (host_is_livecontainer())
+    {
+        return find_game_image_dyld(out_base);
+    }
+    if (!gum_ready)
+    {
+        gum_init_embedded();
+        gum_ready = 1;
     }
     gum_process_enumerate_modules(game_module_cb, &found);
     if (found)
