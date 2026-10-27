@@ -546,12 +546,23 @@ void run_autododge()
     autododge();
     in_move = 0;
 }
+// Brawl Stars logic ticks at ~30 Hz (TICK_RATE_S = 0.0333s in autododge.cpp).
+// Throttle the scan to that cadence so we don't rescan at render rate (60/120 Hz)
+// or busy-loop, which only wastes CPU — game state can't change faster than 30 Hz.
+static constexpr uint64_t SCAN_PERIOD_US = 33333ULL;
+static uint64_t g_last_scan_us = 0;
 static void scan_frame()
 {
     if (inside_hook)
     {
         return;
     }
+    const uint64_t now = us();
+    if (now - g_last_scan_us < SCAN_PERIOD_US)
+    {
+        return;
+    }
+    g_last_scan_us = now;
     inside_hook = YES;
     run_workload();
     inside_hook = NO;
@@ -564,7 +575,11 @@ static void frame_tick()
 }
 static void schedule_frame()
 {
-    dispatch_async(dispatch_get_main_queue(), ^{ frame_tick(); });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                 static_cast<int64_t>(SCAN_PERIOD_US *
+                                                     NSEC_PER_USEC)),
+                   dispatch_get_main_queue(),
+                   ^{ frame_tick(); });
 }
 void setup()
 {
