@@ -396,26 +396,31 @@ void tick(void)
 {
     uint64_t now = 0;
     uint64_t scan = 0;
-    if (!in_battle())
-    {
-        if (g_file == nullptr) return;
-        fclose(g_file);
-        g_file = nullptr;
-        g_ticks = 0;
-        g_lastMs = 0;
-        g_lastScan = 0;
-        g_rate = 0;
-        return;
-    }
     if (g_file == nullptr)
     {
         if (!open_log()) return;
-        line("\n##### match #####\n");
-        dump_header();
-        g_lastMs = 0;
-        g_lastScan = 0;
+        line("\n##### session #####\n");
     }
     g_ticks++;
+    if (!in_battle())
+    {
+        line("idle t=%llu base=%p own=%p\n",
+             g_ticks,
+             (void*)base,
+             (void*)own_elem);
+        if ((g_ticks % 20) == 0) dump_header();
+        g_lastMs = 0;
+        g_lastScan = 0;
+        g_rate = 0;
+        fflush(g_file);
+        rotate_if_needed();
+        return;
+    }
+    if (g_lastMs == 0)
+    {
+        line("\n##### match #####\n");
+        dump_header();
+    }
     now = (uint64_t)(g_get_real_time() / 1000);
     scan = (uint64_t)ticks_a;
     if (g_lastMs && now > g_lastMs)
