@@ -1,4 +1,5 @@
 #include "../core/scan.h"
+#include "../core/scstring.h"
 #include "../utils/walls.h"
 #include <CoreFoundation/CFDate.h>
 #include <dispatch/dispatch.h>
@@ -398,6 +399,71 @@ void dump_ad()
          botAngle);
 }
 
+static uintptr_t scan_call(uintptr_t fn, uintptr_t a, uintptr_t b)
+{
+    if (!fn || !base) return 0;
+    uintptr_t rva = (fn >= base) ? (fn - base) : fn;
+    uintptr_t target = callable(rva);
+    if (!target) return 0;
+    using fn_t = uintptr_t (*)(uintptr_t, uintptr_t);
+    return ((fn_t)target)(a, b);
+}
+
+static void scan_projectile_data()
+{
+    if (!base || !obj_count) return;
+    uintptr_t projVt = base + static_cast<uintptr_t>(VTABLE_PROJ_DATA_RVA);
+
+    for (int i = 0; i < obj_count; i++)
+    {
+        if (!obj_valid[i]) continue;
+        uintptr_t obj = obj_snapshot[i];
+        if (!obj) continue;
+
+        void* dataRaw = nullptr;
+        if (!read_ptr(obj + static_cast<uintptr_t>(ELEM_DEF_OFF), &dataRaw) ||
+            !dataRaw)
+            continue;
+        uintptr_t data = (uintptr_t)dataRaw;
+
+        void* vtRaw = nullptr;
+        if (!read_ptr(data, &vtRaw) || (uintptr_t)vtRaw != projVt) continue;
+
+        uint8_t buf[0xC8];
+        if (!read_bytes(data, buf, sizeof(buf))) continue;
+
+        char name[64] = "?";
+        uintptr_t nameStr = scan_call(addr_dataname, data, 0);
+        if (nameStr)
+            read_scstring(nameStr, SCSTRING_DEFAULT_MAX_LENGTH, name,
+                          sizeof(name));
+
+        char out[2048];
+        int n = snprintf(out,
+                         sizeof(out),
+                         "[SCANNER] data=%p name=%s",
+                         (void*)data,
+                         name);
+        for (int off = 0x60; off <= 0xC0; off += 4)
+        {
+            int32_t iv = 0;
+            float fv = 0.0f;
+            memcpy(&iv, buf + off, 4);
+            memcpy(&fv, buf + off, 4);
+            bool key = (off == 0x6c || off == 0x74 || off == 0x80 || off == 0x9c ||
+                        off == 0xa4);
+            n += snprintf(out + n,
+                          sizeof(out) - n,
+                          key ? " |%02x=%d(f=%.1f)" : " |%02x=%d",
+                          off,
+                          iv,
+                          fv);
+            if (n >= (int)sizeof(out)) break;
+        }
+        line("%s\n", out);
+    }
+}
+
 void tick()
 {
     if (file == nullptr)
@@ -426,6 +492,7 @@ void tick()
     }
     line("\n--- t=%llu ---\n", ticks.load(std::memory_order_relaxed));
     dump_ad();
+    scan_projectile_data();
     lastMs.store(now);
     fflush(file);
     rotate_if_needed();
