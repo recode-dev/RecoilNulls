@@ -199,8 +199,9 @@ void autododge_reset(void)
     g_proj_cache.clear();
     g_headingIdx = -1;
     g_lastDir = V2(0, 0);
-    g_holdUntil = 0;
     g_lastDangerTs = 0;
+    g_lastGoodTs = 0;
+    g_sentIdx = -1;
     g_sentDirX = 0.0f;
     g_sentDirY = 0.0f;
     g_lastSentAt = 0;
