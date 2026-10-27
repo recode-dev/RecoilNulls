@@ -43,7 +43,7 @@ void document_path(char* out, size_t cap)
     out[0] = 0;
     if (home != nullptr) snprintf(out, cap, "%s/Documents", home);
 }
-void rotate_if_needed(void)
+void rotate_if_needed()
 {
     long long size = 0;
     FILE* probe = nullptr;
@@ -57,11 +57,11 @@ void rotate_if_needed(void)
     snprintf(backup, sizeof(backup), "%s.1", path);
     rename(path, backup);
 }
-bool in_battle(void)
+bool in_battle()
 {
     return base != 0 && own_elem != 0;
 }
-bool open_log(void)
+bool open_log()
 {
     char dir[1024];
     document_path(dir, sizeof(dir));
@@ -152,7 +152,7 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
     raise(sig);
 }
 
-void install_crash_handler(void)
+void install_crash_handler()
 {
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
@@ -166,7 +166,7 @@ void install_crash_handler(void)
     sigaction(SIGTRAP, &sa, nullptr);
 }
 
-void dump_header(void)
+void dump_header()
 {
     line("\n########## header ##########\n");
     line("base=%p setup=%d ticks=%llu rate=%d/s\n",
@@ -209,7 +209,7 @@ void dump_header(void)
     line("off projdata vtable=%llx\n",
          static_cast<unsigned long long>(VTABLE_PROJ_DATA_RVA));
 }
-void dump_chain(void)
+void dump_chain()
 {
     uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
     uintptr_t scene = 0;
@@ -263,7 +263,7 @@ void dump_chain(void)
          (void*)a58,
          c58);
 }
-void dump_own(void)
+void dump_own()
 {
     int32_t x = 0;
     int32_t y = 0;
@@ -355,7 +355,7 @@ static int live_projectiles(int* nearOut)
     }
     return n;
 }
-int scan_stage(void)
+int scan_stage()
 {
     if (!base) return 0;
     if (!scene_object) return 1;
@@ -364,7 +364,7 @@ int scan_stage(void)
     if (!obj_count) return 4;
     return 6;
 }
-void dump_ad(void)
+void dump_ad()
 {
     int near = 0;
     int proj = live_projectiles(&near);
@@ -382,7 +382,7 @@ void dump_ad(void)
          wall_cache_h(),
          wall_holes());
 }
-void dump_raw(void)
+void dump_raw()
 {
     uintptr_t addr = 0;
     uintptr_t off = 0;
@@ -412,7 +412,7 @@ void dump_raw(void)
              static_cast<int32_t>(w3));
     }
 }
-void dump_objects(void)
+void dump_objects()
 {
     uintptr_t array = manager_array_ptr;
     int32_t count = manager_count_v;
@@ -459,7 +459,7 @@ void dump_objects(void)
              deadFlag);
     }
 }
-void tick(void)
+void tick()
 {
     uint64_t now = 0;
     uint64_t scan = 0;
@@ -534,7 +534,7 @@ void tick(void)
     fflush(file);
     rotate_if_needed();
 }
-void start(void)
+void start()
 {
     dispatch_queue_t queue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
     timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
@@ -549,7 +549,7 @@ void start(void)
     dispatch_resume(timer);
 }
 }
-__attribute__((constructor)) static void logger_entry(void)
+__attribute__((constructor)) static void logger_entry()
 {
     write_crash_marks("[crash-mark] process start\n");
     install_crash_handler();

@@ -6,7 +6,7 @@
 extern "C"
 {
 #endif
-    using objc_hook_fn = void (*)(void);
+    using objc_hook_fn = void (*)();
     int objc_arm(uintptr_t imageBase,
                  const char* clsName,
                  const char* selName,

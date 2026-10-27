@@ -16,7 +16,7 @@ static uint8_t ci_inner[0x10];
 static uint8_t ci_outer[0x10];
 static int ci_ready = 0;
 static int msg_ok(void* ptr, size_t size);
-int ci_load_constants(void)
+int ci_load_constants()
 {
     int i = 0;
     if (ci_ready)
@@ -144,7 +144,7 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     {
         return 0;
     }
-    battle = ((void* (*)(void))battleFn)();
+    battle = ((void* (*)())battleFn)();
     if (!object_plausible(battle))
     {
         return 0;
@@ -225,7 +225,7 @@ static int msg_ok(void* ptr, size_t size)
     }
     return 1;
 }
-void* msg_alloc(void)
+void* msg_alloc()
 {
     uintptr_t stub = entry_callable(ALLOC_RVA);
     uintptr_t got = 0;
@@ -260,7 +260,7 @@ void* msg_alloc(void)
     }
     return nullptr;
 }
-void* manager(void)
+void* manager()
 {
     if (!scene_object || !scene_live())
     {
@@ -274,7 +274,7 @@ void* manager(void)
     {
         return nullptr;
     }
-    battle = ((void* (*)(void))battleFn)();
+    battle = ((void* (*)())battleFn)();
     if (!battle)
     {
         return nullptr;

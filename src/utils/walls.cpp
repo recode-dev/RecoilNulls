@@ -24,7 +24,7 @@ static uint8_t wall_type_bits[WALL_TYPE_CACHE_MAX];
 static int wall_type_n = 0;
 static int wall_type_next = 0;
 
-static void wall_types_clear(void)
+static void wall_types_clear()
 {
     wall_type_n = 0;
     wall_type_next = 0;
@@ -72,27 +72,27 @@ static int wall_type_bits_for(uintptr_t type, uint8_t* out)
     return 1;
 }
 
-int wall_cache_w(void)
+int wall_cache_w()
 {
     return wall_w;
 }
 
-int wall_cache_h(void)
+int wall_cache_h()
 {
     return wall_h;
 }
 
-int wall_ready(void)
+int wall_ready()
 {
     return wall_have;
 }
 
-int wall_holes(void)
+int wall_holes()
 {
     return wall_hole_n;
 }
 
-void wall_drop(void)
+void wall_drop()
 {
     wall_tiles = 0;
     wall_tiles_w = 0;
@@ -156,7 +156,7 @@ void wall_bind(uintptr_t tileMap)
     }
 }
 
-int wall_build(void)
+int wall_build()
 {
     int width = wall_tiles_w;
     int height = wall_tiles_h;

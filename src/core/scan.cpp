@@ -296,7 +296,7 @@ uint64_t ticks_a = 0;
 float own_speed = 720.0f;
 float own_r = 60.0f;
 uint32_t own_hp = 0;
-uint64_t us(void)
+uint64_t us()
 {
     return static_cast<uint64_t>(g_get_monotonic_time());
 }
@@ -324,7 +324,7 @@ int32_t own_x = 0;
 int32_t own_y = 0;
 int32_t own_index_v = -1;
 int own_ok_hp = 0;
-static int battle_state(void)
+static int battle_state()
 {
     uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
     int32_t state = -1;
@@ -339,7 +339,7 @@ static int battle_state(void)
     return state;
 }
 static int battle_ticks = 0;
-static void world_reset(void)
+static void world_reset()
 {
     own_elem = 0;
     own_x = 0;
@@ -357,7 +357,7 @@ static void world_reset(void)
     wall_drop();
     autododge_reset();
 }
-void scan_world(void)
+void scan_world()
 {
     uintptr_t clientPtr = 0;
     uintptr_t own = 0;
@@ -530,13 +530,13 @@ void scan_world(void)
     }
     ticks_a++;
 }
-void run_workload(void)
+void run_workload()
 {
     wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));
     scan_world();
     run_autododge();
 }
-void run_autododge(void)
+void run_autododge()
 {
     if (in_move)
     {
@@ -546,7 +546,7 @@ void run_autododge(void)
     autododge();
     in_move = 0;
 }
-static void scan_frame(void)
+static void scan_frame()
 {
     if (inside_hook)
     {
@@ -556,17 +556,17 @@ static void scan_frame(void)
     run_workload();
     inside_hook = NO;
 }
-static void schedule_frame(void);
-static void frame_tick(void)
+static void schedule_frame();
+static void frame_tick()
 {
     scan_frame();
     schedule_frame();
 }
-static void schedule_frame(void)
+static void schedule_frame()
 {
     dispatch_async(dispatch_get_main_queue(), ^{ frame_tick(); });
 }
-void setup(void)
+void setup()
 {
     if (setup_done)
     {
@@ -582,7 +582,7 @@ void setup(void)
     }
     setup_done = YES;
 }
-void resolve_addresses(void)
+void resolve_addresses()
 {
     if (!base)
     {
@@ -605,7 +605,7 @@ void resolve_addresses(void)
 }
 int coord_ok = 0;
 int dead = 0;
-int scene_live(void)
+int scene_live()
 {
     uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
     void* value = nullptr;
@@ -624,7 +624,7 @@ int scene_live(void)
     }
     return (uintptr_t)value == scene_object;
 }
-uintptr_t client(void)
+uintptr_t client()
 {
     void* clientPtr = nullptr;
     if (!scene_object || !scene_live())
@@ -637,7 +637,7 @@ uintptr_t client(void)
     }
     return (uintptr_t)clientPtr;
 }
-uintptr_t controller(void)
+uintptr_t controller()
 {
     return client();
 }
