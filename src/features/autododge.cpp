@@ -10,8 +10,6 @@
 static struct
 {
     float AWARE = 3200.0f;
-    uint32_t TICK_MS = 4;
-    uint32_t TICK_MS_IDLE = 8;
     int DIR_COUNT = 64;
     float SKIN = 50.0f;
     uint32_t LOCK_MS = 70;
@@ -68,7 +66,6 @@ static std::vector<V2> g_ring;
 static int g_headingIdx = -1;
 static uint64_t g_holdUntil = 0;
 static uint64_t g_lastDangerTs = 0;
-static uint64_t g_lastTick = 0;
 static float g_lastSentX = 1e9f;
 static float g_lastSentY = 1e9f;
 static uint64_t g_lastSentAt = 0;
@@ -200,9 +197,6 @@ void autododge(void)
         return;
     }
     uint64_t now = us() / 1000;
-    uint32_t tickMs = (g_headingIdx >= 0) ? TUNE.TICK_MS : TUNE.TICK_MS_IDLE;
-    if (now - g_lastTick < tickMs) return;
-    g_lastTick = now;
     dbg.sent = 0;
     dbg.mapn = range_map_size();
     dbg.ranged = 0;
@@ -212,7 +206,8 @@ void autododge(void)
     float myRadius = own_r;
     if (fabsf(mx) < TUNE.MIN_POS && fabsf(my) < TUNE.MIN_POS) return;
     CHAR_SPEED = own_speed;
-    std::vector<Threat> threats;
+    static std::vector<Threat> threats;
+    threats.clear();
     int hits = 0;
     {
         float zoneSq = TUNE.AWARE * TUNE.AWARE;
