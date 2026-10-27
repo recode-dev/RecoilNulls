@@ -10,7 +10,7 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <sys/_types/_ucontext64.h>
+#include <ucontext.h>
 #include <unistd.h>
 
 extern uintptr_t addr_getownidx;
@@ -120,9 +120,9 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
     Dl_info di;
     if (ctx != nullptr)
     {
-        ucontext64_t* uc = (ucontext64_t*)ctx;
-        pc = (uintptr_t)uc->uc_mcontext64->__ss.__pc;
-        lr = (uintptr_t)uc->uc_mcontext64->__ss.__lr;
+        ucontext_t* uc = (ucontext_t*)ctx;
+        pc = (uintptr_t)uc->uc_mcontext->__ss.__pc;
+        lr = (uintptr_t)uc->uc_mcontext->__ss.__lr;
     }
     if (info != nullptr) fault = (uintptr_t)info->si_addr;
     len = snprintf(buf, sizeof(buf),
