@@ -2,7 +2,7 @@ name: Recoil
 
 on:
   push:
-    branches: [test]
+    branches: [test, gum]
   workflow_dispatch:
 
 permissions:

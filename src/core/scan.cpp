@@ -157,7 +157,7 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    if (!addr_readable(address, length))
+    if (!gum_memory_is_readable((gconstpointer)address, (gsize)length))
     {
         return NO;
     }
@@ -300,7 +300,7 @@ BOOL copy(uintptr_t source, void* destination, size_t length)
     {
         return NO;
     }
-    if (!addr_readable(source, length))
+    if (!gum_memory_is_readable((gconstpointer)source, (gsize)length))
     {
         return NO;
     }
@@ -514,22 +514,6 @@ static BOOL find_game_image_dyld(uintptr_t* out_base)
     }
     return NO;
 }
-static BOOL host_is_livecontainer(void)
-{
-    static int cached = -1;
-    char path[1024];
-    uint32_t size = (uint32_t)sizeof(path);
-    if (cached >= 0)
-    {
-        return cached ? YES : NO;
-    }
-    cached = 0;
-    if (_NSGetExecutablePath(path, &size) == 0 && strstr(path, "LiveContainer"))
-    {
-        cached = 1;
-    }
-    return cached ? YES : NO;
-}
 BOOL find_game_image(uintptr_t* out_base)
 {
     static int gum_ready = 0;
@@ -537,10 +521,6 @@ BOOL find_game_image(uintptr_t* out_base)
     if (!out_base)
     {
         return NO;
-    }
-    if (host_is_livecontainer())
-    {
-        return find_game_image_dyld(out_base);
     }
     if (!gum_ready)
     {
