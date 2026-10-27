@@ -20,13 +20,8 @@
 #include <objc/runtime.h>
 extern uintptr_t base;
 extern const char* image_names[2];
-extern uintptr_t* starts;
-extern size_t starts_count;
 extern BOOL setup_done;
 extern __thread BOOL inside_hook;
-extern BOOL mode_strong;
-extern int votescan_attempts;
-extern double votescan_last;
 extern uintptr_t addr_getinstance;
 extern uintptr_t addr_getownchar;
 extern uintptr_t addr_getteam;
@@ -60,7 +55,6 @@ BOOL read_ptr(uintptr_t address, void** out);
 void* read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 BOOL copy(uintptr_t source, void* destination, size_t length);
-BOOL text_section(uintptr_t* address, uint64_t* size);
 BOOL find_game_image(uintptr_t* out_base);
 const char* image_segment_name(uintptr_t value);
 BOOL heap_resident(uintptr_t value);
@@ -321,53 +315,17 @@ typedef struct
     int sent;
     int mapn;
     int ranged;
-    int thn;
-    float thx[6];
-    float thy[6];
-    float thvx[6];
-    float thvy[6];
-    float thrad[6];
     char note[64];
 } dbg_t;
 extern dbg_t dbg;
 uint64_t us(void);
-void load_function_starts(void);
-BOOL start_boundary(const uint8_t* bytes, size_t offset);
-BOOL start_word(uint32_t word);
-extern uintptr_t pub_array;
-extern int32_t pub_count;
-extern uintptr_t pub_object;
-extern volatile uint32_t seq;
-extern uintptr_t site;
-extern int site_state;
-extern uintptr_t tick_array;
-extern int32_t tick_count;
-extern uintptr_t tick_object;
-void publish(uintptr_t object,
-             uintptr_t array,
-             int32_t count,
-             int32_t cap,
-             const char* why);
-int snapshot(uintptr_t* objectOut, uintptr_t* arrayOut, int32_t* countOut);
-void tick_begin(void);
-extern uint64_t ticks_b;
-void start_timer(void);
-int state_tick(void);
 void scan_world(void);
 void run_workload(void);
 void setup(void);
 void run_autododge(void);
-#define WIRE_OWNER 1
-#define HOPCHOSEN_DIRECT 2
-#define ARRAY_VOTE_LOGS 8
 extern uintptr_t scene_object;
 int scene_live(void);
 extern int prev_state;
-extern int hop_chosen;
-extern int hop_sticky;
-extern uintptr_t hop_scene;
-extern int last_choice;
-extern int hop_logs;
 extern int coord_ok;
 extern int dead;
 extern int own_team_a;
@@ -375,32 +333,10 @@ extern int own_team_seen;
 extern uintptr_t own_elem;
 #define WORK_GAP_US 200
 #define HOT_INTERVAL_US 2000
-int container_header(uintptr_t object,
-                     uintptr_t* arrayOut,
-                     int32_t* countOut,
-                     int32_t* capOut);
-int32_t gid(uintptr_t element, int32_t* offOut);
-int container_score(uintptr_t container);
 void resolve_addresses(void);
-void locate_battle_mode(void);
-uintptr_t hop(uintptr_t base, int* whyOut);
 uintptr_t client(void);
 void state_note(int state);
 uintptr_t controller(void);
-const char* header_reason(uintptr_t mgrPtr, int32_t* countOut, int32_t* capOut);
-int ctrl_bounds(uintptr_t base, int32_t* wOut, int32_t* hOut);
 extern int own_team_b;
-#define POS_BONUS 8
-#define DIST_BONUS 6
-#define SOFT_BASE 2
-#define SOFT_MIN_POS 2
-#define SOFT_MIN_DIST 2
 #define COUNT_MAX 96
-#define ASCII_RATIO 30
-#define COORD_MAX 100000
-#define VOTESCAN_INTERVAL 1.0
-#define VOTESCAN_ATTEMPTS 600
-int ascii_word(uintptr_t address);
-int word_ascii(uint64_t value);
-int element_ascii(uintptr_t element);
 #endif

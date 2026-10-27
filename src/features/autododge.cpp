@@ -179,6 +179,18 @@ static int32_t call1i_local(uintptr_t fn, uintptr_t self)
     typedef int32_t (*fn_t)(uintptr_t);
     return ((fn_t)target)(self);
 }
+void autododge_reset(void)
+{
+    g_proj_cache.clear();
+    g_headingIdx = -1;
+    g_holdUntil = 0;
+    g_lastDangerTs = 0;
+    g_lastSentX = 1e9f;
+    g_lastSentY = 1e9f;
+    g_lastSentAt = 0;
+    active = 0;
+    moving = 0;
+}
 void autododge(void)
 {
     if (!base || !own_elem || dead)
@@ -191,7 +203,6 @@ void autododge(void)
     if (now - g_lastTick < tickMs) return;
     g_lastTick = now;
     dbg.sent = 0;
-    dbg.thn = 0;
     dbg.mapn = range_map_size();
     dbg.ranged = 0;
     buildRing();
@@ -228,13 +239,13 @@ void autododge(void)
                 uintptr_t vtRva = dataVtable - base;
                 if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
                     continue;
+                if (dataVtable - base != VTABLE_PROJ_DATA_RVA) continue;
                 int32_t pid = 0;
                 if (!read_int(objPtr + OBJ_GLOBALID_OFF, &pid)) continue;
-                bool isProj = (pid >= 2000000) ||
-                              (dataVtable - base == VTABLE_PROJ_DATA_RVA);
-                if (!isProj || pid == 0) continue;
+                if (pid == 0) continue;
                 int32_t teamId = -1;
-                if (!read_int(objPtr + 64, &teamId) || teamId == own_team_b)
+                if (!read_int(objPtr + OBJ_TEAM_OFF, &teamId) ||
+                    teamId == own_team_b)
                     continue;
                 int32_t px_i = 0, py_i = 0;
                 if (!read_int(objPtr + OBJ_X_OFF, &px_i) ||
@@ -246,7 +257,7 @@ void autododge(void)
                 float dy_dist = py - my;
                 if (dx_dist * dx_dist + dy_dist * dy_dist > zoneSq) continue;
                 uint32_t deadFlag = 0;
-                if (!read_int(objPtr + 208, (int32_t*)&deadFlag) ||
+                if (!read_int(objPtr + OBJ_DEADFLAG_OFF, (int32_t*)&deadFlag) ||
                     deadFlag != 0)
                     continue;
                 seen[pid] = true;

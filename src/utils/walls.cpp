@@ -56,6 +56,18 @@ int wall_cache_h(void)
 {
     return wall_h;
 }
+void wall_drop(void)
+{
+    tiles = 0;
+    w = 0;
+    h = 0;
+    wall_map = 0;
+    wall_w = 0;
+    wall_h = 0;
+    wall_have = 0;
+    wall_dirty = 1;
+    wall_fail_ms = 0;
+}
 void wall_bind(uintptr_t tileMap)
 {
     void* tileArray = nullptr;

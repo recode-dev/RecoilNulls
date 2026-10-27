@@ -239,16 +239,6 @@ void dump_ad(void)
          dbg.sent,
          active,
          moving);
-    for (int i = 0; i < dbg.thn; i++)
-    {
-        line("  th%d x=%.0f y=%.0f vx=%.0f vy=%.0f rad=%.0f\n",
-             i,
-             dbg.thx[i],
-             dbg.thy[i],
-             dbg.thvx[i],
-             dbg.thvy[i],
-             dbg.thrad[i]);
-    }
     if (dbg.note[0]) line("adg note=%s\n", dbg.note);
 }
 void dump_raw(void)

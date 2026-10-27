@@ -4,5 +4,6 @@
 extern __thread int in_move;
 extern int active;
 extern int moving;
+void autododge_reset(void);
 void autododge(void);
 #endif

@@ -16,6 +16,7 @@ int cell(int tx, int ty, int* proj, int* move);
 int wall_cache_w(void);
 int wall_cache_h(void);
 int wall_build(void);
+void wall_drop(void);
 void wall_bind(uintptr_t tileMap);
 int wall_ready(void);
 int wall_maybe_refresh(uint64_t now_ms);
