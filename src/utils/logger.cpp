@@ -15,7 +15,6 @@
 #include <unistd.h>
 
 extern uintptr_t addr_getownidx;
-
 extern uintptr_t addr_getdata;
 extern uintptr_t addr_getgid;
 extern uintptr_t addr_movedto;
@@ -26,28 +25,24 @@ namespace
 {
 constexpr long long LOG_MAX_BYTES = 8000000;
 constexpr int LOG_INTERVAL_MS = 200;
-constexpr int RAW_EVERY = 50;
-constexpr uintptr_t RAW_BYTES = 0x1F0;
-constexpr float PROJ_NEAR = 1600.0f;
-constexpr float PROJ_NEAR_SQ = PROJ_NEAR * PROJ_NEAR;
 static FILE* file = nullptr;
 static dispatch_source_t timer = nullptr;
 static std::atomic<unsigned long long> ticks{0};
 static std::atomic<uint64_t> lastMs{0};
-static std::atomic<uint64_t> lastScan{0};
 static std::atomic<int> rate{0};
 static char path[1024];
+
 void document_path(char* out, size_t cap)
 {
     const char* home = getenv("HOME");
     out[0] = 0;
     if (home != nullptr) snprintf(out, cap, "%s/Documents", home);
 }
+
 void rotate_if_needed()
 {
     long long size = 0;
-    FILE* probe = nullptr;
-    probe = fopen(path, "rb");
+    FILE* probe = fopen(path, "rb");
     if (probe == nullptr) return;
     fseek(probe, 0, SEEK_END);
     size = ftell(probe);
@@ -57,10 +52,7 @@ void rotate_if_needed()
     snprintf(backup, sizeof(backup), "%s.1", path);
     rename(path, backup);
 }
-bool in_battle()
-{
-    return base != 0 && own_elem != 0;
-}
+
 bool open_log()
 {
     char dir[1024];
@@ -72,11 +64,12 @@ bool open_log()
     fseek(file, 0, SEEK_END);
     if (ftell(file) == 0)
     {
-        fprintf(file, "=== log ===\n");
+        fprintf(file, "=== autododge log ===\n");
         fprintf(file, "documents: %s\n", dir);
     }
     return true;
 }
+
 void line(const char* format, ...)
 {
     va_list args;
@@ -86,6 +79,7 @@ void line(const char* format, ...)
     fflush(file);
     va_end(args);
 }
+
 void write_crash_marks(const char* format, ...)
 {
     va_list args;
@@ -105,6 +99,7 @@ void write_crash_marks(const char* format, ...)
     fflush(f);
     fclose(f);
 }
+
 void crash_signal(int sig, siginfo_t* info, void* ctx)
 {
     char buf[256];
@@ -120,13 +115,9 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
         lr = static_cast<uintptr_t>(uc->uc_mcontext64->__ss.__lr);
     }
     if (info != nullptr) fault = (uintptr_t)info->si_addr;
-    len = snprintf(buf,
-                   sizeof(buf),
+    len = snprintf(buf, sizeof(buf),
                    "[crash-signal] sig=%d fault=%p pc=%p lr=%p\n",
-                   sig,
-                   (void*)fault,
-                   (void*)pc,
-                   (void*)lr);
+                   sig, (void*)fault, (void*)pc, (void*)lr);
     if (len > 0) write(STDERR_FILENO, buf, static_cast<size_t>(len));
     if (path[0] != 0)
     {
@@ -136,13 +127,11 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
             if (len > 0) write(fd, buf, static_cast<size_t>(len));
             if (dladdr((void*)pc, &di) && di.dli_fname)
             {
-                len = snprintf(
-                    buf,
-                    sizeof(buf),
-                    "[crash-signal] pc in %s off=%lx sym=%s\n",
-                    di.dli_fname,
-                    static_cast<unsigned long>(pc - (uintptr_t)di.dli_fbase),
-                    di.dli_sname ? di.dli_sname : "?");
+                len = snprintf(buf, sizeof(buf),
+                               "[crash-signal] pc in %s off=%lx sym=%s\n",
+                               di.dli_fname,
+                               static_cast<unsigned long>(pc - (uintptr_t)di.dli_fbase),
+                               di.dli_sname ? di.dli_sname : "?");
                 if (len > 0) write(fd, buf, static_cast<size_t>(len));
             }
             close(fd);
@@ -166,374 +155,65 @@ void install_crash_handler()
     sigaction(SIGTRAP, &sa, nullptr);
 }
 
-void dump_header()
+void dump_autododge()
 {
-    line("\n########## header ##########\n");
-    line("base=%p setup=%d ticks=%llu rate=%d/s\n",
-         (void*)base,
-         static_cast<int>(setup_done),
-         ticks.load(std::memory_order_relaxed),
-         rate.load(std::memory_order_relaxed));
-    line("rva getinstance=%p getownchar=%p getteam=%p getownidx=%p\n",
-         (void*)addr_getinstance,
-         (void*)addr_getownchar,
-         (void*)addr_getteam,
-         (void*)addr_getownidx);
-    line("rva getx=%p gety=%p getdata=%p getgid=%p movedto=%p\n",
-         (void*)addr_getx,
-         (void*)addr_gety,
-         (void*)addr_getdata,
-         (void*)addr_getgid,
-         (void*)addr_movedto);
-    line("rva charspeed=%p charradius=%p projbeam=%p\n",
-         (void*)addr_charspeed,
-         (void*)addr_charradius,
-         (void*)addr_projbeam);
-    line("off state=%llx stateenum=%llx scene=%llx client=%llx mgr=%llx "
-         "array=%llx count=%llx\n",
-         static_cast<unsigned long long>(STATE_RVA),
-         static_cast<unsigned long long>(STATE_ENUM_OFF),
-         static_cast<unsigned long long>(SCENE_OFF),
-         static_cast<unsigned long long>(CLIENT_OFF),
-         static_cast<unsigned long long>(MODE_MANAGER_OFF),
-         static_cast<unsigned long long>(MGR_ARRAY_OFF),
-         static_cast<unsigned long long>(MGR_COUNT_OFF));
-    line("off x=%llx y=%llx team=%llx owner=%llx "
-         "hp=%llx dead=%llx\n",
-         static_cast<unsigned long long>(OBJ_X_OFF),
-         static_cast<unsigned long long>(OBJ_Y_OFF),
-         static_cast<unsigned long long>(OBJ_TEAM_OFF),
-         static_cast<unsigned long long>(OBJ_OWNERINDEX_OFF),
-         static_cast<unsigned long long>(OBJ_HP_OFF),
-         static_cast<unsigned long long>(OBJ_DEADFLAG_OFF));
-    line("off projdata vtable=%llx\n",
-         static_cast<unsigned long long>(VTABLE_PROJ_DATA_RVA));
-}
-void dump_chain()
-{
-    uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
-    uintptr_t scene = 0;
-    uintptr_t clientPtr = 0;
-    uintptr_t m28 = 0;
-    uintptr_t m58 = 0;
-    uintptr_t a28 = 0;
-    uintptr_t a58 = 0;
-    void* value = nullptr;
-    int32_t state = -1;
-    int32_t c28 = 0;
-    int32_t c58 = 0;
-    if (!slot)
+    // Эти функции должны быть реализованы в autododge.cpp и экспортированы
+    extern bool autododge_get_debug_info(char* buf, size_t cap);
+    
+    char buf[8192];
+    if (autododge_get_debug_info(buf, sizeof(buf)))
     {
-        line("chain slot=0 (not readable)\n");
-        return;
+        line("%s", buf);
     }
-    read_int(slot + STATE_ENUM_OFF, &state);
-    if (read_ptr(slot + SCENE_OFF, &value) && value) scene = (uintptr_t)value;
-    if (scene && read_ptr(scene + CLIENT_OFF, &value) && value)
-        clientPtr = (uintptr_t)value;
-    if (clientPtr)
+    else
     {
-        if (read_ptr(clientPtr + MODE_MANAGER_OFF, &value) && value)
-            m28 = (uintptr_t)value;
-        if (read_ptr(clientPtr + MGR_OFF, &value) && value)
-            m58 = (uintptr_t)value;
-        if (m28)
-        {
-            if (read_ptr(m28 + MGR_ARRAY_OFF, &value) && value)
-                a28 = (uintptr_t)value;
-            read_int(m28 + MGR_COUNT_OFF, &c28);
-        }
-        if (m58)
-        {
-            if (read_ptr(m58 + MGR_ARRAY_OFF, &value) && value)
-                a58 = (uintptr_t)value;
-            read_int(m58 + MGR_COUNT_OFF, &c58);
-        }
-    }
-    line("chain slot=%p state=%d scene=%p client=%p\n",
-         (void*)slot,
-         state,
-         (void*)scene,
-         (void*)clientPtr);
-    line("chain mgr[28]=%p arr=%p cnt=%d | mgr[58]=%p arr=%p cnt=%d\n",
-         (void*)m28,
-         (void*)a28,
-         c28,
-         (void*)m58,
-         (void*)a58,
-         c58);
-}
-void dump_own()
-{
-    int32_t x = 0;
-    int32_t y = 0;
-    int32_t hp = 0;
-    int32_t team = -1;
-    int32_t ownerIdx = -1;
-    int okHp = 0;
-    line("own elem=%p x=%d y=%d team=%d idx=%d dead=%d hp=%u ok=%d r=%.1f "
-         "spd=%.1f\n",
-         (void*)own_elem,
-         own_x,
-         own_y,
-         own_team_b,
-         own_index_v,
-         dead,
-         own_hp,
-         own_ok_hp,
-         own_r,
-         own_speed);
-    if (!own_elem) return;
-    read_int(own_elem + OBJ_X_OFF, &x);
-    read_int(own_elem + OBJ_Y_OFF, &y);
-    read_int(own_elem + OBJ_HP_OFF, &hp);
-    read_int(own_elem + OBJ_TEAM_OFF, &team);
-    read_int(own_elem + OBJ_OWNERINDEX_OFF, &ownerIdx);
-    okHp = read_int(own_elem + OBJ_HP_OFF, &hp);
-    line("own raw x=%d y=%d hp=%d(ok=%d) team=%d owner=%d\n",
-         x,
-         y,
-         hp,
-         okHp,
-         team,
-         ownerIdx);
-}
-static int live_projectiles(int* nearOut)
-{
-    int i = 0;
-    int n = 0;
-    int near = 0;
-    uintptr_t projVt = 0;
-    float ox = static_cast<float>(own_x);
-    float oy = static_cast<float>(own_y);
-    if (!base || obj_count <= 0)
-    {
-        return 0;
-    }
-    projVt = base + static_cast<uintptr_t>(VTABLE_PROJ_DATA_RVA);
-    for (i = 0; i < obj_count; i++)
-    {
-        uintptr_t obj = obj_snapshot[i];
-        void* data = nullptr;
-        void* vtable = nullptr;
-        int32_t px = 0;
-        int32_t py = 0;
-        int32_t team = -1;
-        float dx = 0.0f;
-        float dy = 0.0f;
-        if (!obj ||
-            !read_ptr(obj + static_cast<uintptr_t>(ELEM_DEF_OFF), &data) ||
-            !data)
-        {
-            continue;
-        }
-        if (!read_ptr((uintptr_t)data, &vtable) || (uintptr_t)vtable != projVt)
-        {
-            continue;
-        }
-        if (!read_int(obj + static_cast<uintptr_t>(OBJ_TEAM_OFF), &team) ||
-            team == own_team_b)
-        {
-            continue;
-        }
-        n++;
-        if (!read_int(obj + static_cast<uintptr_t>(OBJ_X_OFF), &px) ||
-            !read_int(obj + static_cast<uintptr_t>(OBJ_Y_OFF), &py))
-        {
-            continue;
-        }
-        dx = static_cast<float>(px) - ox;
-        dy = static_cast<float>(py) - oy;
-        if (dx * dx + dy * dy <= PROJ_NEAR_SQ)
-        {
-            near++;
-        }
-    }
-    if (nearOut)
-    {
-        *nearOut = near;
-    }
-    return n;
-}
-int scan_stage()
-{
-    if (!base) return 0;
-    if (!scene_object) return 1;
-    if (!own_elem) return 2;
-    if (!manager_ptr) return 3;
-    if (!obj_count) return 4;
-    return 6;
-}
-void dump_ad()
-{
-    int near = 0;
-    int proj = live_projectiles(&near);
-    line("adg scan=%d active=%d moving=%d tgt=(%d,%d) proj=%d near=%d "
-         "wall=%d %dx%d holes=%d\n",
-         scan_stage(),
-         active,
-         moving,
-         static_cast<int>(ad_target_x),
-         static_cast<int>(ad_target_y),
-         proj,
-         near,
-         wall_ready(),
-         wall_cache_w(),
-         wall_cache_h(),
-         wall_holes());
-}
-void dump_raw()
-{
-    uintptr_t addr = 0;
-    uintptr_t off = 0;
-    if (!own_elem) return;
-    line("own raw dump (%llu bytes)\n",
-         static_cast<unsigned long long>(RAW_BYTES));
-    for (off = 0; off < RAW_BYTES; off += 0x10)
-    {
-        uint32_t w0 = 0;
-        uint32_t w1 = 0;
-        uint32_t w2 = 0;
-        uint32_t w3 = 0;
-        addr = own_elem + off;
-        if (!read_int(addr + 0x0, reinterpret_cast<int32_t*>(&w0))) break;
-        if (!read_int(addr + 0x4, reinterpret_cast<int32_t*>(&w1))) break;
-        if (!read_int(addr + 0x8, reinterpret_cast<int32_t*>(&w2))) break;
-        if (!read_int(addr + 0xC, reinterpret_cast<int32_t*>(&w3))) break;
-        line("  %03llx %08x %08x %08x %08x | %d %d %d %d\n",
-             static_cast<unsigned long long>(off),
-             w0,
-             w1,
-             w2,
-             w3,
-             static_cast<int32_t>(w0),
-             static_cast<int32_t>(w1),
-             static_cast<int32_t>(w2),
-             static_cast<int32_t>(w3));
+        line("[autododge] debug info unavailable\n");
     }
 }
-void dump_objects()
-{
-    uintptr_t array = manager_array_ptr;
-    int32_t count = manager_count_v;
-    int32_t i = 0;
-    if (!array) return;
-    line("objects count=%d\n", count);
-    for (i = 0; i < count && i < 24; i++)
-    {
-        void* raw = nullptr;
-        uintptr_t object = 0;
-        uintptr_t vt = 0;
-        int32_t projGid = 0;
-        int32_t team = -1;
-        int32_t ownerIdx = -1;
-        int32_t x = 0;
-        int32_t y = 0;
-        int32_t hp = 0;
-        uint8_t deadFlag = 0;
-        if (!read_ptr(array + static_cast<uintptr_t>(i) * 8ULL, &raw) || !raw)
-            continue;
-        object = (uintptr_t)raw;
-        if (!pointer_plausible(object)) continue;
-        if (!read_ptr(object, &raw)) continue;
-        vt = (uintptr_t)raw;
-        if (!base || vt < base || vt - base >= 0x2000000ULL) continue;
-        read_int(object + OBJ_GLOBALID_OFF, &projGid);
-        read_int(object + OBJ_TEAM_OFF, &team);
-        read_int(object + OBJ_OWNERINDEX_OFF, &ownerIdx);
-        read_int(object + OBJ_X_OFF, &x);
-        read_int(object + OBJ_Y_OFF, &y);
-        read_int(object + OBJ_HP_OFF, &hp);
-        read_byte(object + OBJ_DEADFLAG_OFF, &deadFlag);
-        line("  o%d obj=%p vt=%llx gid=%d team=%d owner=%d x=%d y=%d hp=%d "
-             "dead=%d\n",
-             i,
-             (void*)object,
-             static_cast<unsigned long long>(vt >= base ? vt - base : vt),
-             projGid,
-             team,
-             ownerIdx,
-             x,
-             y,
-             hp,
-             deadFlag);
-    }
-}
+
 void tick()
 {
     uint64_t now = 0;
-    uint64_t scan = 0;
     if (file == nullptr)
     {
         if (!open_log()) return;
-        line("\n##### session #####\n");
+        line("\n##### autododge session #####\n");
     }
     ticks.fetch_add(1, std::memory_order_relaxed);
-    if (!in_battle())
+    if (!base || !own_elem || dead)
     {
-        line("idle t=%llu base=%p own=%p\n",
-             ticks.load(std::memory_order_relaxed),
-             (void*)base,
-             (void*)own_elem);
-        if ((ticks.load(std::memory_order_relaxed) % 20) == 0) dump_header();
-        lastMs.store(0, std::memory_order_relaxed);
-        lastScan.store(0, std::memory_order_relaxed);
-        rate.store(0, std::memory_order_relaxed);
+        line("idle t=%llu base=%p own=%p dead=%d\n",
+             ticks.load(), (void*)base, (void*)own_elem, dead);
+        if ((ticks.load() % 20) == 0) dump_autododge();
+        lastMs.store(0);
+        rate.store(0);
         fflush(file);
         rotate_if_needed();
         return;
     }
-    const uint64_t lastMsV = lastMs.load(std::memory_order_relaxed);
+
+    const uint64_t lastMsV = lastMs.load();
     if (lastMsV == 0)
     {
-        line("\n##### match #####\n");
-        dump_header();
+        line("\n##### match start #####\n");
     }
     now = static_cast<uint64_t>(g_get_real_time() / 1000);
-    scan = ticks_a;
-    if (lastMsV && now > lastMsV)
-    {
-        rate.store(
-            static_cast<int>(
-                ((scan - lastScan.load(std::memory_order_relaxed)) * 1000ULL) /
-                (now - lastMsV)),
-            std::memory_order_relaxed);
-    }
-    line("\n--- t=%llu ms=%.3f dt=%llu scan=%llu rate=%d/s ---\n",
-         ticks.load(std::memory_order_relaxed),
-         static_cast<double>(g_get_real_time()) / 1000.0,
-         static_cast<unsigned long long>(lastMsV ? now - lastMsV : 0),
-         static_cast<unsigned long long>(scan),
-         rate.load(std::memory_order_relaxed));
-    write_crash_marks("[crash-mark] tick=%llu stage=chain\n",
-                      ticks.load(std::memory_order_relaxed));
-    dump_chain();
-    write_crash_marks("[crash-mark] tick=%llu stage=own\n",
-                      ticks.load(std::memory_order_relaxed));
-    dump_own();
-    write_crash_marks("[crash-mark] tick=%llu stage=ad\n",
-                      ticks.load(std::memory_order_relaxed));
-    dump_ad();
-    if ((ticks.load(std::memory_order_relaxed) % 4) == 0)
-    {
-        write_crash_marks("[crash-mark] tick=%llu stage=objects\n",
-                          ticks.load(std::memory_order_relaxed));
-        dump_objects();
-    }
-    if ((ticks.load(std::memory_order_relaxed) % RAW_EVERY) == 0)
-    {
-        write_crash_marks("[crash-mark] tick=%llu stage=raw\n",
-                          ticks.load(std::memory_order_relaxed));
-        dump_raw();
-    }
-    write_crash_marks("[crash-mark] tick=%llu stage=done\n",
-                      ticks.load(std::memory_order_relaxed));
-    if ((ticks.load(std::memory_order_relaxed) % 50) == 0) dump_header();
-    lastMs.store(now, std::memory_order_relaxed);
-    lastScan.store(scan, std::memory_order_relaxed);
+    
+    line("\n--- t=%llu ms=%.3f ---\n",
+         ticks.load(),
+         static_cast<double>(g_get_real_time()) / 1000.0);
+    
+    write_crash_marks("[crash-mark] t=%llu stage=ad\n", ticks.load());
+    dump_autododge();
+    
+    if ((ticks.load() % 10) == 0) dump_autododge(); // Дополнительный дамп каждые 2 секунды
+    write_crash_marks("[crash-mark] t=%llu stage=done\n", ticks.load());
+    
+    lastMs.store(now);
     fflush(file);
     rotate_if_needed();
 }
+
 void start()
 {
     dispatch_queue_t queue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
@@ -541,14 +221,14 @@ void start()
     if (!timer) return;
     dispatch_source_set_timer(
         timer,
-        dispatch_time(DISPATCH_TIME_NOW,
-                      static_cast<int64_t>(150 * NSEC_PER_MSEC)),
+        dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(150 * NSEC_PER_MSEC)),
         static_cast<uint64_t>(LOG_INTERVAL_MS * NSEC_PER_MSEC),
         static_cast<uint64_t>(10 * NSEC_PER_MSEC));
     dispatch_source_set_event_handler(timer, ^{ tick(); });
     dispatch_resume(timer);
 }
 }
+
 __attribute__((constructor)) static void logger_entry()
 {
     write_crash_marks("[crash-mark] process start\n");
