@@ -686,11 +686,6 @@ int collect(uintptr_t mgrPtr, obj_t* out, int capacity)
             continue;
         }
         entry.gid = gid(entry.object, nullptr);
-        {
-            uintptr_t tw = 0;
-            element_type((uintptr_t)vtable, &tw);
-            entry.typeWord = (int32_t)tw;
-        }
         if (!read_int(entry.object + coord_x_off(), &entry.x) ||
             !read_int(entry.object + coord_y_off(), &entry.y) ||
             !read_int(entry.object + OBJ_OWNERINDEX_OFF, &entry.ownerIndex) ||
@@ -1383,49 +1378,6 @@ int prev_state = -1;
 int hop_chosen = -1;
 int hop_sticky = 0;
 uintptr_t scan_container = 0;
-int element_type(uintptr_t vt, uintptr_t* wordOut)
-{
-    void* slotPtr = nullptr;
-    uintptr_t slot = 0;
-    if (wordOut)
-    {
-        *wordOut = 0;
-    }
-    if (!vt)
-    {
-        return -1;
-    }
-    if (!read_ptr(vt + TYPE_SLOT_OFF, &slotPtr) || !slotPtr)
-    {
-        return -1;
-    }
-    slot = strip_ptr((uintptr_t)slotPtr) - base;
-    if (wordOut)
-    {
-        *wordOut = slot;
-    }
-    switch (slot)
-    {
-    case TYPE_SLOT_RVA_0:
-        return 0;
-    case TYPE_SLOT_RVA_1:
-        return 1;
-    case TYPE_SLOT_RVA_2:
-        return 2;
-    case TYPE_SLOT_RVA_3:
-        return 3;
-    case TYPE_SLOT_RVA_4:
-        return 4;
-    case TYPE_SLOT_RVA_5:
-        return 5;
-    case TYPE_SLOT_RVA_6:
-        return 6;
-    case TYPE_SLOT_RVA_8:
-        return 8;
-    default:
-        return -1;
-    }
-}
 uintptr_t hop_scene = 0;
 int container_header(uintptr_t object,
                      uintptr_t* arrayOut,

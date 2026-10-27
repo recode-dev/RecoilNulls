@@ -33,7 +33,6 @@ typedef struct
     int32_t ownerIndex;
     int32_t teamOld;
     int32_t teamNew;
-    int32_t typeWord;
     uint8_t dead;
     uint8_t activeFlag;
 } obj_t;
@@ -516,7 +515,6 @@ typedef struct
 extern proj_t projs[16];
 extern proj_death_t proj_deaths[16];
 extern int proj_death_n;
-int element_type(uintptr_t vt, uintptr_t* wordOut);
 int container_header(uintptr_t object,
                      uintptr_t* arrayOut,
                      int32_t* countOut,
