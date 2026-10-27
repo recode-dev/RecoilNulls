@@ -50,19 +50,19 @@ BOOL query_region(uintptr_t address,
     }
     if (protection)
     {
-        *protection = (vm_prot_t)pageProtection;
+        *protection = static_cast<vm_prot_t>(pageProtection);
     }
     if (maxProtection)
     {
-        *maxProtection = (vm_prot_t)pageProtection;
+        *maxProtection = static_cast<vm_prot_t>(pageProtection);
     }
     if (regionSize)
     {
-        *regionSize = (mach_vm_size_t)pageSize;
+        *regionSize = static_cast<mach_vm_size_t>(pageSize);
     }
     if (regionStart)
     {
-        *regionStart = address & ~((uintptr_t)pageSize - 1);
+        *regionStart = address & ~(static_cast<uintptr_t>(pageSize) - 1);
     }
     return YES;
 }
@@ -84,7 +84,7 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    if (!gum_memory_is_readable((gconstpointer)address, (gsize)length))
+    if (!gum_memory_is_readable((gconstpointer)address, static_cast<gsize>(length)))
     {
         return NO;
     }
@@ -149,7 +149,7 @@ BOOL writable(uintptr_t address, size_t length)
         {
             return NO;
         }
-        next = (cursor & ~((uintptr_t)pageSize - 1)) + (uintptr_t)pageSize;
+        next = (cursor & ~(static_cast<uintptr_t>(pageSize) - 1)) + static_cast<uintptr_t>(pageSize);
         if (next <= cursor)
         {
             return NO;
@@ -173,7 +173,7 @@ BOOL write_bytes(uintptr_t address, const void* src, size_t length)
         return NO;
     }
     return gum_memory_write(
-               (gpointer)address, (const guint8*)src, (gsize)length)
+               (gpointer)address, static_cast<const guint8*>(src), static_cast<gsize>(length))
                ? YES
                : NO;
 }
@@ -233,7 +233,7 @@ static BOOL module_base_by_name(const char* name, uintptr_t* out_base)
     range = gum_module_get_range(module);
     if (range)
     {
-        found = (uintptr_t)range->base_address;
+        found = static_cast<uintptr_t>(range->base_address);
     }
     g_object_unref(module);
     if (!found)
@@ -283,7 +283,7 @@ void poll_for_game(int tick)
         return;
     }
     dispatch_after(
-        dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
+        dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(0.5 * NSEC_PER_SEC)),
         dispatch_get_main_queue(),
         ^{ poll_for_game(tick + 1); });
 }
@@ -295,7 +295,7 @@ float own_r = 60.0f;
 uint32_t own_hp = 0;
 uint64_t us(void)
 {
-    return (uint64_t)g_get_monotonic_time();
+    return static_cast<uint64_t>(g_get_monotonic_time());
 }
 typedef uintptr_t (*fn_self_t)(uintptr_t);
 typedef int32_t (*fn_self_int_t)(uintptr_t);
@@ -327,7 +327,7 @@ static int battle_state(void)
     {
         return -1;
     }
-    if (!read_int(slot + (uintptr_t)STATE_ENUM_OFF, &state))
+    if (!read_int(slot + static_cast<uintptr_t>(STATE_ENUM_OFF), &state))
     {
         return -1;
     }
@@ -373,7 +373,7 @@ void scan_world(void)
     state = battle_state();
     slot = (uintptr_t)read_global_ptr(STATE_RVA);
     scene_object = 0;
-    if (slot && read_ptr(slot + (uintptr_t)SCENE_OFF, &sceneValue) &&
+    if (slot && read_ptr(slot + static_cast<uintptr_t>(SCENE_OFF), &sceneValue) &&
         sceneValue)
     {
         scene_object = (uintptr_t)sceneValue;
@@ -398,7 +398,7 @@ void scan_world(void)
         if (pointer_plausible(tileMap))
         {
             wall_bind(tileMap);
-            wall_maybe_refresh((uint64_t)(g_get_real_time() / 1000));
+            wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));
         }
     }
     if (!pointer_plausible(own))
@@ -427,17 +427,17 @@ void scan_world(void)
     }
     if (own)
     {
-        if (read_int(own + (uintptr_t)OBJ_X_OFF, &x) &&
-            read_int(own + (uintptr_t)OBJ_Y_OFF, &y))
+        if (read_int(own + static_cast<uintptr_t>(OBJ_X_OFF), &x) &&
+            read_int(own + static_cast<uintptr_t>(OBJ_Y_OFF), &y))
         {
             own_x = x;
             own_y = y;
         }
-        if (read_int(own + (uintptr_t)OBJ_HP_OFF, &hp) && hp >= 0 &&
+        if (read_int(own + static_cast<uintptr_t>(OBJ_HP_OFF), &hp) && hp >= 0 &&
             hp < 1000000)
         {
             own_ok_hp = 1;
-            own_hp = (uint32_t)hp;
+            own_hp = static_cast<uint32_t>(hp);
         }
         else
         {
@@ -461,11 +461,11 @@ void scan_world(void)
             int32_t speed = 0;
             radius = call_int(addr_charradius, ownData);
             speed = call_int(addr_charspeed, ownData);
-            own_r = (float)radius;
-            if (speed >= 300 && speed <= 3000) own_speed = (float)speed;
+            own_r = static_cast<float>(radius);
+            if (speed >= 300 && speed <= 3000) own_speed = static_cast<float>(speed);
         }
     }
-    if (!read_ptr(clientPtr + (uintptr_t)MODE_MANAGER_OFF, &value) || !value)
+    if (!read_ptr(clientPtr + static_cast<uintptr_t>(MODE_MANAGER_OFF), &value) || !value)
     {
         manager_ptr = 0;
         manager_array_ptr = 0;
@@ -475,7 +475,7 @@ void scan_world(void)
     }
     mgrPtr = (uintptr_t)value;
     manager_ptr = mgrPtr;
-    if (!read_int(mgrPtr + (uintptr_t)MGR_COUNT_OFF, &count) || count <= 0 ||
+    if (!read_int(mgrPtr + static_cast<uintptr_t>(MGR_COUNT_OFF), &count) || count <= 0 ||
         count > OBJECT_COUNT_MAX)
     {
         manager_array_ptr = 0;
@@ -483,7 +483,7 @@ void scan_world(void)
         obj_count = 0;
         return;
     }
-    if (!read_ptr(mgrPtr + (uintptr_t)MGR_ARRAY_OFF, &value) || !value)
+    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(MGR_ARRAY_OFF), &value) || !value)
     {
         manager_array_ptr = 0;
         manager_count_v = 0;
@@ -492,7 +492,7 @@ void scan_world(void)
     }
     array = (uintptr_t)value;
     if (count > COUNT_MAX) count = COUNT_MAX;
-    if (!read_bytes(array, obj_snapshot, (size_t)count * sizeof(uintptr_t)))
+    if (!read_bytes(array, obj_snapshot, static_cast<size_t>(count) * sizeof(uintptr_t)))
     {
         manager_array_ptr = 0;
         manager_count_v = 0;
@@ -520,7 +520,7 @@ void scan_world(void)
 }
 void run_workload(void)
 {
-    wall_maybe_refresh((uint64_t)(g_get_real_time() / 1000));
+    wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));
     scan_world();
     run_autododge();
 }
@@ -619,7 +619,7 @@ uintptr_t client(void)
     {
         return 0;
     }
-    if (!read_ptr((uintptr_t)scene_object + CLIENT_OFF, &clientPtr))
+    if (!read_ptr(scene_object + CLIENT_OFF, &clientPtr))
     {
         return 0;
     }

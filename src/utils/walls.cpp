@@ -5,7 +5,7 @@
 #define WALL_TYPE_CACHE_MAX 128
 
 static uint8_t wall_grid[WALL_MAX_TOTAL_TILES];
-static uint8_t wall_raw[WALL_MAX_TOTAL_TILES * (int)sizeof(uintptr_t)];
+static uint8_t wall_raw[WALL_MAX_TOTAL_TILES * static_cast<int>(sizeof(uintptr_t))];
 static uintptr_t wall_tiles = 0;
 static int wall_tiles_w = 0;
 static int wall_tiles_h = 0;
@@ -40,7 +40,7 @@ static int wall_type_bits_for(uintptr_t type, uint8_t* out)
             return 1;
         }
     }
-    if (!read_bytes(type + (uintptr_t)TILE_TYPE_MOVE_OFF, &packed, 2))
+    if (!read_bytes(type + static_cast<uintptr_t>(TILE_TYPE_MOVE_OFF), &packed, 2))
     {
         return 0;
     }
@@ -125,17 +125,17 @@ void wall_bind(uintptr_t tileMap)
         wall_dirty = 1;
         wall_fail_ms = 0;
     }
-    if (!read_int(tileMap + (uintptr_t)TILEMAP_W_OFF, &mapW) || mapW <= 0 ||
+    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_W_OFF), &mapW) || mapW <= 0 ||
         mapW > WALL_MAX_MAP_TILES)
     {
         return;
     }
-    if (!read_int(tileMap + (uintptr_t)TILEMAP_H_OFF, &mapH) || mapH <= 0 ||
+    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_H_OFF), &mapH) || mapH <= 0 ||
         mapH > WALL_MAX_MAP_TILES)
     {
         return;
     }
-    if (!read_ptr(tileMap + (uintptr_t)TILEMAP_ARRAY_OFF, &tileArray) ||
+    if (!read_ptr(tileMap + static_cast<uintptr_t>(TILEMAP_ARRAY_OFF), &tileArray) ||
         !tileArray)
     {
         return;
@@ -177,7 +177,7 @@ int wall_build(void)
     {
         return 0;
     }
-    if (!read_bytes(wall_tiles, wall_raw, (size_t)total * sizeof(uintptr_t)))
+    if (!read_bytes(wall_tiles, wall_raw, static_cast<size_t>(total) * sizeof(uintptr_t)))
     {
         return 0;
     }
@@ -189,12 +189,12 @@ int wall_build(void)
         uint8_t bits = 0;
         wall_grid[i] = 0;
         memcpy(
-            &tile, wall_raw + (size_t)i * sizeof(uintptr_t), sizeof(uintptr_t));
+            &tile, wall_raw + static_cast<size_t>(i) * sizeof(uintptr_t), sizeof(uintptr_t));
         if (!tile)
         {
             continue;
         }
-        if (!pointer_plausible(tile) || !read_ptr(tile, (void**)&type))
+        if (!pointer_plausible(tile) || !read_ptr(tile, reinterpret_cast<void**>(&type)))
         {
             holes++;
             continue;
@@ -252,8 +252,8 @@ int wall_is_blocked_at(float x, float y, int mask)
     {
         return 0;
     }
-    tx = (int)(x / WALL_TILE_SIZE);
-    ty = (int)(y / WALL_TILE_SIZE);
+    tx = static_cast<int>(x / WALL_TILE_SIZE);
+    ty = static_cast<int>(y / WALL_TILE_SIZE);
     if (tx < 0 || tx >= wall_w || ty < 0 || ty >= wall_h)
     {
         return 0;
@@ -309,10 +309,10 @@ int wall_los(float ax, float ay, float bx, float by, int mask)
     {
         return 1;
     }
-    cx = (int)(ax / WALL_TILE_SIZE);
-    cy = (int)(ay / WALL_TILE_SIZE);
-    tx = (int)(bx / WALL_TILE_SIZE);
-    ty = (int)(by / WALL_TILE_SIZE);
+    cx = static_cast<int>(ax / WALL_TILE_SIZE);
+    cy = static_cast<int>(ay / WALL_TILE_SIZE);
+    tx = static_cast<int>(bx / WALL_TILE_SIZE);
+    ty = static_cast<int>(by / WALL_TILE_SIZE);
     if (cx == tx && cy == ty)
     {
         return 1;

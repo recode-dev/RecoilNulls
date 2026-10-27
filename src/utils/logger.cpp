@@ -117,9 +117,9 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
     Dl_info di;
     if (ctx != nullptr)
     {
-        ucontext64_t* uc = (ucontext64_t*)ctx;
-        pc = (uintptr_t)uc->uc_mcontext64->__ss.__pc;
-        lr = (uintptr_t)uc->uc_mcontext64->__ss.__lr;
+        ucontext64_t* uc = static_cast<ucontext64_t*>(ctx);
+        pc = static_cast<uintptr_t>(uc->uc_mcontext64->__ss.__pc);
+        lr = static_cast<uintptr_t>(uc->uc_mcontext64->__ss.__lr);
     }
     if (info != nullptr) fault = (uintptr_t)info->si_addr;
     len = snprintf(buf, sizeof(buf),
@@ -128,21 +128,21 @@ void crash_signal(int sig, siginfo_t* info, void* ctx)
                    (void*)fault,
                    (void*)pc,
                    (void*)lr);
-    if (len > 0) write(STDERR_FILENO, buf, (size_t)len);
+    if (len > 0) write(STDERR_FILENO, buf, static_cast<size_t>(len));
     if (path[0] != 0)
     {
         int fd = open(path, O_WRONLY | O_APPEND | O_CREAT, 0644);
         if (fd >= 0)
         {
-            if (len > 0) write(fd, buf, (size_t)len);
+            if (len > 0) write(fd, buf, static_cast<size_t>(len));
             if (dladdr((void*)pc, &di) && di.dli_fname)
             {
                 len = snprintf(buf, sizeof(buf),
                                "[crash-signal] pc in %s off=%lx sym=%s\n",
                                di.dli_fname,
-                               (unsigned long)(pc - (uintptr_t)di.dli_fbase),
+                               static_cast<unsigned long>(pc - (uintptr_t)di.dli_fbase),
                                di.dli_sname ? di.dli_sname : "?");
-                if (len > 0) write(fd, buf, (size_t)len);
+                if (len > 0) write(fd, buf, static_cast<size_t>(len));
             }
             close(fd);
         }
@@ -170,7 +170,7 @@ void dump_header(void)
     line("\n########## header ##########\n");
     line("base=%p setup=%d ticks=%llu rate=%d/s\n",
          (void*)base,
-         (int)setup_done,
+         static_cast<int>(setup_done),
          ticks,
          rate);
     line("rva getinstance=%p getownchar=%p getteam=%p getownidx=%p\n",
@@ -190,23 +190,23 @@ void dump_header(void)
          (void*)addr_projbeam);
     line("off state=%llx stateenum=%llx scene=%llx client=%llx mgr=%llx "
          "array=%llx count=%llx\n",
-         (unsigned long long)STATE_RVA,
-         (unsigned long long)STATE_ENUM_OFF,
-         (unsigned long long)SCENE_OFF,
-         (unsigned long long)CLIENT_OFF,
-         (unsigned long long)MODE_MANAGER_OFF,
-         (unsigned long long)MGR_ARRAY_OFF,
-         (unsigned long long)MGR_COUNT_OFF);
+         static_cast<unsigned long long>(STATE_RVA),
+         static_cast<unsigned long long>(STATE_ENUM_OFF),
+         static_cast<unsigned long long>(SCENE_OFF),
+         static_cast<unsigned long long>(CLIENT_OFF),
+         static_cast<unsigned long long>(MODE_MANAGER_OFF),
+         static_cast<unsigned long long>(MGR_ARRAY_OFF),
+         static_cast<unsigned long long>(MGR_COUNT_OFF));
     line("off x=%llx y=%llx team=%llx owner=%llx "
          "hp=%llx dead=%llx\n",
-         (unsigned long long)OBJ_X_OFF,
-         (unsigned long long)OBJ_Y_OFF,
-         (unsigned long long)OBJ_TEAM_OFF,
-         (unsigned long long)OBJ_OWNERINDEX_OFF,
-         (unsigned long long)OBJ_HP_OFF,
-         (unsigned long long)OBJ_DEADFLAG_OFF);
+         static_cast<unsigned long long>(OBJ_X_OFF),
+         static_cast<unsigned long long>(OBJ_Y_OFF),
+         static_cast<unsigned long long>(OBJ_TEAM_OFF),
+         static_cast<unsigned long long>(OBJ_OWNERINDEX_OFF),
+         static_cast<unsigned long long>(OBJ_HP_OFF),
+         static_cast<unsigned long long>(OBJ_DEADFLAG_OFF));
     line("off projdata vtable=%llx\n",
-         (unsigned long long)VTABLE_PROJ_DATA_RVA);
+         static_cast<unsigned long long>(VTABLE_PROJ_DATA_RVA));
 }
 void dump_chain(void)
 {
@@ -303,13 +303,13 @@ static int live_projectiles(int* nearOut)
     int n = 0;
     int near = 0;
     uintptr_t projVt = 0;
-    float ox = (float)own_x;
-    float oy = (float)own_y;
+    float ox = static_cast<float>(own_x);
+    float oy = static_cast<float>(own_y);
     if (!base || obj_count <= 0)
     {
         return 0;
     }
-    projVt = base + (uintptr_t)VTABLE_PROJ_DATA_RVA;
+    projVt = base + static_cast<uintptr_t>(VTABLE_PROJ_DATA_RVA);
     for (i = 0; i < obj_count; i++)
     {
         uintptr_t obj = obj_snapshot[i];
@@ -320,7 +320,7 @@ static int live_projectiles(int* nearOut)
         int32_t team = -1;
         float dx = 0.0f;
         float dy = 0.0f;
-        if (!obj || !read_ptr(obj + (uintptr_t)ELEM_DEF_OFF, &data) || !data)
+        if (!obj || !read_ptr(obj + static_cast<uintptr_t>(ELEM_DEF_OFF), &data) || !data)
         {
             continue;
         }
@@ -328,19 +328,19 @@ static int live_projectiles(int* nearOut)
         {
             continue;
         }
-        if (!read_int(obj + (uintptr_t)OBJ_TEAM_OFF, &team) ||
+        if (!read_int(obj + static_cast<uintptr_t>(OBJ_TEAM_OFF), &team) ||
             team == own_team_b)
         {
             continue;
         }
         n++;
-        if (!read_int(obj + (uintptr_t)OBJ_X_OFF, &px) ||
-            !read_int(obj + (uintptr_t)OBJ_Y_OFF, &py))
+        if (!read_int(obj + static_cast<uintptr_t>(OBJ_X_OFF), &px) ||
+            !read_int(obj + static_cast<uintptr_t>(OBJ_Y_OFF), &py))
         {
             continue;
         }
-        dx = (float)px - ox;
-        dy = (float)py - oy;
+        dx = static_cast<float>(px) - ox;
+        dy = static_cast<float>(py) - oy;
         if (dx * dx + dy * dy <= PROJ_NEAR_SQ)
         {
             near++;
@@ -370,8 +370,8 @@ void dump_ad(void)
          scan_stage(),
          active,
          moving,
-         (int)ad_target_x,
-         (int)ad_target_y,
+         static_cast<int>(ad_target_x),
+         static_cast<int>(ad_target_y),
          proj,
          near,
          wall_ready(),
@@ -384,7 +384,7 @@ void dump_raw(void)
     uintptr_t addr = 0;
     uintptr_t off = 0;
     if (!own_elem) return;
-    line("own raw dump (%llu bytes)\n", (unsigned long long)RAW_BYTES);
+    line("own raw dump (%llu bytes)\n", static_cast<unsigned long long>(RAW_BYTES));
     for (off = 0; off < RAW_BYTES; off += 0x10)
     {
         uint32_t w0 = 0;
@@ -392,20 +392,20 @@ void dump_raw(void)
         uint32_t w2 = 0;
         uint32_t w3 = 0;
         addr = own_elem + off;
-        if (!read_int(addr + 0x0, (int32_t*)&w0)) break;
-        if (!read_int(addr + 0x4, (int32_t*)&w1)) break;
-        if (!read_int(addr + 0x8, (int32_t*)&w2)) break;
-        if (!read_int(addr + 0xC, (int32_t*)&w3)) break;
+        if (!read_int(addr + 0x0, reinterpret_cast<int32_t*>(&w0))) break;
+        if (!read_int(addr + 0x4, reinterpret_cast<int32_t*>(&w1))) break;
+        if (!read_int(addr + 0x8, reinterpret_cast<int32_t*>(&w2))) break;
+        if (!read_int(addr + 0xC, reinterpret_cast<int32_t*>(&w3))) break;
         line("  %03llx %08x %08x %08x %08x | %d %d %d %d\n",
-             (unsigned long long)off,
+             static_cast<unsigned long long>(off),
              w0,
              w1,
              w2,
              w3,
-             (int32_t)w0,
-             (int32_t)w1,
-             (int32_t)w2,
-             (int32_t)w3);
+             static_cast<int32_t>(w0),
+             static_cast<int32_t>(w1),
+             static_cast<int32_t>(w2),
+             static_cast<int32_t>(w3));
     }
 }
 void dump_objects(void)
@@ -427,7 +427,7 @@ void dump_objects(void)
         int32_t y = 0;
         int32_t hp = 0;
         uint8_t deadFlag = 0;
-        if (!read_ptr(array + (uintptr_t)i * 8ULL, &raw) || !raw) continue;
+        if (!read_ptr(array + static_cast<uintptr_t>(i) * 8ULL, &raw) || !raw) continue;
         object = (uintptr_t)raw;
         if (!pointer_plausible(object)) continue;
         read_ptr(object, &raw);
@@ -443,7 +443,7 @@ void dump_objects(void)
              "dead=%d\n",
              i,
              (void*)object,
-             (unsigned long long)(vt >= base ? vt - base : vt),
+             static_cast<unsigned long long>(vt >= base ? vt - base : vt),
              projGid,
              team,
              ownerIdx,
@@ -482,17 +482,17 @@ void tick(void)
         line("\n##### match #####\n");
         dump_header();
     }
-    now = (uint64_t)(g_get_real_time() / 1000);
-    scan = (uint64_t)ticks_a;
+    now = static_cast<uint64_t>(g_get_real_time() / 1000);
+    scan = ticks_a;
     if (lastMs && now > lastMs)
     {
-        rate = (int)(((scan - lastScan) * 1000ULL) / (now - lastMs));
+        rate = static_cast<int>(((scan - lastScan) * 1000ULL) / (now - lastMs));
     }
     line("\n--- t=%llu ms=%.3f dt=%llu scan=%llu rate=%d/s ---\n",
          ticks,
-         (double)g_get_real_time() / 1000.0,
-         (unsigned long long)(lastMs ? now - lastMs : 0),
-         (unsigned long long)scan,
+         static_cast<double>(g_get_real_time()) / 1000.0,
+         static_cast<unsigned long long>(lastMs ? now - lastMs : 0),
+         static_cast<unsigned long long>(scan),
          rate);
     write_crash_marks("[crash-mark] tick=%llu stage=chain\n", ticks);
     dump_chain();
@@ -524,9 +524,9 @@ void start(void)
     if (!timer) return;
     dispatch_source_set_timer(
         timer,
-        dispatch_time(DISPATCH_TIME_NOW, (int64_t)(150 * NSEC_PER_MSEC)),
-        (uint64_t)(LOG_INTERVAL_MS * NSEC_PER_MSEC),
-        (uint64_t)(10 * NSEC_PER_MSEC));
+        dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(150 * NSEC_PER_MSEC)),
+        static_cast<uint64_t>(LOG_INTERVAL_MS * NSEC_PER_MSEC),
+        static_cast<uint64_t>(10 * NSEC_PER_MSEC));
     dispatch_source_set_event_handler(timer, ^{ tick(); });
     dispatch_resume(timer);
 }

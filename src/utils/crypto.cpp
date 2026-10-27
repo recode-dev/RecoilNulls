@@ -48,8 +48,8 @@ static void sha_block(sha_ctx_t* c, const uint8_t* p)
     int i = 0;
     for (i = 0; i < 16; i++)
     {
-        ws[i] = ((uint32_t)p[i * 4] << 24) | ((uint32_t)p[i * 4 + 1] << 16) |
-                ((uint32_t)p[i * 4 + 2] << 8) | (uint32_t)p[i * 4 + 3];
+        ws[i] = (static_cast<uint32_t>(p[i * 4]) << 24) | (static_cast<uint32_t>(p[i * 4 + 1]) << 16) |
+                (static_cast<uint32_t>(p[i * 4 + 2]) << 8) | static_cast<uint32_t>(p[i * 4 + 3]);
     }
     for (i = 16; i < 64; i++)
     {
@@ -102,10 +102,10 @@ static void sha_init(sha_ctx_t* c)
 static void sha_update(sha_ctx_t* c, const uint8_t* p, size_t length)
 {
     size_t i = 0;
-    c->bits += (uint64_t)length * 8ULL;
+    c->bits += static_cast<uint64_t>(length) * 8ULL;
     while (i < length)
     {
-        size_t k = (size_t)64 - c->n;
+        size_t k = static_cast<size_t>(64) - c->n;
         if (k > length - i)
         {
             k = length - i;
@@ -124,21 +124,21 @@ static void sha_final(sha_ctx_t* c, uint8_t out[32])
 {
     uint8_t pad[72];
     uint64_t bits = c->bits;
-    size_t padlen = (c->n < 56) ? ((size_t)56 - c->n) : ((size_t)120 - c->n);
+    size_t padlen = (c->n < 56) ? (static_cast<size_t>(56) - c->n) : (static_cast<size_t>(120) - c->n);
     int i = 0;
     pad[0] = 0x80;
     memset(pad + 1, 0, padlen - 1);
     for (i = 0; i < 8; i++)
     {
-        pad[padlen + (size_t)i] = (uint8_t)(bits >> (56 - 8 * i));
+        pad[padlen + static_cast<size_t>(i)] = static_cast<uint8_t>(bits >> (56 - 8 * i));
     }
     sha_update(c, pad, padlen + 8);
     for (i = 0; i < 8; i++)
     {
-        out[i * 4] = (uint8_t)(c->h[i] >> 24);
-        out[i * 4 + 1] = (uint8_t)(c->h[i] >> 16);
-        out[i * 4 + 2] = (uint8_t)(c->h[i] >> 8);
-        out[i * 4 + 3] = (uint8_t)(c->h[i]);
+        out[i * 4] = static_cast<uint8_t>(c->h[i] >> 24);
+        out[i * 4 + 1] = static_cast<uint8_t>(c->h[i] >> 16);
+        out[i * 4 + 2] = static_cast<uint8_t>(c->h[i] >> 8);
+        out[i * 4 + 3] = static_cast<uint8_t>(c->h[i]);
     }
 }
 void sha(const uint8_t* data, size_t length, uint8_t out[32])
@@ -156,7 +156,7 @@ void ci_make_block(const uint8_t key16[16],
     int i = 0;
     for (i = 0; i < 16; i++)
     {
-        out[i] = (uint8_t)(key16[i] ^ mask16[i]);
+        out[i] = static_cast<uint8_t>(key16[i] ^ mask16[i]);
     }
     memset(out + 16, pad, 64 - 16);
 }
@@ -177,29 +177,29 @@ uint32_t ci_compute_token(const uint8_t key16[16],
     uint32_t typeC = 0;
     uint32_t token = 0;
     int i = 0;
-    typeRaw = (uint32_t)cmd16[4] | ((uint32_t)cmd16[5] << 8) |
-              ((uint32_t)cmd16[6] << 16) | ((uint32_t)cmd16[7] << 24);
+    typeRaw = static_cast<uint32_t>(cmd16[4]) | (static_cast<uint32_t>(cmd16[5]) << 8) |
+              (static_cast<uint32_t>(cmd16[6]) << 16) | (static_cast<uint32_t>(cmd16[7]) << 24);
     typeC = (typeRaw <= 0x16) ? table[typeRaw] : fallback;
     for (i = 0; i < 16; i++)
     {
         msg[i] = cmd16[i];
     }
-    msg[16] = (uint8_t)(typeC);
-    msg[17] = (uint8_t)(typeC >> 8);
-    msg[18] = (uint8_t)(typeC >> 16);
-    msg[19] = (uint8_t)(typeC >> 24);
-    ci_make_block(key16, innerMask, (uint8_t)0x36, block);
+    msg[16] = static_cast<uint8_t>(typeC);
+    msg[17] = static_cast<uint8_t>(typeC >> 8);
+    msg[18] = static_cast<uint8_t>(typeC >> 16);
+    msg[19] = static_cast<uint8_t>(typeC >> 24);
+    ci_make_block(key16, innerMask, static_cast<uint8_t>(0x36), block);
     memcpy(innerBuf, block, 64);
     memcpy(innerBuf + 64, msg, 0x14);
     sha(innerBuf, sizeof(innerBuf), inner);
-    ci_make_block(key16, outerMask, (uint8_t)0x5c, block);
+    ci_make_block(key16, outerMask, static_cast<uint8_t>(0x5c), block);
     memcpy(outerBuf, block, 64);
     memcpy(outerBuf + 64, inner, 32);
     sha(outerBuf, sizeof(outerBuf), digest);
-    token = (uint32_t)digest[0] | (((uint32_t)digest[1] & (uint32_t)0x7f) << 8);
-    if (token <= (uint32_t)1)
+    token = static_cast<uint32_t>(digest[0]) | ((static_cast<uint32_t>(digest[1]) & static_cast<uint32_t>(0x7f)) << 8);
+    if (token <= static_cast<uint32_t>(1))
     {
-        token = (uint32_t)1;
+        token = static_cast<uint32_t>(1);
     }
     return token;
 }

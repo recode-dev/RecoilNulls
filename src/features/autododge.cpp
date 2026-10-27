@@ -80,11 +80,11 @@ static uint64_t lastSentAt = 0;
 static float CHAR_SPEED = 720.0f;
 static void buildRing()
 {
-    if ((int)ring.size() == TUNE.DIR_COUNT) return;
+    if (static_cast<int>(ring.size()) == TUNE.DIR_COUNT) return;
     ring.clear();
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
-        float a = (float)M_PI * 2.0f * (float)i / (float)TUNE.DIR_COUNT;
+        float a = static_cast<float>(M_PI) * 2.0f * static_cast<float>(i) / static_cast<float>(TUNE.DIR_COUNT);
         ring.push_back(V2(cosf(a), sinf(a)));
     }
     headingIdx = -1;
@@ -133,26 +133,26 @@ static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
     step = speed * TUNE.PROBE_T;
     for (int s = 1; s <= TUNE.PROBE_N; s++)
     {
-        float px = myX + dir.x * step * (float)s;
-        float py = myY + dir.y * step * (float)s;
+        float px = myX + dir.x * step * static_cast<float>(s);
+        float py = myY + dir.y * step * static_cast<float>(s);
         if (wall_is_blocked_wide(px, py, bodyR, WALL_BLOCKS_MOVEMENT))
         {
             blocked++;
         }
     }
-    return TUNE.WALL_HIT * (float)blocked / (float)TUNE.PROBE_N;
+    return TUNE.WALL_HIT * static_cast<float>(blocked) / static_cast<float>(TUNE.PROBE_N);
 }
 static int32_t clamp_axis(float value, int tiles)
 {
     float limit = 0.0f;
     if (tiles <= 0)
     {
-        return (int32_t)roundf(value);
+        return static_cast<int32_t>(roundf(value));
     }
-    limit = (float)tiles * WALL_TILE_SIZE - 1.0f;
+    limit = static_cast<float>(tiles) * WALL_TILE_SIZE - 1.0f;
     if (limit <= 0.0f)
     {
-        return (int32_t)roundf(value);
+        return static_cast<int32_t>(roundf(value));
     }
     if (value < 0.0f)
     {
@@ -160,9 +160,9 @@ static int32_t clamp_axis(float value, int tiles)
     }
     if (value > limit)
     {
-        return (int32_t)limit;
+        return static_cast<int32_t>(limit);
     }
-    return (int32_t)roundf(value);
+    return static_cast<int32_t>(roundf(value));
 }
 static void clearHeading()
 {
@@ -225,8 +225,8 @@ void autododge(void)
     }
     uint64_t now = us() / 1000;
     buildRing();
-    float mx = (float)own_x;
-    float my = (float)own_y;
+    float mx = static_cast<float>(own_x);
+    float my = static_cast<float>(own_y);
     float myRadius = own_r;
     if (fabsf(mx) < TUNE.MIN_POS && fabsf(my) < TUNE.MIN_POS) return;
     CHAR_SPEED = own_speed;
@@ -266,8 +266,8 @@ void autododge(void)
                 int32_t px_i = 0, py_i = 0;
                 memcpy(&px_i, obj + OBJ_X_OFF, sizeof(px_i));
                 memcpy(&py_i, obj + OBJ_Y_OFF, sizeof(py_i));
-                float px = (float)px_i;
-                float py = (float)py_i;
+                float px = static_cast<float>(px_i);
+                float py = static_cast<float>(py_i);
                 float dx_dist = px - mx;
                 float dy_dist = py - my;
                 uint32_t deadFlag = 0;
@@ -292,10 +292,10 @@ void autododge(void)
                            sizeof(projRadius));
                     state.isIndirect = (ind != 0);
                     state.isBeam = (call_fn(addr_projbeam, dataPtr, 0) != 0);
-                    state.speed = (float)projSpeed;
-                    state.radius = (float)projRadius;
-                    state.earlyTicks = (int)call_fn(addr_projearly, dataPtr, 0);
-                    state.spawnedAt = now - (uint64_t)state.earlyTicks * 16;
+                    state.speed = static_cast<float>(projSpeed);
+                    state.radius = static_cast<float>(projRadius);
+                    state.earlyTicks = static_cast<int>(call_fn(addr_projearly, dataPtr, 0));
+                    state.spawnedAt = now - static_cast<uint64_t>(state.earlyTicks) * 16;
                     state.name[0] = '\0';
                     {
                         uintptr_t nameStr =
@@ -308,14 +308,14 @@ void autododge(void)
                                           sizeof(state.name));
                         }
                     }
-                    state.spawnX = (float)px_i;
-                    state.spawnY = (float)py_i;
+                    state.spawnX = static_cast<float>(px_i);
+                    state.spawnY = static_cast<float>(py_i);
                 }
                 else
                 {
-                    float dt = (float)(now - state.lastTs) / 1000.0f;
-                    float ddx = (float)px_i - (float)state.lastX;
-                    float ddy = (float)py_i - (float)state.lastY;
+                    float dt = static_cast<float>(now - state.lastTs) / 1000.0f;
+                    float ddx = static_cast<float>(px_i) - static_cast<float>(state.lastX);
+                    float ddy = static_cast<float>(py_i) - static_cast<float>(state.lastY);
                     if (dt > 0.002f && dt < 0.3f &&
                         ddx * ddx + ddy * ddy >= 16.0f)
                     {
