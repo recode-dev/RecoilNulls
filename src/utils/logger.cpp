@@ -29,13 +29,13 @@ constexpr int RAW_EVERY = 50;
 constexpr uintptr_t RAW_BYTES = 0x1F0;
 constexpr float PROJ_NEAR = 1600.0f;
 constexpr float PROJ_NEAR_SQ = PROJ_NEAR * PROJ_NEAR;
-FILE* file = nullptr;
-dispatch_source_t timer = nullptr;
-unsigned long long ticks = 0;
-uint64_t lastMs = 0;
-uint64_t lastScan = 0;
-int rate = 0;
-char path[1024];
+static FILE* file = nullptr;
+static dispatch_source_t timer = nullptr;
+static unsigned long long ticks = 0;
+static uint64_t lastMs = 0;
+static uint64_t lastScan = 0;
+static int rate = 0;
+static char path[1024];
 void document_path(char* out, size_t cap)
 {
     const char* home = getenv("HOME");
