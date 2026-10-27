@@ -370,8 +370,7 @@ void autododge()
     }
     if (threats.empty())
     {
-        if (now - lastDangerTs > TUNE.RELEASE_GRACE_MS)
-            endDodge();
+        if (now - lastDangerTs > TUNE.RELEASE_GRACE_MS) endDodge();
         return;
     }
     float stayClear = clearanceFor(threats, mx, my, 0, 0);
