@@ -24,8 +24,8 @@ static struct
     int PROBE_N = 3;
     float PROBE_T = 0.35f;
     float WALL_BODY = 240.0f;
-    uint32_t SEND_MIN_MS = 80;
-    float SEND_MIN_DIST = 8.0f;
+    uint32_t SEND_MIN_MS = 250;
+    float SEND_TURN_DOT = 0.99f;
     float MIN_POS = 50.0f;
 } TUNE;
 static const float DEFAULT_PAD = 80.0f;
@@ -67,8 +67,8 @@ static int g_headingIdx = -1;
 static V2 g_lastDir = V2(0, 0);
 static uint64_t g_holdUntil = 0;
 static uint64_t g_lastDangerTs = 0;
-static float g_lastSentX = 1e9f;
-static float g_lastSentY = 1e9f;
+static float g_sentDirX = 0.0f;
+static float g_sentDirY = 0.0f;
 static uint64_t g_lastSentAt = 0;
 static float CHAR_SPEED = 720.0f;
 static void buildRing()
@@ -175,8 +175,8 @@ static void releaseHeading(uint64_t now, float mx, float my)
     ty = clamp_axis(my + dir.y * coast, wall_cache_h());
     move_to(tx, ty, mx, my);
     enqueue(tx, ty);
-    g_lastSentX = (float)tx;
-    g_lastSentY = (float)ty;
+    g_sentDirX = dir.x;
+    g_sentDirY = dir.y;
     g_lastSentAt = now;
     ad_target_x = tx;
     ad_target_y = ty;
@@ -200,8 +200,8 @@ void autododge_reset(void)
     g_lastDir = V2(0, 0);
     g_holdUntil = 0;
     g_lastDangerTs = 0;
-    g_lastSentX = 1e9f;
-    g_lastSentY = 1e9f;
+    g_sentDirX = 0.0f;
+    g_sentDirY = 0.0f;
     g_lastSentAt = 0;
     ad_target_x = 0;
     ad_target_y = 0;
@@ -428,21 +428,19 @@ void autododge(void)
     g_lastDir = g_ring[chosenIdx];
     int32_t tx = clamp_axis(mx + chosen.x * TUNE.REACH, wall_cache_w());
     int32_t ty = clamp_axis(my + chosen.y * TUNE.REACH, wall_cache_h());
-    float ddx = (float)tx - g_lastSentX;
-    float ddy = (float)ty - g_lastSentY;
-    bool moved =
-        (ddx * ddx + ddy * ddy > TUNE.SEND_MIN_DIST * TUNE.SEND_MIN_DIST);
+    float dirDot = chosen.x * g_sentDirX + chosen.y * g_sentDirY;
+    bool turned = (dirDot < TUNE.SEND_TURN_DOT);
     bool stale = (now - g_lastSentAt > TUNE.SEND_MIN_MS);
-    if (moved || stale)
+    if (turned || stale)
     {
-        g_lastSentX = (float)tx;
-        g_lastSentY = (float)ty;
+        g_sentDirX = chosen.x;
+        g_sentDirY = chosen.y;
         g_lastSentAt = now;
         move_to(tx, ty, mx, my);
         enqueue(tx, ty);
+        ad_target_x = tx;
+        ad_target_y = ty;
     }
-    ad_target_x = tx;
-    ad_target_y = ty;
     active = 1;
     moving = 1;
 }
