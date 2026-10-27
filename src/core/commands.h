@@ -6,9 +6,6 @@ inline constexpr int MSG_SLACK = 0x58;
 inline constexpr int TYPE_MOVE = 0x2;
 inline constexpr int PRED_FLAG = 1;
 uintptr_t entry_callable(uintptr_t rva);
-// The returned block is passed to the game's input function (ADDINPUT),
-// which takes it over. Freeing it here after that call would be a
-// use-after-free. Ownership after ADDINPUT is the game's, not verified here.
 [[nodiscard]] void* msg_alloc(void);
 void* manager(void);
 int pred_set(int x, int y);

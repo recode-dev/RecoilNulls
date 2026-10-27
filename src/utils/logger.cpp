@@ -36,9 +36,6 @@ uint64_t lastMs = 0;
 uint64_t lastScan = 0;
 int rate = 0;
 char path[1024];
-// Writes into $HOME/Documents (the app sandbox on iOS). No /tmp fallback:
-// the sandbox /tmp is not the Documents directory the log must live in.
-// Returns an empty string when HOME is unset.
 void document_path(char* out, size_t cap)
 {
     const char* home = getenv("HOME");
