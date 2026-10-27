@@ -539,16 +539,31 @@ static void scan_frame(void)
     run_workload();
     inside_hook = NO;
 }
+static void schedule_frame(void);
+static void frame_tick(void)
+{
+    scan_frame();
+    schedule_frame();
+}
+static void schedule_frame(void)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{ frame_tick(); });
+}
 void setup(void)
 {
     if (setup_done)
     {
         return;
     }
-    setup_done = YES;
     resolve_addresses();
-    objc_arm(base, "MetalView", "render", scan_frame);
-    objc_arm(base, "NullView", "render", scan_frame);
+    int armed = 0;
+    armed += objc_arm(base, "MetalView", "render", scan_frame);
+    armed += objc_arm(base, "NullView", "render", scan_frame);
+    if (!armed)
+    {
+        schedule_frame();
+    }
+    setup_done = YES;
 }
 void resolve_addresses(void)
 {
