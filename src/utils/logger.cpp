@@ -227,12 +227,12 @@ static int live_projectiles(int* nearOut)
     uintptr_t projVt = 0;
     float ox = (float)own_x;
     float oy = (float)own_y;
-    if (!base || obj_snapshot_n <= 0)
+    if (!base || obj_count <= 0)
     {
         return 0;
     }
     projVt = base + (uintptr_t)VTABLE_PROJ_DATA_RVA;
-    for (i = 0; i < obj_snapshot_n; i++)
+    for (i = 0; i < obj_count; i++)
     {
         uintptr_t obj = obj_snapshot[i];
         void* data = nullptr;
@@ -280,7 +280,7 @@ int scan_stage(void)
     if (!scene_object) return 1;
     if (!own_elem) return 2;
     if (!manager_ptr) return 3;
-    if (!obj_snapshot_n) return 4;
+    if (!obj_count) return 4;
     return 6;
 }
 void dump_ad(void)

@@ -15,7 +15,7 @@ typedef struct
     SEL sel;
     IMP original;
     int used;
-    objc_body_t body;
+    objc_hook_fn body;
 } objc_hook_t;
 static objc_hook_t g_objc_hooks[OBJC_HOOK_MAX];
 static int image_owns(uintptr_t address, uintptr_t imageBase)
@@ -213,7 +213,7 @@ static Class objc_owner_by_resolver(const char* clsName,
 int objc_arm(uintptr_t imageBase,
              const char* clsName,
              const char* selName,
-             objc_body_t body)
+             objc_hook_fn body)
 {
     if (!imageBase || !clsName || !selName || !body) return 0;
     Class wanted = objc_getClass(clsName);

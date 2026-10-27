@@ -244,9 +244,9 @@ void autododge(void)
     {
         float zoneSq = TUNE.AWARE * TUNE.AWARE;
         float bodyR = myRadius + TUNE.SKIN;
-        if (obj_snapshot_n > 0)
+        if (obj_count > 0)
         {
-            for (int i = 0; i < obj_snapshot_n; i++)
+            for (int i = 0; i < obj_count; i++)
             {
                 if (!obj_valid[i]) continue;
                 const uint8_t* obj = obj_block[i];

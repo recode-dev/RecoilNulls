@@ -313,7 +313,7 @@ int32_t manager_count_v = 0;
 uintptr_t obj_snapshot[COUNT_MAX];
 uint8_t obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
 uint8_t obj_valid[COUNT_MAX];
-int obj_snapshot_n = 0;
+int obj_count = 0;
 int32_t own_x = 0;
 int32_t own_y = 0;
 int32_t own_index_v = -1;
@@ -344,7 +344,7 @@ static void world_reset(void)
     manager_ptr = 0;
     manager_array_ptr = 0;
     manager_count_v = 0;
-    obj_snapshot_n = 0;
+    obj_count = 0;
     scene_object = 0;
     wall_drop();
     autododge_reset();
@@ -466,7 +466,7 @@ void scan_world(void)
         manager_ptr = 0;
         manager_array_ptr = 0;
         manager_count_v = 0;
-        obj_snapshot_n = 0;
+        obj_count = 0;
         return;
     }
     mgrPtr = (uintptr_t)value;
@@ -476,14 +476,14 @@ void scan_world(void)
     {
         manager_array_ptr = 0;
         manager_count_v = 0;
-        obj_snapshot_n = 0;
+        obj_count = 0;
         return;
     }
     if (!read_ptr(mgrPtr + (uintptr_t)MGR_ARRAY_OFF, &value) || !value)
     {
         manager_array_ptr = 0;
         manager_count_v = 0;
-        obj_snapshot_n = 0;
+        obj_count = 0;
         return;
     }
     array = (uintptr_t)value;
@@ -492,12 +492,12 @@ void scan_world(void)
     {
         manager_array_ptr = 0;
         manager_count_v = 0;
-        obj_snapshot_n = 0;
+        obj_count = 0;
         return;
     }
     manager_array_ptr = array;
     manager_count_v = count;
-    obj_snapshot_n = count;
+    obj_count = count;
     for (int i = 0; i < count; i++)
     {
         uintptr_t objPtr = obj_snapshot[i];
@@ -524,56 +524,15 @@ void run_autododge(void)
     autododge();
     in_move = 0;
 }
-static uint64_t work_us = 0;
-static volatile int hot_pending = 0;
-static dispatch_source_t hot_timer = nullptr;
-static void objc_body(void)
+static void scan_frame(void)
 {
-    uint64_t now = 0;
     if (inside_hook)
     {
         return;
     }
-    now = us();
-    if (now && work_us && (now - work_us) < WORK_GAP_US)
-    {
-        return;
-    }
-    work_us = now;
     inside_hook = YES;
     run_workload();
     inside_hook = NO;
-}
-static void start_hot_timer(void)
-{
-    dispatch_queue_t queue = nullptr;
-    dispatch_source_t timer = nullptr;
-    uint64_t interval = 0;
-    if (hot_timer)
-    {
-        return;
-    }
-    queue = dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0);
-    timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
-    if (!timer)
-    {
-        return;
-    }
-    interval = (uint64_t)(HOT_INTERVAL_US * NSEC_PER_USEC);
-    dispatch_source_set_timer(
-        timer, dispatch_time(DISPATCH_TIME_NOW, 0), interval, 0);
-    dispatch_source_set_event_handler(timer, ^{
-      if (!__sync_bool_compare_and_swap(&hot_pending, 0, 1))
-      {
-          return;
-      }
-      dispatch_async(dispatch_get_main_queue(), ^{
-        __sync_lock_release(&hot_pending);
-        objc_body();
-      });
-    });
-    dispatch_resume(timer);
-    hot_timer = timer;
 }
 void setup(void)
 {
@@ -583,9 +542,8 @@ void setup(void)
     }
     setup_done = YES;
     resolve_addresses();
-    objc_arm(base, "MetalView", "render", objc_body);
-    objc_arm(base, "NullView", "render", objc_body);
-    start_hot_timer();
+    objc_arm(base, "MetalView", "render", scan_frame);
+    objc_arm(base, "NullView", "render", scan_frame);
 }
 void resolve_addresses(void)
 {

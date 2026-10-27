@@ -135,7 +135,7 @@ extern int32_t manager_count_v;
 extern uintptr_t obj_snapshot[COUNT_MAX];
 extern uint8_t obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
 extern uint8_t obj_valid[COUNT_MAX];
-extern int obj_snapshot_n;
+extern int obj_count;
 extern uint64_t ticks_a;
 extern uint32_t own_hp;
 extern float own_r;
@@ -154,8 +154,6 @@ int scene_live(void);
 extern int coord_ok;
 extern int dead;
 extern uintptr_t own_elem;
-#define WORK_GAP_US 0
-#define HOT_INTERVAL_US 0
 void resolve_addresses(void);
 uintptr_t client(void);
 uintptr_t controller(void);

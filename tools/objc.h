@@ -6,11 +6,11 @@
 extern "C"
 {
 #endif
-    typedef void (*objc_body_t)(void);
+    typedef void (*objc_hook_fn)(void);
     int objc_arm(uintptr_t imageBase,
                  const char* clsName,
                  const char* selName,
-                 objc_body_t body);
+                 objc_hook_fn body);
 #ifdef __cplusplus
 }
 #endif
