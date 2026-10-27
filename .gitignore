@@ -3,3 +3,5 @@ packages/
 out/
 .DS_Store
 *.dylib
+.build/
+vendor/frida-gum/
