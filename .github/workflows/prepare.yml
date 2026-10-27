@@ -22,26 +22,53 @@ jobs:
       - name: Tool
         run: npm install --global clang-format@1.8.0
 
+      - name: Clean junk
+        run: |
+          set -euo pipefail
+          # Only tracked files matching known junk patterns are removed.
+          git ls-files -z |
+            grep -zE '(^|/)(core|\.DS_Store|Thumbs\.db)$|\.(orig|rej|bak|swp)$|~$' |
+            xargs -0 -r git rm -q --
+
       - name: Format
         run: |
           set -euo pipefail
           style='{BasedOnStyle: LLVM, BreakBeforeBraces: Allman, IndentWidth: 4, ContinuationIndentWidth: 4, ColumnLimit: 80, AllowShortIfStatementsOnASingleLine: WithoutElse, AllowShortBlocksOnASingleLine: Empty, AllowShortFunctionsOnASingleLine: None, AllowShortLambdasOnASingleLine: None, BreakBeforeTernaryOperators: true, BinPackArguments: false, BinPackParameters: false, PointerAlignment: Left, SortIncludes: false, FixNamespaceComments: false}'
-          find src tools -type f \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 |
-            xargs -0 clang-format -i -style="$style"
+          files() {
+            git ls-files -z -- 'src/*.c' 'src/*.cpp' 'src/*.h' 'src/*.hpp' \
+              'tools/*.c' 'tools/*.cpp' 'tools/*.h' 'tools/*.hpp'
+          }
+          # Format, strip trailing whitespace, ensure a final newline.
+          files | xargs -0 -r clang-format -i -style="$style"
+          files | xargs -0 -r sed -i -e 's/[[:space:]]\+$//'
+          files | while IFS= read -r -d '' f; do
+            if [ -s "$f" ] && [ -n "$(tail -c1 "$f")" ]; then
+              printf '\n' >> "$f"
+            fi
+          done
 
       - name: Push
         id: push
+        env:
+          BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+            echo "Protected branch $BRANCH: skip push"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -A
+          # Tracked changes only (modifications and removals); never untracked files.
+          git add -u
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git commit -m "chore(prepare): format"
-          git push
+          git commit -m "chore(prepare): format and clean"
+          git pull --rebase origin "$BRANCH"
+          git push origin "HEAD:$BRANCH"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Build
