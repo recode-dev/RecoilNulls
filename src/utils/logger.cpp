@@ -91,7 +91,10 @@ void write_crash_marks(const char* format, ...)
 {
     va_list args;
     FILE* f = nullptr;
-    if (g_path[0] == 0) return;
+    if (g_path[0] == 0)
+    {
+        snprintf(g_path, sizeof(g_path), "%s/Recoil.log", document_path());
+    }
     if (g_file != nullptr) fflush(g_file);
     f = fopen(g_path, "a");
     if (f == nullptr) return;
@@ -464,5 +467,7 @@ void start(void)
 }
 __attribute__((constructor)) static void logger_entry(void)
 {
+    write_crash_marks("[crash-mark] process start\n");
     dispatch_async(dispatch_get_main_queue(), ^{ start(); });
+
 }
