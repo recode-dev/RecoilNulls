@@ -65,8 +65,9 @@ struct ProjectileState
 __thread int in_move = 0;
 int active = 0;
 int moving = 0;
-int32_t ad_target_x = 0;
-int32_t ad_target_y = 0;
+#define NO_TARGET 1000000000
+int32_t ad_target_x = NO_TARGET;
+int32_t ad_target_y = NO_TARGET;
 static std::map<int, ProjectileState> proj_cache;
 static std::vector<V2> ring;
 static int headingIdx = -1;
@@ -204,8 +205,8 @@ void autododge_reset()
     lastGoodTs = 0;
     commitDir = V2(0, 0);
     lastSentAt = 0;
-    ad_target_x = 0;
-    ad_target_y = 0;
+    ad_target_x = NO_TARGET;
+    ad_target_y = NO_TARGET;
     active = 0;
     moving = 0;
 }
