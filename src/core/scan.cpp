@@ -1739,7 +1739,6 @@ void state_note(int state)
     }
     prev_state = state;
 }
-static char proj_name_buf[16][64];
 static int proj_read_name(uintptr_t data, char* dst, int cap)
 {
     void* strp = nullptr;
