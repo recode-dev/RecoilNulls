@@ -514,6 +514,7 @@ static BOOL find_game_image_dyld(uintptr_t* out_base)
     }
     return NO;
 }
+int gum_live = 0;
 BOOL find_game_image(uintptr_t* out_base)
 {
     static int gum_ready = 0;
@@ -526,6 +527,7 @@ BOOL find_game_image(uintptr_t* out_base)
     {
         gum_init_embedded();
         gum_ready = 1;
+        gum_live = 1;
     }
     gum_process_enumerate_modules(game_module_cb, &found);
     if (found)

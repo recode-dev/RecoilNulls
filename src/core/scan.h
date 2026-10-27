@@ -46,6 +46,7 @@ typedef struct
     uint8_t activeFlag;
 } obj_t;
 #include <CoreFoundation/CFDate.h>
+#include <frida-gum.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <objc/runtime.h>
@@ -140,11 +141,18 @@ static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
     }
     return YES;
 }
+extern int gum_live;
 static inline BOOL addr_readable(uintptr_t address, size_t length)
 {
     if (!address || !length)
     {
         return NO;
+    }
+    if (gum_live)
+    {
+        return gum_memory_is_readable((gconstpointer)address, (gsize)length)
+                   ? YES
+                   : NO;
     }
     uintptr_t end = address + length;
     uintptr_t cursor = address;
