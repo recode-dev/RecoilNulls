@@ -52,7 +52,7 @@ int ci_load_constants(void)
     ci_ready = 1;
     return 1;
 }
-uint32_t ci_sign(void* ci, void* battle)
+uint32_t ci_sign([[maybe_unused]] void* ci, [[maybe_unused]] void* battle)
 {
 #if CI_SIGNING_ON
     uint8_t key[0x10];
@@ -91,8 +91,6 @@ uint32_t ci_sign(void* ci, void* battle)
     }
     return token;
 #else
-    (void)ci;
-    (void)battle;
     return 0;
 #endif
 }
