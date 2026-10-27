@@ -3,6 +3,7 @@
 #include "../utils/walls.h"
 #include <CoreFoundation/CFDate.h>
 #include <dispatch/dispatch.h>
+#include <atomic>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -31,10 +32,10 @@ constexpr float PROJ_NEAR = 1600.0f;
 constexpr float PROJ_NEAR_SQ = PROJ_NEAR * PROJ_NEAR;
 static FILE* file = nullptr;
 static dispatch_source_t timer = nullptr;
-static unsigned long long ticks = 0;
-static uint64_t lastMs = 0;
-static uint64_t lastScan = 0;
-static int rate = 0;
+static std::atomic<unsigned long long> ticks{0};
+static std::atomic<uint64_t> lastMs{0};
+static std::atomic<uint64_t> lastScan{0};
+static std::atomic<int> rate{0};
 static char path[1024];
 void document_path(char* out, size_t cap)
 {
@@ -168,8 +169,8 @@ void dump_header(void)
     line("base=%p setup=%d ticks=%llu rate=%d/s\n",
          (void*)base,
          static_cast<int>(setup_done),
-         ticks,
-         rate);
+         ticks.load(std::memory_order_relaxed),
+         rate.load(std::memory_order_relaxed));
     line("rva getinstance=%p getownchar=%p getteam=%p getownidx=%p\n",
          (void*)addr_getinstance,
          (void*)addr_getownchar,
@@ -459,58 +460,59 @@ void tick(void)
         if (!open_log()) return;
         line("\n##### session #####\n");
     }
-    ticks++;
+    ticks.fetch_add(1, std::memory_order_relaxed);
     if (!in_battle())
     {
         line("idle t=%llu base=%p own=%p\n",
-             ticks,
+             ticks.load(std::memory_order_relaxed),
              (void*)base,
              (void*)own_elem);
-        if ((ticks % 20) == 0) dump_header();
-        lastMs = 0;
-        lastScan = 0;
-        rate = 0;
+        if ((ticks.load(std::memory_order_relaxed) % 20) == 0) dump_header();
+        lastMs.store(0, std::memory_order_relaxed);
+        lastScan.store(0, std::memory_order_relaxed);
+        rate.store(0, std::memory_order_relaxed);
         fflush(file);
         rotate_if_needed();
         return;
     }
-    if (lastMs == 0)
+    const uint64_t lastMsV = lastMs.load(std::memory_order_relaxed);
+    if (lastMsV == 0)
     {
         line("\n##### match #####\n");
         dump_header();
     }
     now = static_cast<uint64_t>(g_get_real_time() / 1000);
     scan = ticks_a;
-    if (lastMs && now > lastMs)
+    if (lastMsV && now > lastMsV)
     {
-        rate = static_cast<int>(((scan - lastScan) * 1000ULL) / (now - lastMs));
+        rate.store(static_cast<int>(((scan - lastScan.load(std::memory_order_relaxed)) * 1000ULL) / (now - lastMsV)), std::memory_order_relaxed);
     }
     line("\n--- t=%llu ms=%.3f dt=%llu scan=%llu rate=%d/s ---\n",
-         ticks,
+         ticks.load(std::memory_order_relaxed),
          static_cast<double>(g_get_real_time()) / 1000.0,
-         static_cast<unsigned long long>(lastMs ? now - lastMs : 0),
+         static_cast<unsigned long long>(lastMsV ? now - lastMsV : 0),
          static_cast<unsigned long long>(scan),
-         rate);
-    write_crash_marks("[crash-mark] tick=%llu stage=chain\n", ticks);
+         rate.load(std::memory_order_relaxed));
+    write_crash_marks("[crash-mark] tick=%llu stage=chain\n", ticks.load(std::memory_order_relaxed));
     dump_chain();
-    write_crash_marks("[crash-mark] tick=%llu stage=own\n", ticks);
+    write_crash_marks("[crash-mark] tick=%llu stage=own\n", ticks.load(std::memory_order_relaxed));
     dump_own();
-    write_crash_marks("[crash-mark] tick=%llu stage=ad\n", ticks);
+    write_crash_marks("[crash-mark] tick=%llu stage=ad\n", ticks.load(std::memory_order_relaxed));
     dump_ad();
-    if ((ticks % 4) == 0)
+    if ((ticks.load(std::memory_order_relaxed) % 4) == 0)
     {
-        write_crash_marks("[crash-mark] tick=%llu stage=objects\n", ticks);
+        write_crash_marks("[crash-mark] tick=%llu stage=objects\n", ticks.load(std::memory_order_relaxed));
         dump_objects();
     }
-    if ((ticks % RAW_EVERY) == 0)
+    if ((ticks.load(std::memory_order_relaxed) % RAW_EVERY) == 0)
     {
-        write_crash_marks("[crash-mark] tick=%llu stage=raw\n", ticks);
+        write_crash_marks("[crash-mark] tick=%llu stage=raw\n", ticks.load(std::memory_order_relaxed));
         dump_raw();
     }
-    write_crash_marks("[crash-mark] tick=%llu stage=done\n", ticks);
-    if ((ticks % 50) == 0) dump_header();
-    lastMs = now;
-    lastScan = scan;
+    write_crash_marks("[crash-mark] tick=%llu stage=done\n", ticks.load(std::memory_order_relaxed));
+    if ((ticks.load(std::memory_order_relaxed) % 50) == 0) dump_header();
+    lastMs.store(now, std::memory_order_relaxed);
+    lastScan.store(scan, std::memory_order_relaxed);
     fflush(file);
     rotate_if_needed();
 }
