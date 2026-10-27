@@ -45,8 +45,14 @@ constexpr float DANGER_MAX = 1.0f;
 constexpr int MAX_THREATS = 32;
 constexpr int MAX_ENTITIES = 16;
 
-struct Thr { float x, y, vx, vy, rad; };
-struct Ent { float x, y, rad; };
+struct Thr
+{
+    float x, y, vx, vy, rad;
+};
+struct Ent
+{
+    float x, y, rad;
+};
 
 static FILE* file = nullptr;
 static dispatch_source_t timer = nullptr;
@@ -138,17 +144,23 @@ float tcaFor(const Thr& t, float mx, float my)
     return -(relx * t.vx + rely * t.vy) / vv;
 }
 
-float wallPenalty(float mx, float my, float dx, float dy, float speed, float bodyR)
+float wallPenalty(
+    float mx, float my, float dx, float dy, float speed, float bodyR)
 {
     if (!wall_ready()) return 0.0f;
     float step = speed * PROBE_T;
     int blocked = 0;
     for (int s = 1; s <= PROBE_N; s++)
-        if (wall_is_blocked_wide(mx + dx * step * s, my + dy * step * s, bodyR, WALL_BLOCKS_MOVEMENT)) blocked++;
+        if (wall_is_blocked_wide(mx + dx * step * s,
+                                 my + dy * step * s,
+                                 bodyR,
+                                 WALL_BLOCKS_MOVEMENT))
+            blocked++;
     return WALL_HIT * (float)blocked / (float)PROBE_N;
 }
 
-float dangerFor(float mx, float my, float dx, float dy, float speed, float bodyR)
+float dangerFor(
+    float mx, float my, float dx, float dy, float speed, float bodyR)
 {
     float mvx = speed * dx, mvy = speed * dy;
     float max_c = 0.0f, sum_c = 0.0f;
@@ -161,7 +173,10 @@ float dangerFor(float mx, float my, float dx, float dy, float speed, float bodyR
         float vrx = thr[i].vx - mvx, vry = thr[i].vy - mvy;
         float vv = vrx * vrx + vry * vry;
         float ts = vv > VV_EPS ? -(relx * vrx + rely * vry) / vv : 0.0f;
-        if (ts < 0.0f) ts = 0.0f; else if (ts > HORIZON_S) ts = HORIZON_S;
+        if (ts < 0.0f)
+            ts = 0.0f;
+        else if (ts > HORIZON_S)
+            ts = HORIZON_S;
         float cx = relx + vrx * ts, cy = rely + vry * ts;
         float m = sqrtf(cx * cx + cy * cy) - thr[i].rad;
         float c = (DANGER_RADIUS - m) / DANGER_RADIUS;
@@ -188,17 +203,24 @@ void collectThreats(float mx, float my, float myRadius)
         if (!obj) continue;
 
         void* dataRaw = nullptr;
-        if (!read_ptr(obj + static_cast<uintptr_t>(ELEM_DEF_OFF), &dataRaw) || !dataRaw) continue;
+        if (!read_ptr(obj + static_cast<uintptr_t>(ELEM_DEF_OFF), &dataRaw) ||
+            !dataRaw)
+            continue;
         uintptr_t data = (uintptr_t)dataRaw;
 
         void* vtRaw = nullptr;
         if (!read_ptr(data, &vtRaw) || (uintptr_t)vtRaw != projVt) continue;
 
         int32_t team = -1, px = 0, py = 0;
-        if (!read_int(obj + static_cast<uintptr_t>(OBJ_TEAM_OFF), &team) || team == own_team_b) continue;
+        if (!read_int(obj + static_cast<uintptr_t>(OBJ_TEAM_OFF), &team) ||
+            team == own_team_b)
+            continue;
 
         int32_t deadFlag = 0;
-        if (!read_int(obj + static_cast<uintptr_t>(OBJ_DEADFLAG_OFF), &deadFlag) || deadFlag != 0) continue;
+        if (!read_int(obj + static_cast<uintptr_t>(OBJ_DEADFLAG_OFF),
+                      &deadFlag) ||
+            deadFlag != 0)
+            continue;
 
         if (!read_int(obj + static_cast<uintptr_t>(OBJ_X_OFF), &px)) continue;
         if (!read_int(obj + static_cast<uintptr_t>(OBJ_Y_OFF), &py)) continue;
@@ -217,8 +239,10 @@ void collectThreats(float mx, float my, float myRadius)
         }
 
         int32_t speed = 0, radius = 0;
-        read_int(data + static_cast<uintptr_t>(PROJECTILEDATA_SPEED_OFF), &speed);
-        read_int(data + static_cast<uintptr_t>(PROJECTILEDATA_RADIUS_OFF), &radius);
+        read_int(data + static_cast<uintptr_t>(PROJECTILEDATA_SPEED_OFF),
+                 &speed);
+        read_int(data + static_cast<uintptr_t>(PROJECTILEDATA_RADIUS_OFF),
+                 &radius);
 
         thr[thrCount].x = (float)px;
         thr[thrCount].y = (float)py;
@@ -266,15 +290,29 @@ void dump_ad()
     }
 
     line("[ad] dodges=%d hits=%d hp=%d active=%d moving=%d\n",
-         dodge_count, hit_count, (int)own_hp, active, moving);
+         dodge_count,
+         hit_count,
+         (int)own_hp,
+         active,
+         moving);
     line("[ad] pos=(%.0f,%.0f) spd=%.0f r=%.0f tgt=(%d,%d)\n",
-         mx, my, speed, myRadius, ad_target_x, ad_target_y);
-    line("[ad] thr=%d ent=%d near_ttc=%.3f\n",
-         thrCount, entCount, minTtc);
+         mx,
+         my,
+         speed,
+         myRadius,
+         ad_target_x,
+         ad_target_y);
+    line("[ad] thr=%d ent=%d near_ttc=%.3f\n", thrCount, entCount, minTtc);
 
     for (int i = 0; i < thrCount && i < 8; i++)
         line("  t%d: (%.0f,%.0f) v=(%.0f,%.0f) r=%.0f tca=%.3f\n",
-             i, thr[i].x, thr[i].y, thr[i].vx, thr[i].vy, thr[i].rad, tcaFor(thr[i], mx, my));
+             i,
+             thr[i].x,
+             thr[i].y,
+             thr[i].vx,
+             thr[i].vy,
+             thr[i].rad,
+             tcaFor(thr[i], mx, my));
 
     float ex = 0.0f, ey = 0.0f;
     for (int i = 0; i < thrCount; i++)
@@ -291,7 +329,11 @@ void dump_ad()
         }
     }
     float el = sqrtf(ex * ex + ey * ey);
-    if (el > LEN_EPS) { ex /= el; ey /= el; }
+    if (el > LEN_EPS)
+    {
+        ex /= el;
+        ey /= el;
+    }
 
     float gx = 0.0f, gy = 0.0f;
     if (wall_cache_w() > 0 && wall_cache_h() > 0)
@@ -299,7 +341,11 @@ void dump_ad()
         gx = (wall_cache_w() * WALL_TILE_SIZE * HALF) - mx;
         gy = (wall_cache_h() * WALL_TILE_SIZE * HALF) - my;
         float gl = sqrtf(gx * gx + gy * gy);
-        if (gl > LEN_EPS) { gx /= gl; gy /= gl; }
+        if (gl > LEN_EPS)
+        {
+            gx /= gl;
+            gy /= gl;
+        }
     }
 
     int bestIdx = 0;
@@ -315,15 +361,28 @@ void dump_ad()
         float escapeScore = (dotEscape + SPEED_MIN) * HALF;
         float dotGoal = cardX[i] * gx + cardY[i] * gy;
         float goalScore = (dotGoal + SPEED_MIN) * HALF;
-        float inter = escapeScore * INTEREST_ESCAPE_W + goalScore * INTEREST_GOAL_W;
+        float inter =
+            escapeScore * INTEREST_ESCAPE_W + goalScore * INTEREST_GOAL_W;
         bool better = false;
-        if (d < bestDanger - 0.02f) better = true;
-        else if (fabsf(d - bestDanger) <= 0.02f && inter > bestInterest) better = true;
-        if (better) { bestDanger = d; bestInterest = inter; bestIdx = i; }
+        if (d < bestDanger - 0.02f)
+            better = true;
+        else if (fabsf(d - bestDanger) <= 0.02f && inter > bestInterest)
+            better = true;
+        if (better)
+        {
+            bestDanger = d;
+            bestInterest = inter;
+            bestIdx = i;
+        }
     }
 
-    float botAngle = atan2f((float)(ad_target_y - own_y), (float)(ad_target_x - own_x)) * (180.0f / (float)M_PI);
-    line("[ad] best=%d (%.1f) bot=%.1f\n", bestIdx, (float)bestIdx * 90.0f, botAngle);
+    float botAngle =
+        atan2f((float)(ad_target_y - own_y), (float)(ad_target_x - own_x)) *
+        (180.0f / (float)M_PI);
+    line("[ad] best=%d (%.1f) bot=%.1f\n",
+         bestIdx,
+         (float)bestIdx * 90.0f,
+         botAngle);
 }
 
 void tick()
@@ -366,7 +425,8 @@ void start()
     if (!timer) return;
     dispatch_source_set_timer(
         timer,
-        dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(150 * NSEC_PER_MSEC)),
+        dispatch_time(DISPATCH_TIME_NOW,
+                      static_cast<int64_t>(150 * NSEC_PER_MSEC)),
         static_cast<uint64_t>(LOG_INTERVAL_MS * NSEC_PER_MSEC),
         static_cast<uint64_t>(10 * NSEC_PER_MSEC));
     dispatch_source_set_event_handler(timer, ^{ tick(); });
