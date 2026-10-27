@@ -1,7 +1,7 @@
 #include "scstring.h"
 #include "offsets.h"
 #include "scan.h"
-#define SCSTRING_INLINE_MAX 7
+inline constexpr int SCSTRING_INLINE_MAX = 7;
 int read_scstring(uintptr_t value, size_t maxLength, char* out, size_t outSize)
 {
     int32_t length = 0;

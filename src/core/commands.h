@@ -1,10 +1,10 @@
 #ifndef CORE_COMMANDS_H
 #define CORE_COMMANDS_H
 #include <stdint.h>
-#define MSG_SIZE 0x48
-#define MSG_SLACK 0x58
-#define TYPE_MOVE 0x2
-#define PRED_FLAG 1
+inline constexpr int MSG_SIZE = 0x48;
+inline constexpr int MSG_SLACK = 0x58;
+inline constexpr int TYPE_MOVE = 0x2;
+inline constexpr int PRED_FLAG = 1;
 uintptr_t entry_callable(uintptr_t rva);
 // The returned block is passed to the game's input function (ADDINPUT),
 // which takes it over. Freeing it here after that call would be a

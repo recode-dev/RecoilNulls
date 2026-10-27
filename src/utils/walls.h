@@ -2,11 +2,11 @@
 #define UTILS_WALLS_H
 #include <stdint.h>
 #define WALL_TILE_SIZE 300.0f
-#define WALL_BLOCKS_MOVEMENT 128
-#define WALL_BLOCKS_PROJECTILES 64
-#define WALL_MAX_MAP_TILES 120
-#define WALL_MAX_TOTAL_TILES (WALL_MAX_MAP_TILES * WALL_MAX_MAP_TILES)
-#define WALL_RETRY_MS 2000
+inline constexpr int WALL_BLOCKS_MOVEMENT = 128;
+inline constexpr int WALL_BLOCKS_PROJECTILES = 64;
+inline constexpr int WALL_MAX_MAP_TILES = 120;
+inline constexpr int WALL_MAX_TOTAL_TILES = WALL_MAX_MAP_TILES * WALL_MAX_MAP_TILES;
+inline constexpr int WALL_RETRY_MS = 2000;
 int wall_cache_w();
 int wall_cache_h();
 int wall_build();

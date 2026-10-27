@@ -2,7 +2,7 @@
 #include "../core/scan.h"
 #include <cstring>
 
-#define WALL_TYPE_CACHE_MAX 128
+inline constexpr int WALL_TYPE_CACHE_MAX = 128;
 
 static uint8_t wall_grid[WALL_MAX_TOTAL_TILES];
 static uint8_t wall_raw[WALL_MAX_TOTAL_TILES * static_cast<int>(sizeof(uintptr_t))];
@@ -228,7 +228,7 @@ int wall_maybe_refresh(uint64_t now_ms)
     {
         return 0;
     }
-    if (now_ms - wall_fail_ms < WALL_RETRY_MS)
+    if (now_ms - wall_fail_ms < static_cast<uint64_t>(WALL_RETRY_MS))
     {
         return 0;
     }
