@@ -200,7 +200,7 @@ static uintptr_t call_fn(uintptr_t fn, uintptr_t a, uintptr_t b)
     typedef uintptr_t (*fn_t)(uintptr_t, uintptr_t);
     return ((fn_t)target)(a, b);
 }
-void autododge_reset(void)
+void autododge_reset()
 {
     proj_cache.clear();
     headingIdx = -1;
@@ -215,7 +215,7 @@ void autododge_reset(void)
     active = 0;
     moving = 0;
 }
-void autododge(void)
+void autododge()
 {
     if (!base || !own_elem || dead)
     {
