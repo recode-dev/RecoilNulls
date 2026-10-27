@@ -428,8 +428,9 @@ void dump_objects(void)
         if (!read_ptr(array + static_cast<uintptr_t>(i) * 8ULL, &raw) || !raw) continue;
         object = (uintptr_t)raw;
         if (!pointer_plausible(object)) continue;
-        read_ptr(object, &raw);
+        if (!read_ptr(object, &raw)) continue;
         vt = (uintptr_t)raw;
+        if (!base || vt < base || vt - base >= 0x2000000ULL) continue;
         read_int(object + OBJ_GLOBALID_OFF, &projGid);
         read_int(object + OBJ_TEAM_OFF, &team);
         read_int(object + OBJ_OWNERINDEX_OFF, &ownerIdx);
