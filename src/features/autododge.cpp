@@ -190,25 +190,14 @@ static void releaseHeading(uint64_t now, float mx, float my)
     active = 0;
     moving = 0;
 }
-static int32_t call1i_local(uintptr_t fn, uintptr_t self)
+static uintptr_t call_fn(uintptr_t fn, uintptr_t a, uintptr_t b)
 {
-    if (!fn || !self || !base) return 0;
-    if (!pointer_plausible(self)) return 0;
+    if (!fn || !base) return 0;
     uintptr_t rva = (fn >= base) ? (fn - base) : fn;
     uintptr_t target = callable(rva);
     if (!target) return 0;
-    typedef int32_t (*fn_t)(uintptr_t);
-    return ((fn_t)target)(self);
-}
-static uintptr_t call1p_local(uintptr_t fn, uintptr_t self)
-{
-    if (!fn || !self || !base) return 0;
-    if (!pointer_plausible(self)) return 0;
-    uintptr_t rva = (fn >= base) ? (fn - base) : fn;
-    uintptr_t target = callable(rva);
-    if (!target) return 0;
-    typedef uintptr_t (*fn_t)(uintptr_t);
-    return ((fn_t)target)(self);
+    typedef uintptr_t (*fn_t)(uintptr_t, uintptr_t);
+    return ((fn_t)target)(a, b);
 }
 void autododge_reset(void)
 {
@@ -300,15 +289,15 @@ void autododge(void)
                     memcpy(&projRadius, data + PROJECTILEDATA_RADIUS_OFF,
                            sizeof(projRadius));
                     state.isIndirect = (ind != 0);
-                    state.isBeam = (call1i_local(addr_projbeam, dataPtr) != 0);
+                    state.isBeam = (call_fn(addr_projbeam, dataPtr, 0) != 0);
                     state.speed = (float)projSpeed;
                     state.radius = (float)projRadius;
-                    state.earlyTicks = call1i_local(addr_projearly, dataPtr);
+                    state.earlyTicks = (int)call_fn(addr_projearly, dataPtr, 0);
                     state.spawnedAt = now - (uint64_t)state.earlyTicks * 16;
                     state.name[0] = '\0';
                     {
                         uintptr_t nameStr =
-                            call1p_local(addr_dataname, dataPtr);
+                            call_fn(addr_dataname, dataPtr, 0);
                         if (nameStr)
                         {
                             read_scstring(nameStr,

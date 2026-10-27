@@ -27,6 +27,11 @@ extern uintptr_t addr_gety;
 extern uintptr_t addr_projbeam;
 extern uintptr_t addr_projearly;
 extern uintptr_t addr_dataname;
+extern uintptr_t addr_charweapon;
+extern uintptr_t addr_charskillat;
+extern uintptr_t addr_skilldata;
+extern uintptr_t addr_skillrange;
+extern uintptr_t addr_skillproj;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
                   vm_prot_t* maxProtection,
