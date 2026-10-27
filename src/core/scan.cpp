@@ -976,6 +976,7 @@ static uintptr_t char_by_owner(int32_t ownerIdx)
         uintptr_t data = 0;
         uintptr_t dataVt = 0;
         int32_t owner = -1;
+        int32_t hp = 0;
         if (!obj || !obj_ok(obj))
         {
             continue;
@@ -985,6 +986,10 @@ static uintptr_t char_by_owner(int32_t ownerIdx)
             continue;
         }
         if (!read_ptr(data, (void**)&dataVt) || dataVt != own_data_vt)
+        {
+            continue;
+        }
+        if (!read_int(obj + (uintptr_t)OBJ_HP_OFF, &hp) || hp <= 0)
         {
             continue;
         }
