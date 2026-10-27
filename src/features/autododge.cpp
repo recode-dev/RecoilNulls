@@ -221,6 +221,7 @@ void autododge(void)
     if (!base || !own_elem || dead)
     {
         active = 0;
+        moving = 0;
         return;
     }
     uint64_t now = us() / 1000;
