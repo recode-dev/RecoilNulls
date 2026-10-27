@@ -1,5 +1,6 @@
 #include "../core/commands.h"
 #include "../core/scan.h"
+#include "../core/scstring.h"
 #include "../utils/walls.h"
 #include <algorithm>
 #include <cmath>
@@ -248,6 +249,7 @@ void autododge(void)
             {
                 if (!obj_valid[i]) continue;
                 const uint8_t* obj = obj_block[i];
+                uintptr_t objPtr = obj_snapshot[i];
                 uintptr_t dataPtr = 0;
                 memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
                 if (!dataPtr)
@@ -313,7 +315,7 @@ void autododge(void)
                         uintptr_t nameStr = call1p_local(addr_dataname, dataPtr);
                         if (nameStr)
                         {
-                            read_scstring(nameStr, state.name, sizeof(state.name));
+                            read_scstring(nameStr, SCSTRING_DEFAULT_MAX_LENGTH, state.name, sizeof(state.name));
                         }
                     }
                 }

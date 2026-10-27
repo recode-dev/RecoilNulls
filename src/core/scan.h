@@ -40,8 +40,6 @@ BOOL read_int(uintptr_t address, int32_t* out);
 BOOL writable(uintptr_t address, size_t length);
 BOOL write_bytes(uintptr_t address, const void* src, size_t length);
 BOOL read_ptr(uintptr_t address, void** out);
-BOOL read_scstring(uintptr_t value, char* out, size_t outSize);
-BOOL read_scstring(uintptr_t value, char* out, size_t outSize);
 void* read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 BOOL find_game_image(uintptr_t* out_base);
