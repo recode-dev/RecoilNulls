@@ -59,6 +59,10 @@ void rotate_if_needed(void)
     snprintf(backup, sizeof(backup), "%s.1", g_path);
     rename(g_path, backup);
 }
+bool in_battle(void)
+{
+    return base != 0 && own_elem != 0;
+}
 bool open_log(void)
 {
     const char* dir = document_path();
@@ -376,7 +380,25 @@ void tick(void)
 {
     uint64_t now = 0;
     uint64_t scan = 0;
-    if (g_file == nullptr) return;
+    if (!in_battle())
+    {
+        if (g_file == nullptr) return;
+        fclose(g_file);
+        g_file = nullptr;
+        g_ticks = 0;
+        g_lastMs = 0;
+        g_lastScan = 0;
+        g_rate = 0;
+        return;
+    }
+    if (g_file == nullptr)
+    {
+        if (!open_log()) return;
+        line("\n##### match #####\n");
+        dump_header();
+        g_lastMs = 0;
+        g_lastScan = 0;
+    }
     g_ticks++;
     now = (uint64_t)(CFAbsoluteTimeGetCurrent() * 1000.0);
     scan = (uint64_t)ticks_a;
@@ -404,9 +426,6 @@ void tick(void)
 void start(void)
 {
     dispatch_queue_t queue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
-    if (!open_log()) return;
-    dump_header();
-    fflush(g_file);
     g_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
     if (!g_timer) return;
     dispatch_source_set_timer(
