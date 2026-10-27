@@ -18,7 +18,6 @@
 #include "objc.h"
 #include "offsets.h"
 #include "scan.h"
-#include <frida-gum.h>
 const char* image_names[2] = {"Nulls Brawl", nullptr};
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
@@ -456,31 +455,6 @@ static BOOL contains_ci(const char* haystack, const char* needle)
     }
     return NO;
 }
-static gboolean game_module_cb(GumModule* module, gpointer userData)
-{
-    const GumMemoryRange* range = NULL;
-    const gchar* moduleName = NULL;
-    if (!module || !userData)
-    {
-        return TRUE;
-    }
-    moduleName = gum_module_get_name(module);
-    if (!moduleName)
-    {
-        return TRUE;
-    }
-    if (!contains_ci(moduleName, "nulls"))
-    {
-        return TRUE;
-    }
-    range = gum_module_get_range(module);
-    if (!range)
-    {
-        return TRUE;
-    }
-    *(uintptr_t*)userData = (uintptr_t)range->base_address;
-    return FALSE;
-}
 static BOOL find_game_image_dyld(uintptr_t* out_base)
 {
     uint32_t count = _dyld_image_count();
@@ -514,44 +488,11 @@ static BOOL find_game_image_dyld(uintptr_t* out_base)
     }
     return NO;
 }
-static BOOL host_is_livecontainer(void)
-{
-    static int cached = -1;
-    char path[1024];
-    uint32_t size = (uint32_t)sizeof(path);
-    if (cached >= 0)
-    {
-        return cached ? YES : NO;
-    }
-    cached = 0;
-    if (_NSGetExecutablePath(path, &size) == 0 && strstr(path, "LiveContainer"))
-    {
-        cached = 1;
-    }
-    return cached ? YES : NO;
-}
 BOOL find_game_image(uintptr_t* out_base)
 {
-    static int gum_ready = 0;
-    uintptr_t found = 0;
     if (!out_base)
     {
         return NO;
-    }
-    if (host_is_livecontainer())
-    {
-        return find_game_image_dyld(out_base);
-    }
-    if (!gum_ready)
-    {
-        gum_init_embedded();
-        gum_ready = 1;
-    }
-    gum_process_enumerate_modules(game_module_cb, &found);
-    if (found)
-    {
-        *out_base = found;
-        return YES;
     }
     return find_game_image_dyld(out_base);
 }

@@ -9,7 +9,6 @@ permissions:
   contents: write
 
 env:
-  FRIDA_VERSION: 17.2.11
 
 concurrency:
   group: recoil-${{ github.ref }}
@@ -28,20 +27,6 @@ jobs:
         with:
           path: ~/theos
           key: theos-${{ runner.os }}-v6
-
-      - name: Gum
-        run: |
-          set -euo pipefail
-          dir="vendor/frida-gum"
-          if [ -f "$dir/frida-gum.h" ] || [ -f "$dir/include/frida-gum.h" ]; then
-            echo "using committed devkit"
-            exit 0
-          fi
-          mkdir -p "$dir"
-          curl -fsSL -o /tmp/gum.tar.xz \
-            "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-gum-devkit-${FRIDA_VERSION}-ios-arm64.tar.xz"
-          tar -xJf /tmp/gum.tar.xz -C "$dir"
-          ls -la "$dir"
 
       - name: Build
         run: |
