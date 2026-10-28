@@ -780,13 +780,11 @@ void autododge()
             ad_beam_n++;
             continue;
         }
-        if (state.isIndirect)
-            ad_ind_n++;
+        if (state.isIndirect) ad_ind_n++;
         {
             int32_t grv;
             memcpy(&grv, data + PROJECTILEDATA_GRAVITY_OFF, sizeof(grv));
-            if (grv != 0)
-                ad_grv_n++;
+            if (grv != 0) ad_grv_n++;
         }
 
         float mag = state.speed;
