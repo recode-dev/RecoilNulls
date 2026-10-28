@@ -255,22 +255,36 @@ static float free_run(float mx, float my, float dx, float dy, float far)
     float run = far;
     float w = (float)wall_cache_w() * WALL_TILE_SIZE;
     float h = (float)wall_cache_h() * WALL_TILE_SIZE;
-    if (dx > 1e-6f) run = fminf(run, (w - OWN_HITBOX - mx) / dx);
-    else if (dx < -1e-6f) run = fminf(run, (OWN_HITBOX - mx) / dx);
-    if (dy > 1e-6f) run = fminf(run, (h - OWN_HITBOX - my) / dy);
-    else if (dy < -1e-6f) run = fminf(run, (OWN_HITBOX - my) / dy);
+    if (dx > 1e-6f)
+        run = fminf(run, (w - OWN_HITBOX - mx) / dx);
+    else if (dx < -1e-6f)
+        run = fminf(run, (OWN_HITBOX - mx) / dx);
+    if (dy > 1e-6f)
+        run = fminf(run, (h - OWN_HITBOX - my) / dy);
+    else if (dy < -1e-6f)
+        run = fminf(run, (OWN_HITBOX - my) / dy);
     return run > 0.0f ? run : 0.0f;
 }
-static void sim_pos(
-    float mx, float my, float dx, float dy, float tk, float w, float h,
-    float& ax, float& ay)
+static void sim_pos(float mx,
+                    float my,
+                    float dx,
+                    float dy,
+                    float tk,
+                    float w,
+                    float h,
+                    float& ax,
+                    float& ay)
 {
     ax = mx + dx * self_speed * tk;
     ay = my + dy * self_speed * tk;
-    if (ax < OWN_HITBOX) ax = OWN_HITBOX;
-    else if (ax > w) ax = w;
-    if (ay < OWN_HITBOX) ay = OWN_HITBOX;
-    else if (ay > h) ay = h;
+    if (ax < OWN_HITBOX)
+        ax = OWN_HITBOX;
+    else if (ax > w)
+        ax = w;
+    if (ay < OWN_HITBOX)
+        ay = OWN_HITBOX;
+    else if (ay > h)
+        ay = h;
 }
 static float dir_value(float mx, float my, float dx, float dy)
 {
