@@ -34,8 +34,6 @@ constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int RELEASE_TICKS = 3;
 constexpr int DIRS = 16;
-constexpr float TURN_PER_TICK = 1.5707963f;
-constexpr int WALL_PROBES = 3;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 }
 namespace ad
@@ -209,6 +207,8 @@ void collect_projs(uint64_t now, float mx, float my)
             st->vel = true;
         }
         st->x = px, st->y = py;
+        px += st->ux * st->speed * TICK_MS_SEC;
+        py += st->uy * st->speed * TICK_MS_SEC;
         float dx = px - mx, dy = py - my;
         if (!st->vel) continue;
         float vx = st->ux * st->speed, vy = st->uy * st->speed;
@@ -225,11 +225,10 @@ void collect_projs(uint64_t now, float mx, float my)
         float dot = vx * dx + vy * dy;
         if (dot >= 0.0f) continue;
         float rad = st->rad + OWN_HITBOX;
-        float lead = st->speed * TICK_MS_SEC;
         float vv = vx * vx + vy * vy, tt = -dot / vv;
         float qx = dx + vx * tt, qy = dy + vy * tt,
               dmin = sqrtf(qx * qx + qy * qy);
-        if (dmin > rad + lead) continue;
+        if (dmin > rad) continue;
         if (threat_n >= THREAT_MAX) continue;
         float gap = fmaxf(rad * rad - dmin * dmin, 0.0f);
         Threat& t = threats[threat_n++];
@@ -253,7 +252,6 @@ namespace
 static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
 static uint32_t last_hp = 0;
-static uint64_t last_turn_ms = 0;
 static float dir_threat(float mx, float my, float dx, float dy)
 {
     float worst = 1e30f;
@@ -272,40 +270,22 @@ static float dir_value(float mx, float my, float dx, float dy)
 static void choose(float mx, float my, float& out_x, float& out_y)
 {
     bool has = commit_x != 0.0f || commit_y != 0.0f;
-    float vmag = sqrtf(own_vel_x * own_vel_x + own_vel_y * own_vel_y);
-    if (vmag < self_speed * 0.3f) vmag = 0.0f;
-    float hx = vmag > 0.0f ? own_vel_x / vmag : (has ? commit_x : 1.0f);
-    float hy = vmag > 0.0f ? own_vel_y / vmag : (has ? commit_y : 0.0f);
-    float base = atan2f(hy, hx);
-    uint64_t now = us() / 1000;
-    float dt = last_turn_ms ? (float)(now - last_turn_ms) : (float)TICK_MS;
-    last_turn_ms = now;
-    if (dt > (float)TICK_MS * 4.0f) dt = (float)TICK_MS * 4.0f;
-    float lim = TURN_PER_TICK * dt / (float)TICK_MS;
-    float bx = hx, by = hy, best = -1e30f;
-    for (int pass = 0; pass < 2; pass++)
+    float bx = has ? commit_x : 1.0f;
+    float by = has ? commit_y : 0.0f;
+    float best = -1e30f;
+    for (int i = 0; i < DIRS; i++)
     {
-        for (int i = 0; i < DIRS; i++)
+        float a = 6.2831853f * (float)i / (float)DIRS;
+        float dx = cosf(a), dy = sinf(a);
+        float v = dir_value(mx, my, dx, dy);
+        if (has) v += OWN_HITBOX * 0.25f * (dx * commit_x + dy * commit_y);
+        if (v > best)
         {
-            float a = 6.2831853f * (float)i / (float)DIRS;
-            float d = fmodf(a - base + 3.14159265f, 6.2831853f);
-            if (d < 0.0f) d += 6.2831853f;
-            d -= 3.14159265f;
-            if (!pass && fabsf(d) > lim) continue;
-            float v = dir_value(mx, my, cosf(a), sinf(a));
-            if (v > best)
-            {
-                best = v;
-                bx = cosf(a);
-                by = sinf(a);
-            }
+            best = v, bx = dx, by = dy;
         }
-        if (!pass && best >= 0.0f) break;
-        if (!pass) bx = hx, by = hy, best = -1e30f;
     }
     ad_best_dir = ((int)lroundf(atan2f(by, bx) * 1.2732395f) + 8) & 7;
-    commit_x = bx;
-    commit_y = by;
+    commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
 }
 }
