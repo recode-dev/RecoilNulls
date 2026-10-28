@@ -16,19 +16,6 @@
 const char* image_names[2] = {"Nulls Brawl", nullptr};
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
-uintptr_t addr_getinstance = 0;
-uintptr_t addr_getownchar = 0;
-uintptr_t addr_getteam = 0;
-uintptr_t addr_getx = 0;
-uintptr_t addr_gety = 0;
-uintptr_t addr_getownidx = 0;
-uintptr_t addr_movedto = 0;
-uintptr_t addr_getdata = 0;
-uintptr_t addr_getgid = 0;
-uintptr_t addr_charspeed = 0;
-uintptr_t addr_charradius = 0;
-uintptr_t addr_projbeam = 0;
-uintptr_t addr_projearly = 0;
 uintptr_t addr_dataname = 0;
 
 namespace
@@ -797,19 +784,6 @@ void resolve_addresses()
     {
         return;
     }
-    addr_getinstance = callable(RVA_BATTLEMODE_GETINSTANCE);
-    addr_getownchar = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER);
-    addr_getteam = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM);
-    addr_getx = callable(RVA_LOGICGAMEOBJECTCLIENT_GETX);
-    addr_gety = callable(RVA_LOGICGAMEOBJECTCLIENT_GETY);
-    addr_getownidx = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX);
-    addr_movedto = callable(MOVE_RVA);
-    addr_getdata = callable(RVA_LOGICGAMEOBJECTCLIENT_GETDATA);
-    addr_getgid = callable(RVA_LOGICGAMEOBJECTCLIENT_GETGLOBALID);
-    addr_charspeed = callable(RVA_LOGICCHARACTERDATA_GETSPEED);
-    addr_charradius = callable(RVA_LOGICCHARACTERDATA_GETCOLLISIONRADIUS);
-    addr_projbeam = callable(RVA_LOGICPROJECTILEDATA_ISBEAM);
-    addr_projearly = callable(RVA_LOGICPROJECTILEDATA_GETNUMEARLYTICKS);
     addr_dataname = callable(RVA_LOGICDATA_GETNAME);
 }
 int coord_ok = 0;

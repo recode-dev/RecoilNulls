@@ -101,11 +101,6 @@ const char* dir_name(int dir)
 }
 }
 
-void struct_scan_capture_input_message(uintptr_t message)
-{
-    (void)message;
-}
-
 void diag_tick()
 {
     uint64_t now_us = 0;

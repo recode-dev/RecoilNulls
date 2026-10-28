@@ -3,30 +3,19 @@
 
 #include <cstdint>
 inline constexpr uint64_t RVA_BATTLEMODE_GETINSTANCE = 0x8c5130ULL;
-inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER =
     0xac3934ULL;
-inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM =
     0xa7f47cULL;
-inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX =
     0x9cda04ULL;
 inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETTILEMAP = 0x991440ULL;
-inline constexpr uint64_t RVA_LOGICGAMEOBJECTCLIENT_GETDATA = 0x117050ULL;
-inline constexpr uint64_t RVA_LOGICGAMEOBJECTCLIENT_GETGLOBALID = 0x46464cULL;
-inline constexpr uint64_t RVA_LOGICCHARACTERDATA_GETSPEED = 0x9911ecULL;
-inline constexpr uint64_t RVA_LOGICCHARACTERDATA_GETCOLLISIONRADIUS =
     0x9913e8ULL;
 
 inline constexpr uint64_t PROJECTILEDATA_SPEED_OFF = 0x124ULL;
 inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0x74ULL;
 inline constexpr uint64_t PROJECTILE_ISINDIRECT_OFF = 0x118ULL;
-inline constexpr uint64_t RVA_LOGICPROJECTILEDATA_ISBEAM = 0x9b6448ULL;
-inline constexpr uint64_t RVA_LOGICPROJECTILEDATA_GETNUMEARLYTICKS =
     0x979d50ULL;
 inline constexpr uint64_t RVA_LOGICDATA_GETNAME = 0x9a4f1cULL;
 inline constexpr uint64_t SCSTRING_LENGTH_OFF = 0x4ULL;
 inline constexpr uint64_t SCSTRING_DATA_OFF = 0x8ULL;
-inline constexpr uint64_t RVA_LOGICGAMEOBJECTCLIENT_GETX = 0xa23afcULL;
-inline constexpr uint64_t RVA_LOGICGAMEOBJECTCLIENT_GETY = 0xa23b04ULL;
 inline constexpr uint64_t MODE_MANAGER_OFF = 0x28ULL;
 inline constexpr uint64_t MGR_ARRAY_OFF = 0x0ULL;
 inline constexpr uint64_t MGR_COUNT_OFF = 0xcULL;
@@ -69,11 +58,6 @@ inline constexpr uint64_t BM_HASH_KEY_OFF = 0x60ULL;
 inline constexpr uint64_t CI_TOKEN_OFF = 0x34ULL;
 inline constexpr uint64_t CI_TOKEN_READ_OFF = 0x4ULL;
 inline constexpr uint64_t VTABLE_PROJ_DATA_RVA = 0x000ff3b18ULL;
-inline constexpr uint64_t VTABLE_AREA_DATA_RVA = 0x000ff1290ULL;
-inline constexpr float AREA_ZONE_SQ = 810000.0f;
-inline constexpr float AREA_ZONE_R = 300.0f;
-inline constexpr float AREA_ZONE_R_MIN = 60.0f;
-inline constexpr float AREA_ZONE_R_MAX = 400.0f;
 inline constexpr uint64_t DC_RVA_SIZE = 0xd4000ULL;
 inline constexpr uint64_t HEAP_REGION_MAX_SIZE = 0x100000000ULL;
 inline constexpr uint64_t OFF_CLIENTINPUT_SKILLDATA = 0x40ULL;

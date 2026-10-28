@@ -956,44 +956,6 @@ void autododge()
                     ad_enemy_n++;
                 }
             }
-            else if (vtRva == VTABLE_AREA_DATA_RVA && nb_team != own_team_b)
-            {
-                float adx = (float)nb_x - mx;
-                float ady = (float)nb_y - my;
-                int32_t areaRaw = 0;
-                if (nb_pid != 0 && adx * adx + ady * ady <= AREA_ZONE_SQ)
-                {
-                    read_int(dataPtr + PROJECTILEDATA_RADIUS_OFF, &areaRaw);
-                    float areaR = (float)areaRaw;
-                    if (areaR < AREA_ZONE_R_MIN || areaR > AREA_ZONE_R_MAX)
-                        areaR = AREA_ZONE_R;
-                    Threat zone{};
-                    zone.x = (float)nb_x;
-                    zone.y = (float)nb_y;
-                    zone.vx = 0.0f;
-                    zone.vy = 0.0f;
-                    zone.rad = areaR + myRadius;
-                    zone.mag = 0.0f;
-                    zone.pid = nb_pid;
-                    memcpy(zone.name, "area", 5);
-                    threats.push_back(zone);
-                    note_obj(nb_pid,
-                             vtRva,
-                             nb_team,
-                             (float)nb_x,
-                             (float)nb_y,
-                             "zone");
-                }
-                else
-                {
-                    note_obj(nb_pid,
-                             vtRva,
-                             nb_team,
-                             (float)nb_x,
-                             (float)nb_y,
-                             "other");
-                }
-            }
             else
             {
                 autododge_scanner_event(SCAN_AD_NOT_PROJECTILE_VTABLE);

@@ -19,14 +19,6 @@ extern uintptr_t base;
 extern const char* image_names[2];
 extern BOOL setup_done;
 extern __thread BOOL inside_hook;
-extern uintptr_t addr_getinstance;
-extern uintptr_t addr_getownchar;
-extern uintptr_t addr_getteam;
-extern uintptr_t addr_getx;
-extern uintptr_t addr_gety;
-extern uintptr_t addr_getdata;
-extern uintptr_t addr_projbeam;
-extern uintptr_t addr_projearly;
 extern uintptr_t addr_dataname;
 BOOL query_region(uintptr_t address,
                   vm_prot_t* protection,
@@ -178,7 +170,6 @@ enum : uint32_t
 void autododge_scanner_event(uint32_t reason);
 void autododge_scanner_report();
 void autododge_scanner_log(uint64_t now, const char* format, ...);
-void struct_scan_capture_input_message(uintptr_t message);
 void diag_tick();
 extern uintptr_t scene_object;
 int scene_live();
