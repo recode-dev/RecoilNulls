@@ -136,6 +136,8 @@ extern uint64_t ticks_a;
 extern uint32_t own_hp;
 extern float own_r;
 extern float own_speed;
+extern float own_vel_x;
+extern float own_vel_y;
 extern int32_t own_x;
 extern int32_t own_y;
 extern int32_t own_index_v;

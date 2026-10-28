@@ -558,13 +558,16 @@ timeToCollision(float mx, float my, float mvx, float mvy, const Threat& t)
     return INF_F;
 }
 
-static float timeToClosestApproach(const Threat& t, float mx, float my)
+static float
+timeToClosestApproach(const Threat& t, float mx, float my, float mvx, float mvy)
 {
     float relx = t.x - mx;
     float rely = t.y - my;
-    float vv = t.vx * t.vx + t.vy * t.vy;
+    float vrx = t.vx - mvx;
+    float vry = t.vy - mvy;
+    float vv = vrx * vrx + vry * vry;
     if (vv < VV_EPS) return -1.0f;
-    return -(relx * t.vx + rely * t.vy) / vv;
+    return -(relx * vrx + rely * vry) / vv;
 }
 
 static float
@@ -632,7 +635,8 @@ dangerFor(float mx, float my, float dx, float dy, float speed, float bodyR)
 
     for (const auto& t : threats)
     {
-        if (timeToClosestApproach(t, mx, my) < 0.0f) continue;
+        if (timeToClosestApproach(t, mx, my, own_vel_x, own_vel_y) < 0.0f)
+            continue;
 
         float ttc = timeToCollision(mx, my, mvx, mvy, t);
         if (ttc < TTC_MIN) return DANGER_MAX;
@@ -709,7 +713,11 @@ static void snapshot_hit(float mx, float my)
                             sizeof(ad_hit) - static_cast<size_t>(len),
                             " | ca=%.0f ttc=%.2f r=%.0f",
                             bestCa,
-                            timeToCollision(mx, my, 0.0f, 0.0f, threats[best]),
+                            timeToCollision(mx,
+                                            my,
+                                            own_vel_x,
+                                            own_vel_y,
+                                            threats[best]),
                             threats[best].rad);
         }
     }
@@ -850,7 +858,6 @@ void autododge()
         cat_print_ts = catNow;
     }
     noteN = 0;
-    ad_obj_n = 0;
     if (lastHpSeen && own_hp < lastHpSeen)
     {
         pendingHit = 1;
@@ -1207,21 +1214,23 @@ void autododge()
     if (threats.size() >= 32) autododge_scanner_event(SCAN_AD_MAX_THREATS);
     for (const auto& t : threats)
     {
-        float ttc = timeToCollision(mx, my, 0.0f, 0.0f, t);
+        float ttc = timeToCollision(mx, my, own_vel_x, own_vel_y, t);
         float relx = t.x - mx;
         float rely = t.y - my;
         float dist = sqrtf(relx * relx + rely * rely);
-        float vv = t.vx * t.vx + t.vy * t.vy;
+        float rvx = t.vx - own_vel_x;
+        float rvy = t.vy - own_vel_y;
+        float vv = rvx * rvx + rvy * rvy;
         float along = 0.0f;
         float ca = dist;
         float score = 0.0f;
         if (vv > VV_EPS)
         {
-            along = (relx * t.vx + rely * t.vy) / sqrtf(vv);
+            along = (relx * rvx + rely * rvy) / sqrtf(vv);
             float perp = dist * dist - along * along;
             ca = perp > 0.0f ? sqrtf(perp) : 0.0f;
         }
-        score = timeToClosestApproach(t, mx, my) >= 0.0f ? ca : ca + 1000000.0f;
+        score = along >= 0.0f ? ca : ca + 1000000.0f;
         int slot = ad_threat_n;
         if (slot < AD_REPORT_MAX)
         {
@@ -1269,13 +1278,14 @@ void autododge()
         return;
     }
 
-    float stayClearSq = clearanceFor(threats, bodies, mx, my, 0.0f, 0.0f);
+    float stayClearSq =
+        clearanceFor(threats, bodies, mx, my, own_vel_x, own_vel_y);
     bool inDanger = stayClearSq < (TUNE.ENGAGE * TUNE.ENGAGE);
     if (!inDanger)
     {
         for (const auto& t : threats)
         {
-            float ttc = timeToCollision(mx, my, 0.0f, 0.0f, t);
+            float ttc = timeToCollision(mx, my, own_vel_x, own_vel_y, t);
             if (ttc > 0.0f && ttc < TUNE.REACT_S)
             {
                 inDanger = true;
@@ -1295,7 +1305,8 @@ void autododge()
     float ex = 0.0f, ey = 0.0f;
     for (const auto& t : threats)
     {
-        if (timeToClosestApproach(t, mx, my) < 0.0f) continue;
+        if (timeToClosestApproach(t, mx, my, own_vel_x, own_vel_y) < 0.0f)
+            continue;
         float dx = mx - t.x;
         float dy = my - t.y;
         float distSq = dx * dx + dy * dy;

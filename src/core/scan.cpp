@@ -422,6 +422,8 @@ uintptr_t manager_ptr = 0;
 uint64_t ticks_a = 0;
 float own_speed = 720.0f;
 float own_r = 120.0f;
+float own_vel_x = 0.0f;
+float own_vel_y = 0.0f;
 uint32_t own_hp = 0;
 uint64_t us()
 {
@@ -479,6 +481,8 @@ static void world_reset()
     battle_ticks = 0;
     own_index_v = -1;
     own_team_b = -1;
+    own_vel_x = 0.0f;
+    own_vel_y = 0.0f;
     last_pos_us = 0;
     wall_drop();
     autododge_reset();
@@ -500,6 +504,8 @@ static void track_own_speed()
                     own_speed = sp;
                 else
                     own_speed = own_speed * 0.99f + sp * 0.01f;
+                own_vel_x = own_vel_x * 0.5f + (dx / dt) * 0.5f;
+                own_vel_y = own_vel_y * 0.5f + (dy / dt) * 0.5f;
             }
             last_pos_x = own_x;
             last_pos_y = own_y;
