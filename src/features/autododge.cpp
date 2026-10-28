@@ -23,13 +23,7 @@ float ad_threat_x[AD_REPORT_MAX] = {0}, ad_threat_y[AD_REPORT_MAX] = {0};
 float ad_threat_vx[AD_REPORT_MAX] = {0}, ad_threat_vy[AD_REPORT_MAX] = {0};
 float ad_threat_r[AD_REPORT_MAX] = {0}, ad_threat_d[AD_REPORT_MAX] = {0};
 float ad_threat_ttc[AD_REPORT_MAX] = {0}, ad_threat_ca[AD_REPORT_MAX] = {0};
-float ad_threat_score[AD_REPORT_MAX] = {0}, ad_threat_spd[AD_REPORT_MAX] = {0};
-int ad_threat_ind[AD_REPORT_MAX] = {0};
-int ad_threat_pierce[AD_REPORT_MAX] = {0};
-int ad_threat_bounce[AD_REPORT_MAX] = {0};
-int ad_threat_piercechars[AD_REPORT_MAX] = {0};
-int ad_threat_bn[AD_REPORT_MAX] = {0};
-int ad_threat_bm[AD_REPORT_MAX] = {0};
+float ad_threat_score[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_hit[256] = {0};
 
@@ -39,6 +33,7 @@ float ad_enemy_y[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_hp[AD_ENEMY_MAX] = {0};
 float ad_enemy_d[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_aim[AD_ENEMY_MAX] = {0};
+int ad_enemy_burst[AD_ENEMY_MAX] = {0};
 
 constexpr float REACH = 700.0f, REACT_S = 0.18f;
 constexpr uint32_t SEND_MIN_MS = 16;
@@ -62,13 +57,8 @@ constexpr int DIRS = 8;
 
 struct Threat
 {
-    float x, y, vx, vy, rad, mag, prev_x, prev_y;
-    int ind;
+    float x, y, vx, vy, rad, prev_x, prev_y;
     int ricochet;
-    int pierce;
-    int bounce;
-    int bn, bm;
-    int pierceChars;
     int32_t pid;
     char name[40];
 };
@@ -82,7 +72,7 @@ struct ProjectileState
     float last_ux, last_uy;
     int32_t maxBounces, bounces;
     bool isIndirect, isBeam, hasVelocity, isRicochet;
-    bool isBouncing, piercesChars, piercesEnv, piercesEnvButter;
+    bool isBouncing, piercesEnv, piercesEnvButter;
 };
 
 static uintptr_t char_vt_rva = 0;
@@ -98,7 +88,7 @@ static void rebuild_projectile_cache_index()
 }
 
 static std::vector<Threat> threats;
-static uint64_t lastSentAt = 0;
+static uint64_t lastSentAt = 0, burstUntil = 0;
 static uint32_t lastHpSeen = 0;
 static int pendingHit = 0, pendingDmg = 0;
 static float commitDirX = 0.0f, commitDirY = 0.0f;
@@ -383,6 +373,7 @@ void autododge_reset()
     proj_cache_storage.clear();
     proj_cache_index.clear();
     lastSentAt = 0;
+    burstUntil = 0;
     commitDirX = 0.0f;
     commitDirY = 0.0f;
     ad_target_x = INT32_MAX;
@@ -499,6 +490,25 @@ void autododge()
                     ad_enemy_d[ad_enemy_n] =
                         sqrtf(std::fma(edx, edx, edy * edy));
                     ad_enemy_aim[ad_enemy_n] = cang;
+                    ad_enemy_burst[ad_enemy_n] = 0;
+                    if (dataPtr && pointer_plausible(dataPtr))
+                    {
+                        void* skillPtr = nullptr;
+                        if (read_ptr(dataPtr + DATA_SKILL_OFF, &skillPtr) &&
+                            pointer_plausible((uintptr_t)skillPtr))
+                        {
+                            int32_t nb = (int32_t)call_fn(
+                                callable(RVA_SKILL_GET_BULLETS),
+                                (uintptr_t)skillPtr,
+                                0);
+                            int32_t gap = (int32_t)call_fn(
+                                callable(RVA_SKILL_GET_MS_BETWEEN),
+                                (uintptr_t)skillPtr,
+                                0);
+                            if (nb > 1 && gap > 0 && gap < 500 && nb < 40)
+                                ad_enemy_burst[ad_enemy_n] = nb * gap;
+                        }
+                    }
                     ad_enemy_n++;
                 }
             }
@@ -539,7 +549,6 @@ void autododge()
             state.isIndirect = data[PROJECTILEDATA_INDIRECT_OFF] != 0;
             state.isBeam = data[PROJECTILEDATA_ISBEAM_OFF] != 0;
             state.isBouncing = data[PROJECTILEDATA_ISBOUNCING_OFF] != 0;
-            state.piercesChars = data[PROJECTILEDATA_PIERCES_CHARS_OFF] != 0;
             state.piercesEnv = data[PROJECTILEDATA_PIERCES_ENV_OFF] != 0;
             state.piercesEnvButter =
                 data[PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF] != 0;
@@ -564,6 +573,8 @@ void autododge()
                 }
                 if (bestK >= 0)
                 {
+                    if (ad_enemy_burst[bestK] > 0)
+                        burstUntil = now + (uint64_t)ad_enemy_burst[bestK];
                     float ang = (float)ad_enemy_aim[bestK] * DEG_TO_RAD;
                     state.dir_x = cosf(ang);
                     state.dir_y = sinf(ang);
@@ -645,14 +656,7 @@ void autododge()
         item.vx = vx;
         item.vy = vy;
         item.rad = state.radius + OWN_HITBOX;
-        item.mag = mag;
-        item.ind = state.isIndirect ? 1 : 0;
         item.ricochet = state.isRicochet ? 1 : 0;
-        item.pierce = (state.piercesEnv || state.piercesEnvButter) ? 1 : 0;
-        item.bounce = state.isBouncing ? 1 : 0;
-        item.bn = state.bounces;
-        item.bm = state.maxBounces;
-        item.pierceChars = state.piercesChars ? 1 : 0;
         item.pid = pid;
         memcpy(item.name, state.name, sizeof(item.name) - 1);
         item.name[sizeof(item.name) - 1] = '\0';
@@ -713,13 +717,6 @@ void autododge()
         ad_threat_d[slot] = dist;
         ad_threat_ttc[slot] = ttc;
         ad_threat_ca[slot] = ca;
-        ad_threat_spd[slot] = t.mag;
-        ad_threat_ind[slot] = t.ind;
-        ad_threat_pierce[slot] = t.pierce;
-        ad_threat_bounce[slot] = t.bounce;
-        ad_threat_piercechars[slot] = t.pierceChars;
-        ad_threat_bn[slot] = t.bn;
-        ad_threat_bm[slot] = t.bm;
         ad_threat_score[slot] = score;
         memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
         ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';
@@ -738,7 +735,7 @@ void autododge()
             anySoon = true;
             break;
         }
-    if (!anySoon)
+    if (!anySoon && now >= burstUntil)
     {
         endDodge();
         return;

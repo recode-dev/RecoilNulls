@@ -169,9 +169,8 @@ void diag_tick()
          ad_ind_n);
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {
-        line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) |v|=%.0f spd=%.0f "
-             "r=%.0f ind=%d d=%.0f ca=%.0f ttc=%.3f "
-             "p=%d bh=%d bn=%d/%d pc=%d\n",
+        line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) r=%.0f d=%.0f "
+             "ca=%.0f ttc=%.3f\n",
              i,
              ad_threat_name[i][0] ? ad_threat_name[i] : "-",
              ad_threat_pid[i],
@@ -179,19 +178,10 @@ void diag_tick()
              ad_threat_y[i],
              ad_threat_vx[i],
              ad_threat_vy[i],
-             sqrtf(ad_threat_vx[i] * ad_threat_vx[i] +
-                   ad_threat_vy[i] * ad_threat_vy[i]),
-             ad_threat_spd[i],
              ad_threat_r[i],
-             ad_threat_ind[i],
              ad_threat_d[i],
              ad_threat_ca[i],
-             ad_threat_ttc[i],
-             ad_threat_pierce[i],
-             ad_threat_bounce[i],
-             ad_threat_bn[i],
-             ad_threat_bm[i],
-             ad_threat_piercechars[i]);
+             ad_threat_ttc[i]);
     }
     if (ad_hit[0])
     {
@@ -200,14 +190,15 @@ void diag_tick()
     }
     for (int i = 0; i < ad_enemy_n && i < 4; i++)
     {
-        line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f a=%d\n",
+        line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f a=%d bu=%d\n",
              i,
              ad_enemy_pid[i],
              ad_enemy_x[i],
              ad_enemy_y[i],
              ad_enemy_hp[i],
              ad_enemy_d[i],
-             ad_enemy_aim[i]);
+             ad_enemy_aim[i],
+             ad_enemy_burst[i]);
     }
     rotate_if_needed();
 }
