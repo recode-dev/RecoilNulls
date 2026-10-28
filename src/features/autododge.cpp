@@ -72,6 +72,8 @@ constexpr float HALF = 0.5f, SPEED_MIN = 1.0f, HYSTERESIS_MARGIN = 0.25f;
 constexpr uint64_t DIR_HOLD_MS = 350;
 constexpr int AD_HIT_SCAN = 64;
 constexpr float BEHIND_MARGIN = 50.0f;
+constexpr float STRAFE_RANGE = 3600.0f, STRAFE_BLEND = 0.6f;
+constexpr uint64_t STRAFE_FLIP_MS = 2500;
 constexpr float BURST_DOT_MIN = 0.95f;
 constexpr float BURST_PARALLEL_PENALTY = 0.40f;
 constexpr float BURST_PERP_BLEND = 0.70f;
@@ -122,7 +124,8 @@ static void rebuild_projectile_cache_index()
 }
 
 static std::vector<Threat> threats;
-static uint64_t lastSentAt = 0, dirLockUntil = 0;
+static uint64_t lastSentAt = 0, dirLockUntil = 0, strafeFlipAt = 0;
+static float strafeSign = 1.0f;
 static uint32_t lastHpSeen = 0;
 static int pendingHit = 0, pendingDmg = 0;
 static float commitDirX = 0.0f, commitDirY = 0.0f;
@@ -452,6 +455,8 @@ void autododge_reset()
     proj_cache_storage.clear();
     proj_cache_index.clear();
     lastSentAt = 0;
+    strafeFlipAt = 0;
+    strafeSign = 1.0f;
     commitDirX = 0.0f;
     commitDirY = 0.0f;
     ad_target_x = INT32_MAX;
@@ -847,7 +852,36 @@ void autododge()
     }
     autododge_scanner_report();
 
-    if (threats.empty())
+    int nearest = -1;
+    float nearestD2 = INF_F;
+    for (int i = 0; i < ad_enemy_n; i++)
+    {
+        float edx = ad_enemy_x[i] - mx, edy = ad_enemy_y[i] - my;
+        float d2 = std::fma(edx, edx, edy * edy);
+        if (d2 < nearestD2)
+        {
+            nearestD2 = d2;
+            nearest = i;
+        }
+    }
+    float sx = 0.0f, sy = 0.0f;
+    if (nearest >= 0 && nearestD2 < STRAFE_RANGE * STRAFE_RANGE)
+    {
+        if (now >= strafeFlipAt)
+        {
+            strafeSign = -strafeSign;
+            strafeFlipAt = now + STRAFE_FLIP_MS;
+        }
+        float rdx = mx - ad_enemy_x[nearest];
+        float rdy = my - ad_enemy_y[nearest];
+        float rlen = sqrtf(std::fma(rdx, rdx, rdy * rdy));
+        if (rlen > 1.0f)
+        {
+            sx = rdy / rlen * strafeSign;
+            sy = -rdx / rlen * strafeSign;
+        }
+    }
+    if (threats.empty() && nearest < 0)
     {
         endDodge();
         return;
@@ -872,7 +906,8 @@ void autododge()
             anyEscape = true;
         }
     }
-    if (!anyEscape && commitDirX == 0.0f && commitDirY == 0.0f)
+    if (!anyEscape && sx == 0.0f && sy == 0.0f && commitDirX == 0.0f &&
+        commitDirY == 0.0f)
     {
         endDodge();
         return;
@@ -923,7 +958,7 @@ void autododge()
     }
 
     float gx = 0.0f, gy = 0.0f;
-    if (wall_cache_w() > 0 && wall_cache_h() > 0)
+    if (!threats.empty() && wall_cache_w() > 0 && wall_cache_h() > 0)
     {
         gx = (wall_cache_w() * WALL_TILE_SIZE * HALF) - mx;
         gy = (wall_cache_h() * WALL_TILE_SIZE * HALF) - my;
@@ -951,6 +986,7 @@ void autododge()
         float goalScore = (dotGoal + SPEED_MIN) * HALF;
         float inter = std::fma(
             escapeScore, INTEREST_ESCAPE_W, goalScore * INTEREST_GOAL_W);
+        inter += STRAFE_BLEND * (cardDirX[i] * sx + cardDirY[i] * sy);
         if (hasPrev)
         {
             float dotPrev = cardDirX[i] * prevDirX + cardDirY[i] * prevDirY;
