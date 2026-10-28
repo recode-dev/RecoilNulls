@@ -593,7 +593,7 @@ void autododge()
     {
         if (!obj_valid[i]) continue;
         const uint8_t* obj = obj_block[i];
-        uintptr_t objPtr = obj_snapshot[i], dataPtr = 0;
+        uintptr_t dataPtr = 0;
         int32_t nb_pid, nb_x, nb_y, nb_team;
         memcpy(&nb_pid, obj + OBJ_GLOBALID_OFF, sizeof(nb_pid));
         memcpy(&nb_x, obj + OBJ_X_OFF, sizeof(nb_x));
@@ -659,8 +659,7 @@ void autododge()
             state.prevX = px;
             state.prevY = py;
             state.lastTs = now;
-            int32_t ind, projSpeed, projRadius, projEarly;
-            if (!read_int(objPtr + PROJECTILE_ISINDIRECT_OFF, &ind)) continue;
+            int32_t projSpeed, projRadius, projEarly;
             read_int(dataPtr + PROJECTILEDATA_SPEED_OFF, &projSpeed);
             memcpy(&projRadius,
                    data + PROJECTILEDATA_RADIUS_OFF,
@@ -670,7 +669,7 @@ void autododge()
             state.rawSpeed = projSpeed;
             state.rawRadius = projRadius;
             state.rawEarly = projEarly;
-            state.isIndirect = ind != 0;
+            state.isIndirect = data[PROJECTILEDATA_INDIRECT_OFF] != 0;
             state.shotByHero = data[PROJECTILEDATA_SHOT_BY_HERO_OFF] != 0;
             state.isBeam = data[PROJECTILEDATA_ISBEAM_OFF] != 0;
             state.isBouncing = data[PROJECTILEDATA_ISBOUNCING_OFF] != 0;
