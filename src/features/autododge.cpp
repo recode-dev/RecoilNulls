@@ -183,6 +183,14 @@ static float timeToClosestApproach(
     return -std::fma(relx, vrx, rely * vry) / vv;
 }
 
+static bool threat_receding(
+    const Threat& t, float mx, float my, float mvx, float mvy) noexcept
+{
+    if (fabsf(t.vx) + fabsf(t.vy) < 1.0f) return false;
+    return timeToClosestApproach(t, mx, my, mvx, mvy) < 0.0f;
+}
+
+
 static float wallAhead(float mx,
                        float my,
                        float dirX,
@@ -258,16 +266,6 @@ static int32_t csv_int(uintptr_t row, uintptr_t colRva) noexcept
     return (int32_t)call_fn(base + RVA_CSV_GET_INT, row, (uintptr_t)idx);
 }
 
-static int32_t skill_cooldown_ms(uintptr_t skill) noexcept
-{
-    uintptr_t row = 0;
-    int32_t cd = 0;
-    if (!skill || !read_ptr(skill + SKILL_ROW_OFF, (void**)&row) || !row)
-        return 0;
-    cd = csv_int(row, SM_COL_COOLDOWN_RVA);
-    return (cd >= 100 && cd <= 5000) ? cd : 0;
-}
-
 static int32_t skill_burst_ms(uintptr_t skill) noexcept
 {
     uintptr_t row = 0;
@@ -319,8 +317,7 @@ static float dangerFor(
     float max_c = 0.0f, sum_c = 0.0f;
     for (const auto& t : threats)
     {
-        if (timeToClosestApproach(t, mx, my, ad_vx, ad_vy) < 0.0f &&
-            t.ricochet == 0)
+        if (threat_receding(t, mx, my, ad_vx, ad_vy) && t.ricochet == 0)
             continue;
         float ttc = timeToCollision(mx, my, mvx, mvy, t);
         if (ttc < TTC_MIN) return DANGER_MAX;
@@ -483,8 +480,7 @@ static bool try_post_dodge(float mx, float my, uint64_t now)
     {
         float ca = swept_ca(mx, my, mvx, mvy, t.x, t.y, t.vx, t.vy);
         if (ca > t.rad + OWN_HITBOX + POST_DODGE_CA_MARGIN) continue;
-        if (timeToClosestApproach(t, mx, my, mvx, mvy) < 0.0f && !t.ricochet)
-            continue;
+        if (threat_receding(t, mx, my, mvx, mvy) && !t.ricochet) continue;
         postDodgeUntil = 0;
         return false;
     }
@@ -646,7 +642,7 @@ void autododge()
                     {
                         uintptr_t charPtr = obj_snapshot[i];
                         uintptr_t arr = 0, skill = 0;
-                        int32_t cnt = 0, bwin = 0, cd = 0, hold = 0;
+                        int32_t cnt = 0, bwin = 0;
                         if (read_bytes(charPtr + OBJ_SKILL_COUNT_OFF,
                                        &cnt,
                                        sizeof(cnt)) &&
@@ -658,10 +654,8 @@ void autododge()
                             pointer_plausible(skill))
                         {
                             bwin = skill_burst_ms(skill);
-                            cd = skill_cooldown_ms(skill);
-                            hold = bwin > cd ? bwin : cd;
                         }
-                        ad_enemy_hold[ad_enemy_n] = hold;
+                        ad_enemy_hold[ad_enemy_n] = bwin;
                     }
                     ad_enemy_n++;
                 }
@@ -1000,9 +994,7 @@ void autododge()
     float ex = 0.0f, ey = 0.0f;
     for (const auto& t : threats)
     {
-        if (timeToClosestApproach(t, mx, my, ad_vx, ad_vy) < 0.0f &&
-            !t.ricochet)
-            continue;
+        if (threat_receding(t, mx, my, ad_vx, ad_vy) && !t.ricochet) continue;
         float dx = mx - t.x, dy = my - t.y;
         float distSq = std::fma(dx, dx, dy * dy);
         if (distSq > 1.0f)

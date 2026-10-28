@@ -27,7 +27,6 @@ inline constexpr uint64_t SM_COL_ACTIVETIME_RVA = 0x10ccfc4ULL;
 inline constexpr uint64_t OBJ_SKILLS_OFF = 0xd8ULL;
 inline constexpr uint64_t OBJ_SKILL_COUNT_OFF = 0xe4ULL;
 inline constexpr uint64_t SKILL_ROW_OFF = 0x8ULL;
-inline constexpr uint64_t SM_COL_COOLDOWN_RVA = 0x10ccfc0ULL;
 inline constexpr uint64_t RVA_LOGICDATA_GETNAME = 0x9a4f1cULL;
 inline constexpr uint64_t SCSTRING_LENGTH_OFF = 0x4ULL;
 inline constexpr uint64_t SCSTRING_DATA_OFF = 0x8ULL;
