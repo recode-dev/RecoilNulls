@@ -33,6 +33,8 @@ constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
+constexpr uint64_t CALM_MS = 250;
+constexpr float HOLD_AHEAD = OWN_HITBOX * 0.5f;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 }
 namespace ad
@@ -250,6 +252,7 @@ namespace
 {
 static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
+static uint64_t calm_ms = 0;
 static uint32_t last_hp = 0;
 static float dir_threat(float mx, float my, float dx, float dy)
 {
@@ -294,8 +297,13 @@ static void hold_move()
     {
         return;
     }
-    enqueue(axis((float)own_x, wall_cache_w()),
-            axis((float)own_y, wall_cache_h()));
+    float n = sqrtf(commit_x * commit_x + commit_y * commit_y);
+    if (n <= 0.0f)
+    {
+        return;
+    }
+    enqueue(axis((float)own_x + commit_x / n * HOLD_AHEAD, wall_cache_w()),
+            axis((float)own_y + commit_y / n * HOLD_AHEAD, wall_cache_h()));
 }
 
 static void end_dodge()
@@ -337,6 +345,7 @@ void autododge_reset()
     last_hp = 0;
     pend_dmg = 0;
     sent_ms = 0;
+    calm_ms = 0;
     commit_x = 0.0f, commit_y = 0.0f;
     memset(projs, 0, sizeof(projs));
     end_dodge();
@@ -372,7 +381,11 @@ void autododge()
     collect_chars(own_gid, mx, my);
     collect_projs(now, mx, my);
     if (pend_dmg) hit_report(mx, my, commit_x, commit_y);
-    if (!threat_n)
+    if (threat_n)
+    {
+        calm_ms = now;
+    }
+    else if (!active || now - calm_ms >= CALM_MS)
     {
         end_dodge();
         return;
