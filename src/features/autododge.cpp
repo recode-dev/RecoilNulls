@@ -31,7 +31,7 @@ namespace
 {
 constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
-constexpr float REACH = OWN_HITBOX * 6.0f;
+constexpr float REACH = OWN_HITBOX * 2.5f;
 constexpr int DIRS = 16;
 constexpr uint64_t CALM_MS = 100;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
@@ -42,10 +42,8 @@ constexpr float ROOM_W = 900.0f;
 constexpr float AWAY_W = 250.0f;
 constexpr float MARGIN_CAP = OWN_HITBOX * 3.0f;
 constexpr float TURN_COS = 0.94f;
-constexpr float REM2 = (OWN_HITBOX * 3.0f) * (OWN_HITBOX * 3.0f);
+constexpr float REM2 = (REACH * 0.5f) * (REACH * 0.5f);
 constexpr uint64_t SEND_MS = 100;
-constexpr uint64_t STOP_HOLD_MS = 250;
-constexpr float STOP_RUN = OWN_HITBOX * 0.5f;
 constexpr int URGENT_STEPS = 3;
 constexpr int TURN_GAIN_STEPS = 2;
 constexpr uint64_t TURN_HOLD_MS = 150;
@@ -293,10 +291,8 @@ namespace
 static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
 static uint64_t calm_ms = 0;
-static uint64_t stop_ms = 0;
 static uint64_t turn_ms = 0;
 static float sent_x = 1.0f, sent_y = 0.0f;
-static float stop_x = 0.0f, stop_y = 0.0f;
 static uint32_t last_hp = 0;
 static float free_run(float mx, float my, float dx, float dy, float far)
 {
@@ -459,23 +455,10 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
 }
-static void stop_move()
-{
-    float n = sqrtf(commit_x * commit_x + commit_y * commit_y);
-    if (n <= 0.0f)
-    {
-        return;
-    }
-    stop_x = (float)own_x + commit_x / n * STOP_RUN;
-    stop_y = (float)own_y + commit_y / n * STOP_RUN;
-    stop_ms = us() / 1000;
-    enqueue(axis(stop_x, wall_cache_w()), axis(stop_y, wall_cache_h()));
-}
 }
 
 static void end_dodge()
 {
-    if (active) stop_move();
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
     active = 0;
 }
@@ -510,7 +493,6 @@ void autododge_reset()
     pend_dmg = 0;
     sent_ms = 0;
     calm_ms = 0;
-    stop_ms = 0;
     turn_ms = 0;
     commit_x = 0.0f, commit_y = 0.0f;
     memset(projs, 0, sizeof(projs));
@@ -559,16 +541,10 @@ void autododge()
     if (threat_n)
     {
         calm_ms = now;
-        stop_ms = 0;
     }
     else if (!active || now - calm_ms >= CALM_MS)
     {
         end_dodge();
-        if (stop_ms && now - stop_ms < STOP_HOLD_MS && now - sent_ms >= SEND_MS)
-        {
-            sent_ms = now;
-            enqueue(axis(stop_x, wall_cache_w()), axis(stop_y, wall_cache_h()));
-        }
         return;
     }
     float dir_x = 1.0f, dir_y = 0.0f;
