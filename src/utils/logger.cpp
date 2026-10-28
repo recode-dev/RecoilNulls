@@ -109,14 +109,25 @@ void diag_tick()
     now_us = us();
     if (base && own_elem && !dead)
     {
+        // The hook runs on more than one thread, so a plain `if` let both of
+        // them through and the dense rows landed 6-10 ms apart instead of
+        // every 50 ms. Reserving the slot with a compare-exchange keeps the
+        // cadence and halves the log size.
         static uint64_t last_fast = 0;
-        if (!last_fast || now_us - last_fast >= 50000)
+        uint64_t prev = __atomic_load_n(&last_fast, __ATOMIC_RELAXED);
+        bool slot = !prev || now_us - prev >= 50000;
+        if (slot &&
+            !__atomic_compare_exchange_n(
+                &last_fast, &prev, now_us, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED))
+            slot = false;
+        if (slot)
         {
             char buf[2048];
             int n =
                 snprintf(buf,
                          sizeof(buf),
-                         "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%d,%d n=%d",
+                         "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%d,%d n=%d "
+                         "h=%d u=%d hm=%d",
                          (unsigned long long)(now_us / 1000),
                          own_x,
                          own_y,
@@ -125,7 +136,10 @@ void diag_tick()
                          ad_dir_y,
                          ad_target_x,
                          ad_target_y,
-                         ad::threat_n);
+                         ad::threat_n,
+                         ad_hold_ms,
+                         ad_urgent,
+                         ad_human);
             for (int i = 0;
                  i < ad::threat_n && n > 0 && n < (int)sizeof(buf) - 48;
                  i++)
@@ -188,6 +202,8 @@ void diag_tick()
         static uint32_t prev_ticks = 0;
         hz = workload_ticks - prev_ticks;
         prev_ticks = workload_ticks;
+        // a counter reset between matches showed up as hz=1697 in the log
+        if (hz > 300) hz = 300;
     }
     int32_t own_aim = 0;
     if (own_elem)
@@ -243,8 +259,14 @@ void diag_tick()
                            ad_hit_n,
                            ad_hit_x,
                            ad_hit_y);
+        // "none" with act=0 is not a dodge failure - it is damage with no
+        // projectile and no live dodge (zone, fall, storm). Tag it so the hit
+        // count is not read as missed dodges.
         if (ad_hit_picked < 1 && len > 0)
-            snprintf(buf + len, sizeof(buf) - (size_t)len, " | none");
+        {
+            const char* why = ad_hit_n ? " | unresolved" : " | env";
+            snprintf(buf + len, sizeof(buf) - (size_t)len, "%s", why);
+        }
         for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++)
         {
             if (len <= 0 || len >= (int)sizeof(buf) - 40) break;

@@ -7,6 +7,7 @@ extern int in_move;
 extern int active;
 extern int ad_human;
 extern float ad_dir_x, ad_dir_y;
+extern int ad_hold_ms, ad_urgent;
 extern int32_t ad_target_x;
 extern int32_t ad_target_y;
 extern int ad_best_dir;

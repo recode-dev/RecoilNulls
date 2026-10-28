@@ -10,6 +10,7 @@
 int active = 0, in_move = 0;
 int ad_human = 0;
 float ad_dir_x = 1.0f, ad_dir_y = 0.0f;
+int ad_hold_ms = 0, ad_urgent = 0;
 int ad_beam_n = 0, ad_ind_n = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int ad_best_dir = -1;
@@ -35,9 +36,14 @@ constexpr float OWN_HITBOX = 120.0f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
 constexpr int SIM_STEPS = 32;
-constexpr uint64_t CALM_MS = 145;
+constexpr uint64_t CALM_MS = 200;
 constexpr uint64_t SEND_MS = 100;
-constexpr uint64_t TURN_HOLD_MS = 150;
+constexpr uint64_t TURN_HOLD_MS = 200;
+// The hold is broken early only when the held heading dies inside twice the
+// hold budget, i.e. inside 400 ms. Releasing on "dies somewhere in the 1.6 s
+// horizon" released on every single frame, which is what made the character
+// flap between headings instead of finishing a dodge.
+constexpr int HOLD_DANGER_STEPS = 8;
 constexpr uint64_t HUMAN_MS = 200;
 constexpr float WEIGHT_STEP = 4096.0f;
 constexpr float WEIGHT_POS = 900.0f;
@@ -415,7 +421,10 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         float dx = cosf(a), dy = sinf(a);
         int steps = 0;
         float v = dir_value(mx, my, dx, dy, steps);
-        if (has) v += OWN_HITBOX * (dx * commit_x + dy * commit_y);
+        // Tie-break towards the heading we already hold. Large enough to beat
+        // the margin term (<= 3*OWN_HITBOX), still far below WEIGHT_STEP, so
+        // it can never talk us out of a better survival.
+        if (has) v += OWN_HITBOX * 8.0f * (dx * commit_x + dy * commit_y);
         val[i] = v;
         if (v > best)
         {
@@ -436,22 +445,31 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         float rdx = cosf(ra), rdy = sinf(ra);
         int steps = 0;
         float v = dir_value(mx, my, rdx, rdy, steps);
+        if (has) v += OWN_HITBOX * 8.0f * (rdx * commit_x + rdy * commit_y);
         if (v > best)
         {
             best = v, a = ra, best_steps = steps;
         }
     }
     float bx = cosf(a), by = sinf(a);
+    uint64_t now = us() / 1000;
+    ad_urgent = 0;
     if (has)
     {
         int cur = 0;
         dir_value(mx, my, commit_x, commit_y, cur);
-        uint64_t now = us() / 1000;
-        bool urgent = (cur > 0 && cur <= SIM_STEPS) ||
-                      free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
+        bool better = best_steps > cur;
+        bool die_fast = better && cur > 0 && cur <= HOLD_DANGER_STEPS;
+        bool walled =
+            better && free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
                           OWN_HITBOX * 2.0f;
-        bool gain = best_steps >= cur + 2;
-        if (!urgent && (now - turn_ms < TURN_HOLD_MS || !gain))
+        bool held = now - turn_ms < TURN_HOLD_MS;
+        if (die_fast || walled)
+        {
+            ad_urgent = 1;
+            turn_ms = now;
+        }
+        else if (held || best_steps < cur + 2)
         {
             bx = commit_x, by = commit_y;
         }
@@ -459,6 +477,14 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         {
             turn_ms = now;
         }
+    }
+    else
+    {
+        turn_ms = now;
+    }
+    {
+        uint64_t since = now - turn_ms;
+        ad_hold_ms = since >= TURN_HOLD_MS ? 0 : (int)(TURN_HOLD_MS - since);
     }
     ad_dir_x = bx, ad_dir_y = by;
     ad_best_dir = ((int)lroundf(atan2f(by, bx) * 1.2732395f) + 8) & 7;
@@ -470,6 +496,13 @@ static void choose(float mx, float my, float& out_x, float& out_y)
 static void end_dodge()
 {
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
+    // Drop the held heading with the dodge. Leaving it set kept the character
+    // walking the last dodge direction for seconds after the threats were gone,
+    // and the log kept reporting a direction nobody was driving any more.
+    commit_x = 0.0f, commit_y = 0.0f;
+    ad_dir_x = 0.0f, ad_dir_y = 0.0f;
+    ad_hold_ms = 0;
+    ad_urgent = 0;
     active = 0;
 }
 
@@ -585,7 +618,12 @@ void autododge()
     bool spent = ad_target_x == INT32_MAX ||
                  rem_x * rem_x + rem_y * rem_y < REACH * REACH * 0.25f;
     bool turned = dir_x * sent_x + dir_y * sent_y < 0.94f;
-    if (!ad_human && (spent || turned) && now - sent_ms >= SEND_MS)
+    // ad_human used to gate this send, so holding the joystick during a dodge
+    // cancelled the dodge outright - the game kept following the stick and our
+    // move target was never refreshed. Now it is a trigger instead: while a
+    // threat is live we re-assert the dodge at 10 Hz and the stick loses.
+    bool need = spent || turned || ad_human;
+    if (need && now - sent_ms >= SEND_MS)
     {
         sent_ms = now;
         sent_x = dir_x, sent_y = dir_y;
