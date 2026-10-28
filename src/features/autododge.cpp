@@ -651,9 +651,8 @@ void autododge()
                                        &cnt,
                                        sizeof(cnt)) &&
                             cnt > 0 &&
-                            read_bytes(charPtr + OBJ_SKILLS_OFF,
-                                       &arr,
-                                       sizeof(arr)) &&
+                            read_bytes(
+                                charPtr + OBJ_SKILLS_OFF, &arr, sizeof(arr)) &&
                             pointer_plausible(arr) &&
                             read_ptr(arr, (void**)&skill) &&
                             pointer_plausible(skill))
@@ -726,8 +725,8 @@ void autododge()
                     }
                 }
                 state.holdEnd = bestK >= 0 && ad_enemy_hold[bestK] > 0
-                                     ? now + (uint64_t)ad_enemy_hold[bestK]
-                                     : 0;
+                                    ? now + (uint64_t)ad_enemy_hold[bestK]
+                                    : 0;
                 if (bestK >= 0)
                 {
                     float ang = (float)ad_enemy_aim[bestK] * DEG_TO_RAD;
