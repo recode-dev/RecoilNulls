@@ -150,7 +150,7 @@ void diag_tick()
         prev_ticks = workload_ticks;
     }
     line("[m] hz=%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d dir=%s "
-         "map=%dx%d dodge=%d hit=%d\n",
+         "map=%dx%d dodge=%d hit=%d beam=%d\n",
          static_cast<unsigned long>(hz),
          obj_count,
          ad_char_n,
@@ -164,11 +164,13 @@ void diag_tick()
          wall_cache_w(),
          wall_cache_h(),
          dodge_count,
-         hit_count);
+         hit_count,
+         ad_beam_n);
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) |v|=%.0f spd=%.0f "
-             "r=%.0f ind=%d d=%.0f ca=%.0f ttc=%.3f\n",
+             "r=%.0f ind=%d d=%.0f ca=%.0f ttc=%.3f "
+             "p=%d bh=%d sh=%d pc=%d\n",
              i,
              ad_threat_name[i][0] ? ad_threat_name[i] : "-",
              ad_threat_pid[i],
@@ -183,7 +185,11 @@ void diag_tick()
              ad_threat_ind[i],
              ad_threat_d[i],
              ad_threat_ca[i],
-             ad_threat_ttc[i]);
+             ad_threat_ttc[i],
+             ad_threat_pierce[i],
+             ad_threat_bounce[i],
+             ad_threat_shothero[i],
+             ad_threat_piercechars[i]);
     }
     if (ad_probe[0])
     {

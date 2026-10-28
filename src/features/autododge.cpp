@@ -2,7 +2,7 @@
 #include "../core/commands.h"
 #include "../core/scan.h"
 #include "../core/scstring.h"
-#define PROJ_DATA_BLOCK_SIZE (PROJECTILEDATA_RADIUS_OFF + sizeof(int32_t))
+#define PROJ_DATA_BLOCK_SIZE 0x1E8
 #include "../utils/walls.h"
 #include <algorithm>
 #include <cmath>
@@ -13,6 +13,7 @@
 #include <vector>
 
 int active = 0, moving = 0, in_move = 0;
+int ad_beam_n = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int ad_best_dir = -1;
 int ad_char_n = 0, ad_proj_n = 0, ad_enemy_n = 0, ad_threat_n = 0;
@@ -23,6 +24,10 @@ float ad_threat_r[AD_REPORT_MAX] = {0}, ad_threat_d[AD_REPORT_MAX] = {0};
 float ad_threat_ttc[AD_REPORT_MAX] = {0}, ad_threat_ca[AD_REPORT_MAX] = {0};
 float ad_threat_score[AD_REPORT_MAX] = {0}, ad_threat_spd[AD_REPORT_MAX] = {0};
 int ad_threat_ind[AD_REPORT_MAX] = {0};
+int ad_threat_pierce[AD_REPORT_MAX] = {0};
+int ad_threat_bounce[AD_REPORT_MAX] = {0};
+int ad_threat_shothero[AD_REPORT_MAX] = {0};
+int ad_threat_piercechars[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_hit[256] = {0};
 
@@ -97,6 +102,10 @@ struct Threat
     float x, y, vx, vy, rad, mag, prev_x, prev_y;
     int ind;
     int ricochet;
+    int pierce;
+    int bounce;
+    int shotHero;
+    int pierceChars;
     int32_t pid;
     char name[40];
 };
@@ -112,6 +121,7 @@ struct ProjectileState
     bool probed;
     float last_ux, last_uy;
     bool isIndirect, isBeam, hasVelocity, isRicochet;
+    bool shotByHero, isBouncing, piercesChars, piercesEnv, piercesEnvButter;
     uint64_t ricochetUntil;
     int32_t rawSpeed, rawRadius, rawEarly;
 };
@@ -437,7 +447,14 @@ static void enter_post_dodge(uint64_t now) noexcept
     if (headingIdx < 0) return;
     if (postDodgeUntil != 0) return;
     if (commitDirX == 0.0f && commitDirY == 0.0f) return;
-    postDodgeUntil = now + POST_DODGE_HOLD_MS;
+    uint64_t holdMs = POST_DODGE_HOLD_MS;
+    for (const auto& t : threats)
+        if (t.pierceChars)
+        {
+            holdMs = POST_DODGE_HOLD_MS * 2;
+            break;
+        }
+    postDodgeUntil = now + holdMs;
     postDodgeDirX = commitDirX;
     postDodgeDirY = commitDirY;
 }
@@ -515,6 +532,7 @@ void autododge_reset()
 void autododge()
 {
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
+    ad_beam_n = 0;
     ad_vp_n = 0;
     ad_obj_n = 0;
     ad_nv_n = 0;
@@ -653,9 +671,15 @@ void autododge()
             state.rawRadius = projRadius;
             state.rawEarly = projEarly;
             state.isIndirect = ind != 0;
-            state.isBeam = false;
-            state.isRicochet = false;
-            state.ricochetUntil = 0;
+            state.shotByHero = data[PROJECTILEDATA_SHOT_BY_HERO_OFF] != 0;
+            state.isBeam = data[PROJECTILEDATA_ISBEAM_OFF] != 0;
+            state.isBouncing = data[PROJECTILEDATA_ISBOUNCING_OFF] != 0;
+            state.piercesChars = data[PROJECTILEDATA_PIERCES_CHARS_OFF] != 0;
+            state.piercesEnv = data[PROJECTILEDATA_PIERCES_ENV_OFF] != 0;
+            state.piercesEnvButter =
+                data[PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF] != 0;
+            state.isRicochet = state.isBouncing;
+            state.ricochetUntil = state.isBouncing ? (now + 2000) : 0;
             state.speed = (float)projSpeed * SPEED_SCALE;
             state.radius = (float)projRadius * RADIUS_SCALE;
             state.earlyTicks = projEarly;
@@ -750,6 +774,11 @@ void autododge()
         }
         float dx = px - mx, dy = py - my;
         if (std::fma(dx, dx, dy * dy) > zoneSq) continue;
+        if (state.isBeam)
+        {
+            ad_beam_n++;
+            continue;
+        }
 
         float mag = state.speed;
         if (mag < DEF_SPEED_MIN || mag > DEF_SPEED_MAX) mag = state.meas;
@@ -777,7 +806,8 @@ void autododge()
             bool farEnough =
                 sweepDist > (state.radius + myRadius + BEHIND_MARGIN);
             if (movingAway && growing && farEnough) continue;
-            if (!state.isIndirect &&
+            if (!state.isIndirect && !state.piercesEnv &&
+                !state.piercesEnvButter &&
                 !wall_los(px,
                           py,
                           px + ux * (playerAlong > 0.0f ? playerAlong : 0.0f),
@@ -796,6 +826,10 @@ void autododge()
         item.mag = mag;
         item.ind = state.isIndirect ? 1 : 0;
         item.ricochet = state.isRicochet ? 1 : 0;
+        item.pierce = (state.piercesEnv || state.piercesEnvButter) ? 1 : 0;
+        item.bounce = state.isBouncing ? 1 : 0;
+        item.shotHero = state.shotByHero ? 1 : 0;
+        item.pierceChars = state.piercesChars ? 1 : 0;
         item.pid = pid;
         memcpy(item.name, state.name, sizeof(item.name) - 1);
         item.name[sizeof(item.name) - 1] = '\0';
@@ -859,6 +893,10 @@ void autododge()
         ad_threat_ca[slot] = ca;
         ad_threat_spd[slot] = t.mag;
         ad_threat_ind[slot] = t.ind;
+        ad_threat_pierce[slot] = t.pierce;
+        ad_threat_bounce[slot] = t.bounce;
+        ad_threat_shothero[slot] = t.shotHero;
+        ad_threat_piercechars[slot] = t.pierceChars;
         ad_threat_score[slot] = score;
         memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
         ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';
