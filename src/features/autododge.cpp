@@ -273,8 +273,12 @@ static float notePosY[AD_NOTE_MAX];
 static const char* noteWhy[AD_NOTE_MAX];
 static int noteN = 0;
 
-static void note_obj(
-    int32_t pid, uintptr_t vt, int32_t team, float x, float y, const char* why)
+static void note_obj(int32_t pid,
+                     uintptr_t vt,
+                     int32_t team,
+                     float x,
+                     float y,
+                     const char* why)
 {
     if (noteN >= AD_NOTE_MAX) return;
     notePid[noteN] = pid;
@@ -721,8 +725,7 @@ void autododge()
         if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
         {
             autododge_scanner_event(SCAN_AD_BAD_VTABLE);
-            note_obj(
-                nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "outimg");
+            note_obj(nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "outimg");
             continue;
         }
         if (vtRva != VTABLE_PROJ_DATA_RVA)
@@ -753,8 +756,7 @@ void autododge()
             else
             {
                 autododge_scanner_event(SCAN_AD_NOT_PROJECTILE_VTABLE);
-                note_obj(
-                    nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "other");
+                note_obj(nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "other");
             }
             continue;
         }
@@ -867,7 +869,10 @@ void autododge()
                 }
                 float ux = ddx / step;
                 float uy = ddy / step;
-                if (state.hasVelocity)
+                bool flipped =
+                    state.hasVelocity &&
+                    ux * state.dir_x + uy * state.dir_y < 0.0f;
+                if (state.hasVelocity && !flipped)
                 {
                     ux = state.dir_x * DIR_KEEP + ux * DIR_NEW;
                     uy = state.dir_y * DIR_KEEP + uy * DIR_NEW;
