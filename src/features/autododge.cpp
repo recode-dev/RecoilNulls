@@ -38,6 +38,7 @@ constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 constexpr int SIM_STEPS = 20;
 constexpr float SIM_T = (float)SIM_STEPS * TICK_MS_SEC;
 constexpr float SIM_STEP_W = 4096.0f;
+constexpr float ROOM_W = 240.0f;
 }
 namespace ad
 {
@@ -210,8 +211,6 @@ void collect_projs(uint64_t now, float mx, float my)
             st->vel = true;
         }
         st->x = px, st->y = py;
-        px += st->ux * st->speed * TICK_MS_SEC;
-        py += st->uy * st->speed * TICK_MS_SEC;
         float dx = px - mx, dy = py - my;
         if (!st->vel) continue;
         float vx = st->ux * st->speed, vy = st->uy * st->speed;
@@ -251,22 +250,50 @@ static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
 static uint64_t calm_ms = 0;
 static uint32_t last_hp = 0;
+static float free_run(float mx, float my, float dx, float dy, float far)
+{
+    float run = far;
+    float w = (float)wall_cache_w() * WALL_TILE_SIZE;
+    float h = (float)wall_cache_h() * WALL_TILE_SIZE;
+    if (dx > 1e-6f) run = fminf(run, (w - OWN_HITBOX - mx) / dx);
+    else if (dx < -1e-6f) run = fminf(run, (OWN_HITBOX - mx) / dx);
+    if (dy > 1e-6f) run = fminf(run, (h - OWN_HITBOX - my) / dy);
+    else if (dy < -1e-6f) run = fminf(run, (OWN_HITBOX - my) / dy);
+    return run > 0.0f ? run : 0.0f;
+}
+static void sim_pos(
+    float mx, float my, float dx, float dy, float tk, float w, float h,
+    float& ax, float& ay)
+{
+    ax = mx + dx * self_speed * tk;
+    ay = my + dy * self_speed * tk;
+    if (ax < OWN_HITBOX) ax = OWN_HITBOX;
+    else if (ax > w) ax = w;
+    if (ay < OWN_HITBOX) ay = OWN_HITBOX;
+    else if (ay > h) ay = h;
+}
 static float dir_value(float mx, float my, float dx, float dy)
 {
+    float far = self_speed * SIM_T;
+    float run = free_run(mx, my, dx, dy, far);
+    float room = run >= far ? 1.0f : run / far;
+    float w = (float)wall_cache_w() * WALL_TILE_SIZE - OWN_HITBOX;
+    float h = (float)wall_cache_h() * WALL_TILE_SIZE - OWN_HITBOX;
     float mx_step = dx * self_speed, my_step = dy * self_speed;
     int survive = SIM_STEPS + 1;
     float margin = 1e30f;
     for (int i = 0; i < threat_n; i++)
     {
         const Threat& t = threats[i];
-        float rx = t.x - mx, ry = t.y - my;
-        float sx = t.vx - mx_step, sy = t.vy - my_step;
         float r2 = t.rad * t.rad;
         int hit = 0;
         for (int k = 1; k <= SIM_STEPS && !hit; k++)
         {
-            float ex = rx + sx * (float)k * TICK_MS_SEC;
-            float ey = ry + sy * (float)k * TICK_MS_SEC;
+            float tk = (float)k * TICK_MS_SEC;
+            float ax = 0.0f, ay = 0.0f;
+            sim_pos(mx, my, dx, dy, tk, w, h, ax, ay);
+            float ex = t.x + t.vx * tk - ax;
+            float ey = t.y + t.vy * tk - ay;
             if (ex * ex + ey * ey < r2) hit = k;
         }
         if (hit)
@@ -274,6 +301,8 @@ static float dir_value(float mx, float my, float dx, float dy)
             if (hit < survive) survive = hit;
             continue;
         }
+        float rx = t.x - mx, ry = t.y - my;
+        float sx = t.vx - mx_step, sy = t.vy - my_step;
         float vv = sx * sx + sy * sy;
         float tt = 0.0f;
         if (vv > VV_EPS)
@@ -282,12 +311,15 @@ static float dir_value(float mx, float my, float dx, float dy)
             if (tt < 0.0f) tt = 0.0f;
             if (tt > SIM_T) tt = SIM_T;
         }
-        float ex = rx + sx * tt, ey = ry + sy * tt;
+        float ax = 0.0f, ay = 0.0f;
+        sim_pos(mx, my, dx, dy, tt, w, h, ax, ay);
+        float ex = t.x + t.vx * tt - ax;
+        float ey = t.y + t.vy * tt - ay;
         float c = sqrtf(ex * ex + ey * ey) - t.rad;
         if (c < margin) margin = c;
     }
     if (margin > 1e29f) margin = 0.0f;
-    return (float)survive * SIM_STEP_W + margin -
+    return (float)survive * SIM_STEP_W + margin + ROOM_W * room -
            OWN_HITBOX * wall_pull(mx, my, dx, dy, OWN_HITBOX);
 }
 static void choose(float mx, float my, float& out_x, float& out_y)
@@ -312,8 +344,21 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     out_x = bx, out_y = by;
 }
 }
+static void stop_move()
+{
+    float n = sqrtf(commit_x * commit_x + commit_y * commit_y);
+    if (n <= 0.0f)
+    {
+        return;
+    }
+    float run = OWN_HITBOX * 1.5f;
+    enqueue(axis((float)own_x + commit_x / n * run, wall_cache_w()),
+            axis((float)own_y + commit_y / n * run, wall_cache_h()));
+}
+
 static void end_dodge()
 {
+    if (active) stop_move();
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
     active = 0;
 }
