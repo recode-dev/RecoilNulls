@@ -6,6 +6,10 @@ inline constexpr uint64_t RVA_BATTLEMODE_GETINSTANCE = 0x8c5130ULL;
 inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETTILEMAP = 0x991440ULL;
 inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER =
     0xac3934ULL;
+inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX =
+    0x9cda04ULL;
+inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM =
+    0xa7f47cULL;
 
 inline constexpr uint64_t PROJECTILEDATA_SPEED_OFF = 0x124ULL;
 inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0x74ULL;
@@ -29,10 +33,7 @@ inline constexpr uint64_t X_OFF = 0x0cULL;
 inline constexpr uint64_t Y_OFF = 0x10ULL;
 inline constexpr uint64_t ALLOC_GOT_RVA = 0x00f78180ULL;
 inline constexpr uint64_t CLIENT_OFF = 0x28ULL;
-inline constexpr uint64_t CLIENT_OWNINDEX_OFF = 0xe0ULL;
-inline constexpr uint64_t CLIENT_OWNTEAM_OFF = 0xe4ULL;
 inline constexpr uint64_t OBJ_TEAM_OFF = 0x40ULL;
-inline constexpr uint64_t OBJ_OWNERINDEX_OFF = 0x3cULL;
 inline constexpr uint64_t OBJ_DEADFLAG_OFF = 0xd0ULL;
 inline constexpr uint64_t OBJ_X_OFF = 0x30ULL;
 inline constexpr uint64_t OBJ_Y_OFF = 0x34ULL;

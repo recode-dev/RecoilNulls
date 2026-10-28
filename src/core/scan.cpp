@@ -193,11 +193,6 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    // Validate readability at page granularity instead of
-    // `gum_memory_is_readable`, which allocates a buffer, copies the whole
-    // range via `gum_memory_read` and then discards it — so the same bytes
-    // would be read twice per call. A protection query is a single region
-    // lookup with no allocation or copy.
     cursor = address;
     for (int guard = 0; cursor < end && guard < 64; guard++)
     {
@@ -619,9 +614,6 @@ void scan_world()
         }
     }
     {
-        // Resolve the own character through the game's getOwnCharacter()
-        // accessor: a single stable RVA that walks the mode manager + index
-        // internally.
         uintptr_t ownFn = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER);
         uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
         own = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
@@ -655,15 +647,10 @@ void scan_world()
         own_hp = 0;
     }
     dead = (own_ok_hp && own_hp == 0) ? 1 : 0;
-    if (own_team_b < 0)
-    {
-        int32_t teamOwn = -1;
-        if (read_int(own + static_cast<uintptr_t>(OBJ_TEAM_OFF), &teamOwn) &&
-            teamOwn >= 0 && teamOwn <= 15)
-        {
-            own_team_b = teamOwn;
-        }
-    }
+    own_index_v = static_cast<int32_t>(
+        call(callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX), clientPtr));
+    own_team_b = static_cast<int32_t>(
+        call(callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM), clientPtr));
     track_own_speed();
     tilemap_tick(clientPtr);
     wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));
@@ -688,10 +675,6 @@ void run_autododge()
     autododge();
     in_move = 0;
 }
-// Client updates its in-memory world at 60 Hz (16.67 ms) even though the server
-// simulates at 30 Hz — projectiles move every ~16 ms in client memory
-// (autododge.cpp: earlyTicks * 16, SEND_MIN_MS = 16). Scan at that cadence so
-// we catch every client update, but never busy-loop.
 static constexpr uint64_t SCAN_PERIOD_US = 16667ULL;
 static constexpr uint64_t FRAME_DEDUPE_US = 8000ULL;
 static uint64_t g_last_scan_us = 0;
