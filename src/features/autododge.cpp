@@ -302,11 +302,21 @@ static void snapshot_hit(float mx, float my)
         for (int i = 0; i < (int)threats.size() && i < AD_REPORT_MAX * 8; i++)
         {
             if (used[i]) continue;
-            float ca = swept_ca(mx, my, ad_vx, ad_vy, threats[i].x,
-                                threats[i].y, threats[i].vx, threats[i].vy);
+            float ca = swept_ca(mx,
+                                my,
+                                ad_vx,
+                                ad_vy,
+                                threats[i].x,
+                                threats[i].y,
+                                threats[i].vx,
+                                threats[i].vy);
             float seg_ca = swept_ca_segment(mx, my, threats[i]);
             if (seg_ca < ca) ca = seg_ca;
-            if (ca < bestCa) { bestCa = ca; best = i; }
+            if (ca < bestCa)
+            {
+                bestCa = ca;
+                best = i;
+            }
         }
         if (best < 0) break;
         used[best] = 1;
