@@ -21,7 +21,6 @@ float ad_threat_ttc[AD_REPORT_MAX] = {0}, ad_threat_ca[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 int ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
 int ad_hit_picked = 0;
-float ad_pad = 0.0f, ad_pad_excess = 0.0f;
 float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
 float ad_hit_r[AD_REPORT_MAX] = {0};
 int ad_enemy_pid[AD_ENEMY_MAX] = {0};
@@ -39,13 +38,8 @@ constexpr int INPUT_TICKS = 3;
 constexpr float TURN_PER_TICK = 1.5707963f;
 constexpr int WALL_PROBES = 3;
 }
-static float pad = 0.0f;
 namespace ad
 {
-float body_rad()
-{
-    return OWN_HITBOX + pad;
-}
 Threat threats[THREAT_MAX];
 int threat_n = 0;
 Proj projs[PROJ_SLOTS];
@@ -88,7 +82,6 @@ void init_proj(
     st->y = py;
     st->speed = (float)speed;
     st->rad = (float)radius;
-    st->min_dmin = 1e9f;
     st->vel = false;
     st->ux = 0.0f;
     st->uy = 0.0f;
@@ -207,7 +200,6 @@ void collect_projs(uint64_t now, float mx, float my)
         if (vx * dx + vy * dy < 0.0f && !(st->flags & (B_BEAM | B_IND)))
         {
             float perp = fabsf(dx * vy - dy * vx) / st->speed;
-            if (perp < st->min_dmin) st->min_dmin = perp;
         }
         if (dx * dx + dy * dy > zone2) continue;
         if (st->flags & B_BEAM)
@@ -221,7 +213,7 @@ void collect_projs(uint64_t now, float mx, float my)
             continue;
         float dot = vx * dx + vy * dy;
         if (dot >= 0.0f) continue;
-        float rad = st->rad + body_rad();
+        float rad = st->rad + OWN_HITBOX;
         float vv = vx * vx + vy * vy, tt = -dot / vv;
         float qx = dx + vx * tt, qy = dy + vy * tt,
               dmin = sqrtf(qx * qx + qy * qy);
@@ -356,29 +348,6 @@ static int nearest_unused(
     *out_clear = bc;
     return best;
 }
-static void learn_pad(uint64_t now)
-{
-    const Proj* near = nullptr;
-    for (int i = 0; i < PROJ_SLOTS; i++)
-    {
-        const Proj* st = &projs[i];
-        if (!st->pid) continue;
-        if (st->flags & (B_BEAM | B_IND)) continue;
-        if (now - st->seen > 400) continue;
-        if (st->min_dmin > 400.0f) continue;
-        if (near == nullptr || st->min_dmin < near->min_dmin) near = st;
-    }
-    if (near == nullptr)
-    {
-        ad_pad_excess = 0.0f;
-        return;
-    }
-    float excess = near->min_dmin - (near->rad + body_rad());
-    ad_pad_excess = excess;
-    if (excess <= 0.0f || excess > 60.0f) return;
-    pad += excess;
-    if (pad > 90.0f) pad = 90.0f;
-}
 static void hit_report(float mx, float my, float dx, float dy)
 {
     ad_hit_dmg = pend_dmg;
@@ -433,8 +402,12 @@ static void fill_report(float mx, float my, float dx, float dy)
 static void choose(float mx, float my, float& out_x, float& out_y)
 {
     bool has = commit_x != 0.0f || commit_y != 0.0f;
-    float bx = has ? commit_x : 1.0f;
-    float by = has ? commit_y : 0.0f;
+    float vmag = sqrtf(own_vel_x * own_vel_x + own_vel_y * own_vel_y);
+    bool moving = vmag > self_speed * 0.3f;
+    float px = moving ? own_vel_x / vmag : 1.0f;
+    float py = moving ? own_vel_y / vmag : 0.0f;
+    float bx = has ? commit_x : px;
+    float by = has ? commit_y : py;
     float best = -1e30f, best_threat = -1e30f;
     for (int pass = 0; pass < 2; pass++)
     {
@@ -442,7 +415,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         {
             float a = 6.2831853f * (float)i / (float)DIRS;
             float dx = cosf(a), dy = sinf(a);
-            if (!pass && has && dx * commit_x + dy * commit_y < 0.0f) continue;
+            if (!pass && moving && dx * px + dy * py < 0.0f) continue;
             float th = dir_threat(mx, my, dx, dy);
             float v = th - OWN_HITBOX * wall_pull(mx, my, dx, dy);
             if (v > best)
@@ -458,27 +431,27 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     if (has)
     {
         float keep = dir_value(mx, my, commit_x, commit_y);
-        if (keep + body_rad() * 0.5f >= best)
+        if (keep + OWN_HITBOX * 0.5f >= best)
         {
             bx = commit_x;
             by = commit_y;
         }
+    }
+    if (moving)
+    {
         uint64_t now = us() / 1000;
         float dt = last_turn_ms ? (float)(now - last_turn_ms) : (float)TICK_MS;
         last_turn_ms = now;
         if (dt > (float)TICK_MS * 4.0f) dt = (float)TICK_MS * 4.0f;
         float lim = TURN_PER_TICK * dt / (float)TICK_MS;
-        float pa = atan2f(commit_y, commit_x);
+        float pa = atan2f(py, px);
         float d = atan2f(by, bx) - pa;
         if (d > 3.14159265f) d -= 6.2831853f;
         if (d < -3.14159265f) d += 6.2831853f;
         if (d > lim) d = lim;
         if (d < -lim) d = -lim;
-        if (d != 0.0f)
-        {
-            bx = cosf(pa + d);
-            by = sinf(pa + d);
-        }
+        bx = cosf(pa + d);
+        by = sinf(pa + d);
     }
     ad_best_dir = ((int)lroundf(atan2f(by, bx) * 1.2732395f) + 8) & 7;
     commit_x = bx;
@@ -489,7 +462,6 @@ static void choose(float mx, float my, float& out_x, float& out_y)
 void autododge_reset()
 {
     ad_best_dir = -1;
-    ad_pad = pad;
     ad_char_n = 0;
     ad_proj_n = 0;
     ad_enemy_n = 0;
@@ -501,21 +473,18 @@ void autododge_reset()
     last_hp = 0;
     pend_dmg = 0;
     sent_ms = 0;
-    pad *= 0.75f;
     memset(projs, 0, sizeof(projs));
     end_dodge();
 }
 void autododge()
 {
     ad_best_dir = -1;
-    ad_pad = pad;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = ad_ind_n = 0;
     threat_n = 0;
     if (own_hp < last_hp)
     {
         pend_dmg = (int)(last_hp - own_hp);
-        learn_pad(us() / 1000);
     }
     last_hp = own_hp;
     if (!base || !own_elem || dead || !coord_ok)

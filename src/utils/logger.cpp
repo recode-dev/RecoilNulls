@@ -150,7 +150,7 @@ void diag_tick()
         prev_ticks = workload_ticks;
     }
     line("[m] hz=%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d dir=%s "
-         "map=%dx%d dodge=%d hit=%d beam=%d ind=%d pad=%d\n",
+         "map=%dx%d dodge=%d hit=%d beam=%d ind=%d\n",
          static_cast<unsigned long>(hz),
          obj_count,
          ad_char_n,
@@ -166,8 +166,7 @@ void diag_tick()
          dodge_count,
          hit_count,
          ad_beam_n,
-         ad_ind_n,
-         (int)(ad_pad + 0.5f));
+         ad_ind_n);
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) r=%.0f d=%.0f "
@@ -189,14 +188,12 @@ void diag_tick()
         char buf[256];
         int len = snprintf(buf,
                            sizeof(buf),
-                           "dmg=%d act=%d n=%d p=(%d,%d) pad=%d ex=%.0f",
+                           "dmg=%d act=%d n=%d p=(%d,%d)",
                            ad_hit_dmg,
                            ad_hit_act,
                            ad_hit_n,
                            ad_hit_x,
-                           ad_hit_y,
-                           (int)(ad_pad + 0.5f),
-                           ad_pad_excess);
+                           ad_hit_y);
         if (ad_hit_picked < 1 && len > 0)
             snprintf(buf + len, sizeof(buf) - (size_t)len, " | none");
         for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++)
