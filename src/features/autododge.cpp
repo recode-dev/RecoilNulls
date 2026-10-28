@@ -41,8 +41,9 @@ float ad_enemy_d[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_aim[AD_ENEMY_MAX] = {0};
 int ad_enemy_hold[AD_ENEMY_MAX] = {0};
 
-constexpr float AWARE = 4400.0f, REACT_S = 0.35f, SKIN = 90.0f, REACH = 700.0f;
-constexpr float HORIZON_S = 1.55f, ENGAGE = 120.0f;
+constexpr float AWARE = 4400.0f, SKIN = 90.0f, REACH = 700.0f;
+constexpr float ENGAGE = 120.0f;
+constexpr float ESCAPE_TIME_K = 1.3f, ESCAPE_TIME_MIN = 0.15f;
 constexpr uint32_t SEND_MIN_MS = 16;
 constexpr float PROBE_T = 0.12f;
 constexpr int PROBE_N = 6;
@@ -190,6 +191,19 @@ static bool threat_receding(
     return timeToClosestApproach(t, mx, my, mvx, mvy) < 0.0f;
 }
 
+static float escape_window(const Threat& t) noexcept
+{
+    float speed = CHAR_SPEED > SPEED_MIN ? CHAR_SPEED : SPEED_MIN;
+    float need = t.rad / speed * ESCAPE_TIME_K;
+    return need < ESCAPE_TIME_MIN ? ESCAPE_TIME_MIN : need;
+}
+
+static bool threat_soon(const Threat& t, float mx, float my) noexcept
+{
+    float ttc = timeToCollision(mx, my, ad_vx, ad_vy, t);
+    return ttc > 0.0f && ttc <= escape_window(t);
+}
+
 static float wallAhead(float mx,
                        float my,
                        float dirX,
@@ -316,7 +330,8 @@ static float dangerFor(
     float max_c = 0.0f, sum_c = 0.0f;
     for (const auto& t : threats)
     {
-        if (threat_receding(t, mx, my, ad_vx, ad_vy) && t.ricochet == 0)
+        if (!threat_soon(t, mx, my) &&
+            !(t.ricochet != 0 && !threat_receding(t, mx, my, ad_vx, ad_vy)))
             continue;
         float ttc = timeToCollision(mx, my, mvx, mvy, t);
         if (ttc < TTC_MIN) return DANGER_MAX;
@@ -953,34 +968,21 @@ void autododge()
     }
 
     float stayClearSq = INF_F;
-    bool hasRicochet = false;
     for (const auto& t : threats)
     {
-        if (t.ricochet) hasRicochet = true;
+        if (!threat_soon(t, mx, my)) continue;
         float relx = t.x - mx, rely = t.y - my;
         float vrx = t.vx - ad_vx, vry = t.vy - ad_vy;
         float vv = std::fma(vrx, vrx, vry * vry);
+        float ttc = timeToCollision(mx, my, ad_vx, ad_vy, t);
         float ts = vv > VV_EPS ? -std::fma(relx, vrx, rely * vry) / vv : 0.0f;
-        ts = ts < 0.0f ? 0.0f : (ts > HORIZON_S ? HORIZON_S : ts);
+        ts = ts < 0.0f ? 0.0f : (ts > ttc ? ttc : ts);
         float cx = std::fma(vrx, ts, relx);
         float cy = std::fma(vry, ts, rely);
         float clearSq = std::fma(cx, cx, cy * cy) - t.rad * t.rad;
         if (clearSq < stayClearSq) stayClearSq = clearSq;
     }
     bool inDanger = stayClearSq < (ENGAGE * ENGAGE);
-    if (!inDanger)
-    {
-        for (const auto& t : threats)
-        {
-            float ttc = timeToCollision(mx, my, ad_vx, ad_vy, t);
-            if (ttc > 0.0f && ttc < REACT_S)
-            {
-                inDanger = true;
-                break;
-            }
-        }
-    }
-    if (!inDanger && hasRicochet) inDanger = true;
     if (inDanger) dangerHoldUntil = frameHoldEnd > now ? frameHoldEnd : now;
     if (!inDanger && now > dangerHoldUntil)
     {
@@ -993,7 +995,9 @@ void autododge()
     float ex = 0.0f, ey = 0.0f;
     for (const auto& t : threats)
     {
-        if (threat_receding(t, mx, my, ad_vx, ad_vy) && !t.ricochet) continue;
+        if (!threat_soon(t, mx, my) &&
+            !(t.ricochet != 0 && !threat_receding(t, mx, my, ad_vx, ad_vy)))
+            continue;
         float dx = mx - t.x, dy = my - t.y;
         float distSq = std::fma(dx, dx, dy * dy);
         if (distSq > 1.0f)
