@@ -37,7 +37,7 @@ jobs:
       - name: Format
         run: |
           set -euo pipefail
-          style='{BasedOnStyle: LLVM, BreakBeforeBraces: Allman, IndentWidth: 4, ContinuationIndentWidth: 4, ColumnLimit: 80, AllowShortIfStatementsOnASingleLine: WithoutElse, AllowShortBlocksOnASingleLine: Empty, AllowShortFunctionsOnASingleLine: None, AllowShortLambdasOnASingleLine: None, BreakBeforeTernaryOperators: true, BinPackArguments: false, BinPackParameters: false, PointerAlignment: Left, SortIncludes: false, FixNamespaceComments: false}'
+          style='{BasedOnStyle: LLVM, BreakBeforeBraces: Attach, IndentWidth: 4, ContinuationIndentWidth: 4, ColumnLimit: 120, AllowShortIfStatementsOnASingleLine: AllIfsAndElse, AllowShortBlocksOnASingleLine: Always, AllowShortFunctionsOnASingleLine: All, AllowShortLambdasOnASingleLine: All, BreakBeforeTernaryOperators: true, BinPackArguments: true, BinPackParameters: true, PointerAlignment: Left, SortIncludes: false, FixNamespaceComments: false}'
           files() {
             git ls-files -z -- 'src/*.c' 'src/*.cpp' 'src/*.h' 'src/*.hpp' \
               'tools/*.c' 'tools/*.cpp' 'tools/*.h' 'tools/*.hpp'
