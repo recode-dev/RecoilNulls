@@ -46,7 +46,9 @@ constexpr float REM2 = (OWN_HITBOX * 3.0f) * (OWN_HITBOX * 3.0f);
 constexpr uint64_t SEND_MS = 100;
 constexpr uint64_t STOP_HOLD_MS = 250;
 constexpr float STOP_RUN = OWN_HITBOX * 0.5f;
-constexpr float DEADBAND = 0.92f;
+constexpr int URGENT_STEPS = 3;
+constexpr int TURN_GAIN_STEPS = 2;
+constexpr uint64_t TURN_HOLD_MS = 150;
 }
 namespace ad
 {
@@ -275,6 +277,7 @@ static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
 static uint64_t calm_ms = 0;
 static uint64_t stop_ms = 0;
+static uint64_t turn_ms = 0;
 static float sent_x = 1.0f, sent_y = 0.0f;
 static float stop_x = 0.0f, stop_y = 0.0f;
 static uint32_t last_hp = 0;
@@ -392,30 +395,49 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
 static void choose(float mx, float my, float& out_x, float& out_y)
 {
     bool has = commit_x != 0.0f || commit_y != 0.0f;
-    float bx = has ? commit_x : 1.0f;
-    float by = has ? commit_y : 0.0f;
+    float val[DIRS];
+    int best_i = 0, best_steps = 0;
     float best = -1e30f;
-    int best_steps = 0, cur_steps = -1;
     for (int i = 0; i < DIRS; i++)
     {
         float a = 6.2831853f * (float)i / (float)DIRS;
         float dx = cosf(a), dy = sinf(a);
         int steps = 0;
         float v = dir_value(mx, my, dx, dy, steps);
-        if (has)
-        {
-            if (dx == commit_x && dy == commit_y) cur_steps = steps;
-            v += OWN_HITBOX * (dx * commit_x + dy * commit_y);
-        }
+        if (has) v += OWN_HITBOX * (dx * commit_x + dy * commit_y);
+        val[i] = v;
         if (v > best)
         {
-            best = v, bx = dx, by = dy, best_steps = steps;
+            best = v, best_i = i, best_steps = steps;
         }
     }
-    if (has && best_steps <= cur_steps &&
-        bx * commit_x + by * commit_y >= DEADBAND)
+    float vm = val[(best_i + DIRS - 1) % DIRS];
+    float vp = val[(best_i + 1) % DIRS];
+    float den = vm - 2.0f * best + vp;
+    float off = 0.0f;
+    if (den < -1e-6f) off = 0.5f * (vm - vp) / den;
+    if (off > 0.5f) off = 0.5f;
+    if (off < -0.5f) off = -0.5f;
+    float a = 6.2831853f * ((float)best_i + off) / (float)DIRS;
+    float bx = cosf(a), by = sinf(a);
+    if (has)
     {
-        bx = commit_x, by = commit_y;
+        int cur = 0;
+        dir_value(mx, my, commit_x, commit_y, cur);
+        uint64_t now = us() / 1000;
+        bool urgent =
+            (cur > 0 && cur <= URGENT_STEPS) ||
+            free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
+                OWN_HITBOX * 2.0f;
+        bool gain = best_steps >= cur + TURN_GAIN_STEPS;
+        if (!urgent && (now - turn_ms < TURN_HOLD_MS || !gain))
+        {
+            bx = commit_x, by = commit_y;
+        }
+        else
+        {
+            turn_ms = now;
+        }
     }
     ad_best_dir = ((int)lroundf(atan2f(by, bx) * 1.2732395f) + 8) & 7;
     commit_x = bx, commit_y = by;
@@ -473,6 +495,7 @@ void autododge_reset()
     sent_ms = 0;
     calm_ms = 0;
     stop_ms = 0;
+    turn_ms = 0;
     commit_x = 0.0f, commit_y = 0.0f;
     memset(projs, 0, sizeof(projs));
     end_dodge();
