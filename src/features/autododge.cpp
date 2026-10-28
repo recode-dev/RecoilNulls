@@ -33,9 +33,10 @@ namespace
 {
 constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
-constexpr float PINCH = OWN_HITBOX * 0.35f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
+constexpr float DIR_COS = 0.9238795f;
+constexpr int INPUT_TICKS = 3;
 constexpr int WALL_PROBES = 3;
 constexpr int THREAT_MAX = 32;
 constexpr int PROJ_SLOTS = 48;
@@ -63,7 +64,6 @@ struct Proj
 
 static Threat threats[THREAT_MAX];
 static int threat_n = 0;
-static int closing_n = 0;
 static Proj projs[PROJ_SLOTS];
 static uintptr_t char_vt = 0;
 static float self_speed = 1.0f;
@@ -72,8 +72,27 @@ static uint64_t sent_ms = 0;
 static uint32_t last_hp = 0;
 static int pend_dmg = 0;
 
+static int32_t axis(float v, int tiles)
+{
+    float limit = (float)tiles * WALL_TILE_SIZE - 1.0f;
+    if (v < 0.0f) return 0;
+    if (v > limit) return (int32_t)limit;
+    return (int32_t)roundf(v);
+}
+
+static void stop_move()
+{
+    if (!coord_ok || wall_cache_w() <= 0 || wall_cache_h() <= 0)
+    {
+        return;
+    }
+    enqueue(axis((float)own_x, wall_cache_w()),
+            axis((float)own_y, wall_cache_h()));
+}
+
 static void end_dodge()
 {
+    if (active) stop_move();
     commit_x = 0.0f;
     commit_y = 0.0f;
     ad_target_x = INT32_MAX;
@@ -97,13 +116,6 @@ static void learn_vtable()
     char_vt = rva;
 }
 
-static int32_t axis(float v, int tiles)
-{
-    float limit = (float)tiles * WALL_TILE_SIZE - 1.0f;
-    if (v < 0.0f) return 0;
-    if (v > limit) return (int32_t)limit;
-    return (int32_t)roundf(v);
-}
 
 static float wall_pull(float mx, float my, float dx, float dy)
 {
@@ -313,15 +325,17 @@ static void collect_projs(uint64_t now, float mx, float my)
         float sx = px - mx, sy = py - my;
         float dot = vx * sx + vy * sy;
         if (dot >= 0.0f) continue;
-        closing_n++;
         float rad = st->rad + OWN_HITBOX;
         float vv = vx * vx + vy * vy;
         float tt = -dot / vv;
         float qx = sx + vx * tt, qy = sy + vy * tt;
         float dmin = sqrtf(qx * qx + qy * qy);
-        if (dmin > rad + PINCH) continue;
+        if (dmin > rad) continue;
         float gap = fmaxf(rad * rad - dmin * dmin, 0.0f);
         float tti = tt - sqrtf(gap) / st->speed;
+        float need = rad / (self_speed * DIR_COS) +
+                     (float)INPUT_TICKS * (float)TICK_MS * 0.001f;
+        if (tti > need) continue;
         if (threat_n >= THREAT_MAX) continue;
         Threat& t = threats[threat_n++];
         t.x = px;
@@ -423,26 +437,21 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     float bx = has ? commit_x : 1.0f;
     float by = has ? commit_y : 0.0f;
     float best = -1e30f;
-    for (int pass = 0; pass < 2 && best < 0.0f; pass++)
+    for (int i = 0; i < DIRS; i++)
     {
-        for (int i = 0; i < DIRS; i++)
+        float a = 6.2831853f * (float)i / (float)DIRS;
+        float dx = cosf(a), dy = sinf(a);
+        float v = dir_value(mx, my, dx, dy);
+        if (v > best)
         {
-            float a = 6.2831853f * (float)i / (float)DIRS;
-            float dx = cosf(a), dy = sinf(a);
-            float along = dx * commit_x + dy * commit_y;
-            if (!pass && has && along < 0.0f) continue;
-            float v = dir_value(mx, my, dx, dy);
-            if (v > best)
-            {
-                best = v;
-                bx = dx;
-                by = dy;
-                ad_best_dir = i / (DIRS / 8);
-            }
+            best = v;
+            bx = dx;
+            by = dy;
+            ad_best_dir = i / (DIRS / 8);
         }
     }
     if (has &&
-        dir_value(mx, my, commit_x, commit_y) + OWN_HITBOX * 0.5f >= best)
+        dir_value(mx, my, commit_x, commit_y) + OWN_HITBOX * 0.25f >= best)
     {
         bx = commit_x;
         by = commit_y;
@@ -478,7 +487,6 @@ void autododge()
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = ad_ind_n = 0;
     threat_n = 0;
-    closing_n = 0;
     if (own_hp < last_hp) pend_dmg = (int)(last_hp - own_hp);
     last_hp = own_hp;
     if (!base || !own_elem || dead || !coord_ok)
@@ -501,17 +509,14 @@ void autododge()
     collect_chars(own_gid, mx, my);
     collect_projs(now, mx, my);
     if (pend_dmg) hit_report(mx, my, commit_x, commit_y);
-    float dir_x = commit_x, dir_y = commit_y;
-    if (threat_n)
-    {
-        choose(mx, my, dir_x, dir_y);
-        fill_report(mx, my, dir_x, dir_y);
-    }
-    else if (!active || !closing_n)
+    if (!threat_n)
     {
         end_dodge();
         return;
     }
+    float dir_x = 1.0f, dir_y = 0.0f;
+    choose(mx, my, dir_x, dir_y);
+    fill_report(mx, my, dir_x, dir_y);
     int32_t tx = axis(mx + dir_x * REACH, wall_cache_w());
     int32_t ty = axis(my + dir_y * REACH, wall_cache_h());
     if (ad_target_x != tx || ad_target_y != ty || now - sent_ms >= TICK_MS)
