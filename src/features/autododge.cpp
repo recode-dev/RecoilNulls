@@ -29,7 +29,8 @@ int ad_enemy_hp[AD_ENEMY_MAX] = {0};
 float ad_enemy_d[AD_ENEMY_MAX] = {0};
 int ad_enemy_aim[AD_ENEMY_MAX] = {0};
 
-namespace {
+namespace
+{
 constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float PINCH = OWN_HITBOX * 0.35f;
@@ -43,13 +44,15 @@ constexpr uint64_t SEND_MS = 50;
 
 constexpr uint8_t B_BEAM = 1, B_IND = 2, B_PIERCE = 4;
 
-struct Threat {
+struct Threat
+{
     float x, y, vx, vy, rad, tt;
     int32_t pid;
     char name[40];
 };
 
-struct Proj {
+struct Proj
+{
     int32_t pid;
     uint64_t seen;
     float x, y, ux, uy, speed, rad;
@@ -68,7 +71,8 @@ static uint64_t sent_ms = 0;
 static uint32_t last_hp = 0;
 static int pend_dmg = 0;
 
-static void end_dodge() {
+static void end_dodge()
+{
     commit_x = 0.0f;
     commit_y = 0.0f;
     ad_target_x = INT32_MAX;
@@ -76,7 +80,8 @@ static void end_dodge() {
     active = 0;
 }
 
-static void learn_vtable() {
+static void learn_vtable()
+{
     void* data = nullptr;
     void* vt = nullptr;
     if (char_vt || !base || !own_elem) return;
@@ -91,23 +96,25 @@ static void learn_vtable() {
     char_vt = rva;
 }
 
-static int32_t axis(float v, int tiles) {
+static int32_t axis(float v, int tiles)
+{
     float limit = (float)tiles * WALL_TILE_SIZE - 1.0f;
     if (v < 0.0f) return 0;
     if (v > limit) return (int32_t)limit;
     return (int32_t)roundf(v);
 }
 
-static float wall_pull(float mx, float my, float dx, float dy) {
+static float wall_pull(float mx, float my, float dx, float dy)
+{
     int blocked = 0;
-    for (int i = 1; i <= WALL_PROBES; i++) {
+    for (int i = 1; i <= WALL_PROBES; i++)
+    {
         float d = REACH * 0.5f * (float)i / (float)WALL_PROBES;
-        blocked += wall_is_blocked_wide(mx + dx * d,
-                                        my + dy * d,
-                                        OWN_HITBOX,
-                                        WALL_BLOCKS_MOVEMENT)
-                       ? 1
-                       : 0;
+        blocked +=
+            wall_is_blocked_wide(
+                mx + dx * d, my + dy * d, OWN_HITBOX, WALL_BLOCKS_MOVEMENT)
+                ? 1
+                : 0;
     }
     float pin_x = (float)axis(mx + dx * REACH, wall_cache_w()) - mx;
     float pin_y = (float)axis(my + dy * REACH, wall_cache_h()) - my;
@@ -115,12 +122,14 @@ static float wall_pull(float mx, float my, float dx, float dy) {
     return (float)blocked / (float)WALL_PROBES + (1.0f - room);
 }
 
-static float clear_one(float mx, float my, float dx, float dy, const Threat& t) {
+static float clear_one(float mx, float my, float dx, float dy, const Threat& t)
+{
     float sx = t.vx - dx * self_speed, sy = t.vy - dy * self_speed;
     float rx = t.x - mx, ry = t.y - my;
     float vv = sx * sx + sy * sy;
     float tt = 0.0f;
-    if (vv > VV_EPS) {
+    if (vv > VV_EPS)
+    {
         tt = -(rx * sx + ry * sy) / vv;
         if (tt < 0.0f) tt = 0.0f;
     }
@@ -128,21 +137,26 @@ static float clear_one(float mx, float my, float dx, float dy, const Threat& t) 
     return sqrtf(cx * cx + cy * cy) - t.rad;
 }
 
-static float dir_value(float mx, float my, float dx, float dy) {
+static float dir_value(float mx, float my, float dx, float dy)
+{
     float worst = 1e30f;
-    for (int i = 0; i < threat_n; i++) {
+    for (int i = 0; i < threat_n; i++)
+    {
         float c = clear_one(mx, my, dx, dy, threats[i]);
         if (c < worst) worst = c;
     }
     return worst - OWN_HITBOX * wall_pull(mx, my, dx, dy);
 }
 
-static Proj* find_proj(int32_t pid) {
+static Proj* find_proj(int32_t pid)
+{
     Proj* spare = nullptr;
     Proj* stale = &projs[0];
-    for (int i = 0; i < PROJ_SLOTS; i++) {
+    for (int i = 0; i < PROJ_SLOTS; i++)
+    {
         if (projs[i].pid == pid) return &projs[i];
-        if (projs[i].pid == 0) {
+        if (projs[i].pid == 0)
+        {
             if (!spare) spare = &projs[i];
             continue;
         }
@@ -152,7 +166,8 @@ static Proj* find_proj(int32_t pid) {
 }
 
 static void init_proj(
-    Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now) {
+    Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
+{
     uint8_t data[PROJ_DATA_BLOCK_SIZE];
     int32_t speed = 0;
     float radius = 0.0f;
@@ -177,26 +192,28 @@ static void init_proj(
         st->flags |= B_PIERCE;
     st->name[0] = '\0';
     uintptr_t str = 0;
-    if (addr_dataname) {
+    if (addr_dataname)
+    {
         using name_fn = uintptr_t (*)(uintptr_t);
         str = reinterpret_cast<name_fn>(addr_dataname)(dataPtr);
     }
     if (str)
-        read_scstring(str,
-                      SCSTRING_DEFAULT_MAX_LENGTH,
-                      st->name,
-                      sizeof(st->name));
+        read_scstring(
+            str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
     int near = -1;
     float best = 1e30f;
-    for (int i = 0; i < ad_enemy_n; i++) {
+    for (int i = 0; i < ad_enemy_n; i++)
+    {
         float ex = ad_enemy_x[i] - px, ey = ad_enemy_y[i] - py;
         float d2 = ex * ex + ey * ey;
-        if (d2 < best) {
+        if (d2 < best)
+        {
             best = d2;
             near = i;
         }
     }
-    if (near >= 0) {
+    if (near >= 0)
+    {
         float a = (float)ad_enemy_aim[near] * 0.0174532925f;
         st->ux = cosf(a);
         st->uy = sinf(a);
@@ -204,8 +221,10 @@ static void init_proj(
     }
 }
 
-static void collect_chars(int32_t own_gid, float mx, float my) {
-    for (int i = 0; i < obj_count; i++) {
+static void collect_chars(int32_t own_gid, float mx, float my)
+{
+    for (int i = 0; i < obj_count; i++)
+    {
         if (!obj_valid[i]) continue;
         const uint8_t* obj = obj_block[i];
         uintptr_t dataPtr = 0;
@@ -236,10 +255,12 @@ static void collect_chars(int32_t own_gid, float mx, float my) {
     }
 }
 
-static void collect_projs(uint64_t now, float mx, float my) {
+static void collect_projs(uint64_t now, float mx, float my)
+{
     float zone = self_speed * 4.0f;
     float zone2 = zone * zone;
-    for (int i = 0; i < obj_count; i++) {
+    for (int i = 0; i < obj_count; i++)
+    {
         if (!obj_valid[i]) continue;
         const uint8_t* obj = obj_block[i];
         uintptr_t dataPtr = 0;
@@ -258,14 +279,16 @@ static void collect_projs(uint64_t now, float mx, float my) {
         ad_proj_n++;
         float px = (float)xi, py = (float)yi;
         Proj* st = find_proj(pid);
-        if (st->pid != pid) {
+        if (st->pid != pid)
+        {
             init_proj(st, pid, dataPtr, px, py, now);
             if (st->pid != pid) continue;
         }
         st->seen = now;
         float step_x = px - st->x, step_y = py - st->y;
         float step = sqrtf(step_x * step_x + step_y * step_y);
-        if (step > 1.0f) {
+        if (step > 1.0f)
+        {
             st->ux = step_x / step;
             st->uy = step_y / step;
             st->vel = true;
@@ -274,7 +297,8 @@ static void collect_projs(uint64_t now, float mx, float my) {
         st->y = py;
         float dx = px - mx, dy = py - my;
         if (dx * dx + dy * dy > zone2) continue;
-        if (st->flags & B_BEAM) {
+        if (st->flags & B_BEAM)
+        {
             ad_beam_n++;
             continue;
         }
@@ -304,26 +328,26 @@ static void collect_projs(uint64_t now, float mx, float my) {
     }
 }
 
-static void evict_stale(uint64_t now) {
+static void evict_stale(uint64_t now)
+{
     for (int i = 0; i < PROJ_SLOTS; i++)
         if (projs[i].pid && now - projs[i].seen > PROJ_TTL_MS) projs[i].pid = 0;
 }
 
-static int nearest_unused(float mx,
-                          float my,
-                          float dx,
-                          float dy,
-                          const int* used,
-                          float* out_clear) {
+static int nearest_unused(
+    float mx, float my, float dx, float dy, const int* used, float* out_clear)
+{
     int best = -1;
     float bc = 1e30f;
-    for (int i = 0; i < threat_n; i++) {
+    for (int i = 0; i < threat_n; i++)
+    {
         bool skip = false;
         for (int k = 0; k < AD_REPORT_MAX; k++)
             if (used[k] == i) skip = true;
         if (skip) continue;
         float c = clear_one(mx, my, dx, dy, threats[i]);
-        if (c < bc) {
+        if (c < bc)
+        {
             bc = c;
             best = i;
         }
@@ -332,7 +356,8 @@ static int nearest_unused(float mx,
     return best;
 }
 
-static void hit_report(float mx, float my, float dx, float dy) {
+static void hit_report(float mx, float my, float dx, float dy)
+{
     ad_hit_dmg = pend_dmg;
     ad_hit_act = active;
     ad_hit_n = threat_n;
@@ -340,7 +365,8 @@ static void hit_report(float mx, float my, float dx, float dy) {
     ad_hit_y = (int)my;
     ad_hit_picked = 0;
     int used[AD_REPORT_MAX] = {-1, -1, -1};
-    for (int s = 0; s < AD_REPORT_MAX; s++) {
+    for (int s = 0; s < AD_REPORT_MAX; s++)
+    {
         float bc = 0.0f;
         int best = nearest_unused(mx, my, dx, dy, used, &bc);
         if (best < 0) break;
@@ -353,13 +379,16 @@ static void hit_report(float mx, float my, float dx, float dy) {
     pend_dmg = 0;
 }
 
-static void fill_report(float mx, float my, float dx, float dy) {
+static void fill_report(float mx, float my, float dx, float dy)
+{
     ad_threat_n = threat_n < AD_REPORT_MAX ? threat_n : AD_REPORT_MAX;
     int used[AD_REPORT_MAX] = {-1, -1, -1};
-    for (int s = 0; s < ad_threat_n; s++) {
+    for (int s = 0; s < ad_threat_n; s++)
+    {
         float bc = 0.0f;
         int best = nearest_unused(mx, my, dx, dy, used, &bc);
-        if (best < 0) {
+        if (best < 0)
+        {
             ad_threat_n = s;
             break;
         }
@@ -373,32 +402,39 @@ static void fill_report(float mx, float my, float dx, float dy) {
         ad_threat_r[s] = t.rad;
         ad_threat_ca[s] = bc;
         ad_threat_ttc[s] = t.tt;
-        ad_threat_d[s] = sqrtf((t.x - mx) * (t.x - mx) + (t.y - my) * (t.y - my));
+        ad_threat_d[s] =
+            sqrtf((t.x - mx) * (t.x - mx) + (t.y - my) * (t.y - my));
         memcpy(ad_threat_name[s], t.name, sizeof(ad_threat_name[s]));
         ad_threat_name[s][sizeof(ad_threat_name[s]) - 1] = '\0';
     }
 }
 
-static void choose(float mx, float my, float& out_x, float& out_y) {
+static void choose(float mx, float my, float& out_x, float& out_y)
+{
     bool has = commit_x != 0.0f || commit_y != 0.0f;
     float bx = has ? commit_x : 1.0f;
     float by = has ? commit_y : 0.0f;
     float best = -1e30f;
-    for (int i = 0; i < DIRS; i++) {
+    for (int i = 0; i < DIRS; i++)
+    {
         float a = 6.2831853f * (float)i / (float)DIRS;
         float dx = cosf(a), dy = sinf(a);
         float v = dir_value(mx, my, dx, dy);
         bool better = v > best + 0.02f;
         if (!better && v >= best - 0.02f && has)
-            better = dx * commit_x + dy * commit_y > bx * commit_x + by * commit_y;
-        if (better) {
+            better =
+                dx * commit_x + dy * commit_y > bx * commit_x + by * commit_y;
+        if (better)
+        {
             best = v;
             bx = dx;
             by = dy;
             ad_best_dir = i / (DIRS / 8);
         }
     }
-    if (has && dir_value(mx, my, commit_x, commit_y) + OWN_HITBOX * 0.2f >= best) {
+    if (has &&
+        dir_value(mx, my, commit_x, commit_y) + OWN_HITBOX * 0.2f >= best)
+    {
         bx = commit_x;
         by = commit_y;
     }
@@ -409,7 +445,8 @@ static void choose(float mx, float my, float& out_x, float& out_y) {
 }
 }
 
-void autododge_reset() {
+void autododge_reset()
+{
     ad_best_dir = -1;
     ad_char_n = 0;
     ad_proj_n = 0;
@@ -426,19 +463,22 @@ void autododge_reset() {
     end_dodge();
 }
 
-void autododge() {
+void autododge()
+{
     ad_best_dir = -1;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = ad_ind_n = 0;
     threat_n = 0;
     if (own_hp < last_hp) pend_dmg = (int)(last_hp - own_hp);
     last_hp = own_hp;
-    if (!base || !own_elem || dead || !coord_ok) {
+    if (!base || !own_elem || dead || !coord_ok)
+    {
         end_dodge();
         return;
     }
     learn_vtable();
-    if (!char_vt || wall_cache_w() <= 0 || wall_cache_h() <= 0) {
+    if (!char_vt || wall_cache_w() <= 0 || wall_cache_h() <= 0)
+    {
         end_dodge();
         return;
     }
@@ -451,7 +491,8 @@ void autododge() {
     collect_chars(own_gid, mx, my);
     collect_projs(now, mx, my);
     if (pend_dmg) hit_report(mx, my, commit_x, commit_y);
-    if (!threat_n) {
+    if (!threat_n)
+    {
         end_dodge();
         return;
     }
@@ -460,7 +501,8 @@ void autododge() {
     fill_report(mx, my, dir_x, dir_y);
     int32_t tx = axis(mx + dir_x * REACH, wall_cache_w());
     int32_t ty = axis(my + dir_y * REACH, wall_cache_h());
-    if (ad_target_x != tx || ad_target_y != ty || now - sent_ms >= SEND_MS) {
+    if (ad_target_x != tx || ad_target_y != ty || now - sent_ms >= SEND_MS)
+    {
         sent_ms = now;
         enqueue(tx, ty);
         ad_target_x = tx;
