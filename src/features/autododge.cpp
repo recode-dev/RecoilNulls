@@ -1005,8 +1005,10 @@ void autododge()
             float bl = sqrtf(std::fma(bx, bx, by * by));
             if (bl > VV_EPS)
             {
-                ex = ex * (1.0f - BORDER_ESCAPE_W) + (bx / bl) * BORDER_ESCAPE_W;
-                ey = ey * (1.0f - BORDER_ESCAPE_W) + (by / bl) * BORDER_ESCAPE_W;
+                ex =
+                    ex * (1.0f - BORDER_ESCAPE_W) + (bx / bl) * BORDER_ESCAPE_W;
+                ey =
+                    ey * (1.0f - BORDER_ESCAPE_W) + (by / bl) * BORDER_ESCAPE_W;
                 elen = sqrtf(std::fma(ex, ex, ey * ey));
                 if (elen > 0.001f)
                 {

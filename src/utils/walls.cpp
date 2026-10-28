@@ -118,7 +118,7 @@ void wall_bind(uintptr_t tileMap)
         wall_w = 0;
         wall_h = 0;
         wall_have = 0;
-            wall_dirty = 1;
+        wall_dirty = 1;
         wall_fail_ms = 0;
     }
     if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_W_OFF), &mapW) ||
