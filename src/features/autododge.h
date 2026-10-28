@@ -5,6 +5,7 @@ inline constexpr int AD_REPORT_MAX = 3;
 inline constexpr int AD_ENEMY_MAX = 4;
 extern int in_move;
 extern int active;
+extern int ad_human;
 extern int32_t ad_target_x;
 extern int32_t ad_target_y;
 extern int ad_best_dir;

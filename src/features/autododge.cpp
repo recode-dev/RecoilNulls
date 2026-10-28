@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 int active = 0, in_move = 0;
+int ad_human = 0;
 int ad_beam_n = 0, ad_ind_n = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int ad_best_dir = -1;
@@ -47,6 +48,7 @@ constexpr uint64_t SEND_MS = 100;
 constexpr int URGENT_STEPS = 3;
 constexpr int TURN_GAIN_STEPS = 2;
 constexpr uint64_t TURN_HOLD_MS = 150;
+constexpr uint64_t HUMAN_MS = 200;
 }
 namespace ad
 {
@@ -293,6 +295,8 @@ static uint64_t sent_ms = 0;
 static uint64_t calm_ms = 0;
 static uint64_t turn_ms = 0;
 static float sent_x = 1.0f, sent_y = 0.0f;
+static uint64_t human_ms = 0;
+static int32_t prev_x = 0, prev_y = 0;
 static uint32_t last_hp = 0;
 static float free_run(float mx, float my, float dx, float dy, float far)
 {
@@ -494,6 +498,8 @@ void autododge_reset()
     sent_ms = 0;
     calm_ms = 0;
     turn_ms = 0;
+    human_ms = 0;
+    ad_human = 0;
     commit_x = 0.0f, commit_y = 0.0f;
     memset(projs, 0, sizeof(projs));
     end_dodge();
@@ -528,6 +534,14 @@ void autododge()
     evict_stale(now);
     collect_world(now, own_gid, mx, my);
     if (pend_dmg) hit_report(mx, my, commit_x, commit_y);
+    {
+        float mvx = (float)(own_x - prev_x), mvy = (float)(own_y - prev_y);
+        float mv = sqrtf(mvx * mvx + mvy * mvy);
+        prev_x = own_x, prev_y = own_y;
+        if (active && mv > 15.0f && (mvx * sent_x + mvy * sent_y) < 0.7f * mv)
+            human_ms = now;
+    }
+    ad_human = now - human_ms < HUMAN_MS ? 1 : 0;
     bool hot = false;
     for (int i = 0; i < threat_n; i++)
     {
@@ -564,7 +578,7 @@ void autododge()
     bool spent =
         ad_target_x == INT32_MAX || rem_x * rem_x + rem_y * rem_y < REM2;
     bool turned = dir_x * sent_x + dir_y * sent_y < TURN_COS;
-    if ((spent || turned) && now - sent_ms >= SEND_MS)
+    if (!ad_human && (spent || turned) && now - sent_ms >= SEND_MS)
     {
         sent_ms = now;
         sent_x = dir_x, sent_y = dir_y;
