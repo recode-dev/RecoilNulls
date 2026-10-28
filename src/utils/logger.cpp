@@ -107,6 +107,46 @@ void diag_tick()
     unsigned long hz = 0;
     if (!open_log()) return;
     now_us = us();
+    if (base && own_elem && !dead)
+    {
+        static uint64_t last_fast = 0;
+        if (!last_fast || now_us - last_fast >= 50000)
+        {
+            char buf[2048];
+            int n = snprintf(
+                buf,
+                sizeof(buf),
+                "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%d,%d n=%d",
+                (unsigned long long)(now_us / 1000),
+                own_x,
+                own_y,
+                (int)(own_speed + 0.5f),
+                ad_dir_x,
+                ad_dir_y,
+                ad_target_x,
+                ad_target_y,
+                threat_n);
+            for (int i = 0; i < threat_n && n > 0 && n < (int)sizeof(buf) - 48;
+                 i++)
+            {
+                n += snprintf(
+                    buf + n,
+                    sizeof(buf) - (size_t)n,
+                    ";%d,%d,%d,%d,%d",
+                    (int)threats[i].x,
+                    (int)threats[i].y,
+                    (int)threats[i].vx,
+                    (int)threats[i].vy,
+                    (int)threats[i].rad);
+            }
+            if (n > 0 && n < (int)sizeof(buf) - 2)
+            {
+                buf[n++] = '\n';
+                buf[n] = '\0';
+                line("%s", buf);
+            }
+        }
+    }
     if (last_report_us && now_us - last_report_us < REPORT_US) return;
     last_report_us = now_us;
     if (!base || !own_elem || dead)

@@ -9,6 +9,7 @@
 #include <cstring>
 int active = 0, in_move = 0;
 int ad_human = 0;
+float ad_dir_x = 1.0f, ad_dir_y = 0.0f;
 int ad_beam_n = 0, ad_ind_n = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int ad_best_dir = -1;
@@ -448,6 +449,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
             turn_ms = now;
         }
     }
+    ad_dir_x = bx, ad_dir_y = by;
     ad_best_dir = ((int)lroundf(atan2f(by, bx) * 1.2732395f) + 8) & 7;
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
@@ -493,6 +495,7 @@ void autododge_reset()
     turn_ms = 0;
     human_ms = 0;
     ad_human = 0;
+    ad_dir_x = 1.0f, ad_dir_y = 0.0f;
     commit_x = 0.0f, commit_y = 0.0f;
     memset(projs, 0, sizeof(projs));
     end_dodge();
