@@ -190,7 +190,6 @@ static bool threat_receding(
     return timeToClosestApproach(t, mx, my, mvx, mvy) < 0.0f;
 }
 
-
 static float wallAhead(float mx,
                        float my,
                        float dirX,
