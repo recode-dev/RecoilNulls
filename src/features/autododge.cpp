@@ -668,12 +668,8 @@ dangerFor(float mx, float my, float dx, float dy, float speed, float bodyR)
     return danger > DANGER_MAX ? DANGER_MAX : danger;
 }
 
-static float seg_ca(float mx,
-                    float my,
-                    float px,
-                    float py,
-                    float prevx,
-                    float prevy)
+static float
+seg_ca(float mx, float my, float px, float py, float prevx, float prevy)
 {
     float sx = px - prevx;
     float sy = py - prevy;
@@ -1178,7 +1174,8 @@ void autododge()
             float distPrev = hypotf(mx - state.prevX, my - state.prevY);
             bool movingAway = playerAlong < PLAYER_ALONG_MIN;
             bool growing = distNow > distPrev;
-            bool farEnough = distNow > (state.radius + myRadius + BEHIND_MARGIN);
+            bool farEnough =
+                distNow > (state.radius + myRadius + BEHIND_MARGIN);
             if (movingAway && growing && farEnough)
             {
                 autododge_scanner_event(SCAN_AD_BEHIND);
