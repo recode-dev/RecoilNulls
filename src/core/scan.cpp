@@ -509,8 +509,10 @@ static void track_own_speed()
             float sp = sqrtf(dx * dx + dy * dy) / dt;
             if (sp >= 300.0f && sp <= 1100.0f)
             {
-                if (sp > own_speed) own_speed = sp;
-                else own_speed = own_speed * 0.99f + sp * 0.01f;
+                if (sp > own_speed)
+                    own_speed = sp;
+                else
+                    own_speed = own_speed * 0.99f + sp * 0.01f;
             }
             last_pos_x = own_x;
             last_pos_y = own_y;
@@ -657,7 +659,8 @@ void scan_world()
                 int32_t owner = -1;
                 int32_t team = -1;
                 if (!obj_valid[i]) continue;
-                memcpy(&owner, obj_block[i] + OBJ_OWNERINDEX_OFF, sizeof(owner));
+                memcpy(
+                    &owner, obj_block[i] + OBJ_OWNERINDEX_OFF, sizeof(owner));
                 memcpy(&team, obj_block[i] + OBJ_TEAM_OFF, sizeof(team));
                 if (owner != ownIndex) continue;
                 if (ownTeam >= 0 && team != ownTeam) continue;
