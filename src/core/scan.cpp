@@ -530,7 +530,7 @@ static void tilemap_tick(uintptr_t clientPtr)
     uint64_t now_us = us();
     uintptr_t tileMapFn = 0;
     uintptr_t tileMap = 0;
-    if (last_us && now_us - last_us < 2000000ULL)
+    if (last_us && now_us - last_us < 5000000ULL)
     {
         return;
     }
@@ -685,8 +685,8 @@ void run_autododge()
     autododge();
     in_move = 0;
 }
-static constexpr uint64_t SCAN_PERIOD_US = 8000ULL;
-static constexpr uint64_t FRAME_DEDUPE_US = 4000ULL;
+static constexpr uint64_t SCAN_PERIOD_US = 16000ULL;
+static constexpr uint64_t FRAME_DEDUPE_US = 12000ULL;
 static uint64_t g_last_scan_us = 0;
 static void scan_frame()
 {

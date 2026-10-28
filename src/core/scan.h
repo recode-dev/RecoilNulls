@@ -122,8 +122,8 @@ static inline BOOL object_plausible(void* object)
     }
     return addr_executable(firstEntry);
 }
-inline constexpr int COUNT_MAX = 1024;
-inline constexpr int OBJECT_COUNT_MAX = 1024;
+inline constexpr int COUNT_MAX = 512;
+inline constexpr int OBJECT_COUNT_MAX = 512;
 extern uintptr_t manager_ptr;
 extern uintptr_t manager_array_ptr;
 extern int32_t manager_count_v;
