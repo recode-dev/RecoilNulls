@@ -549,7 +549,7 @@ void autododge()
     bool hot = false;
     for (int i = 0; i < threat_n; i++)
     {
-        if (ad::static_clear(threats[i], mx, my) < OWN_HITBOX * 2.0f)
+        if (ad::static_clear(threats[i], mx, my) < ad::OWN_HITBOX * 2.0f)
         {
             hot = true;
             break;
