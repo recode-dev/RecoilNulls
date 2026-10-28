@@ -125,18 +125,18 @@ void diag_tick()
                          ad_dir_y,
                          ad_target_x,
                          ad_target_y,
-                         threat_n);
-            for (int i = 0; i < threat_n && n > 0 && n < (int)sizeof(buf) - 48;
+                         ad::threat_n);
+            for (int i = 0; i < ad::threat_n && n > 0 && n < (int)sizeof(buf) - 48;
                  i++)
             {
                 n += snprintf(buf + n,
                               sizeof(buf) - (size_t)n,
                               ";%d,%d,%d,%d,%d",
-                              (int)threats[i].x,
-                              (int)threats[i].y,
-                              (int)threats[i].vx,
-                              (int)threats[i].vy,
-                              (int)threats[i].rad);
+                              (int)ad::threats[i].x,
+                              (int)ad::threats[i].y,
+                              (int)ad::threats[i].vx,
+                              (int)ad::threats[i].vy,
+                              (int)ad::threats[i].rad);
             }
             if (n > 0 && n < (int)sizeof(buf) - 2)
             {
