@@ -92,19 +92,20 @@ static int32_t axis(float v, int tiles)
     return (int32_t)roundf(v);
 }
 
-static void stop_move()
+static void release_move()
 {
     if (!coord_ok || wall_cache_w() <= 0 || wall_cache_h() <= 0)
     {
         return;
     }
-    enqueue(axis((float)own_x, wall_cache_w()),
-            axis((float)own_y, wall_cache_h()));
+    float step = self_speed * (float)INPUT_TICKS * (float)TICK_MS * 0.001f;
+    enqueue(axis((float)own_x + commit_x * step, wall_cache_w()),
+            axis((float)own_y + commit_y * step, wall_cache_h()));
 }
 
 static void end_dodge()
 {
-    if (active) stop_move();
+    if (active) release_move();
     commit_x = 0.0f;
     commit_y = 0.0f;
     ad_target_x = INT32_MAX;
@@ -510,15 +511,18 @@ static void choose(float mx, float my, float& out_x, float& out_y)
             best = v;
             bx = dx;
             by = dy;
-            ad_best_dir = i / (DIRS / 8);
         }
     }
-    if (has &&
-        dir_value(mx, my, commit_x, commit_y) + OWN_HITBOX * 0.25f >= best)
+    if (has)
     {
-        bx = commit_x;
-        by = commit_y;
+        float keep = dir_value(mx, my, commit_x, commit_y);
+        if (keep >= 0.0f && keep + OWN_HITBOX * 0.35f >= best)
+        {
+            bx = commit_x;
+            by = commit_y;
+        }
     }
+    ad_best_dir = ((int)lroundf(atan2f(by, bx) * 1.2732395f) + 8) & 7;
     commit_x = bx;
     commit_y = by;
     out_x = bx;
