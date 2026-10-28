@@ -28,8 +28,6 @@ int ad_threat_ind[AD_REPORT_MAX] = {0};
 int ad_threat_pierce[AD_REPORT_MAX] = {0};
 int ad_threat_bounce[AD_REPORT_MAX] = {0};
 int ad_threat_piercechars[AD_REPORT_MAX] = {0};
-int ad_threat_tx[AD_REPORT_MAX] = {0};
-int ad_threat_ty[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_hit[256] = {0};
 
@@ -108,7 +106,6 @@ struct Threat
     int pierce;
     int bounce;
     int pierceChars;
-    int tx, ty;
     int32_t pid;
     char name[40];
 };
@@ -598,13 +595,11 @@ void autododge()
         if (!obj_valid[i]) continue;
         const uint8_t* obj = obj_block[i];
         uintptr_t dataPtr = 0;
-        int32_t nb_pid, nb_x, nb_y, nb_team, nb_tx, nb_ty;
+        int32_t nb_pid, nb_x, nb_y, nb_team;
         memcpy(&nb_pid, obj + OBJ_GLOBALID_OFF, sizeof(nb_pid));
         memcpy(&nb_x, obj + OBJ_X_OFF, sizeof(nb_x));
         memcpy(&nb_y, obj + OBJ_Y_OFF, sizeof(nb_y));
         memcpy(&nb_team, obj + OBJ_TEAM_OFF, sizeof(nb_team));
-        memcpy(&nb_tx, obj + OBJ_TARGETX_OFF, sizeof(nb_tx));
-        memcpy(&nb_ty, obj + OBJ_TARGETY_OFF, sizeof(nb_ty));
         memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
         if (!dataPtr || !pointer_plausible(dataPtr)) continue;
 
@@ -693,6 +688,29 @@ void autododge()
                 now - (uint64_t)state.earlyTicks * (uint64_t)EARLY_TICK_MS;
             state.spawnX = px;
             state.spawnY = py;
+            {
+                float bestD2 = 1e30f;
+                int bestK = -1;
+                for (int k = 0; k < ad_enemy_n; k++)
+                {
+                    float ex = ad_enemy_x[k] - px, ey = ad_enemy_y[k] - py;
+                    float d2 = std::fma(ex, ex, ey * ey);
+                    if (d2 < bestD2)
+                    {
+                        bestD2 = d2;
+                        bestK = k;
+                    }
+                }
+                if (bestK >= 0)
+                {
+                    float ang = (float)ad_enemy_aim[bestK] * 0.0174532925f;
+                    state.dir_x = cosf(ang);
+                    state.dir_y = sinf(ang);
+                    state.last_ux = state.dir_x;
+                    state.last_uy = state.dir_y;
+                    state.hasVelocity = true;
+                }
+            }
             state.name[0] = '\0';
             uintptr_t nameStr = call_fn(addr_dataname, dataPtr, 0);
             if (nameStr)
@@ -835,8 +853,6 @@ void autododge()
         item.pierce = (state.piercesEnv || state.piercesEnvButter) ? 1 : 0;
         item.bounce = state.isBouncing ? 1 : 0;
         item.pierceChars = state.piercesChars ? 1 : 0;
-        item.tx = nb_tx;
-        item.ty = nb_ty;
         item.pid = pid;
         memcpy(item.name, state.name, sizeof(item.name) - 1);
         item.name[sizeof(item.name) - 1] = '\0';
@@ -903,8 +919,6 @@ void autododge()
         ad_threat_pierce[slot] = t.pierce;
         ad_threat_bounce[slot] = t.bounce;
         ad_threat_piercechars[slot] = t.pierceChars;
-        ad_threat_tx[slot] = t.tx;
-        ad_threat_ty[slot] = t.ty;
         ad_threat_score[slot] = score;
         memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
         ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';
