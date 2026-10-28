@@ -14,6 +14,7 @@
 
 int active = 0, moving = 0, in_move = 0;
 int ad_beam_n = 0;
+int ad_ind_n = 0, ad_grv_n = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int ad_best_dir = -1;
 int ad_char_n = 0, ad_proj_n = 0, ad_enemy_n = 0, ad_threat_n = 0;
@@ -533,6 +534,7 @@ void autododge()
 {
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = 0;
+    ad_ind_n = ad_grv_n = 0;
     ad_vp_n = 0;
     ad_obj_n = 0;
     ad_nv_n = 0;
@@ -777,6 +779,14 @@ void autododge()
         {
             ad_beam_n++;
             continue;
+        }
+        if (state.isIndirect)
+            ad_ind_n++;
+        {
+            int32_t grv;
+            memcpy(&grv, data + PROJECTILEDATA_GRAVITY_OFF, sizeof(grv));
+            if (grv != 0)
+                ad_grv_n++;
         }
 
         float mag = state.speed;

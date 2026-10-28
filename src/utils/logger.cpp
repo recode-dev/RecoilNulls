@@ -150,7 +150,7 @@ void diag_tick()
         prev_ticks = workload_ticks;
     }
     line("[m] hz=%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d dir=%s "
-         "map=%dx%d dodge=%d hit=%d beam=%d\n",
+         "map=%dx%d dodge=%d hit=%d beam=%d ind=%d grv=%d\n",
          static_cast<unsigned long>(hz),
          obj_count,
          ad_char_n,
@@ -165,7 +165,9 @@ void diag_tick()
          wall_cache_h(),
          dodge_count,
          hit_count,
-         ad_beam_n);
+         ad_beam_n,
+         ad_ind_n,
+         ad_grv_n);
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) |v|=%.0f spd=%.0f "
