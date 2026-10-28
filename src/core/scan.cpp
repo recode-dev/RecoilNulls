@@ -623,8 +623,8 @@ void scan_world()
     {
         // Resolve the own character through the game's getOwnCharacter()
         // accessor: one stable RVA that walks the mode manager + index
-        // internally, instead of chasing CLIENT_OWNINDEX/OWNTEAM and re-matching
-        // owner + team against the manager array here.
+        // internally, instead of chasing CLIENT_OWNINDEX/OWNTEAM and
+        // re-matching owner + team against the manager array here.
         uintptr_t ownFn = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER);
         uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
         if (ownByFn && pointer_plausible(ownByFn))
@@ -634,7 +634,8 @@ void scan_world()
     }
     if (!own)
     {
-        // Fallback: legacy owner-index + team matching against the manager array.
+        // Fallback: legacy owner-index + team matching against the manager
+        // array.
         if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNINDEX_OFF),
                      &ownIndex) &&
             ownIndex >= 0 && ownIndex < count)
