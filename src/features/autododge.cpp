@@ -498,7 +498,8 @@ void autododge_reset()
     ad_enemy_n = 0;
     ad_threat_n = 0;
     frameBurstEnd = 0;
-    for (int i = 0; i < AD_ENEMY_MAX; i++) ad_enemy_burst[i] = 0;
+    for (int i = 0; i < AD_ENEMY_MAX; i++)
+        ad_enemy_burst[i] = 0;
     proj_cache_storage.clear();
     proj_cache_index.clear();
     headingIdx = -1;
@@ -700,10 +701,9 @@ void autododge()
                         bestK = k;
                     }
                 }
-                state.burstEnd =
-                    bestK >= 0 && ad_enemy_burst[bestK] > 0
-                        ? now + (uint64_t)ad_enemy_burst[bestK]
-                        : 0;
+                state.burstEnd = bestK >= 0 && ad_enemy_burst[bestK] > 0
+                                     ? now + (uint64_t)ad_enemy_burst[bestK]
+                                     : 0;
                 if (bestK >= 0)
                 {
                     float ang = (float)ad_enemy_aim[bestK] * DEG_TO_RAD;
