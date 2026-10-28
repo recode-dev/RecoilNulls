@@ -170,7 +170,8 @@ static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
 static __thread uint8_t page_cache_ok[PAGE_CACHE_SLOTS];
 static void read_cache_reset()
 {
-    for (int i = 0; i < PAGE_CACHE_SLOTS; i++) page_cache_key[i] = 0;
+    for (int i = 0; i < PAGE_CACHE_SLOTS; i++)
+        page_cache_key[i] = 0;
 }
 BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
@@ -711,11 +712,10 @@ static void start_scan_timer()
     scan_timer = dispatch_source_create(
         DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
     if (!scan_timer) return;
-    dispatch_source_set_timer(
-        scan_timer,
-        dispatch_time(DISPATCH_TIME_NOW, 0),
-        SCAN_PERIOD_US * NSEC_PER_USEC,
-        NSEC_PER_MSEC);
+    dispatch_source_set_timer(scan_timer,
+                              dispatch_time(DISPATCH_TIME_NOW, 0),
+                              SCAN_PERIOD_US * NSEC_PER_USEC,
+                              NSEC_PER_MSEC);
     dispatch_source_set_event_handler(scan_timer, ^{ scan_frame(); });
     dispatch_resume(scan_timer);
 }
