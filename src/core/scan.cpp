@@ -620,19 +620,33 @@ void scan_world()
             autododge_scanner_event(SCAN_AD_INVALID_SNAPSHOT);
         }
     }
-    if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNINDEX_OFF),
-                 &ownIndex) &&
-        ownIndex >= 0 && ownIndex < count)
     {
-        own_index_v = ownIndex;
+        // Resolve the own character through the game's getOwnCharacter()
+        // accessor: one stable RVA that walks the mode manager + index
+        // internally, instead of chasing CLIENT_OWNINDEX/OWNTEAM and re-matching
+        // owner + team against the manager array here.
+        uintptr_t ownFn = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER);
+        uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
+        if (ownByFn && pointer_plausible(ownByFn))
+        {
+            own = ownByFn;
+        }
     }
-    if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNTEAM_OFF),
-                 &ownTeam) &&
-        ownTeam >= 0 && ownTeam <= 15)
+    if (!own)
     {
-        own_team_b = ownTeam;
-    }
-    {
+        // Fallback: legacy owner-index + team matching against the manager array.
+        if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNINDEX_OFF),
+                     &ownIndex) &&
+            ownIndex >= 0 && ownIndex < count)
+        {
+            own_index_v = ownIndex;
+        }
+        if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNTEAM_OFF),
+                     &ownTeam) &&
+            ownTeam >= 0 && ownTeam <= 15)
+        {
+            own_team_b = ownTeam;
+        }
         int slot = -1;
         int fallback = -1;
         if (ownIndex >= 0 && ownIndex < count && obj_valid[ownIndex])

@@ -4,6 +4,7 @@
 #include <cstdint>
 inline constexpr uint64_t RVA_BATTLEMODE_GETINSTANCE = 0x8c5130ULL;
 inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETTILEMAP = 0x991440ULL;
+inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER = 0xac3934ULL;
 
 inline constexpr uint64_t PROJECTILEDATA_SPEED_OFF = 0x124ULL;
 inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0x74ULL;
