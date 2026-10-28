@@ -39,10 +39,8 @@ float ad_enemy_y[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_hp[AD_ENEMY_MAX] = {0};
 float ad_enemy_d[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_aim[AD_ENEMY_MAX] = {0};
-int ad_enemy_hold[AD_ENEMY_MAX] = {0};
 
 constexpr float AWARE = 4400.0f, SKIN = 90.0f, REACH = 700.0f;
-constexpr float ENGAGE = 120.0f;
 constexpr float ESCAPE_TIME_K = 1.3f, ESCAPE_TIME_MIN = 0.15f;
 constexpr uint32_t SEND_MIN_MS = 16;
 constexpr float PROBE_T = 0.12f;
@@ -77,7 +75,6 @@ constexpr float BEHIND_MARGIN = 50.0f;
 constexpr float BURST_DOT_MIN = 0.95f;
 constexpr float BURST_PARALLEL_PENALTY = 0.40f;
 constexpr float BURST_PERP_BLEND = 0.70f;
-constexpr float POST_DODGE_CA_MARGIN = 20.0f;
 constexpr float RICOCHET_DOT_THRESHOLD = 0.5f;
 constexpr float RICOCHET_MIN_STEP = 30.0f;
 constexpr int CARDINALS = 8;
@@ -104,7 +101,7 @@ struct ProjectileState
     float dir_x, dir_y, speed, radius;
     char name[128];
     float prevX, prevY;
-    uint64_t lastSeen, lastTs, holdEnd;
+    uint64_t lastSeen, lastTs;
     int32_t lastX, lastY, pid;
     float last_ux, last_uy;
     int32_t maxBounces, bounces;
@@ -125,7 +122,6 @@ static void rebuild_projectile_cache_index()
 }
 
 static std::vector<Threat> threats;
-static int headingIdx = -1;
 static uint64_t lastSentAt = 0, dirLockUntil = 0;
 static uint32_t lastHpSeen = 0;
 static int pendingHit = 0, pendingDmg = 0;
@@ -136,9 +132,6 @@ static float prev_mx = 0.0f, prev_my = 0.0f;
 static uint64_t prev_time = 0;
 static bool g_has_burst = false;
 static float g_burst_vx = 0.0f, g_burst_vy = 0.0f;
-static uint64_t postDodgeUntil = 0;
-static float postDodgeDirX = 0.0f, postDodgeDirY = 0.0f;
-static uint64_t dangerHoldUntil = 0, frameHoldEnd = 0;
 
 static float point_to_segment_dist(
     float px, float py, float ax, float ay, float bx, float by) noexcept
@@ -244,7 +237,6 @@ static float pinPenalty(float mx, float my, float dx, float dy) noexcept
 
 static void clearHeading() noexcept
 {
-    headingIdx = -1;
     commitDirX = 0.0f;
     commitDirY = 0.0f;
 }
@@ -252,10 +244,6 @@ static void clearHeading() noexcept
 static void endDodge() noexcept
 {
     dirLockUntil = 0;
-    postDodgeUntil = 0;
-    postDodgeDirX = 0.0f;
-    postDodgeDirY = 0.0f;
-    dangerHoldUntil = 0;
     clearHeading();
     ad_target_x = INT32_MAX;
     ad_target_y = INT32_MAX;
@@ -270,31 +258,6 @@ static uintptr_t call_fn(uintptr_t fn, uintptr_t a, uintptr_t b) noexcept
     if (!target) return 0;
     using fn_t = uintptr_t (*)(uintptr_t, uintptr_t);
     return ((fn_t)target)(a, b);
-}
-
-static int32_t csv_int(uintptr_t row, uintptr_t colRva) noexcept
-{
-    int32_t idx = -1;
-    if (!read_int(base + colRva, &idx) || idx < 0) return -1;
-    return (int32_t)call_fn(base + RVA_CSV_GET_INT, row, (uintptr_t)idx);
-}
-
-static int32_t skill_burst_ms(uintptr_t skill) noexcept
-{
-    uintptr_t row = 0;
-    int32_t nb = 0, mb = 0, at = 0, per = 0, win = 0;
-    if (!skill || !read_ptr(skill + SKILL_ROW_OFF, (void**)&row) || !row)
-        return 0;
-    nb = csv_int(row, SM_COL_NUMBULLETS_RVA);
-    mb = csv_int(row, SM_COL_MSBETWEEN_RVA);
-    at = csv_int(row, SM_COL_ACTIVETIME_RVA);
-    if (nb < 1 || nb > 64 || mb < 0 || mb > 5000 || at < 0 || at > 20000)
-        return 0;
-    per = mb > 0 ? at / mb : 1;
-    if (per < 1) per = 1;
-    win = nb * per * mb;
-    if (win < at) win = at;
-    return (win > 0 && win <= 20000) ? win : 0;
 }
 
 static float swept_ca(float mx,
@@ -473,39 +436,6 @@ static void detect_burst()
     }
 }
 
-static void enter_post_dodge(uint64_t now) noexcept
-{
-    if (headingIdx < 0) return;
-    if (postDodgeUntil != 0) return;
-    if (commitDirX == 0.0f && commitDirY == 0.0f) return;
-    if (frameHoldEnd <= now) return;
-    postDodgeUntil = frameHoldEnd;
-    postDodgeDirX = commitDirX;
-    postDodgeDirY = commitDirY;
-}
-
-static bool try_post_dodge(float mx, float my, uint64_t now)
-{
-    if (postDodgeUntil == 0) return false;
-    if (now >= postDodgeUntil) return false;
-    float mvx = CHAR_SPEED * postDodgeDirX;
-    float mvy = CHAR_SPEED * postDodgeDirY;
-    for (const auto& t : threats)
-    {
-        float ca = swept_ca(mx, my, mvx, mvy, t.x, t.y, t.vx, t.vy);
-        if (ca > t.rad + OWN_HITBOX + POST_DODGE_CA_MARGIN) continue;
-        if (threat_receding(t, mx, my, mvx, mvy) && !t.ricochet) continue;
-        postDodgeUntil = 0;
-        return false;
-    }
-    int32_t tx = clamp_axis(mx + postDodgeDirX * REACH, wall_cache_w());
-    int32_t ty = clamp_axis(my + postDodgeDirY * REACH, wall_cache_h());
-    enqueue(tx, ty);
-    ad_target_x = tx;
-    ad_target_y = ty;
-    active = 1;
-    return true;
-}
 }
 
 void autododge_reset()
@@ -519,12 +449,8 @@ void autododge_reset()
     ad_proj_n = 0;
     ad_enemy_n = 0;
     ad_threat_n = 0;
-    frameHoldEnd = 0;
-    for (int i = 0; i < AD_ENEMY_MAX; i++)
-        ad_enemy_hold[i] = 0;
     proj_cache_storage.clear();
     proj_cache_index.clear();
-    headingIdx = -1;
     lastSentAt = 0;
     commitDirX = 0.0f;
     commitDirY = 0.0f;
@@ -539,10 +465,6 @@ void autododge_reset()
     g_has_burst = false;
     g_burst_vx = 0.0f;
     g_burst_vy = 0.0f;
-    postDodgeUntil = 0;
-    postDodgeDirX = 0.0f;
-    postDodgeDirY = 0.0f;
-    dangerHoldUntil = 0;
 }
 
 void autododge()
@@ -608,7 +530,6 @@ void autododge()
 
     CHAR_SPEED = own_speed;
     threats.clear();
-    frameHoldEnd = 0;
     threats.reserve(32);
     float bodyR = OWN_HITBOX + SKIN;
     float zoneSq = AWARE * AWARE;
@@ -621,11 +542,8 @@ void autododge()
         memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
         if (!dataPtr || !pointer_plausible(dataPtr)) continue;
 
-        uint8_t data[PROJ_DATA_BLOCK_SIZE];
-        if (!read_bytes(dataPtr, data, sizeof(data))) continue;
-
-        uintptr_t dataVtable;
-        memcpy(&dataVtable, data, sizeof(dataVtable));
+        uintptr_t dataVtable = 0;
+        if (!read_bytes(dataPtr, &dataVtable, sizeof(dataVtable))) continue;
         if (!dataVtable || !pointer_plausible(dataVtable)) continue;
         uintptr_t vtRva = dataVtable - base;
         if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE) continue;
@@ -653,24 +571,6 @@ void autododge()
                     ad_enemy_d[ad_enemy_n] =
                         sqrtf(std::fma(edx, edx, edy * edy));
                     ad_enemy_aim[ad_enemy_n] = cang;
-                    {
-                        uintptr_t charPtr = obj_snapshot[i];
-                        uintptr_t arr = 0, skill = 0;
-                        int32_t cnt = 0, bwin = 0;
-                        if (read_bytes(charPtr + OBJ_SKILL_COUNT_OFF,
-                                       &cnt,
-                                       sizeof(cnt)) &&
-                            cnt > 0 &&
-                            read_bytes(
-                                charPtr + OBJ_SKILLS_OFF, &arr, sizeof(arr)) &&
-                            pointer_plausible(arr) &&
-                            read_ptr(arr, (void**)&skill) &&
-                            pointer_plausible(skill))
-                        {
-                            bwin = skill_burst_ms(skill);
-                        }
-                        ad_enemy_hold[ad_enemy_n] = bwin;
-                    }
                     ad_enemy_n++;
                 }
             }
@@ -692,6 +592,8 @@ void autododge()
         auto it = proj_cache_index.find(pid);
         if (it == proj_cache_index.end())
         {
+            uint8_t data[PROJ_DATA_BLOCK_SIZE];
+            if (!read_bytes(dataPtr, data, sizeof(data))) continue;
             ProjectileState state{};
             state.lastX = px_i;
             state.lastY = py_i;
@@ -732,9 +634,6 @@ void autododge()
                         bestK = k;
                     }
                 }
-                state.holdEnd = bestK >= 0 && ad_enemy_hold[bestK] > 0
-                                    ? now + (uint64_t)ad_enemy_hold[bestK]
-                                    : 0;
                 if (bestK >= 0)
                 {
                     float ang = (float)ad_enemy_aim[bestK] * DEG_TO_RAD;
@@ -869,7 +768,6 @@ void autododge()
         item.bm = state.maxBounces;
         item.pierceChars = state.piercesChars ? 1 : 0;
         item.pid = pid;
-        if (state.holdEnd > frameHoldEnd) frameHoldEnd = state.holdEnd;
         memcpy(item.name, state.name, sizeof(item.name) - 1);
         item.name[sizeof(item.name) - 1] = '\0';
         threats.push_back(item);
@@ -949,45 +847,8 @@ void autododge()
     }
     autododge_scanner_report();
 
-    if (postDodgeUntil > 0 && now >= postDodgeUntil)
-    {
-        endDodge();
-        return;
-    }
-    if (try_post_dodge(mx, my, now)) return;
-
     if (threats.empty())
     {
-        if (now >= frameHoldEnd)
-        {
-            enter_post_dodge(now);
-            if (try_post_dodge(mx, my, now)) return;
-            endDodge();
-        }
-        return;
-    }
-
-    float stayClearSq = INF_F;
-    for (const auto& t : threats)
-    {
-        if (!threat_soon(t, mx, my)) continue;
-        float relx = t.x - mx, rely = t.y - my;
-        float vrx = t.vx - ad_vx, vry = t.vy - ad_vy;
-        float vv = std::fma(vrx, vrx, vry * vry);
-        float ttc = timeToCollision(mx, my, ad_vx, ad_vy, t);
-        float ts = vv > VV_EPS ? -std::fma(relx, vrx, rely * vry) / vv : 0.0f;
-        ts = ts < 0.0f ? 0.0f : (ts > ttc ? ttc : ts);
-        float cx = std::fma(vrx, ts, relx);
-        float cy = std::fma(vry, ts, rely);
-        float clearSq = std::fma(cx, cx, cy * cy) - t.rad * t.rad;
-        if (clearSq < stayClearSq) stayClearSq = clearSq;
-    }
-    bool inDanger = stayClearSq < (ENGAGE * ENGAGE);
-    if (inDanger) dangerHoldUntil = frameHoldEnd > now ? frameHoldEnd : now;
-    if (!inDanger && now > dangerHoldUntil)
-    {
-        enter_post_dodge(now);
-        if (try_post_dodge(mx, my, now)) return;
         endDodge();
         return;
     }
@@ -1119,7 +980,6 @@ void autododge()
         dirLockUntil = now + DIR_HOLD_MS;
     commitDirX = outDirX;
     commitDirY = outDirY;
-    headingIdx = bestIdx;
     ad_best_dir = bestIdx;
 
     int32_t tx = clamp_axis(mx + outDirX * REACH, wall_cache_w());
