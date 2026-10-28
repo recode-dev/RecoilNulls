@@ -39,6 +39,7 @@ constexpr int SIM_STEPS = 20;
 constexpr float SIM_T = (float)SIM_STEPS * TICK_MS_SEC;
 constexpr float SIM_STEP_W = 4096.0f;
 constexpr float ROOM_W = 240.0f;
+constexpr uint64_t SEND_MS = 100;
 }
 namespace ad
 {
@@ -479,7 +480,7 @@ void autododge()
     fill_report(mx, my, dir_x, dir_y);
     int32_t tx = axis(mx + dir_x * REACH, wall_cache_w());
     int32_t ty = axis(my + dir_y * REACH, wall_cache_h());
-    if (ad_target_x != tx || ad_target_y != ty || now - sent_ms >= TICK_MS)
+    if (now - sent_ms >= SEND_MS)
     {
         sent_ms = now;
         enqueue(tx, ty);
