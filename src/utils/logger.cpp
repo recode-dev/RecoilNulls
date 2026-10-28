@@ -82,11 +82,19 @@ const char* dir_name(int dir)
     case 0:
         return "+x";
     case 1:
-        return "+y";
+        return "+x+y";
     case 2:
         return "-x";
     case 3:
+        return "-x+y";
+    case 4:
+        return "-x";
+    case 5:
+        return "-x-y";
+    case 6:
         return "-y";
+    case 7:
+        return "+x-y";
     default:
         return "none";
     }

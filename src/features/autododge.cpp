@@ -98,9 +98,12 @@ constexpr float HALF = 0.5f;
 constexpr float SPEED_MIN = 1.0f;
 constexpr float HYSTERESIS_MARGIN = 0.25f;
 
-constexpr int CARDINALS = 4;
-static const float cardDirX[CARDINALS] = {1.0f, 0.0f, -1.0f, 0.0f};
-static const float cardDirY[CARDINALS] = {0.0f, 1.0f, 0.0f, -1.0f};
+constexpr int CARDINALS = 8;
+constexpr float DIAG = 0.70710678f;
+static const float cardDirX[CARDINALS] = {
+    1.0f, DIAG, 0.0f, -DIAG, -1.0f, -DIAG, 0.0f, DIAG};
+static const float cardDirY[CARDINALS] = {
+    0.0f, DIAG, 1.0f, DIAG, 0.0f, -DIAG, -1.0f, -DIAG};
 
 struct Threat
 {
@@ -304,10 +307,13 @@ static void probe_speed_field(uintptr_t dataPtr, int32_t pid, int32_t raw)
 {
     int len = 0;
     if (ad_probe[0] != 0) return;
-    len = snprintf(
-        ad_probe, sizeof(ad_probe), "pid=%d speed@124=%d cand", pid, raw);
-    for (uintptr_t off = 0x40; off <= 0x1f0 && len > 0 &&
-                               len < static_cast<int>(sizeof(ad_probe)) - 16;
+    len = snprintf(ad_probe,
+                   sizeof(ad_probe),
+                   "pid=%d speed@124=%d cand",
+                   pid,
+                   raw);
+    for (uintptr_t off = 0x40;
+         off <= 0x1f0 && len > 0 && len < static_cast<int>(sizeof(ad_probe)) - 16;
          off += 4)
     {
         int32_t cand = 0;
@@ -375,8 +381,7 @@ void autododge()
     ad_threat_n = 0;
     ad_best_dir = -1;
     own_gid = 0;
-    for (int i = 0; i < AD_REPORT_MAX; i++)
-        ad_threat_name[i][0] = 0;
+    for (int i = 0; i < AD_REPORT_MAX; i++) ad_threat_name[i][0] = 0;
     if (!base || !own_elem || dead)
     {
         active = 0;
@@ -710,6 +715,18 @@ void autododge()
 
     float stayClearSq = clearanceFor(threats, bodies, mx, my, 0.0f, 0.0f);
     bool inDanger = stayClearSq < (TUNE.ENGAGE * TUNE.ENGAGE);
+    if (!inDanger)
+    {
+        for (const auto& t : threats)
+        {
+            float ttc = timeToCollision(mx, my, 0.0f, 0.0f, t);
+            if (ttc > 0.0f && ttc < TUNE.REACT_S)
+            {
+                inDanger = true;
+                break;
+            }
+        }
+    }
     if (inDanger) lastDangerTs = now;
 
     if (!inDanger &&
