@@ -279,4 +279,3 @@ int pred_set(int x, int y)
     ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, PRED_FLAG);
     return 1;
 }
-
