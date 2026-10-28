@@ -350,7 +350,8 @@ void autododge()
     ad_enemy_n = 0;
     ad_threat_n = 0;
     ad_best_dir = -1;
-    for (int i = 0; i < AD_REPORT_MAX; i++) ad_threat_name[i][0] = 0;
+    for (int i = 0; i < AD_REPORT_MAX; i++)
+        ad_threat_name[i][0] = 0;
     if (!base || !own_elem || dead)
     {
         active = 0;

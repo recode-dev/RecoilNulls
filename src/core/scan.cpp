@@ -509,8 +509,10 @@ static void track_own_speed()
             float sp = sqrtf(dx * dx + dy * dy) / dt;
             if (sp >= 300.0f && sp <= 1400.0f)
             {
-                if (sp > own_speed) own_speed = sp;
-                else own_speed = own_speed * 0.995f + sp * 0.005f;
+                if (sp > own_speed)
+                    own_speed = sp;
+                else
+                    own_speed = own_speed * 0.995f + sp * 0.005f;
             }
         }
     }
