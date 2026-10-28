@@ -213,11 +213,6 @@ void diag_tick()
         ad_hit_dmg = 0;
         ad_hit_picked = 0;
     }
-    for (int i = 0; i < ad_probe_n && i < AD_PROBE_MAX; i++)
-    {
-        line("[probe] off=0x%02X v=%.1f\n", ad_probe_off[i], ad_probe_val[i]);
-    }
-    ad_probe_n = 0;
     for (int i = 0; i < ad_enemy_n && i < 4; i++)
     {
         line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f a=%d\n",

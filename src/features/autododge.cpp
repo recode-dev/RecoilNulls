@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-
 int active = 0, in_move = 0;
 int ad_beam_n = 0, ad_ind_n = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
@@ -22,9 +21,6 @@ char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 int ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
 int ad_hit_picked = 0;
 float ad_pad = 0.0f, ad_pad_excess = 0.0f;
-int ad_probe_n = 0;
-int ad_probe_off[AD_PROBE_MAX] = {0};
-float ad_probe_val[AD_PROBE_MAX] = {0};
 float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
 float ad_hit_r[AD_REPORT_MAX] = {0};
 int ad_enemy_pid[AD_ENEMY_MAX] = {0};
@@ -32,33 +28,25 @@ float ad_enemy_x[AD_ENEMY_MAX] = {0}, ad_enemy_y[AD_ENEMY_MAX] = {0};
 int ad_enemy_hp[AD_ENEMY_MAX] = {0};
 float ad_enemy_d[AD_ENEMY_MAX] = {0};
 int ad_enemy_aim[AD_ENEMY_MAX] = {0};
-
-namespace
-{
+namespace {
 constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
 constexpr int INPUT_TICKS = 3;
 constexpr float TURN_PER_TICK = 1.5707963f;
-constexpr float PINCH = OWN_HITBOX * 0.35f;
 constexpr int WALL_PROBES = 3;
 constexpr int THREAT_MAX = 32;
 constexpr int PROJ_SLOTS = 48;
 constexpr uint64_t TICK_MS = 50;
 constexpr uint64_t PROJ_TTL_MS = TICK_MS * 20;
-
 constexpr uint8_t B_BEAM = 1, B_IND = 2, B_PIERCE = 4;
-
-struct Threat
-{
+struct Threat {
     float x, y, vx, vy, rad, tt;
     int32_t pid;
     char name[40];
 };
-
-struct Proj
-{
+struct Proj {
     int32_t pid;
     uint64_t seen;
     float x, y, ux, uy, speed, rad;
@@ -67,7 +55,6 @@ struct Proj
     bool vel;
     char name[40];
 };
-
 static Threat threats[THREAT_MAX];
 static int threat_n = 0;
 static Proj projs[PROJ_SLOTS];
@@ -78,36 +65,21 @@ static uint64_t sent_ms = 0;
 static uint32_t last_hp = 0;
 static int pend_dmg = 0;
 static uint64_t last_turn_ms = 0;
-static int closing_n = 0;
-
 static float pad = 0.0f;
-
-static float body_rad()
-{
-    return OWN_HITBOX + pad;
-}
-
-static int32_t axis(float v, int tiles)
-{
+static float body_rad() { return OWN_HITBOX + pad; }
+static int32_t axis(float v, int tiles) {
     float limit = (float)tiles * WALL_TILE_SIZE - 1.0f;
     if (v < 0.0f) return 0;
     if (v > limit) return (int32_t)limit;
     return (int32_t)roundf(v);
 }
-
-static void release_move()
-{
-    if (!coord_ok || wall_cache_w() <= 0 || wall_cache_h() <= 0)
-    {
-        return;
-    }
+static void release_move() {
+    if (!coord_ok || wall_cache_w() <= 0 || wall_cache_h() <= 0) { return; }
     float step = self_speed * (float)INPUT_TICKS * (float)TICK_MS * 0.001f;
     enqueue(axis((float)own_x + commit_x * step, wall_cache_w()),
             axis((float)own_y + commit_y * step, wall_cache_h()));
 }
-
-static void end_dodge()
-{
+static void end_dodge() {
     if (active) release_move();
     commit_x = 0.0f;
     commit_y = 0.0f;
@@ -115,28 +87,21 @@ static void end_dodge()
     ad_target_y = INT32_MAX;
     active = 0;
 }
-
-static void learn_vtable()
-{
+static void learn_vtable() {
     void* data = nullptr;
     void* vt = nullptr;
     if (char_vt || !base || !own_elem) return;
-    if (!read_ptr(own_elem + ELEM_DEF_OFF, &data) || !data ||
-        !pointer_plausible((uintptr_t)data))
+    if (!read_ptr(own_elem + ELEM_DEF_OFF, &data) || !data || !pointer_plausible((uintptr_t)data))
         return;
     if (!read_ptr((uintptr_t)data, &vt) || !vt) return;
     uintptr_t rva = (uintptr_t)vt - base;
-    if (rva == VTABLE_PROJ_DATA_RVA || rva < DC_RVA_LO ||
-        rva >= DC_RVA_LO + DC_RVA_SIZE)
+    if (rva == VTABLE_PROJ_DATA_RVA || rva < DC_RVA_LO || rva >= DC_RVA_LO + DC_RVA_SIZE)
         return;
     char_vt = rva;
 }
-
-static float wall_pull(float mx, float my, float dx, float dy)
-{
+static float wall_pull(float mx, float my, float dx, float dy) {
     int blocked = 0;
-    for (int i = 1; i <= WALL_PROBES; i++)
-    {
+    for (int i = 1; i <= WALL_PROBES; i++) {
         float d = REACH * 0.5f * (float)i / (float)WALL_PROBES;
         blocked +=
             wall_is_blocked_wide(
@@ -149,42 +114,33 @@ static float wall_pull(float mx, float my, float dx, float dy)
     float room = sqrtf(pin_x * pin_x + pin_y * pin_y) / REACH;
     return (float)blocked / (float)WALL_PROBES + (1.0f - room);
 }
-
-static float clear_one(float mx, float my, float dx, float dy, const Threat& t)
-{
+static float clear_one(float mx, float my, float dx, float dy, const Threat& t) {
     float sx = t.vx - dx * self_speed, sy = t.vy - dy * self_speed;
     float rx = t.x - mx, ry = t.y - my;
     float vv = sx * sx + sy * sy;
     float tt = 0.0f;
-    if (vv > VV_EPS)
-    {
+    if (vv > VV_EPS) {
         tt = -(rx * sx + ry * sy) / vv;
         if (tt < 0.0f) tt = 0.0f;
     }
     float cx = rx + sx * tt, cy = ry + sy * tt;
     return sqrtf(cx * cx + cy * cy) - t.rad;
 }
-
-static float dir_value(float mx, float my, float dx, float dy)
-{
+static float dir_threat(float mx, float my, float dx, float dy) {
     float worst = 1e30f;
-    for (int i = 0; i < threat_n; i++)
-    {
+    for (int i = 0; i < threat_n; i++) {
         float c = clear_one(mx, my, dx, dy, threats[i]);
         if (c < worst) worst = c;
     }
-    return worst - OWN_HITBOX * wall_pull(mx, my, dx, dy);
+    return worst;
 }
-
-static Proj* find_proj(int32_t pid)
-{
+static float dir_value(float mx, float my, float dx, float dy) { return dir_threat(mx, my, dx, dy) - OWN_HITBOX * wall_pull(mx, my, dx, dy); }
+static Proj* find_proj(int32_t pid) {
     Proj* spare = nullptr;
     Proj* stale = &projs[0];
-    for (int i = 0; i < PROJ_SLOTS; i++)
-    {
+    for (int i = 0; i < PROJ_SLOTS; i++) {
         if (projs[i].pid == pid) return &projs[i];
-        if (projs[i].pid == 0)
-        {
+        if (projs[i].pid == 0) {
             if (!spare) spare = &projs[i];
             continue;
         }
@@ -192,10 +148,8 @@ static Proj* find_proj(int32_t pid)
     }
     return spare ? spare : stale;
 }
-
 static void init_proj(
-    Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
-{
+    Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now) {
     uint8_t data[PROJ_DATA_BLOCK_SIZE];
     int32_t speed = 0;
     int32_t radius = 0;
@@ -217,13 +171,11 @@ static void init_proj(
     st->flags = 0;
     if (data[PROJECTILEDATA_ISBEAM_OFF]) st->flags |= B_BEAM;
     if (data[PROJECTILEDATA_INDIRECT_OFF]) st->flags |= B_IND;
-    if (data[PROJECTILEDATA_PIERCES_ENV_OFF] ||
-        data[PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF])
+    if (data[PROJECTILEDATA_PIERCES_ENV_OFF] || data[PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF])
         st->flags |= B_PIERCE;
     st->name[0] = '\0';
     uintptr_t str = 0;
-    if (addr_dataname)
-    {
+    if (addr_dataname) {
         using name_fn = uintptr_t (*)(uintptr_t);
         str = reinterpret_cast<name_fn>(addr_dataname)(dataPtr);
     }
@@ -232,29 +184,23 @@ static void init_proj(
             str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
     int near = -1;
     float best = 1e30f;
-    for (int i = 0; i < ad_enemy_n; i++)
-    {
+    for (int i = 0; i < ad_enemy_n; i++) {
         float ex = ad_enemy_x[i] - px, ey = ad_enemy_y[i] - py;
         float d2 = ex * ex + ey * ey;
-        if (d2 < best)
-        {
+        if (d2 < best) {
             best = d2;
             near = i;
         }
     }
-    if (near >= 0)
-    {
+    if (near >= 0) {
         float a = (float)ad_enemy_aim[near] * 0.0174532925f;
         st->ux = cosf(a);
         st->uy = sinf(a);
         st->vel = true;
     }
 }
-
-static void collect_chars(int32_t own_gid, float mx, float my)
-{
-    for (int i = 0; i < obj_count; i++)
-    {
+static void collect_chars(int32_t own_gid, float mx, float my) {
+    for (int i = 0; i < obj_count; i++) {
         if (!obj_valid[i]) continue;
         const uint8_t* obj = obj_block[i];
         uintptr_t dataPtr = 0;
@@ -284,13 +230,9 @@ static void collect_chars(int32_t own_gid, float mx, float my)
         ad_enemy_aim[k] = aim;
     }
 }
-
-static void collect_projs(uint64_t now, float mx, float my)
-{
-    float zone = self_speed * 4.0f;
-    float zone2 = zone * zone;
-    for (int i = 0; i < obj_count; i++)
-    {
+static void collect_projs(uint64_t now, float mx, float my) {
+    float zone = self_speed * 4.0f, zone2 = zone * zone;
+    for (int i = 0; i < obj_count; i++) {
         if (!obj_valid[i]) continue;
         const uint8_t* obj = obj_block[i];
         uintptr_t dataPtr = 0;
@@ -300,99 +242,70 @@ static void collect_projs(uint64_t now, float mx, float my)
         if (!read_ptr(dataPtr, &vt) || vt < base) continue;
         if (vt - base != VTABLE_PROJ_DATA_RVA) continue;
         int32_t pid, team, xi, yi, dead;
-        memcpy(&pid, obj + OBJ_GLOBALID_OFF, sizeof(pid));
-        memcpy(&team, obj + OBJ_TEAM_OFF, sizeof(team));
-        memcpy(&xi, obj + OBJ_X_OFF, sizeof(xi));
-        memcpy(&yi, obj + OBJ_Y_OFF, sizeof(yi));
-        memcpy(&dead, obj + OBJ_DEADFLAG_OFF, sizeof(dead));
+        memcpy(&pid, obj + OBJ_GLOBALID_OFF, 4); memcpy(&team, obj + OBJ_TEAM_OFF, 4);
+        memcpy(&xi, obj + OBJ_X_OFF, 4); memcpy(&yi, obj + OBJ_Y_OFF, 4);
+        memcpy(&dead, obj + OBJ_DEADFLAG_OFF, 4);
         if (!pid || team == own_team_b || dead) continue;
         ad_proj_n++;
         float px = (float)xi, py = (float)yi;
         Proj* st = find_proj(pid);
-        if (st->pid != pid)
-        {
+        if (st->pid != pid) {
             init_proj(st, pid, dataPtr, px, py, now);
             if (st->pid != pid) continue;
         }
         st->seen = now;
         float step_x = px - st->x, step_y = py - st->y;
         float step = sqrtf(step_x * step_x + step_y * step_y);
-        if (step > 1.0f)
-        {
+        if (step > 1.0f) {
             st->ux = step_x / step;
             st->uy = step_y / step;
             st->vel = true;
         }
-        st->x = px;
-        st->y = py;
+        st->x = px, st->y = py;
         float dx = px - mx, dy = py - my;
-        if (st->vel && !(st->flags & (B_BEAM | B_IND)))
-        {
-            float vx = st->ux * st->speed, vy = st->uy * st->speed;
-            if (vx * dx + vy * dy < 0.0f)
-            {
-                float perp = fabsf(dx * vy - dy * vx) / st->speed;
-                if (perp < st->min_dmin) st->min_dmin = perp;
-            }
+        if (!st->vel) continue;
+        float vx = st->ux * st->speed, vy = st->uy * st->speed;
+        if (vx * dx + vy * dy < 0.0f && !(st->flags & (B_BEAM | B_IND))) {
+            float perp = fabsf(dx * vy - dy * vx) / st->speed;
+            if (perp < st->min_dmin) st->min_dmin = perp;
         }
         if (dx * dx + dy * dy > zone2) continue;
-        if (st->flags & B_BEAM)
-        {
+        if (st->flags & B_BEAM) {
             ad_beam_n++;
             continue;
         }
         if (st->flags & B_IND) ad_ind_n++;
-        if (!(st->flags & (B_IND | B_PIERCE)) &&
-            !wall_los(px, py, mx, my, WALL_BLOCKS_PROJECTILES))
-            continue;
-        if (!st->vel) continue;
-        float vx = st->ux * st->speed, vy = st->uy * st->speed;
-        float sx = px - mx, sy = py - my;
-        float dot = vx * sx + vy * sy;
+        if (!(st->flags & (B_IND | B_PIERCE)) && !wall_los(px, py, mx, my, WALL_BLOCKS_PROJECTILES)) continue;
+        float dot = vx * dx + vy * dy;
         if (dot >= 0.0f) continue;
         float rad = st->rad + body_rad();
-        float vv = vx * vx + vy * vy;
-        float tt = -dot / vv;
-        float qx = sx + vx * tt, qy = sy + vy * tt;
-        float dmin = sqrtf(qx * qx + qy * qy);
-        closing_n++;
-        if (dmin > rad + PINCH) continue;
-        float gap = fmaxf(rad * rad - dmin * dmin, 0.0f);
-        float tti = tt - sqrtf(gap) / st->speed;
+        float vv = vx * vx + vy * vy, tt = -dot / vv;
+        float qx = dx + vx * tt, qy = dy + vy * tt, dmin = sqrtf(qx * qx + qy * qy);
+        if (dmin > rad) continue;
         if (threat_n >= THREAT_MAX) continue;
+        float gap = fmaxf(rad * rad - dmin * dmin, 0.0f);
         Threat& t = threats[threat_n++];
-        t.x = px;
-        t.y = py;
-        t.vx = vx;
-        t.vy = vy;
-        t.rad = rad;
-        t.tt = tti;
-        t.pid = pid;
+        t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.rad = rad, t.pid = pid;
+        t.tt = tt - sqrtf(gap) / st->speed;
         memcpy(t.name, st->name, sizeof(t.name));
         t.name[sizeof(t.name) - 1] = '\0';
     }
 }
-
-static void evict_stale(uint64_t now)
-{
+static void evict_stale(uint64_t now) {
     for (int i = 0; i < PROJ_SLOTS; i++)
         if (projs[i].pid && now - projs[i].seen > PROJ_TTL_MS) projs[i].pid = 0;
 }
-
 static int nearest_unused(
-    float mx, float my, float dx, float dy, const int* used, float* out_clear)
-{
+    float mx, float my, float dx, float dy, const int* used, float* out_clear) {
     int best = -1;
     float bc = 1e30f;
-    for (int i = 0; i < threat_n; i++)
-    {
+    for (int i = 0; i < threat_n; i++) {
         bool skip = false;
         for (int k = 0; k < AD_REPORT_MAX; k++)
             if (used[k] == i) skip = true;
         if (skip) continue;
         float c = clear_one(mx, my, dx, dy, threats[i]);
-        if (c < bc)
-        {
+        if (c < bc) {
             bc = c;
             best = i;
         }
@@ -400,30 +313,9 @@ static int nearest_unused(
     *out_clear = bc;
     return best;
 }
-
-static void probe_body()
-{
-    static bool done = false;
-    if (done || !own_elem || !addr_readable(own_elem, 0x100)) return;
-    done = true;
-    ad_probe_n = 0;
-    for (uint64_t off = 0x00; off <= 0xf0 && ad_probe_n < AD_PROBE_MAX;
-         off += 4)
-    {
-        float f = 0.0f;
-        if (!read_bytes(own_elem + off, &f, sizeof(f))) continue;
-        if (!(f > 20.0f && f < 400.0f)) continue;
-        ad_probe_off[ad_probe_n] = (int)off;
-        ad_probe_val[ad_probe_n] = f;
-        ad_probe_n++;
-    }
-}
-
-static void learn_pad(uint64_t now)
-{
+static void learn_pad(uint64_t now) {
     const Proj* near = nullptr;
-    for (int i = 0; i < PROJ_SLOTS; i++)
-    {
+    for (int i = 0; i < PROJ_SLOTS; i++) {
         const Proj* st = &projs[i];
         if (!st->pid) continue;
         if (st->flags & (B_BEAM | B_IND)) continue;
@@ -431,8 +323,7 @@ static void learn_pad(uint64_t now)
         if (st->min_dmin > 400.0f) continue;
         if (near == nullptr || st->min_dmin < near->min_dmin) near = st;
     }
-    if (near == nullptr)
-    {
+    if (near == nullptr) {
         ad_pad_excess = 0.0f;
         return;
     }
@@ -442,9 +333,7 @@ static void learn_pad(uint64_t now)
     pad += excess;
     if (pad > 90.0f) pad = 90.0f;
 }
-
-static void hit_report(float mx, float my, float dx, float dy)
-{
+static void hit_report(float mx, float my, float dx, float dy) {
     ad_hit_dmg = pend_dmg;
     ad_hit_act = active;
     ad_hit_n = threat_n;
@@ -452,8 +341,7 @@ static void hit_report(float mx, float my, float dx, float dy)
     ad_hit_y = (int)my;
     ad_hit_picked = 0;
     int used[AD_REPORT_MAX] = {-1, -1, -1};
-    for (int s = 0; s < AD_REPORT_MAX; s++)
-    {
+    for (int s = 0; s < AD_REPORT_MAX; s++) {
         float bc = 0.0f;
         int best = nearest_unused(mx, my, dx, dy, used, &bc);
         if (best < 0) break;
@@ -465,17 +353,13 @@ static void hit_report(float mx, float my, float dx, float dy)
     }
     pend_dmg = 0;
 }
-
-static void fill_report(float mx, float my, float dx, float dy)
-{
+static void fill_report(float mx, float my, float dx, float dy) {
     ad_threat_n = threat_n < AD_REPORT_MAX ? threat_n : AD_REPORT_MAX;
     int used[AD_REPORT_MAX] = {-1, -1, -1};
-    for (int s = 0; s < ad_threat_n; s++)
-    {
+    for (int s = 0; s < ad_threat_n; s++) {
         float bc = 0.0f;
         int best = nearest_unused(mx, my, dx, dy, used, &bc);
-        if (best < 0)
-        {
+        if (best < 0) {
             ad_threat_n = s;
             break;
         }
@@ -495,34 +379,30 @@ static void fill_report(float mx, float my, float dx, float dy)
         ad_threat_name[s][sizeof(ad_threat_name[s]) - 1] = '\0';
     }
 }
-
-static void choose(float mx, float my, float& out_x, float& out_y)
-{
+static void choose(float mx, float my, float& out_x, float& out_y) {
     bool has = commit_x != 0.0f || commit_y != 0.0f;
     float bx = has ? commit_x : 1.0f;
     float by = has ? commit_y : 0.0f;
-    float best = -1e30f;
-    for (int pass = 0; pass < 2 && best < 0.0f; pass++)
-    {
-        for (int i = 0; i < DIRS; i++)
-        {
+    float best = -1e30f, best_threat = -1e30f;
+    for (int pass = 0; pass < 2; pass++) {
+        for (int i = 0; i < DIRS; i++) {
             float a = 6.2831853f * (float)i / (float)DIRS;
             float dx = cosf(a), dy = sinf(a);
             if (!pass && has && dx * commit_x + dy * commit_y < 0.0f) continue;
-            float v = dir_value(mx, my, dx, dy);
-            if (v > best)
-            {
+            float th = dir_threat(mx, my, dx, dy);
+            float v = th - OWN_HITBOX * wall_pull(mx, my, dx, dy);
+            if (v > best) {
                 best = v;
                 bx = dx;
                 by = dy;
             }
+            if (!pass && th > best_threat) best_threat = th;
         }
+        if (pass == 0 && (!has || best_threat >= 0.0f)) break;
     }
-    if (has)
-    {
+    if (has) {
         float keep = dir_value(mx, my, commit_x, commit_y);
-        if (keep + body_rad() * 0.5f >= best)
-        {
+        if (keep + body_rad() * 0.5f >= best) {
             bx = commit_x;
             by = commit_y;
         }
@@ -537,8 +417,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         if (d < -3.14159265f) d += 6.2831853f;
         if (d > lim) d = lim;
         if (d < -lim) d = -lim;
-        if (d != 0.0f)
-        {
+        if (d != 0.0f) {
             bx = cosf(pa + d);
             by = sinf(pa + d);
         }
@@ -550,9 +429,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     out_y = by;
 }
 }
-
-void autododge_reset()
-{
+void autododge_reset() {
     ad_best_dir = -1;
     ad_pad = pad;
     ad_char_n = 0;
@@ -570,35 +447,28 @@ void autododge_reset()
     memset(projs, 0, sizeof(projs));
     end_dodge();
 }
-
-void autododge()
-{
+void autododge() {
     ad_best_dir = -1;
     ad_pad = pad;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = ad_ind_n = 0;
     threat_n = 0;
-    closing_n = 0;
-    if (own_hp < last_hp)
-    {
+    if (own_hp < last_hp) {
         pend_dmg = (int)(last_hp - own_hp);
         learn_pad(us() / 1000);
     }
     last_hp = own_hp;
-    if (!base || !own_elem || dead || !coord_ok)
-    {
+    if (!base || !own_elem || dead || !coord_ok) {
         end_dodge();
         return;
     }
     learn_vtable();
-    if (!char_vt || wall_cache_w() <= 0 || wall_cache_h() <= 0)
-    {
+    if (!char_vt || wall_cache_w() <= 0 || wall_cache_h() <= 0) {
         end_dodge();
         return;
     }
     int32_t own_gid = 0;
     read_int(own_elem + OBJ_GLOBALID_OFF, &own_gid);
-    probe_body();
     self_speed = own_speed > 1.0f ? own_speed : 1.0f;
     uint64_t now = us() / 1000;
     float mx = (float)own_x, my = (float)own_y;
@@ -606,21 +476,16 @@ void autododge()
     collect_chars(own_gid, mx, my);
     collect_projs(now, mx, my);
     if (pend_dmg) hit_report(mx, my, commit_x, commit_y);
-    float dir_x = commit_x, dir_y = commit_y;
-    if (threat_n)
-    {
-        choose(mx, my, dir_x, dir_y);
-        fill_report(mx, my, dir_x, dir_y);
-    }
-    else if (!active || !closing_n)
-    {
+    if (!threat_n) {
         end_dodge();
         return;
     }
+    float dir_x = 1.0f, dir_y = 0.0f;
+    choose(mx, my, dir_x, dir_y);
+    fill_report(mx, my, dir_x, dir_y);
     int32_t tx = axis(mx + dir_x * REACH, wall_cache_w());
     int32_t ty = axis(my + dir_y * REACH, wall_cache_h());
-    if (ad_target_x != tx || ad_target_y != ty || now - sent_ms >= TICK_MS)
-    {
+    if (ad_target_x != tx || ad_target_y != ty || now - sent_ms >= TICK_MS) {
         sent_ms = now;
         enqueue(tx, ty);
         ad_target_x = tx;
