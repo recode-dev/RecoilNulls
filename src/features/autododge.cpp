@@ -28,6 +28,8 @@ int ad_threat_ind[AD_REPORT_MAX] = {0};
 int ad_threat_pierce[AD_REPORT_MAX] = {0};
 int ad_threat_bounce[AD_REPORT_MAX] = {0};
 int ad_threat_piercechars[AD_REPORT_MAX] = {0};
+int ad_threat_tx[AD_REPORT_MAX] = {0};
+int ad_threat_ty[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_hit[256] = {0};
 
@@ -105,6 +107,7 @@ struct Threat
     int pierce;
     int bounce;
     int pierceChars;
+    int tx, ty;
     int32_t pid;
     char name[40];
 };
@@ -594,11 +597,13 @@ void autododge()
         if (!obj_valid[i]) continue;
         const uint8_t* obj = obj_block[i];
         uintptr_t dataPtr = 0;
-        int32_t nb_pid, nb_x, nb_y, nb_team;
+        int32_t nb_pid, nb_x, nb_y, nb_team, nb_tx, nb_ty;
         memcpy(&nb_pid, obj + OBJ_GLOBALID_OFF, sizeof(nb_pid));
         memcpy(&nb_x, obj + OBJ_X_OFF, sizeof(nb_x));
         memcpy(&nb_y, obj + OBJ_Y_OFF, sizeof(nb_y));
         memcpy(&nb_team, obj + OBJ_TEAM_OFF, sizeof(nb_team));
+        memcpy(&nb_tx, obj + OBJ_TARGETX_OFF, sizeof(nb_tx));
+        memcpy(&nb_ty, obj + OBJ_TARGETY_OFF, sizeof(nb_ty));
         memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
         if (!dataPtr || !pointer_plausible(dataPtr)) continue;
 
@@ -827,6 +832,8 @@ void autododge()
         item.pierce = (state.piercesEnv || state.piercesEnvButter) ? 1 : 0;
         item.bounce = state.isBouncing ? 1 : 0;
         item.pierceChars = state.piercesChars ? 1 : 0;
+        item.tx = nb_tx;
+        item.ty = nb_ty;
         item.pid = pid;
         memcpy(item.name, state.name, sizeof(item.name) - 1);
         item.name[sizeof(item.name) - 1] = '\0';
@@ -893,6 +900,8 @@ void autododge()
         ad_threat_pierce[slot] = t.pierce;
         ad_threat_bounce[slot] = t.bounce;
         ad_threat_piercechars[slot] = t.pierceChars;
+        ad_threat_tx[slot] = t.tx;
+        ad_threat_ty[slot] = t.ty;
         ad_threat_score[slot] = score;
         memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
         ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';

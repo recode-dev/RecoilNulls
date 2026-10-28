@@ -32,6 +32,8 @@ extern int ad_threat_ind[AD_REPORT_MAX];
 extern int ad_threat_pierce[AD_REPORT_MAX];
 extern int ad_threat_bounce[AD_REPORT_MAX];
 extern int ad_threat_piercechars[AD_REPORT_MAX];
+extern int ad_threat_tx[AD_REPORT_MAX];
+extern int ad_threat_ty[AD_REPORT_MAX];
 extern int ad_beam_n;
 extern int ad_ind_n;
 inline constexpr int AD_VP_MAX = 6;
