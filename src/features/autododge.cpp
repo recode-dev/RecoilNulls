@@ -430,13 +430,24 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     if (off > 0.5f) off = 0.5f;
     if (off < -0.5f) off = -0.5f;
     float a = 6.2831853f * ((float)best_i + off) / (float)DIRS;
+    for (int k = -6; k <= 6; k++)
+    {
+        float ra = a + (float)k * 0.0174533f;
+        float rdx = cosf(ra), rdy = sinf(ra);
+        int steps = 0;
+        float v = dir_value(mx, my, rdx, rdy, steps);
+        if (v > best)
+        {
+            best = v, a = ra, best_steps = steps;
+        }
+    }
     float bx = cosf(a), by = sinf(a);
     if (has)
     {
         int cur = 0;
         dir_value(mx, my, commit_x, commit_y, cur);
         uint64_t now = us() / 1000;
-        bool urgent = (cur > 0 && cur <= 1) ||
+        bool urgent = (cur > 0 && cur <= SIM_STEPS) ||
                       free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
                           OWN_HITBOX * 2.0f;
         bool gain = best_steps >= cur + 2;
