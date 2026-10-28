@@ -405,7 +405,8 @@ static void probe_body()
     if (done || !own_elem || !addr_readable(own_elem, 0x100)) return;
     done = true;
     ad_probe_n = 0;
-    for (uint64_t off = 0x00; off <= 0xf0 && ad_probe_n < AD_PROBE_MAX; off += 4)
+    for (uint64_t off = 0x00; off <= 0xf0 && ad_probe_n < AD_PROBE_MAX;
+         off += 4)
     {
         float f = 0.0f;
         if (!read_bytes(own_elem + off, &f, sizeof(f))) continue;
