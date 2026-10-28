@@ -7,7 +7,6 @@
 #include <cstdio>
 #include "../features/autododge.h"
 #include "../utils/walls.h"
-#include "objc.h"
 #include "offsets.h"
 #include "scan.h"
 #include "scstring.h"
@@ -584,20 +583,37 @@ void run_autododge()
     autododge();
     in_move = 0;
 }
-static constexpr uint64_t SCAN_MIN_US = 15000ULL;
-static uint64_t g_last_scan_us = 0;
+static constexpr uint64_t SCAN_PERIOD_US = 8000ULL;
 static void scan_frame()
 {
-    const uint64_t now = us();
-    if (inside_hook || now - g_last_scan_us < SCAN_MIN_US)
+    if (inside_hook)
     {
         return;
     }
-    g_last_scan_us = now;
     inside_hook = YES;
     read_cache_reset();
     run_workload();
     inside_hook = NO;
+}
+static dispatch_source_t scan_timer = nullptr;
+static void start_scan_timer()
+{
+    if (scan_timer)
+    {
+        return;
+    }
+    scan_timer = dispatch_source_create(
+        DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+    if (!scan_timer)
+    {
+        return;
+    }
+    dispatch_source_set_timer(scan_timer,
+                              dispatch_time(DISPATCH_TIME_NOW, 0),
+                              SCAN_PERIOD_US * NSEC_PER_USEC,
+                              0);
+    dispatch_source_set_event_handler(scan_timer, ^{ scan_frame(); });
+    dispatch_resume(scan_timer);
 }
 void setup()
 {
@@ -606,10 +622,8 @@ void setup()
         return;
     }
     resolve_addresses();
-    if (!objc_arm(base, "MetalView", "render", scan_frame))
-    {
-        objc_arm(base, "NullView", "render", scan_frame);
-    }
+    start_scan_timer();
+    diag_tick();
     setup_done = YES;
 }
 void resolve_addresses()
