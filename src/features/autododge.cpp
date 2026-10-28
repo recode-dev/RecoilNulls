@@ -63,8 +63,7 @@ constexpr float BLOB_SPEED_MAX = 1600.0f, DIR_KEEP = 0.55f, MEAS_KEEP = 0.5f,
                 MEAS_NEW = 0.5f;
 constexpr float DEF_SPEED_MIN = 200.0f, DEF_SPEED_MAX = 20000.0f,
                 DIR_NEW = 0.45f;
-constexpr float HITBOX_FALLBACK = 120.0f, SPEED_FALLBACK = 720.0f,
-                BODY_EXTRA_R = 120.0f;
+constexpr float HITBOX_FALLBACK = 120.0f, SPEED_FALLBACK = 720.0f;
 constexpr float DANGER_RADIUS = 550.0f, TTC_MIN = 0.05f, DANGER_WALL = 0.9f;
 constexpr float DANGER_SUM_WEIGHT = 0.50f, DANGER_MAX = 1.0f,
                 DANGER_PICK_EPS = 0.02f;
