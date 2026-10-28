@@ -165,9 +165,12 @@ static void add_char(const uint8_t* obj, int32_t own_gid, float mx, float my)
     ad_enemy_aim[k] = aim;
 }
 
-static void add_proj(
-    const uint8_t* obj, uintptr_t dataPtr, uint64_t now, float mx, float my,
-    float zone2)
+static void add_proj(const uint8_t* obj,
+                     uintptr_t dataPtr,
+                     uint64_t now,
+                     float mx,
+                     float my,
+                     float zone2)
 {
     int32_t pid, team, xi, yi, dead;
     memcpy(&pid, obj + OBJ_GLOBALID_OFF, sizeof(pid));
