@@ -34,7 +34,6 @@ constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
-constexpr int RELEASE_TICKS = 3;
 constexpr float TURN_PER_TICK = 1.5707963f;
 constexpr int WALL_PROBES = 3;
 }
@@ -260,19 +259,18 @@ static int32_t axis(float v, int tiles)
     if (v > limit) return (int32_t)limit;
     return (int32_t)roundf(v);
 }
-static void release_move()
+static void stop_move()
 {
     if (!coord_ok || wall_cache_w() <= 0 || wall_cache_h() <= 0)
     {
         return;
     }
-    float step = self_speed * (float)(TICK_MS * RELEASE_TICKS) * 0.001f;
-    enqueue(axis((float)own_x + commit_x * step, wall_cache_w()),
-            axis((float)own_y + commit_y * step, wall_cache_h()));
+    enqueue(axis((float)own_x, wall_cache_w()),
+            axis((float)own_y, wall_cache_h()));
 }
 static void end_dodge()
 {
-    if (active) release_move();
+    if (active) stop_move();
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
     active = 0;
 }

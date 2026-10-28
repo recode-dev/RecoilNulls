@@ -2,8 +2,8 @@
 #include "autododge.h"
 #include <cmath>
 #include <cstring>
-using namespace ad;
-
+namespace ad
+{
 int nearest_unused(
     float mx, float my, float dx, float dy, const int* used, float* out_clear)
 {
@@ -75,4 +75,5 @@ void fill_report(float mx, float my, float dx, float dy)
         memcpy(ad_threat_name[s], t.name, sizeof(ad_threat_name[s]));
         ad_threat_name[s][sizeof(ad_threat_name[s]) - 1] = '\0';
     }
+}
 }
