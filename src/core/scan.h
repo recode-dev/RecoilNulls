@@ -144,31 +144,6 @@ void scan_world();
 void run_workload();
 void setup();
 void run_autododge();
-enum : uint32_t
-{
-    SCAN_AD_INVALID_SNAPSHOT = 1,
-    SCAN_AD_BAD_DATA_POINTER,
-    SCAN_AD_DATA_READ_FAIL,
-    SCAN_AD_BAD_VTABLE,
-    SCAN_AD_NOT_PROJECTILE_VTABLE,
-    SCAN_AD_ZERO_PID,
-    SCAN_AD_OWN_TEAM,
-    SCAN_AD_DEAD,
-    SCAN_AD_INDIRECT_READ_FAIL,
-    SCAN_AD_OUT_OF_RANGE,
-    SCAN_AD_BEHIND,
-    SCAN_AD_WALL_BLOCKED,
-    SCAN_AD_BLOB,
-    SCAN_AD_NO_VELOCITY,
-    SCAN_AD_THREAT_CANDIDATE,
-    SCAN_AD_CACHE_REBUILT,
-    SCAN_AD_CACHE_INDEX_REPAIRED,
-    SCAN_AD_MAX_THREATS,
-    SCAN_AD_REASON_COUNT
-};
-void autododge_scanner_event(uint32_t reason);
-void autododge_scanner_report();
-void autododge_scanner_log(uint64_t now, const char* format, ...);
 void diag_tick();
 extern uintptr_t scene_object;
 int scene_live();

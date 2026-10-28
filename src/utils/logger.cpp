@@ -10,8 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-namespace
-{
+namespace {
 constexpr long long LOG_MAX_BYTES = 4000000;
 constexpr uint64_t REPORT_US = 1000000ULL;
 
@@ -26,15 +25,13 @@ int hit_count = 0;
 int match_open = 0;
 int idle_logged = 0;
 
-void document_path(char* out, size_t cap)
-{
+void document_path(char* out, size_t cap) {
     const char* home = getenv("HOME");
     out[0] = 0;
     if (home != nullptr) snprintf(out, cap, "%s/Documents", home);
 }
 
-void line(const char* format, ...)
-{
+void line(const char* format, ...) {
     if (log_file == nullptr) return;
     va_list args;
     va_start(args, format);
@@ -43,8 +40,7 @@ void line(const char* format, ...)
     fflush(log_file);
 }
 
-void rotate_if_needed()
-{
+void rotate_if_needed() {
     FILE* probe = fopen(log_path, "rb");
     if (probe == nullptr) return;
     fseek(probe, 0, SEEK_END);
@@ -56,8 +52,7 @@ void rotate_if_needed()
     rename(log_path, backup);
 }
 
-bool open_log()
-{
+bool open_log() {
     char dir[1024];
     if (log_file != nullptr) return true;
     document_path(dir, sizeof(dir));
@@ -66,8 +61,7 @@ bool open_log()
     log_file = fopen(log_path, "a");
     if (log_file == nullptr) return false;
     fseek(log_file, 0, SEEK_END);
-    if (ftell(log_file) == 0)
-    {
+    if (ftell(log_file) == 0) {
         fprintf(log_file, "=== autododge log ===\n");
         fprintf(log_file, "documents: %s\n", dir);
         fflush(log_file);
@@ -75,10 +69,8 @@ bool open_log()
     return true;
 }
 
-const char* dir_name(int dir)
-{
-    switch (dir)
-    {
+const char* dir_name(int dir) {
+    switch (dir) {
     case 0:
         return "+x";
     case 1:
@@ -101,19 +93,16 @@ const char* dir_name(int dir)
 }
 }
 
-void diag_tick()
-{
+void diag_tick() {
     uint64_t now_us = 0;
     unsigned long hz = 0;
     if (!open_log()) return;
     now_us = us();
     if (last_report_us && now_us - last_report_us < REPORT_US) return;
     last_report_us = now_us;
-    if (!base || !own_elem || dead)
-    {
+    if (!base || !own_elem || dead) {
         if (!base || !own_elem) match_open = 0;
-        if (!idle_logged)
-        {
+        if (!idle_logged) {
             line("idle\n");
             idle_logged = 1;
         }
@@ -121,8 +110,7 @@ void diag_tick()
         return;
     }
     idle_logged = 0;
-    if (!match_open)
-    {
+    if (!match_open) {
         line("\n=== match ===\n");
         match_open = 1;
         dodge_count = 0;
@@ -133,18 +121,15 @@ void diag_tick()
     }
     if (last_hp > 0 && static_cast<int32_t>(own_hp) < last_hp) hit_count++;
     last_hp = static_cast<int32_t>(own_hp);
-    if (active && (ad_target_x != last_tx || ad_target_y != last_ty))
-    {
+    if (active && (ad_target_x != last_tx || ad_target_y != last_ty)) {
         dodge_count++;
         last_tx = ad_target_x;
         last_ty = ad_target_y;
     }
-    if (!active)
-    {
+    if (!active) {
         last_tx = INT32_MAX;
         last_ty = INT32_MAX;
-    }
-    {
+    } {
         static uint32_t prev_ticks = 0;
         hz = workload_ticks - prev_ticks;
         prev_ticks = workload_ticks;
@@ -167,8 +152,7 @@ void diag_tick()
          hit_count,
          ad_beam_n,
          ad_ind_n);
-    for (int i = 0; i < ad_threat_n && i < 3; i++)
-    {
+    for (int i = 0; i < ad_threat_n && i < 3; i++) {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) r=%.0f d=%.0f "
              "ca=%.0f ttc=%.3f\n",
              i,
@@ -183,8 +167,7 @@ void diag_tick()
              ad_threat_ca[i],
              ad_threat_ttc[i]);
     }
-    if (ad_hit_n >= 0 && ad_hit_dmg > 0)
-    {
+    if (ad_hit_n >= 0 && ad_hit_dmg > 0) {
         char buf[256];
         int len = snprintf(buf,
                            sizeof(buf),
@@ -196,8 +179,7 @@ void diag_tick()
                            ad_hit_y);
         if (ad_hit_picked < 1 && len > 0)
             snprintf(buf + len, sizeof(buf) - (size_t)len, " | none");
-        for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++)
-        {
+        for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++) {
             if (len <= 0 || len >= (int)sizeof(buf) - 40) break;
             len += snprintf(buf + len,
                             sizeof(buf) - (size_t)len,
@@ -210,29 +192,15 @@ void diag_tick()
         ad_hit_dmg = 0;
         ad_hit_picked = 0;
     }
-    for (int i = 0; i < ad_enemy_n && i < 4; i++)
-    {
-        line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f a=%d bu=%d\n",
+    for (int i = 0; i < ad_enemy_n && i < 4; i++) {
+        line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f a=%d\n",
              i,
              ad_enemy_pid[i],
              ad_enemy_x[i],
              ad_enemy_y[i],
              ad_enemy_hp[i],
-             ad_enemy_d[i],
-             ad_enemy_aim[i],
-             ad_enemy_burst[i]);
+              ad_enemy_d[i],
+              ad_enemy_aim[i]);
     }
     rotate_if_needed();
-}
-
-void autododge_scanner_log(uint64_t now, const char* format, ...)
-{
-    if (!format) return;
-    if (!open_log()) return;
-    line("\n[scan] t=%llu ", static_cast<unsigned long long>(now));
-    va_list args;
-    va_start(args, format);
-    vfprintf(log_file, format, args);
-    va_end(args);
-    fflush(log_file);
 }
