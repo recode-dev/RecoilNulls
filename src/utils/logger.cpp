@@ -226,15 +226,14 @@ void diag_tick()
     }
     for (int i = 0; i < ad_enemy_n && i < 4; i++)
     {
-        line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f ax=%d ay=%d\n",
+        line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f a=%d\n",
              i,
              ad_enemy_pid[i],
              ad_enemy_x[i],
              ad_enemy_y[i],
              ad_enemy_hp[i],
              ad_enemy_d[i],
-             ad_enemy_aimx[i],
-             ad_enemy_aimy[i]);
+             ad_enemy_aim[i]);
     }
     rotate_if_needed();
 }
