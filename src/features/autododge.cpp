@@ -258,18 +258,8 @@ static int32_t axis(float v, int tiles)
     if (v > limit) return (int32_t)limit;
     return (int32_t)roundf(v);
 }
-static void stop_move()
-{
-    if (!coord_ok || wall_cache_w() <= 0 || wall_cache_h() <= 0)
-    {
-        return;
-    }
-    enqueue(axis((float)own_x, wall_cache_w()),
-            axis((float)own_y, wall_cache_h()));
-}
 static void end_dodge()
 {
-    if (active) stop_move();
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
     active = 0;
 }
