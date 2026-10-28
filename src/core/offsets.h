@@ -3,16 +3,11 @@
 
 #include <cstdint>
 inline constexpr uint64_t RVA_BATTLEMODE_GETINSTANCE = 0x8c5130ULL;
-0xac3934ULL;
-0xa7f47cULL;
-0x9cda04ULL;
 inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETTILEMAP = 0x991440ULL;
-0x9913e8ULL;
 
 inline constexpr uint64_t PROJECTILEDATA_SPEED_OFF = 0x124ULL;
 inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0x74ULL;
 inline constexpr uint64_t PROJECTILE_ISINDIRECT_OFF = 0x118ULL;
-0x979d50ULL;
 inline constexpr uint64_t RVA_LOGICDATA_GETNAME = 0x9a4f1cULL;
 inline constexpr uint64_t SCSTRING_LENGTH_OFF = 0x4ULL;
 inline constexpr uint64_t SCSTRING_DATA_OFF = 0x8ULL;
