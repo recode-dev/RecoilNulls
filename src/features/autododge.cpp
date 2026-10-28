@@ -40,10 +40,7 @@ int ad_enemy_hp[AD_ENEMY_MAX] = {0};
 float ad_enemy_d[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_aim[AD_ENEMY_MAX] = {0};
 
-constexpr float AWARE = 4400.0f, SKIN = 90.0f, REACH = 700.0f;
-constexpr float ESCAPE_TIME_K = 1.3f, ESCAPE_TIME_MIN = 0.15f;
-constexpr float INCOMING_K = 2.0f, INCOMING_MARGIN = 40.0f;
-constexpr float CLEAR_HORIZON = 0.6f, CLEAR_SWITCH_MARGIN = 25.0f;
+constexpr float REACH = 700.0f, REACT_S = 0.18f;
 constexpr uint32_t SEND_MIN_MS = 16;
 constexpr float PROBE_T = 0.12f;
 constexpr int PROBE_N = 6;
@@ -54,25 +51,14 @@ constexpr float DEG_TO_RAD = 0.0174532925f;
 constexpr float OWN_HITBOX = 120.0f;
 constexpr float INF_F = std::numeric_limits<float>::infinity();
 constexpr float VV_EPS = 1e-6f, DT_MIN = 0.005f, DT_MAX = 0.2f;
-constexpr float POS_DELTA_MIN_SQ = 16.0f, PLAYER_ALONG_MIN = 0.0f;
-constexpr float BLOB_SPEED_MAX = 1600.0f, DIR_KEEP = 0.55f;
-constexpr float DIR_NEW = 0.45f;
 constexpr float PIN_PENALTY = 2.0f;
 constexpr float DANGER_PICK_EPS = 0.02f;
-constexpr float POS_CHANGE_MIN_SQ = 64.0f, QUADRATIC_K = 2.0f;
 constexpr float OWN_VEL_MAX = 4000.0f;
 constexpr uint64_t PROJ_CACHE_TTL_MS = 1024;
-constexpr float SPEED_MIN = 1.0f;
-constexpr int AD_HIT_SCAN = 64;
-constexpr float BEHIND_MARGIN = 50.0f;
+constexpr float SPEED_MIN = 1.0f, QUADRATIC_K = 2.0f;
 constexpr float RICOCHET_DOT_THRESHOLD = 0.5f;
 constexpr float RICOCHET_MIN_STEP = 30.0f;
-constexpr int CARDINALS = 8;
-constexpr float DIAG = 0.70710678f;
-static const float cardDirX[CARDINALS] = {
-    1.0f, DIAG, 0.0f, -DIAG, -1.0f, -DIAG, 0.0f, DIAG};
-static const float cardDirY[CARDINALS] = {
-    0.0f, DIAG, 1.0f, DIAG, 0.0f, -DIAG, -1.0f, -DIAG};
+constexpr int DIRS = 8;
 
 struct Threat
 {
@@ -175,8 +161,7 @@ static bool threat_receding(
 static float escape_window(const Threat& t) noexcept
 {
     float speed = CHAR_SPEED > SPEED_MIN ? CHAR_SPEED : SPEED_MIN;
-    float need = t.rad / speed * ESCAPE_TIME_K;
-    return need < ESCAPE_TIME_MIN ? ESCAPE_TIME_MIN : need;
+    return t.rad / speed + REACT_S;
 }
 
 static bool threat_soon(const Threat& t, float mx, float my) noexcept
@@ -187,9 +172,9 @@ static bool threat_soon(const Threat& t, float mx, float my) noexcept
     float proj = std::fma(t.vx, rx, t.vy * ry);
     if (proj <= 0.0f) return false;
     float speed = sqrtf(vv);
-    if (fabsf(t.vx * ry - t.vy * rx) / speed > t.rad + INCOMING_MARGIN)
+    if (fabsf(t.vx * ry - t.vy * rx) / speed > t.rad + OWN_HITBOX * 0.35f)
         return false;
-    return proj / vv <= escape_window(t) * INCOMING_K;
+    return proj / vv <= escape_window(t);
 }
 
 static float wallAhead(float mx,
@@ -280,8 +265,8 @@ static float swept_ca_segment(float mx, float my, const Threat& t) noexcept
     return d1;
 }
 
-static float
-clearanceFor(float mx, float my, float dx, float dy, float speed) noexcept
+static float clearanceFor(
+    float mx, float my, float dx, float dy, float speed) noexcept
 {
     float worst = INF_F;
     for (const auto& t : threats)
@@ -296,8 +281,9 @@ clearanceFor(float mx, float my, float dx, float dy, float speed) noexcept
         if (vv > VV_EPS)
         {
             tt = -std::fma(rx, rvx, ry * rvy) / vv;
+            float h = escape_window(t);
             if (tt < 0.0f) tt = 0.0f;
-            if (tt > CLEAR_HORIZON) tt = CLEAR_HORIZON;
+            if (tt > h) tt = h;
         }
         float cx = std::fma(rvx, tt, rx);
         float cy = std::fma(rvy, tt, ry);
@@ -310,7 +296,7 @@ clearanceFor(float mx, float my, float dx, float dy, float speed) noexcept
 static void snapshot_hit(float mx, float my)
 {
     int len = 0, picked = 0;
-    char used[AD_HIT_SCAN] = {0};
+    char used[AD_REPORT_MAX] = {0};
     len = snprintf(ad_hit,
                    sizeof(ad_hit),
                    "dmg=%d act=%d n=%d p=(%.0f,%.0f)",
@@ -325,7 +311,7 @@ static void snapshot_hit(float mx, float my)
         float bestCa = 1e9f;
         for (int i = 0; i < static_cast<int>(threats.size()); i++)
         {
-            if (i >= AD_HIT_SCAN || used[i]) continue;
+            if (i >= AD_REPORT_MAX * 8 || used[i]) continue;
             float ca = swept_ca(mx,
                                 my,
                                 ad_vx,
@@ -473,8 +459,8 @@ void autododge()
     CHAR_SPEED = own_speed;
     threats.clear();
     threats.reserve(32);
-    float bodyR = OWN_HITBOX + SKIN;
-    float zoneSq = AWARE * AWARE;
+    float bodyR = OWN_HITBOX * 1.75f;
+    float zoneSq = CHAR_SPEED * 4.0f * (CHAR_SPEED * 4.0f);
 
     for (int i = 0; i < obj_count; i++)
     {
@@ -613,26 +599,12 @@ void autododge()
             float ddx = (float)px_i - (float)state.lastX,
                   ddy = (float)py_i - (float)state.lastY;
             float step = sqrtf(std::fma(ddx, ddx, ddy * ddy));
-            if (dt > DT_MIN && dt < DT_MAX && step * step >= POS_DELTA_MIN_SQ)
+            if (dt > DT_MIN && dt < DT_MAX && step > 1.0f)
             {
                 float ux = ddx / step, uy = ddy / step;
-                bool flipped = state.hasVelocity &&
-                               ux * state.dir_x + uy * state.dir_y < 0.0f;
-                float dot_prev = state.hasVelocity
-                                     ? (ux * state.dir_x + uy * state.dir_y)
-                                     : 1.0f;
-                if (state.hasVelocity && !flipped)
-                {
-                    ux = state.dir_x * DIR_KEEP + ux * DIR_NEW;
-                    uy = state.dir_y * DIR_KEEP + uy * DIR_NEW;
-                    float norm = sqrtf(std::fma(ux, ux, uy * uy));
-                    if (norm > VV_EPS)
-                    {
-                        ux /= norm;
-                        uy /= norm;
-                    }
-                }
-                if (state.hasVelocity && dot_prev < RICOCHET_DOT_THRESHOLD &&
+                if (state.hasVelocity &&
+                    std::fma(ux, state.dir_x, uy * state.dir_y) <
+                        RICOCHET_DOT_THRESHOLD &&
                     step > RICOCHET_MIN_STEP)
                 {
                     state.bounces++;
@@ -660,39 +632,11 @@ void autododge()
         }
         if (state.isIndirect) ad_ind_n++;
         float mag = state.speed;
-        bool blob = !state.isBeam && !state.isIndirect && mag > 0.0f &&
-                    mag < BLOB_SPEED_MAX;
-        bool tracked = state.hasVelocity && mag > SPEED_MIN;
-        float vx = (blob || !tracked) ? 0.0f : state.dir_x * mag;
-        float vy = (blob || !tracked) ? 0.0f : state.dir_y * mag;
-        float speedNow = sqrtf(std::fma(vx, vx, vy * vy));
-        float ux = speedNow > SPEED_MIN ? vx / speedNow : 0.0f;
-        float uy = speedNow > SPEED_MIN ? vy / speedNow : 0.0f;
-
-        if (!blob && speedNow >= SPEED_MIN && !state.isRicochet)
-        {
-            float playerAlong = std::fma(mx - px, ux, (my - py) * uy);
-            float distNow =
-                sqrtf(std::fma(mx - px, mx - px, (my - py) * (my - py)));
-            float distPrev =
-                sqrtf(std::fma(mx - state.prevX,
-                               mx - state.prevX,
-                               (my - state.prevY) * (my - state.prevY)));
-            float sweepDist = swept_ca(mx, my, ad_vx, ad_vy, px, py, vx, vy);
-            bool movingAway = playerAlong < PLAYER_ALONG_MIN;
-            bool growing = distNow > distPrev;
-            bool farEnough =
-                sweepDist > (state.radius + OWN_HITBOX + BEHIND_MARGIN);
-            if (movingAway && growing && farEnough) continue;
-            if (!state.isIndirect && !state.piercesEnv &&
-                !state.piercesEnvButter &&
-                !wall_los(px,
-                          py,
-                          px + ux * (playerAlong > 0.0f ? playerAlong : 0.0f),
-                          py + uy * (playerAlong > 0.0f ? playerAlong : 0.0f),
-                          WALL_BLOCKS_PROJECTILES))
-                continue;
-        }
+        float vx = state.hasVelocity ? state.dir_x * mag : 0.0f;
+        float vy = state.hasVelocity ? state.dir_y * mag : 0.0f;
+        if (!state.isIndirect && !state.piercesEnv && !state.piercesEnvButter &&
+            !wall_los(px, py, mx, my, WALL_BLOCKS_PROJECTILES))
+            continue;
         Threat item{};
         item.x = px;
         item.y = py;
@@ -729,6 +673,7 @@ void autododge()
         if (writeIdx != proj_cache_index.size())
             rebuild_projectile_cache_index();
     }
+
 
     for (const auto& t : threats)
     {
@@ -802,48 +747,48 @@ void autododge()
 
     bool hasPrev = commitDirX != 0.0f || commitDirY != 0.0f;
     int bestIdx = 0;
+    float bestDirX = 1.0f, bestDirY = 0.0f;
     float bestClear = -INF_F, bestDanger = INF_F;
-    for (int i = 0; i < CARDINALS; i++)
+    for (int i = 0; i < DIRS; i++)
     {
-        float clear =
-            clearanceFor(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED);
-        float d =
-            -clear + pinPenalty(mx, my, cardDirX[i], cardDirY[i]) +
-            wallAhead(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED, bodyR);
+        float ang = (float)i * 6.2831853f / (float)DIRS;
+        float dx = cosf(ang), dy = sinf(ang);
+        float clear = clearanceFor(mx, my, dx, dy, CHAR_SPEED);
+        float d = -clear + pinPenalty(mx, my, dx, dy) +
+                  wallAhead(mx, my, dx, dy, CHAR_SPEED, bodyR);
         bool better = false;
         if (d < bestDanger - DANGER_PICK_EPS)
             better = true;
         else if (d <= bestDanger + DANGER_PICK_EPS && hasPrev)
-        {
-            float dotNew = cardDirX[i] * commitDirX + cardDirY[i] * commitDirY;
-            float dotBest =
-                cardDirX[bestIdx] * commitDirX + cardDirY[bestIdx] * commitDirY;
-            if (dotNew > dotBest) better = true;
-        }
+            better = std::fma(dx, commitDirX, dy * commitDirY) >
+                     std::fma(bestDirX, commitDirX, bestDirY * commitDirY);
         if (better)
         {
             bestDanger = d;
             bestClear = clear;
+            bestDirX = dx;
+            bestDirY = dy;
             bestIdx = i;
         }
     }
 
-    float outDirX = cardDirX[bestIdx], outDirY = cardDirY[bestIdx];
-    if (hasPrev && clearanceFor(mx, my, commitDirX, commitDirY, CHAR_SPEED) +
-                           CLEAR_SWITCH_MARGIN >=
-                       bestClear)
+    float outDirX = bestDirX, outDirY = bestDirY;
+    if (hasPrev &&
+        clearanceFor(mx, my, commitDirX, commitDirY, CHAR_SPEED) +
+                OWN_HITBOX * 0.2f >=
+            bestClear)
     {
         outDirX = commitDirX;
         outDirY = commitDirY;
     }
+    ad_best_dir = bestIdx;
     commitDirX = outDirX;
     commitDirY = outDirY;
-    ad_best_dir = bestIdx;
 
     int32_t tx = clamp_axis(mx + outDirX * REACH, wall_cache_w());
     int32_t ty = clamp_axis(my + outDirY * REACH, wall_cache_h());
     int32_t ddx = tx - ad_target_x, ddy = ty - ad_target_y;
-    if ((float)(ddx * ddx + ddy * ddy) > POS_CHANGE_MIN_SQ ||
+    if ((float)(ddx * ddx + ddy * ddy) > 64.0f ||
         now - lastSentAt > SEND_MIN_MS)
     {
         lastSentAt = now;
