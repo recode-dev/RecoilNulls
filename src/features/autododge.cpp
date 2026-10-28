@@ -31,7 +31,7 @@ int ad_enemy_aim[AD_ENEMY_MAX] = {0};
 namespace
 {
 constexpr float OWN_HITBOX = 120.0f;
-constexpr float REACH = OWN_HITBOX * 2.5f;
+constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
 constexpr int SIM_STEPS = 32;
 constexpr uint64_t CALM_MS = 145;
