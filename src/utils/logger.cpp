@@ -126,7 +126,8 @@ void diag_tick()
                          ad_target_x,
                          ad_target_y,
                          ad::threat_n);
-            for (int i = 0; i < ad::threat_n && n > 0 && n < (int)sizeof(buf) - 48;
+            for (int i = 0;
+                 i < ad::threat_n && n > 0 && n < (int)sizeof(buf) - 48;
                  i++)
             {
                 n += snprintf(buf + n,
