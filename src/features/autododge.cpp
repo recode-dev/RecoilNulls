@@ -294,10 +294,8 @@ static int cat_n = 0;
 static int cat_dirty = 1;
 static uint64_t cat_print_ts = 0;
 
-static void cat_sample(uintptr_t vt,
-                       const char* name,
-                       uintptr_t dataPtr,
-                       uintptr_t objPtr)
+static void
+cat_sample(uintptr_t vt, const char* name, uintptr_t dataPtr, uintptr_t objPtr)
 {
     ClassCat* slot = nullptr;
     for (int i = 0; i < cat_n; i++)
@@ -401,9 +399,7 @@ static void cat_build(int idx)
 static void cat_build_diff()
 {
     int cap = static_cast<int>(sizeof(ad_diff));
-    int len = snprintf(ad_diff,
-                       static_cast<size_t>(cap),
-                       "class diff");
+    int len = snprintf(ad_diff, static_cast<size_t>(cap), "class diff");
     if (cat_n < 2)
     {
         snprintf(ad_diff, static_cast<size_t>(cap), "class diff single class");
@@ -472,12 +468,8 @@ static float notePosY[AD_NOTE_MAX];
 static const char* noteWhy[AD_NOTE_MAX];
 static int noteN = 0;
 
-static void note_obj(int32_t pid,
-                     uintptr_t vt,
-                     int32_t team,
-                     float x,
-                     float y,
-                     const char* why)
+static void note_obj(
+    int32_t pid, uintptr_t vt, int32_t team, float x, float y, const char* why)
 {
     if (noteN >= AD_NOTE_MAX) return;
     notePid[noteN] = pid;
@@ -849,7 +841,8 @@ void autododge()
     uint64_t catNow = us() / 1000;
     if (cat_dirty && cat_n > 0 && catNow - cat_print_ts > 5000)
     {
-        for (int i = 0; i < cat_n; i++) cat_build(i);
+        for (int i = 0; i < cat_n; i++)
+            cat_build(i);
         cat_build_diff();
         ad_cat_n = cat_n;
         ad_cat_ready = 1;
@@ -934,7 +927,8 @@ void autododge()
         if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
         {
             autododge_scanner_event(SCAN_AD_BAD_VTABLE);
-            note_obj(nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "outimg");
+            note_obj(
+                nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "outimg");
             continue;
         }
         if (vtRva != VTABLE_PROJ_DATA_RVA)
@@ -983,17 +977,28 @@ void autododge()
                     zone.pid = nb_pid;
                     memcpy(zone.name, "area", 5);
                     threats.push_back(zone);
-                    note_obj(nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "zone");
+                    note_obj(nb_pid,
+                             vtRva,
+                             nb_team,
+                             (float)nb_x,
+                             (float)nb_y,
+                             "zone");
                 }
                 else
                 {
-                    note_obj(nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "other");
+                    note_obj(nb_pid,
+                             vtRva,
+                             nb_team,
+                             (float)nb_x,
+                             (float)nb_y,
+                             "other");
                 }
             }
             else
             {
                 autododge_scanner_event(SCAN_AD_NOT_PROJECTILE_VTABLE);
-                note_obj(nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "other");
+                note_obj(
+                    nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "other");
             }
             continue;
         }
@@ -1107,9 +1112,8 @@ void autododge()
                 }
                 float ux = ddx / step;
                 float uy = ddy / step;
-                bool flipped =
-                    state.hasVelocity &&
-                    ux * state.dir_x + uy * state.dir_y < 0.0f;
+                bool flipped = state.hasVelocity &&
+                               ux * state.dir_x + uy * state.dir_y < 0.0f;
                 if (state.hasVelocity && !flipped)
                 {
                     ux = state.dir_x * DIR_KEEP + ux * DIR_NEW;
@@ -1186,7 +1190,8 @@ void autododge()
         {
             float playerAlong = (mx - px) * ux + (my - py) * uy;
             float nearSq = (mx - px) * (mx - px) + (my - py) * (my - py);
-            if (playerAlong < PLAYER_ALONG_MIN && nearSq > BEHIND_NEAR * BEHIND_NEAR)
+            if (playerAlong < PLAYER_ALONG_MIN &&
+                nearSq > BEHIND_NEAR * BEHIND_NEAR)
             {
                 autododge_scanner_event(SCAN_AD_BEHIND);
                 note_obj(pid, vtRva, teamId, px, py, "behind");
