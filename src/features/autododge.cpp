@@ -218,6 +218,9 @@ static void add_proj(const uint8_t* obj,
         return;
     float vv = vx * vx + vy * vy;
     if (vv <= 0.0f) return;
+    float rad = st->rad + OWN_HITBOX;
+    float tt = -(dx * vx + dy * vy) / vv;
+    if (tt < 0.0f && dx * dx + dy * dy > rad * rad) return;
     for (int k = 0; k < threat_n; k++)
     {
         if (fabsf(threats[k].x - px) < 1.0f &&
@@ -229,8 +232,8 @@ static void add_proj(const uint8_t* obj,
     if (threat_n >= THREAT_MAX) return;
     Threat& t = threats[threat_n++];
     t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.pid = pid;
-    t.rad = st->rad + OWN_HITBOX;
-    t.tt = -(dx * vx + dy * vy) / vv;
+    t.rad = rad;
+    t.tt = tt;
     memcpy(t.name, st->name, sizeof(t.name));
     t.name[sizeof(t.name) - 1] = '\0';
 }
@@ -261,6 +264,20 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
         if (obj_rva[i] == VTABLE_PROJ_DATA_RVA)
             add_proj(obj_block[i], obj_data[i], now, mx, my, zone2);
     }
+}
+
+float static_clear(const Threat& t, float mx, float my)
+{
+    float rx = t.x - mx, ry = t.y - my;
+    float vv = t.vx * t.vx + t.vy * t.vy;
+    float tt = 0.0f;
+    if (vv > VV_EPS)
+    {
+        tt = -(rx * t.vx + ry * t.vy) / vv;
+        if (tt < 0.0f) tt = 0.0f;
+    }
+    float ex = rx + t.vx * tt, ey = ry + t.vy * tt;
+    return sqrtf(ex * ex + ey * ey) - t.rad;
 }
 
 void evict_stale(uint64_t now)
@@ -529,6 +546,16 @@ void autododge()
     evict_stale(now);
     collect_world(now, own_gid, mx, my);
     if (pend_dmg) hit_report(mx, my, commit_x, commit_y);
+    bool hot = false;
+    for (int i = 0; i < threat_n; i++)
+    {
+        if (ad::static_clear(threats[i], mx, my) < OWN_HITBOX * 2.0f)
+        {
+            hot = true;
+            break;
+        }
+    }
+    if (!hot) threat_n = 0;
     if (threat_n)
     {
         calm_ms = now;
