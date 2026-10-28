@@ -35,6 +35,8 @@ constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
+constexpr float DIR_COS = 0.9238795f;
+constexpr int INPUT_TICKS = 2;
 constexpr int WALL_PROBES = 3;
 constexpr int THREAT_MAX = 32;
 constexpr int PROJ_SLOTS = 48;
@@ -173,7 +175,8 @@ static void init_proj(
     if (!read_bytes(dataPtr, data, sizeof(data))) return;
     memcpy(&speed, data + PROJECTILEDATA_SPEED_OFF, sizeof(speed));
     memcpy(&radius, data + PROJECTILEDATA_RADIUS_OFF, sizeof(radius));
-    if (speed <= 0 || radius <= 0) return;
+    if (speed <= 0) return;
+    if (radius < 0) radius = 0;
     st->pid = pid;
     st->seen = now;
     st->x = px;
@@ -317,7 +320,9 @@ static void collect_projs(uint64_t now, float mx, float my)
         float dmin = sqrtf(qx * qx + qy * qy);
         if (dmin > rad) continue;
         float tti = tt - sqrtf(rad * rad - dmin * dmin) / st->speed;
-        if (tti > rad / self_speed + (float)TICK_MS * 0.001f) continue;
+        float need = rad / (self_speed * DIR_COS) +
+                     (float)INPUT_TICKS * (float)TICK_MS * 0.001f;
+        if (tti > need) continue;
         if (threat_n >= THREAT_MAX) continue;
         Threat& t = threats[threat_n++];
         t.x = px;
