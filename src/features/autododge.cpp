@@ -117,7 +117,6 @@ constexpr float HYSTERESIS_MARGIN = 0.25f;
 constexpr uint64_t DIR_HOLD_MS = 200;
 constexpr int AD_HIT_SCAN = 64;
 constexpr float BEHIND_MARGIN = 50.0f;
-constexpr float SWEEP_EPS = 1e-6f;
 constexpr int CARDINALS = 8;
 constexpr float DIAG = 0.70710678f;
 static const float cardDirX[CARDINALS] = {
