@@ -432,7 +432,8 @@ static void choose(float mx, float my, float& out_x, float& out_y)
             ad_best_dir = i / (DIRS / 8);
         }
     }
-    if (has && dir_value(mx, my, commit_x, commit_y) + OWN_HITBOX * 0.25f >= best)
+    if (has &&
+        dir_value(mx, my, commit_x, commit_y) + OWN_HITBOX * 0.25f >= best)
     {
         bx = commit_x;
         by = commit_y;
