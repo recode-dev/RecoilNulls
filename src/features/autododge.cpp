@@ -73,7 +73,6 @@ constexpr uint64_t DIR_HOLD_MS = 350;
 constexpr int AD_HIT_SCAN = 64;
 constexpr float BEHIND_MARGIN = 50.0f;
 constexpr float STRAFE_RANGE = 3600.0f, STRAFE_BLEND = 0.6f;
-constexpr float AIM_DOT = 0.94f;
 constexpr uint64_t STRAFE_FLIP_MS = 2500;
 constexpr float BURST_DOT_MIN = 0.95f;
 constexpr float BURST_PARALLEL_PENALTY = 0.40f;
@@ -865,24 +864,18 @@ void autododge()
         }
     }
     float sx = 0.0f, sy = 0.0f;
-    bool aimed = false;
     if (nearest >= 0 && nearestD2 < STRAFE_RANGE * STRAFE_RANGE)
     {
+        if (now >= strafeFlipAt)
+        {
+            strafeSign = -strafeSign;
+            strafeFlipAt = now + STRAFE_FLIP_MS;
+        }
         float rdx = mx - ad_enemy_x[nearest];
         float rdy = my - ad_enemy_y[nearest];
         float rlen = sqrtf(std::fma(rdx, rdx, rdy * rdy));
         if (rlen > 1.0f)
         {
-            float ar = (float)ad_enemy_aim[nearest] * DEG_TO_RAD;
-            aimed = std::fma(cosf(ar), rdx, sinf(ar) * rdy) / rlen >= AIM_DOT;
-        }
-        if (aimed)
-        {
-            if (now >= strafeFlipAt)
-            {
-                strafeSign = -strafeSign;
-                strafeFlipAt = now + STRAFE_FLIP_MS;
-            }
             sx = rdy / rlen * strafeSign;
             sy = -rdx / rlen * strafeSign;
         }
@@ -894,7 +887,7 @@ void autododge()
             anySoon = true;
             break;
         }
-    if (!anySoon && !aimed)
+    if (!anySoon)
     {
         endDodge();
         return;
