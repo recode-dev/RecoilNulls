@@ -119,6 +119,8 @@ constexpr float HYSTERESIS_MARGIN = 0.25f;
 constexpr uint64_t DIR_HOLD_MS = 200;
 constexpr int AD_HIT_SCAN = 64;
 constexpr float BEHIND_NEAR = 260.0f;
+constexpr float BEHIND_MARGIN = 50.0f;
+constexpr float SWEEP_EPS = 1e-6f;
 
 constexpr int CARDINALS = 8;
 constexpr float DIAG = 0.70710678f;
@@ -130,6 +132,7 @@ static const float cardDirY[CARDINALS] = {
 struct Threat
 {
     float x, y, vx, vy, rad, mag;
+    float prev_x, prev_y;
     int ind;
     int32_t pid;
     char name[40];
@@ -144,6 +147,7 @@ struct ProjectileState
     float dir_x, dir_y, speed, radius, meas;
     char name[128];
     float spawnX, spawnY;
+    float prevX, prevY;
     int earlyTicks;
     uint64_t spawnedAt, lastSeen, lastTs;
     int32_t lastX, lastY, pid;
@@ -663,6 +667,24 @@ dangerFor(float mx, float my, float dx, float dy, float speed, float bodyR)
     float danger = max_c + DANGER_SUM_WEIGHT * (sum_c - max_c);
     return danger > DANGER_MAX ? DANGER_MAX : danger;
 }
+
+static float seg_ca(float mx,
+                    float my,
+                    float px,
+                    float py,
+                    float prevx,
+                    float prevy)
+{
+    float sx = px - prevx;
+    float sy = py - prevy;
+    float ss = sx * sx + sy * sy;
+    if (ss < SWEEP_EPS) return hypotf(mx - px, my - py);
+    float tt = ((mx - prevx) * sx + (my - prevy) * sy) / ss;
+    tt = tt < 0.0f ? 0.0f : (tt > 1.0f ? 1.0f : tt);
+    float cx = prevx + tt * sx;
+    float cy = prevy + tt * sy;
+    return hypotf(mx - cx, my - cy);
+}
 }
 
 static void snapshot_hit(float mx, float my)
@@ -685,19 +707,12 @@ static void snapshot_hit(float mx, float my)
         for (int i = 0; i < static_cast<int>(threats.size()); i++)
         {
             if (i >= AD_HIT_SCAN || used[i]) continue;
-            float rx = threats[i].x - mx;
-            float ry = threats[i].y - my;
-            float dist = sqrtf(rx * rx + ry * ry);
-            float vv =
-                threats[i].vx * threats[i].vx + threats[i].vy * threats[i].vy;
-            float ca = dist;
-            if (vv > VV_EPS)
-            {
-                float al =
-                    (rx * threats[i].vx + ry * threats[i].vy) / sqrtf(vv);
-                float perp = dist * dist - al * al;
-                ca = perp > 0.0f ? sqrtf(perp) : 0.0f;
-            }
+            float ca = seg_ca(mx,
+                              my,
+                              threats[i].x,
+                              threats[i].y,
+                              threats[i].prev_x,
+                              threats[i].prev_y);
             if (ca < bestCa)
             {
                 bestCa = ca;
@@ -1005,6 +1020,8 @@ void autododge()
             ProjectileState state{};
             state.lastX = px_i;
             state.lastY = py_i;
+            state.prevX = px;
+            state.prevY = py;
             state.lastTs = now;
             int32_t ind = 0, projSpeed = 0, projRadius = 0, projEarly = 0;
             if (!read_int(objPtr + PROJECTILE_ISINDIRECT_OFF, &ind))
@@ -1063,6 +1080,8 @@ void autododge()
             }
             if (it == proj_cache_index.end()) continue;
             ProjectileState& state = proj_cache_storage[it->second];
+            state.prevX = (float)state.lastX;
+            state.prevY = (float)state.lastY;
             float dt = (float)(now - state.lastTs) / 1000.0f;
             float ddx = (float)px_i - (float)state.lastX;
             float ddy = (float)py_i - (float)state.lastY;
@@ -1155,9 +1174,12 @@ void autododge()
         if (!blob && speedNow >= SPEED_MIN)
         {
             float playerAlong = (mx - px) * ux + (my - py) * uy;
-            float nearSq = (mx - px) * (mx - px) + (my - py) * (my - py);
-            if (playerAlong < PLAYER_ALONG_MIN &&
-                nearSq > BEHIND_NEAR * BEHIND_NEAR)
+            float distNow = hypotf(mx - px, my - py);
+            float distPrev = hypotf(mx - state.prevX, my - state.prevY);
+            bool movingAway = playerAlong < PLAYER_ALONG_MIN;
+            bool growing = distNow > distPrev;
+            bool farEnough = distNow > (state.radius + myRadius + BEHIND_MARGIN);
+            if (movingAway && growing && farEnough)
             {
                 autododge_scanner_event(SCAN_AD_BEHIND);
                 note_obj(pid, vtRva, teamId, px, py, "behind");
@@ -1179,6 +1201,8 @@ void autododge()
         Threat item{};
         item.x = px;
         item.y = py;
+        item.prev_x = state.prevX;
+        item.prev_y = state.prevY;
         item.vx = vx;
         item.vy = vy;
         item.rad = state.radius + myRadius;
@@ -1212,22 +1236,21 @@ void autododge()
     for (const auto& t : threats)
     {
         float ttc = timeToCollision(mx, my, own_vel_x, own_vel_y, t);
-        float relx = t.x - mx;
-        float rely = t.y - my;
-        float dist = sqrtf(relx * relx + rely * rely);
+        float dist = hypotf(t.x - mx, t.y - my);
+        float ca = seg_ca(mx, my, t.x, t.y, t.prev_x, t.prev_y);
         float rvx = t.vx - own_vel_x;
         float rvy = t.vy - own_vel_y;
         float vv = rvx * rvx + rvy * rvy;
-        float along = 0.0f;
-        float ca = dist;
         float score = 0.0f;
         if (vv > VV_EPS)
         {
-            along = (relx * rvx + rely * rvy) / sqrtf(vv);
-            float perp = dist * dist - along * along;
-            ca = perp > 0.0f ? sqrtf(perp) : 0.0f;
+            float along = ((t.x - mx) * rvx + (t.y - my) * rvy) / sqrtf(vv);
+            score = along >= 0.0f ? ca : ca + 1000000.0f;
         }
-        score = along >= 0.0f ? ca : ca + 1000000.0f;
+        else
+        {
+            score = ca + 1000000.0f;
+        }
         int slot = ad_threat_n;
         if (slot < AD_REPORT_MAX)
         {
