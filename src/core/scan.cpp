@@ -210,6 +210,14 @@ BOOL write_bytes(uintptr_t address, const void* src, size_t length)
                ? YES
                : NO;
 }
+BOOL read_ptr(uintptr_t address, uintptr_t* out)
+{
+    if (!out || (address & 7))
+    {
+        return NO;
+    }
+    return read_bytes(address, out, sizeof(uintptr_t));
+}
 BOOL read_ptr(uintptr_t address, void** out)
 {
     if (!out)
@@ -576,7 +584,7 @@ void run_autododge()
     autododge();
     in_move = 0;
 }
-static constexpr uint64_t SCAN_MIN_US = 2000ULL;
+static constexpr uint64_t SCAN_MIN_US = 15000ULL;
 static uint64_t g_last_scan_us = 0;
 static void scan_frame()
 {

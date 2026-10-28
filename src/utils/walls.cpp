@@ -189,7 +189,7 @@ int wall_build()
             continue;
         }
         if (!pointer_plausible(tile) ||
-            !read_ptr(tile, reinterpret_cast<void**>(&type)))
+            !read_ptr(tile, &type))
         {
             holes++;
             continue;
