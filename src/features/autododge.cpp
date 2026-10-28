@@ -854,6 +854,7 @@ void autododge()
     }
 
     float ex = 0.0f, ey = 0.0f;
+    bool anyEscape = false;
     for (const auto& t : threats)
     {
         if (!threat_soon(t, mx, my) &&
@@ -868,7 +869,13 @@ void autododge()
             if (t.ricochet) w *= 2.0f;
             ex = std::fma(dx / dist, w, ex);
             ey = std::fma(dy / dist, w, ey);
+            anyEscape = true;
         }
+    }
+    if (!anyEscape && commitDirX == 0.0f && commitDirY == 0.0f)
+    {
+        endDodge();
+        return;
     }
     float elen = sqrtf(std::fma(ex, ex, ey * ey));
     if (elen > 0.001f)
