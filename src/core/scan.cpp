@@ -589,7 +589,7 @@ void scan_world()
             own_ok_hp = 0;
             own_hp = 0;
         }
-        dead = 0;
+        dead = (own_ok_hp && own_hp == 0) ? 1 : 0;
         coord_ok = 1;
     }
     else

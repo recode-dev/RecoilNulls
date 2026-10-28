@@ -43,7 +43,7 @@ namespace
 {
 constexpr uintptr_t EARLY_TICKS_OFF = 0x80;
 
-constexpr float SPEED_SCALE = 1000.0f;
+constexpr float SPEED_SCALE = 1.0f;
 constexpr float RADIUS_SCALE = 10.0f;
 constexpr int32_t EARLY_TICK_MS = 16;
 
