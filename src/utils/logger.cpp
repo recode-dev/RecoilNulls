@@ -203,6 +203,11 @@ void diag_tick()
     {
         line("[hit] %s\n", ad_hit);
         ad_hit[0] = 0;
+        for (int i = 0; i < ad_obj_n; i++)
+        {
+            line("[o] %s\n", ad_obj[i]);
+        }
+        ad_obj_n = 0;
     }
     for (int i = 0; i < ad_nv_n; i++)
     {

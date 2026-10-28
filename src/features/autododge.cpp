@@ -37,6 +37,8 @@ char ad_vp[AD_VP_MAX][128] = {{0}};
 int ad_vp_n = 0;
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_probe[256] = {0};
+char ad_obj[AD_OBJ_MAX][88] = {{0}};
+int ad_obj_n = 0;
 char ad_hit[256] = {0};
 char ad_nv[AD_NV_MAX][96] = {{0}};
 int ad_nv_n = 0;
@@ -260,6 +262,32 @@ static void probe_analyze()
         snprintf(ad_vp[0], sizeof(ad_vp[0]), "no candidates n=%d", n);
         ad_vp_n = 1;
     }
+}
+
+static constexpr int AD_NOTE_MAX = 16;
+static int32_t notePid[AD_NOTE_MAX];
+static uintptr_t noteVt[AD_NOTE_MAX];
+static int32_t noteTeam[AD_NOTE_MAX];
+static float notePosX[AD_NOTE_MAX];
+static float notePosY[AD_NOTE_MAX];
+static const char* noteWhy[AD_NOTE_MAX];
+static int noteN = 0;
+
+static void note_obj(int32_t pid,
+                     uintptr_t vt,
+                     int32_t team,
+                     float x,
+                     float y,
+                     const char* why)
+{
+    if (noteN >= AD_NOTE_MAX) return;
+    notePid[noteN] = pid;
+    noteVt[noteN] = vt;
+    noteTeam[noteN] = team;
+    notePosX[noteN] = x;
+    notePosY[noteN] = y;
+    noteWhy[noteN] = why;
+    noteN++;
 }
 
 static uintptr_t char_vt_rva = 0;
@@ -499,6 +527,21 @@ static void snapshot_hit(float mx, float my)
         snprintf(
             ad_hit + len, sizeof(ad_hit) - static_cast<size_t>(len), " | none");
     }
+    ad_obj_n = 0;
+    for (int i = 0; i < noteN && i < AD_OBJ_MAX; i++)
+    {
+        float dx = notePosX[i] - mx;
+        float dy = notePosY[i] - my;
+        snprintf(ad_obj[i],
+                 sizeof(ad_obj[i]),
+                 "pid=%d vt=0x%x tm=%d d=%.0f %s",
+                 notePid[i],
+                 static_cast<unsigned>(noteVt[i]),
+                 noteTeam[i],
+                 sqrtf(dx * dx + dy * dy),
+                 noteWhy[i]);
+        ad_obj_n++;
+    }
 }
 
 static void note_novelo(int32_t pid,
@@ -604,6 +647,8 @@ void autododge()
     ad_enemy_n = 0;
     ad_threat_n = 0;
     ad_nv_n = 0;
+    noteN = 0;
+    ad_obj_n = 0;
     if (lastHpSeen && own_hp < lastHpSeen)
     {
         pendingHit = 1;
@@ -647,10 +692,16 @@ void autododge()
         }
         const uint8_t* obj = obj_block[i];
         uintptr_t objPtr = obj_snapshot[i], dataPtr = 0;
+        int32_t nb_pid = 0, nb_x = 0, nb_y = 0, nb_team = -1;
+        memcpy(&nb_pid, obj + OBJ_GLOBALID_OFF, sizeof(nb_pid));
+        memcpy(&nb_x, obj + OBJ_X_OFF, sizeof(nb_x));
+        memcpy(&nb_y, obj + OBJ_Y_OFF, sizeof(nb_y));
+        memcpy(&nb_team, obj + OBJ_TEAM_OFF, sizeof(nb_team));
         memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
         if (!dataPtr || !pointer_plausible(dataPtr))
         {
             autododge_scanner_event(SCAN_AD_BAD_DATA_POINTER);
+            note_obj(nb_pid, 0, nb_team, (float)nb_x, (float)nb_y, "nodef");
             continue;
         }
 
@@ -658,6 +709,7 @@ void autododge()
         if (!read_bytes(dataPtr, data, sizeof(data)))
         {
             autododge_scanner_event(SCAN_AD_DATA_READ_FAIL);
+            note_obj(nb_pid, 0, nb_team, (float)nb_x, (float)nb_y, "noread");
             continue;
         }
 
@@ -666,12 +718,14 @@ void autododge()
         if (!dataVtable || !pointer_plausible(dataVtable))
         {
             autododge_scanner_event(SCAN_AD_BAD_VTABLE);
+            note_obj(nb_pid, 0, nb_team, (float)nb_x, (float)nb_y, "badvt");
             continue;
         }
         uintptr_t vtRva = dataVtable - base;
         if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
         {
             autododge_scanner_event(SCAN_AD_BAD_VTABLE);
+            note_obj(nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "outimg");
             continue;
         }
         if (vtRva != VTABLE_PROJ_DATA_RVA)
@@ -685,6 +739,7 @@ void autododge()
                 memcpy(&cx_i, obj + OBJ_X_OFF, sizeof(cx_i));
                 memcpy(&cy_i, obj + OBJ_Y_OFF, sizeof(cy_i));
                 ad_char_n++;
+                note_obj(cgid, vtRva, cteam, (float)cx_i, (float)cy_i, "char");
                 if (cteam != own_team_b && chp > 0 && cgid > 0 &&
                     cgid != own_gid && ad_enemy_n < AD_ENEMY_MAX)
                 {
@@ -701,6 +756,7 @@ void autododge()
             else
             {
                 autododge_scanner_event(SCAN_AD_NOT_PROJECTILE_VTABLE);
+                note_obj(nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "other");
             }
             continue;
         }
@@ -716,11 +772,13 @@ void autododge()
         if (pid == 0)
         {
             autododge_scanner_event(SCAN_AD_ZERO_PID);
+            note_obj(pid, vtRva, teamId, px, py, "pid0");
             continue;
         }
         if (teamId == own_team_b)
         {
             autododge_scanner_event(SCAN_AD_OWN_TEAM);
+            note_obj(pid, vtRva, teamId, px, py, "own");
             continue;
         }
 
@@ -729,6 +787,7 @@ void autododge()
         if (deadFlag != 0)
         {
             autododge_scanner_event(SCAN_AD_DEAD);
+            note_obj(pid, vtRva, teamId, px, py, "dead");
             continue;
         }
 
@@ -743,6 +802,7 @@ void autododge()
             if (!read_int(objPtr + PROJECTILE_ISINDIRECT_OFF, &ind))
             {
                 autododge_scanner_event(SCAN_AD_INDIRECT_READ_FAIL);
+                note_obj(pid, vtRva, teamId, px, py, "indread");
                 continue;
             }
 
@@ -859,6 +919,7 @@ void autododge()
         if (dx * dx + dy * dy > zoneSq)
         {
             autododge_scanner_event(SCAN_AD_OUT_OF_RANGE);
+            note_obj(pid, vtRva, teamId, px, py, "far");
             continue;
         }
 
@@ -886,6 +947,7 @@ void autododge()
             if (playerAlong < PLAYER_ALONG_MIN)
             {
                 autododge_scanner_event(SCAN_AD_BEHIND);
+                note_obj(pid, vtRva, teamId, px, py, "behind");
                 continue;
             }
             if (!state.isIndirect &&
@@ -896,6 +958,7 @@ void autododge()
                           WALL_BLOCKS_PROJECTILES))
             {
                 autododge_scanner_event(SCAN_AD_WALL_BLOCKED);
+                note_obj(pid, vtRva, teamId, px, py, "wall");
                 continue;
             }
         }
@@ -908,6 +971,7 @@ void autododge()
         item.rad = state.radius + myRadius;
         item.mag = mag;
         item.pid = pid;
+        note_obj(pid, vtRva, teamId, px, py, "proj");
         memcpy(item.name, state.name, sizeof(item.name) - 1);
         item.name[sizeof(item.name) - 1] = '\0';
         threats.push_back(item);
