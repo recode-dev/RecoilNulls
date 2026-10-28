@@ -33,6 +33,7 @@ extern int ad_threat_pierce[AD_REPORT_MAX];
 extern int ad_threat_bounce[AD_REPORT_MAX];
 extern int ad_threat_shothero[AD_REPORT_MAX];
 extern int ad_threat_piercechars[AD_REPORT_MAX];
+extern int ad_threat_tv[AD_REPORT_MAX];
 extern int ad_beam_n;
 extern int ad_ind_n;
 extern int ad_grv_n;

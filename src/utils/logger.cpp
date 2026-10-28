@@ -172,7 +172,7 @@ void diag_tick()
     {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) |v|=%.0f spd=%.0f "
              "r=%.0f ind=%d d=%.0f ca=%.0f ttc=%.3f "
-             "p=%d bh=%d sh=%d pc=%d\n",
+             "p=%d bh=%d sh=%d pc=%d tv=%d\n",
              i,
              ad_threat_name[i][0] ? ad_threat_name[i] : "-",
              ad_threat_pid[i],
@@ -191,7 +191,8 @@ void diag_tick()
              ad_threat_pierce[i],
              ad_threat_bounce[i],
              ad_threat_shothero[i],
-             ad_threat_piercechars[i]);
+             ad_threat_piercechars[i],
+             ad_threat_tv[i]);
     }
     if (ad_probe[0])
     {

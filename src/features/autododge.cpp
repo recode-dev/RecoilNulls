@@ -29,6 +29,7 @@ int ad_threat_pierce[AD_REPORT_MAX] = {0};
 int ad_threat_bounce[AD_REPORT_MAX] = {0};
 int ad_threat_shothero[AD_REPORT_MAX] = {0};
 int ad_threat_piercechars[AD_REPORT_MAX] = {0};
+int ad_threat_tv[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_hit[256] = {0};
 
@@ -107,6 +108,7 @@ struct Threat
     int bounce;
     int shotHero;
     int pierceChars;
+    int travelType;
     int32_t pid;
     char name[40];
 };
@@ -123,6 +125,7 @@ struct ProjectileState
     float last_ux, last_uy;
     bool isIndirect, isBeam, hasVelocity, isRicochet;
     bool shotByHero, isBouncing, piercesChars, piercesEnv, piercesEnvButter;
+    int32_t travelType;
     uint64_t ricochetUntil;
     int32_t rawSpeed, rawRadius, rawEarly;
 };
@@ -674,6 +677,9 @@ void autododge()
             state.isIndirect = data[PROJECTILEDATA_INDIRECT_OFF] != 0;
             state.shotByHero = data[PROJECTILEDATA_SHOT_BY_HERO_OFF] != 0;
             state.isBeam = data[PROJECTILEDATA_ISBEAM_OFF] != 0;
+            state.travelType = 0;
+            read_int(dataPtr + PROJECTILEDATA_TRAVELTYPE_OFF,
+                     &state.travelType);
             state.isBouncing = data[PROJECTILEDATA_ISBOUNCING_OFF] != 0;
             state.piercesChars = data[PROJECTILEDATA_PIERCES_CHARS_OFF] != 0;
             state.piercesEnv = data[PROJECTILEDATA_PIERCES_ENV_OFF] != 0;
@@ -837,6 +843,7 @@ void autododge()
         item.bounce = state.isBouncing ? 1 : 0;
         item.shotHero = state.shotByHero ? 1 : 0;
         item.pierceChars = state.piercesChars ? 1 : 0;
+        item.travelType = state.travelType;
         item.pid = pid;
         memcpy(item.name, state.name, sizeof(item.name) - 1);
         item.name[sizeof(item.name) - 1] = '\0';
@@ -904,6 +911,7 @@ void autododge()
         ad_threat_bounce[slot] = t.bounce;
         ad_threat_shothero[slot] = t.shotHero;
         ad_threat_piercechars[slot] = t.pierceChars;
+        ad_threat_tv[slot] = t.travelType;
         ad_threat_score[slot] = score;
         memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
         ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';

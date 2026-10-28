@@ -21,6 +21,7 @@ inline constexpr uint64_t PROJECTILEDATA_PIERCES_ENV_OFF = 0x1e5ULL;
 inline constexpr uint64_t PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF = 0x1e6ULL;
 inline constexpr uint64_t PROJECTILEDATA_INDIRECT_OFF = 0x108ULL;
 inline constexpr uint64_t PROJECTILEDATA_GRAVITY_OFF = 0x118ULL;
+inline constexpr uint64_t PROJECTILEDATA_TRAVELTYPE_OFF = 0x260ULL;
 inline constexpr uint64_t RVA_LOGICDATA_GETNAME = 0x9a4f1cULL;
 inline constexpr uint64_t SCSTRING_LENGTH_OFF = 0x4ULL;
 inline constexpr uint64_t SCSTRING_DATA_OFF = 0x8ULL;
