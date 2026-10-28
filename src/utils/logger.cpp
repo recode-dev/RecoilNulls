@@ -752,32 +752,6 @@ static void struct_scan_tilemap(uintptr_t tileMap)
          typeOverflow);
 }
 
-void struct_scan_capture_input_message(uintptr_t message)
-{
-    if (!message || !pointer_plausible(message)) return;
-    StructScanPendingInput pending{};
-    if (!read_bytes(message, pending.message, sizeof(pending.message))) return;
-    pending.address = message;
-    void* skillRaw = nullptr;
-    if (read_ptr(message + static_cast<uintptr_t>(OFF_CLIENTINPUT_SKILLDATA),
-                 &skillRaw) &&
-        skillRaw && pointer_plausible(reinterpret_cast<uintptr_t>(skillRaw)) &&
-        read_bytes(reinterpret_cast<uintptr_t>(skillRaw),
-                   pending.skillData,
-                   sizeof(pending.skillData)))
-    {
-        pending.skillAddress = reinterpret_cast<uintptr_t>(skillRaw);
-        pending.hasSkillData = true;
-    }
-
-    os_unfair_lock_lock(&structScanLock);
-    if (structScanInputMessageCount < STRUCT_SCAN_MAX_PENDING_INPUTS)
-    {
-        structScanPendingInputs[structScanInputMessageCount++] = pending;
-    }
-    os_unfair_lock_unlock(&structScanLock);
-}
-
 static void struct_scan_flush_input_messages()
 {
     StructScanPendingInput pending[STRUCT_SCAN_MAX_PENDING_INPUTS]{};
@@ -1357,6 +1331,33 @@ void start()
     dispatch_source_set_event_handler(timer, ^{ tick(); });
     dispatch_resume(timer);
 }
+
+}
+
+void struct_scan_capture_input_message(uintptr_t message)
+{
+    if (!message || !pointer_plausible(message)) return;
+    StructScanPendingInput pending{};
+    if (!read_bytes(message, pending.message, sizeof(pending.message))) return;
+    pending.address = message;
+    void* skillRaw = nullptr;
+    if (read_ptr(message + static_cast<uintptr_t>(OFF_CLIENTINPUT_SKILLDATA),
+                 &skillRaw) &&
+        skillRaw && pointer_plausible(reinterpret_cast<uintptr_t>(skillRaw)) &&
+        read_bytes(reinterpret_cast<uintptr_t>(skillRaw),
+                   pending.skillData,
+                   sizeof(pending.skillData)))
+    {
+        pending.skillAddress = reinterpret_cast<uintptr_t>(skillRaw);
+        pending.hasSkillData = true;
+    }
+
+    os_unfair_lock_lock(&structScanLock);
+    if (structScanInputMessageCount < STRUCT_SCAN_MAX_PENDING_INPUTS)
+    {
+        structScanPendingInputs[structScanInputMessageCount++] = pending;
+    }
+    os_unfair_lock_unlock(&structScanLock);
 }
 
 void autododge_scanner_log(uint64_t now, const char* format, ...)
