@@ -85,7 +85,6 @@ constexpr float POST_DODGE_OVERRIDE_TTC = 0.075f;
 constexpr float POST_DODGE_CA_MARGIN = 20.0f;
 constexpr float RICOCHET_DOT_THRESHOLD = 0.5f;
 constexpr float RICOCHET_MIN_STEP = 30.0f;
-constexpr float SWEEP_HIT_MARGIN = 0.0f;
 constexpr int CARDINALS = 8;
 constexpr float DIAG = 0.70710678f;
 static const float cardDirX[CARDINALS] = {
