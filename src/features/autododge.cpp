@@ -34,7 +34,6 @@ constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
 constexpr uint64_t CALM_MS = 250;
-constexpr float HOLD_AHEAD = OWN_HITBOX * 0.5f;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 }
 namespace ad
@@ -291,27 +290,8 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     out_x = bx, out_y = by;
 }
 }
-static void hold_move()
-{
-    if (!coord_ok || wall_cache_w() <= 0 || wall_cache_h() <= 0)
-    {
-        return;
-    }
-    float n = sqrtf(commit_x * commit_x + commit_y * commit_y);
-    if (n <= 0.0f)
-    {
-        return;
-    }
-    enqueue(axis((float)own_x + commit_x / n * HOLD_AHEAD, wall_cache_w()),
-            axis((float)own_y + commit_y / n * HOLD_AHEAD, wall_cache_h()));
-}
-
 static void end_dodge()
 {
-    if (active)
-    {
-        hold_move();
-    }
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
     active = 0;
 }
