@@ -42,6 +42,7 @@ int ad_enemy_aim[AD_ENEMY_MAX] = {0};
 
 constexpr float AWARE = 4400.0f, SKIN = 90.0f, REACH = 700.0f;
 constexpr float ESCAPE_TIME_K = 1.3f, ESCAPE_TIME_MIN = 0.15f;
+constexpr float INCOMING_K = 2.0f, INCOMING_MARGIN = 40.0f;
 constexpr uint32_t SEND_MIN_MS = 16;
 constexpr float PROBE_T = 0.12f;
 constexpr int PROBE_N = 6;
@@ -196,8 +197,15 @@ static float escape_window(const Threat& t) noexcept
 
 static bool threat_soon(const Threat& t, float mx, float my) noexcept
 {
-    float ttc = timeToCollision(mx, my, ad_vx, ad_vy, t);
-    return ttc > 0.0f && ttc <= escape_window(t);
+    float vv = std::fma(t.vx, t.vx, t.vy * t.vy);
+    if (vv < 1.0f) return false;
+    float rx = mx - t.x, ry = my - t.y;
+    float proj = std::fma(t.vx, rx, t.vy * ry);
+    if (proj <= 0.0f) return false;
+    float speed = sqrtf(vv);
+    if (fabsf(t.vx * ry - t.vy * rx) / speed > t.rad + INCOMING_MARGIN)
+        return false;
+    return proj / vv <= escape_window(t) * INCOMING_K;
 }
 
 static float wallAhead(float mx,
