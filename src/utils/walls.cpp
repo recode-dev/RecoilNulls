@@ -348,3 +348,29 @@ int wall_los(float ax, float ay, float bx, float by, int mask)
     }
     return 1;
 }
+
+int32_t axis(float v, int tiles)
+{
+    float limit = (float)tiles * WALL_TILE_SIZE - 1.0f;
+    if (v < 0.0f) return 0;
+    if (v > limit) return (int32_t)limit;
+    return (int32_t)roundf(v);
+}
+float wall_pull(float mx, float my, float dx, float dy, float radius)
+{
+    constexpr int PROBES = 3;
+    float reach = radius * 6.0f;
+    int blocked = 0;
+    for (int i = 1; i <= PROBES; i++)
+    {
+        float d = reach * 0.5f * (float)i / (float)PROBES;
+        blocked += wall_is_blocked_wide(
+                       mx + dx * d, my + dy * d, radius, WALL_BLOCKS_MOVEMENT)
+                       ? 1
+                       : 0;
+    }
+    float pin_x = (float)axis(mx + dx * reach, wall_cache_w()) - mx;
+    float pin_y = (float)axis(my + dy * reach, wall_cache_h()) - my;
+    float room = sqrtf(pin_x * pin_x + pin_y * pin_y) / reach;
+    return (float)blocked / (float)PROBES + (1.0f - room);
+}

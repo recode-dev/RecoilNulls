@@ -32,6 +32,7 @@ namespace
 constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
+constexpr int RELEASE_TICKS = 3;
 constexpr int DIRS = 16;
 constexpr float TURN_PER_TICK = 1.5707963f;
 constexpr int WALL_PROBES = 3;
@@ -223,11 +224,12 @@ void collect_projs(uint64_t now, float mx, float my)
             continue;
         float dot = vx * dx + vy * dy;
         if (dot >= 0.0f) continue;
-        float rad = st->rad + OWN_HITBOX + st->speed * TICK_MS_SEC;
+        float rad = st->rad + OWN_HITBOX;
+        float lead = st->speed * TICK_MS_SEC;
         float vv = vx * vx + vy * vy, tt = -dot / vv;
         float qx = dx + vx * tt, qy = dy + vy * tt,
               dmin = sqrtf(qx * qx + qy * qy);
-        if (dmin > rad) continue;
+        if (dmin > rad + lead) continue;
         if (threat_n >= THREAT_MAX) continue;
         float gap = fmaxf(rad * rad - dmin * dmin, 0.0f);
         Threat& t = threats[threat_n++];
@@ -252,18 +254,82 @@ static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
 static uint32_t last_hp = 0;
 static uint64_t last_turn_ms = 0;
-static int32_t axis(float v, int tiles)
+static float dir_threat(float mx, float my, float dx, float dy)
 {
-    float limit = (float)tiles * WALL_TILE_SIZE - 1.0f;
-    if (v < 0.0f) return 0;
-    if (v > limit) return (int32_t)limit;
-    return (int32_t)roundf(v);
+    float worst = 1e30f;
+    for (int i = 0; i < threat_n; i++)
+    {
+        float c = clear_one(mx, my, dx, dy, threats[i]);
+        if (c < worst) worst = c;
+    }
+    return worst;
 }
+static float dir_value(float mx, float my, float dx, float dy)
+{
+    return dir_threat(mx, my, dx, dy) -
+           OWN_HITBOX * wall_pull(mx, my, dx, dy, OWN_HITBOX);
+}
+static void choose(float mx, float my, float& out_x, float& out_y)
+{
+    bool has = commit_x != 0.0f || commit_y != 0.0f;
+    float vmag = sqrtf(own_vel_x * own_vel_x + own_vel_y * own_vel_y);
+    if (vmag < self_speed * 0.3f) vmag = 0.0f;
+    float hx = vmag > 0.0f ? own_vel_x / vmag : (has ? commit_x : 1.0f);
+    float hy = vmag > 0.0f ? own_vel_y / vmag : (has ? commit_y : 0.0f);
+    float base = atan2f(hy, hx);
+    uint64_t now = us() / 1000;
+    float dt = last_turn_ms ? (float)(now - last_turn_ms) : (float)TICK_MS;
+    last_turn_ms = now;
+    if (dt > (float)TICK_MS * 4.0f) dt = (float)TICK_MS * 4.0f;
+    float lim = TURN_PER_TICK * dt / (float)TICK_MS;
+    float bx = hx, by = hy, best = -1e30f;
+    for (int pass = 0; pass < 2; pass++)
+    {
+        for (int i = 0; i < DIRS; i++)
+        {
+            float a = 6.2831853f * (float)i / (float)DIRS;
+            float d = fmodf(a - base + 3.14159265f, 6.2831853f);
+            if (d < 0.0f) d += 6.2831853f;
+            d -= 3.14159265f;
+            if (!pass && fabsf(d) > lim) continue;
+            float v = dir_value(mx, my, cosf(a), sinf(a));
+            if (v > best)
+            {
+                best = v;
+                bx = cosf(a);
+                by = sinf(a);
+            }
+        }
+        if (!pass && best >= 0.0f) break;
+        if (!pass) bx = hx, by = hy, best = -1e30f;
+    }
+    ad_best_dir = ((int)lroundf(atan2f(by, bx) * 1.2732395f) + 8) & 7;
+    commit_x = bx;
+    commit_y = by;
+    out_x = bx, out_y = by;
+}
+}
+static void release_move()
+{
+    if (!coord_ok || wall_cache_w() <= 0 || wall_cache_h() <= 0)
+    {
+        return;
+    }
+    float step = self_speed * (float)(TICK_MS * RELEASE_TICKS) * 0.001f;
+    enqueue(axis((float)own_x + commit_x * step, wall_cache_w()),
+            axis((float)own_y + commit_y * step, wall_cache_h()));
+}
+
 static void end_dodge()
 {
+    if (active)
+    {
+        release_move();
+    }
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
     active = 0;
 }
+
 static void learn_vtable()
 {
     void* data = nullptr;
@@ -278,97 +344,6 @@ static void learn_vtable()
         rva >= DC_RVA_LO + DC_RVA_SIZE)
         return;
     char_vt = rva;
-}
-static float wall_pull(float mx, float my, float dx, float dy)
-{
-    int blocked = 0;
-    for (int i = 1; i <= WALL_PROBES; i++)
-    {
-        float d = REACH * 0.5f * (float)i / (float)WALL_PROBES;
-        blocked +=
-            wall_is_blocked_wide(
-                mx + dx * d, my + dy * d, OWN_HITBOX, WALL_BLOCKS_MOVEMENT)
-                ? 1
-                : 0;
-    }
-    float pin_x = (float)axis(mx + dx * REACH, wall_cache_w()) - mx;
-    float pin_y = (float)axis(my + dy * REACH, wall_cache_h()) - my;
-    float room = sqrtf(pin_x * pin_x + pin_y * pin_y) / REACH;
-    return (float)blocked / (float)WALL_PROBES + (1.0f - room);
-}
-static float dir_threat(float mx, float my, float dx, float dy)
-{
-    float worst = 1e30f;
-    for (int i = 0; i < threat_n; i++)
-    {
-        float c = clear_one(mx, my, dx, dy, threats[i]);
-        if (c < worst) worst = c;
-    }
-    return worst;
-}
-static float dir_value(float mx, float my, float dx, float dy)
-{
-    return dir_threat(mx, my, dx, dy) - OWN_HITBOX * wall_pull(mx, my, dx, dy);
-}
-static void choose(float mx, float my, float& out_x, float& out_y)
-{
-    bool has = commit_x != 0.0f || commit_y != 0.0f;
-    float vmag = sqrtf(own_vel_x * own_vel_x + own_vel_y * own_vel_y);
-    bool moving = vmag > self_speed * 0.3f;
-    float px = moving ? own_vel_x / vmag : 1.0f;
-    float py = moving ? own_vel_y / vmag : 0.0f;
-    float bx = has ? commit_x : px;
-    float by = has ? commit_y : py;
-    float best = -1e30f, best_threat = -1e30f;
-    for (int pass = 0; pass < 2; pass++)
-    {
-        for (int i = 0; i < DIRS; i++)
-        {
-            float a = 6.2831853f * (float)i / (float)DIRS;
-            float dx = cosf(a), dy = sinf(a);
-            if (!pass && moving && dx * px + dy * py < 0.0f) continue;
-            float th = dir_threat(mx, my, dx, dy);
-            float v = th - OWN_HITBOX * wall_pull(mx, my, dx, dy);
-            if (v > best)
-            {
-                best = v;
-                bx = dx;
-                by = dy;
-            }
-            if (!pass && th > best_threat) best_threat = th;
-        }
-        if (pass == 0 && (!has || best_threat >= 0.0f)) break;
-    }
-    if (has)
-    {
-        float keep = dir_value(mx, my, commit_x, commit_y);
-        if (keep + OWN_HITBOX * 0.5f >= best)
-        {
-            bx = commit_x;
-            by = commit_y;
-        }
-    }
-    if (moving)
-    {
-        uint64_t now = us() / 1000;
-        float dt = last_turn_ms ? (float)(now - last_turn_ms) : (float)TICK_MS;
-        last_turn_ms = now;
-        if (dt > (float)TICK_MS * 4.0f) dt = (float)TICK_MS * 4.0f;
-        float lim = TURN_PER_TICK * dt / (float)TICK_MS;
-        float pa = atan2f(py, px);
-        float d = atan2f(by, bx) - pa;
-        if (d > 3.14159265f) d -= 6.2831853f;
-        if (d < -3.14159265f) d += 6.2831853f;
-        if (d > lim) d = lim;
-        if (d < -lim) d = -lim;
-        bx = cosf(pa + d);
-        by = sinf(pa + d);
-    }
-    ad_best_dir = ((int)lroundf(atan2f(by, bx) * 1.2732395f) + 8) & 7;
-    commit_x = bx;
-    commit_y = by;
-    out_x = bx, out_y = by;
-}
 }
 void autododge_reset()
 {
