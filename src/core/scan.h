@@ -24,6 +24,7 @@ BOOL query_region(uintptr_t address, vm_prot_t* protection, vm_prot_t* maxProtec
                   uintptr_t* regionStart);
 BOOL addr_writable(uintptr_t address, size_t length);
 BOOL read_bytes(uintptr_t address, void* out, size_t length);
+void read_cache_reset();
 BOOL pointer_plausible(uintptr_t value);
 BOOL read_int(uintptr_t address, int32_t* out);
 BOOL writable(uintptr_t address, size_t length);
