@@ -951,7 +951,12 @@ static void scan_offset_audit()
             read_int(pdef + 0x1d4, &s1d4);
             read_int(pdef + 0x1d8, &s1d8);
             line("[OFFCHK] pdef=%p d6c=%d d74=%d d124=%d d1d4=%d d1d8=%d\n",
-                 (void*)pdef, s6c, s74, s124, s1d4, s1d8);
+                 (void*)pdef,
+                 s6c,
+                 s74,
+                 s124,
+                 s1d4,
+                 s1d8);
         }
     }
 
@@ -976,12 +981,20 @@ static void scan_offset_audit()
         if (edef)
         {
             const uintptr_t ns = scan_call(addr_dataname, edef, 0);
-            if (ns) read_scstring(ns, SCSTRING_DEFAULT_MAX_LENGTH, ename, sizeof(ename));
+            if (ns)
+                read_scstring(
+                    ns, SCSTRING_DEFAULT_MAX_LENGTH, ename, sizeof(ename));
             if (addr_charspeed)
                 espd = static_cast<int32_t>(scan_call(addr_charspeed, edef, 0));
         }
         line("[OFFCHK] enemy=%p name=%s team=%d hp=%d x=%d y=%d spd=%d\n",
-             (void*)obj, ename[0] ? ename : "?", et, eh, ex, ey, espd);
+             (void*)obj,
+             ename[0] ? ename : "?",
+             et,
+             eh,
+             ex,
+             ey,
+             espd);
         shownEnemy++;
     }
 
