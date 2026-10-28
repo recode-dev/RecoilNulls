@@ -1,5 +1,4 @@
 #include "autododge.h"
-#include "../core/adcore.h"
 #include "../core/commands.h"
 #include "../core/scan.h"
 #include "../core/scstring.h"
