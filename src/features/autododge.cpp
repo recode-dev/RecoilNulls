@@ -35,6 +35,9 @@ constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
 constexpr uint64_t CALM_MS = 100;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
+constexpr int SIM_STEPS = 20;
+constexpr float SIM_T = (float)SIM_STEPS * TICK_MS_SEC;
+constexpr float SIM_STEP_W = 4096.0f;
 }
 namespace ad
 {
@@ -222,18 +225,13 @@ void collect_projs(uint64_t now, float mx, float my)
         if (!(st->flags & (B_IND | B_PIERCE)) &&
             !wall_los(px, py, mx, my, WALL_BLOCKS_PROJECTILES))
             continue;
-        float dot = vx * dx + vy * dy;
-        if (dot >= 0.0f) continue;
-        float rad = st->rad + OWN_HITBOX;
-        float vv = vx * vx + vy * vy, tt = -dot / vv;
-        float qx = dx + vx * tt, qy = dy + vy * tt,
-              dmin = sqrtf(qx * qx + qy * qy);
-        if (dmin > rad) continue;
+        float vv = vx * vx + vy * vy;
+        if (vv <= 0.0f) continue;
         if (threat_n >= THREAT_MAX) continue;
-        float gap = fmaxf(rad * rad - dmin * dmin, 0.0f);
         Threat& t = threats[threat_n++];
-        t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.rad = rad, t.pid = pid;
-        t.tt = tt - sqrtf(gap) / st->speed;
+        t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.pid = pid;
+        t.rad = st->rad + OWN_HITBOX;
+        t.tt = -(dx * vx + dy * vy) / vv;
         memcpy(t.name, st->name, sizeof(t.name));
         t.name[sizeof(t.name) - 1] = '\0';
     }
@@ -253,19 +251,43 @@ static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
 static uint64_t calm_ms = 0;
 static uint32_t last_hp = 0;
-static float dir_threat(float mx, float my, float dx, float dy)
-{
-    float worst = 1e30f;
-    for (int i = 0; i < threat_n; i++)
-    {
-        float c = clear_one(mx, my, dx, dy, threats[i]);
-        if (c < worst) worst = c;
-    }
-    return worst;
-}
 static float dir_value(float mx, float my, float dx, float dy)
 {
-    return dir_threat(mx, my, dx, dy) -
+    float mx_step = dx * self_speed, my_step = dy * self_speed;
+    int survive = SIM_STEPS + 1;
+    float margin = 1e30f;
+    for (int i = 0; i < threat_n; i++)
+    {
+        const Threat& t = threats[i];
+        float rx = t.x - mx, ry = t.y - my;
+        float sx = t.vx - mx_step, sy = t.vy - my_step;
+        float r2 = t.rad * t.rad;
+        int hit = 0;
+        for (int k = 1; k <= SIM_STEPS && !hit; k++)
+        {
+            float ex = rx + sx * (float)k * TICK_MS_SEC;
+            float ey = ry + sy * (float)k * TICK_MS_SEC;
+            if (ex * ex + ey * ey < r2) hit = k;
+        }
+        if (hit)
+        {
+            if (hit < survive) survive = hit;
+            continue;
+        }
+        float vv = sx * sx + sy * sy;
+        float tt = 0.0f;
+        if (vv > VV_EPS)
+        {
+            tt = -(rx * sx + ry * sy) / vv;
+            if (tt < 0.0f) tt = 0.0f;
+            if (tt > SIM_T) tt = SIM_T;
+        }
+        float ex = rx + sx * tt, ey = ry + sy * tt;
+        float c = sqrtf(ex * ex + ey * ey) - t.rad;
+        if (c < margin) margin = c;
+    }
+    if (margin > 1e29f) margin = 0.0f;
+    return (float)survive * SIM_STEP_W + margin -
            OWN_HITBOX * wall_pull(mx, my, dx, dy, OWN_HITBOX);
 }
 static void choose(float mx, float my, float& out_x, float& out_y)
