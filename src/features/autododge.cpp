@@ -486,8 +486,7 @@ void autododge()
     else if (!active || now - calm_ms >= CALM_MS)
     {
         end_dodge();
-        if (stop_ms && now - stop_ms < STOP_HOLD_MS &&
-            now - sent_ms >= SEND_MS)
+        if (stop_ms && now - stop_ms < STOP_HOLD_MS && now - sent_ms >= SEND_MS)
         {
             sent_ms = now;
             enqueue(axis(stop_x, wall_cache_w()), axis(stop_y, wall_cache_h()));
