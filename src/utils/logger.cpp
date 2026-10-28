@@ -937,6 +937,54 @@ static void scan_offset_audit()
              pname[0] ? pname : "?");
     }
 
+    if (proj)
+    {
+        void* pdefRaw = nullptr;
+        read_ptr(proj + 0x10, &pdefRaw);
+        const uintptr_t pdef = reinterpret_cast<uintptr_t>(pdefRaw);
+        if (pdef)
+        {
+            int32_t s6c = 0, s74 = 0, s124 = 0, s1d4 = 0, s1d8 = 0;
+            read_int(pdef + 0x6c, &s6c);
+            read_int(pdef + 0x74, &s74);
+            read_int(pdef + 0x124, &s124);
+            read_int(pdef + 0x1d4, &s1d4);
+            read_int(pdef + 0x1d8, &s1d8);
+            line("[OFFCHK] pdef=%p d6c=%d d74=%d d124=%d d1d4=%d d1d8=%d\n",
+                 (void*)pdef, s6c, s74, s124, s1d4, s1d8);
+        }
+    }
+
+    int shownEnemy = 0;
+    for (int i = 0; i < obj_count && shownEnemy < 2; i++)
+    {
+        if (!obj_valid[i]) continue;
+        const uintptr_t obj = obj_snapshot[i];
+        if (!obj || obj == own_elem) continue;
+        int32_t eg = 0, et = 0, eh = 0, ex = 0, ey = 0;
+        if (!read_int(obj + 0x08, &eg) || eg <= 0 || eg >= 2000000) continue;
+        read_int(obj + 0x40, &et);
+        read_int(obj + 0xc4, &eh);
+        read_int(obj + 0x30, &ex);
+        read_int(obj + 0x34, &ey);
+        if (et < 0 || et == own_team_b || eh <= 0) continue;
+        void* edefRaw = nullptr;
+        read_ptr(obj + 0x10, &edefRaw);
+        const uintptr_t edef = reinterpret_cast<uintptr_t>(edefRaw);
+        char ename[64]{};
+        int32_t espd = -1;
+        if (edef)
+        {
+            const uintptr_t ns = scan_call(addr_dataname, edef, 0);
+            if (ns) read_scstring(ns, SCSTRING_DEFAULT_MAX_LENGTH, ename, sizeof(ename));
+            if (addr_charspeed)
+                espd = static_cast<int32_t>(scan_call(addr_charspeed, edef, 0));
+        }
+        line("[OFFCHK] enemy=%p name=%s team=%d hp=%d x=%d y=%d spd=%d\n",
+             (void*)obj, ename[0] ? ename : "?", et, eh, ex, ey, espd);
+        shownEnemy++;
+    }
+
     if (scene_object)
     {
         void* ctrlRaw = nullptr;
