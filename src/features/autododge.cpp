@@ -14,7 +14,7 @@
 
 int active = 0, moving = 0, in_move = 0;
 int ad_beam_n = 0;
-int ad_ind_n = 0, ad_grv_n = 0;
+int ad_ind_n = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int ad_best_dir = -1;
 int ad_char_n = 0, ad_proj_n = 0, ad_enemy_n = 0, ad_threat_n = 0;
@@ -27,9 +27,7 @@ float ad_threat_score[AD_REPORT_MAX] = {0}, ad_threat_spd[AD_REPORT_MAX] = {0};
 int ad_threat_ind[AD_REPORT_MAX] = {0};
 int ad_threat_pierce[AD_REPORT_MAX] = {0};
 int ad_threat_bounce[AD_REPORT_MAX] = {0};
-int ad_threat_shothero[AD_REPORT_MAX] = {0};
 int ad_threat_piercechars[AD_REPORT_MAX] = {0};
-int ad_threat_tv[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_hit[256] = {0};
 
@@ -106,9 +104,7 @@ struct Threat
     int ricochet;
     int pierce;
     int bounce;
-    int shotHero;
     int pierceChars;
-    int travelType;
     int32_t pid;
     char name[40];
 };
@@ -124,8 +120,7 @@ struct ProjectileState
     bool probed;
     float last_ux, last_uy;
     bool isIndirect, isBeam, hasVelocity, isRicochet;
-    bool shotByHero, isBouncing, piercesChars, piercesEnv, piercesEnvButter;
-    int32_t travelType;
+    bool isBouncing, piercesChars, piercesEnv, piercesEnvButter;
     uint64_t ricochetUntil;
     int32_t rawSpeed, rawRadius, rawEarly;
 };
@@ -537,7 +532,7 @@ void autododge()
 {
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = 0;
-    ad_ind_n = ad_grv_n = 0;
+    ad_ind_n = 0;
     ad_vp_n = 0;
     ad_obj_n = 0;
     ad_nv_n = 0;
@@ -675,11 +670,7 @@ void autododge()
             state.rawRadius = projRadius;
             state.rawEarly = projEarly;
             state.isIndirect = data[PROJECTILEDATA_INDIRECT_OFF] != 0;
-            state.shotByHero = data[PROJECTILEDATA_SHOT_BY_HERO_OFF] != 0;
             state.isBeam = data[PROJECTILEDATA_ISBEAM_OFF] != 0;
-            state.travelType = 0;
-            read_int(dataPtr + PROJECTILEDATA_TRAVELTYPE_OFF,
-                     &state.travelType);
             state.isBouncing = data[PROJECTILEDATA_ISBOUNCING_OFF] != 0;
             state.piercesChars = data[PROJECTILEDATA_PIERCES_CHARS_OFF] != 0;
             state.piercesEnv = data[PROJECTILEDATA_PIERCES_ENV_OFF] != 0;
@@ -787,12 +778,6 @@ void autododge()
             continue;
         }
         if (state.isIndirect) ad_ind_n++;
-        {
-            int32_t grv;
-            memcpy(&grv, data + PROJECTILEDATA_GRAVITY_OFF, sizeof(grv));
-            if (grv != 0) ad_grv_n++;
-        }
-
         float mag = state.speed;
         if (mag < DEF_SPEED_MIN || mag > DEF_SPEED_MAX) mag = state.meas;
         bool blob = !state.isBeam && !state.isIndirect && mag > 0.0f &&
@@ -841,9 +826,7 @@ void autododge()
         item.ricochet = state.isRicochet ? 1 : 0;
         item.pierce = (state.piercesEnv || state.piercesEnvButter) ? 1 : 0;
         item.bounce = state.isBouncing ? 1 : 0;
-        item.shotHero = state.shotByHero ? 1 : 0;
         item.pierceChars = state.piercesChars ? 1 : 0;
-        item.travelType = state.travelType;
         item.pid = pid;
         memcpy(item.name, state.name, sizeof(item.name) - 1);
         item.name[sizeof(item.name) - 1] = '\0';
@@ -909,9 +892,7 @@ void autododge()
         ad_threat_ind[slot] = t.ind;
         ad_threat_pierce[slot] = t.pierce;
         ad_threat_bounce[slot] = t.bounce;
-        ad_threat_shothero[slot] = t.shotHero;
         ad_threat_piercechars[slot] = t.pierceChars;
-        ad_threat_tv[slot] = t.travelType;
         ad_threat_score[slot] = score;
         memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
         ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';
