@@ -32,6 +32,7 @@ namespace
 constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
+constexpr uint64_t DWELL_MS = 150;
 constexpr int DIRS = 16;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 }
@@ -250,6 +251,7 @@ namespace
 {
 static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
+static uint64_t dir_ms = 0;
 static uint32_t last_hp = 0;
 static float dir_threat(float mx, float my, float dx, float dy)
 {
@@ -288,26 +290,14 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     out_x = bx, out_y = by;
 }
 }
-static int32_t hold_face = -1;
-
 static void hold_move()
 {
     if (!coord_ok || wall_cache_w() <= 0 || wall_cache_h() <= 0)
     {
         return;
     }
-    read_int(own_elem + OBJ_ATTACK_ANGLE_OFF, &hold_face);
     enqueue(axis((float)own_x, wall_cache_w()),
             axis((float)own_y, wall_cache_h()));
-}
-
-static void pin_face()
-{
-    if (!own_elem || hold_face < 0)
-    {
-        return;
-    }
-    write_bytes(own_elem + OBJ_ATTACK_ANGLE_OFF, &hold_face, sizeof(hold_face));
 }
 
 static void end_dodge()
@@ -349,7 +339,7 @@ void autododge_reset()
     last_hp = 0;
     pend_dmg = 0;
     sent_ms = 0;
-    hold_face = -1;
+    dir_ms = 0;
     commit_x = 0.0f, commit_y = 0.0f;
     memset(projs, 0, sizeof(projs));
     end_dodge();
@@ -365,7 +355,6 @@ void autododge()
         pend_dmg = (int)(last_hp - own_hp);
     }
     last_hp = own_hp;
-    pin_face();
     if (!base || !own_elem || dead || !coord_ok)
     {
         end_dodge();
@@ -392,14 +381,23 @@ void autododge()
         return;
     }
     float dir_x = 1.0f, dir_y = 0.0f;
+    const float px = commit_x, py = commit_y;
     choose(mx, my, dir_x, dir_y);
+    if ((px != 0.0f || py != 0.0f) && now - dir_ms < DWELL_MS)
+    {
+        dir_x = px, dir_y = py;
+        commit_x = px, commit_y = py;
+    }
+    else
+    {
+        dir_ms = now;
+    }
     fill_report(mx, my, dir_x, dir_y);
     int32_t tx = axis(mx + dir_x * REACH, wall_cache_w());
     int32_t ty = axis(my + dir_y * REACH, wall_cache_h());
     if (ad_target_x != tx || ad_target_y != ty || now - sent_ms >= TICK_MS)
     {
         sent_ms = now;
-        hold_face = -1;
         enqueue(tx, ty);
         ad_target_x = tx;
         ad_target_y = ty;
