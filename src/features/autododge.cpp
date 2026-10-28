@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <vector>
 
-int active = 0, moving = 0;
+int active = 0, moving = 0, in_move = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int ad_best_dir = -1;
 int ad_char_n = 0, ad_proj_n = 0, ad_enemy_n = 0, ad_threat_n = 0;
