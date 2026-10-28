@@ -47,7 +47,8 @@ float ad_enemy_x[AD_ENEMY_MAX] = {0.0f};
 float ad_enemy_y[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_hp[AD_ENEMY_MAX] = {0};
 float ad_enemy_d[AD_ENEMY_MAX] = {0.0f};
-int ad_enemy_aim[AD_ENEMY_MAX] = {0};
+int ad_enemy_aimx[AD_ENEMY_MAX] = {0};
+int ad_enemy_aimy[AD_ENEMY_MAX] = {0};
 
 constexpr float AWARE = 4400.0f, REACT_S = 0.35f, SKIN = 90.0f, REACH = 700.0f;
 constexpr float HORIZON_S = 1.55f, ENGAGE = 120.0f;
@@ -616,13 +617,14 @@ void autododge()
         {
             if (char_like(vtRva, obj))
             {
-                int32_t cteam, chp, cgid, cx_i, cy_i, camb;
+                int32_t cteam, chp, cgid, cx_i, cy_i, cax = 0, cay = 0;
                 memcpy(&cteam, obj + OBJ_TEAM_OFF, sizeof(cteam));
                 memcpy(&chp, obj + OBJ_HP_OFF, sizeof(chp));
                 memcpy(&cgid, obj + OBJ_GLOBALID_OFF, sizeof(cgid));
                 memcpy(&cx_i, obj + OBJ_X_OFF, sizeof(cx_i));
                 memcpy(&cy_i, obj + OBJ_Y_OFF, sizeof(cy_i));
-                memcpy(&camb, obj + OBJ_AIM_ANGLE_OFF, sizeof(camb));
+                read_int(obj_snapshot[i] + OBJ_AIM_X_OFF, &cax);
+                read_int(obj_snapshot[i] + OBJ_AIM_Y_OFF, &cay);
                 ad_char_n++;
                 if (cteam != own_team_b && chp > 0 && cgid > 0 &&
                     cgid != own_gid && ad_enemy_n < AD_ENEMY_MAX)
@@ -634,7 +636,8 @@ void autododge()
                     ad_enemy_hp[ad_enemy_n] = chp;
                     ad_enemy_d[ad_enemy_n] =
                         sqrtf(std::fma(edx, edx, edy * edy));
-                    ad_enemy_aim[ad_enemy_n] = camb;
+                    ad_enemy_aimx[ad_enemy_n] = cax;
+                    ad_enemy_aimy[ad_enemy_n] = cay;
                     ad_enemy_n++;
                 }
             }
@@ -703,12 +706,17 @@ void autododge()
                 }
                 if (bestK >= 0)
                 {
-                    float ang = (float)ad_enemy_aim[bestK] * 0.0174532925f;
-                    state.dir_x = cosf(ang);
-                    state.dir_y = sinf(ang);
-                    state.last_ux = state.dir_x;
-                    state.last_uy = state.dir_y;
-                    state.hasVelocity = true;
+                    float ax = (float)ad_enemy_aimx[bestK];
+                    float ay = (float)ad_enemy_aimy[bestK];
+                    float al = sqrtf(std::fma(ax, ax, ay * ay));
+                    if (al > 1.0f)
+                    {
+                        state.dir_x = ax / al;
+                        state.dir_y = ay / al;
+                        state.last_ux = state.dir_x;
+                        state.last_uy = state.dir_y;
+                        state.hasVelocity = true;
+                    }
                 }
             }
             state.name[0] = '\0';
