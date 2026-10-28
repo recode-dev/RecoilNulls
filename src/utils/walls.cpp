@@ -1,6 +1,7 @@
 #include "walls.h"
 #include "../core/scan.h"
 #include <array>
+#include <cmath>
 #include <cstring>
 
 inline constexpr int WALL_TYPE_CACHE_MAX = 128;
@@ -356,6 +357,7 @@ int32_t axis(float v, int tiles)
     if (v > limit) return (int32_t)limit;
     return (int32_t)roundf(v);
 }
+
 float wall_pull(float mx, float my, float dx, float dy, float radius)
 {
     constexpr int PROBES = 3;
