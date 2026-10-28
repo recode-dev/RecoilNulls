@@ -28,7 +28,6 @@ BOOL query_region(uintptr_t address,
 BOOL addr_writable(uintptr_t address, size_t length);
 BOOL read_bytes(uintptr_t address, void* out, size_t length);
 BOOL pointer_plausible(uintptr_t value);
-BOOL read_byte(uintptr_t address, uint8_t* out);
 BOOL read_int(uintptr_t address, int32_t* out);
 BOOL writable(uintptr_t address, size_t length);
 BOOL write_bytes(uintptr_t address, const void* src, size_t length);
@@ -132,7 +131,6 @@ extern uintptr_t obj_snapshot[COUNT_MAX];
 extern uint8_t obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
 extern uint8_t obj_valid[COUNT_MAX];
 extern int obj_count;
-extern uint64_t ticks_a;
 extern uint32_t own_hp;
 extern float own_r;
 extern float own_speed;

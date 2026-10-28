@@ -84,7 +84,7 @@ const char* dir_name(int dir)
     case 1:
         return "+x+y";
     case 2:
-        return "-x";
+        return "+y";
     case 3:
         return "-x+y";
     case 4:
@@ -191,38 +191,10 @@ void diag_tick()
              ad_threat_bounce[i],
              ad_threat_piercechars[i]);
     }
-    if (ad_probe[0])
-    {
-        line("[p] %s\n", ad_probe);
-        ad_probe[0] = 0;
-    }
-    for (int i = 0; i < ad_vp_n; i++)
-    {
-        line("[vp] %s\n", ad_vp[i]);
-    }
-    ad_vp_n = 0;
     if (ad_hit[0])
     {
         line("[hit] %s\n", ad_hit);
         ad_hit[0] = 0;
-        for (int i = 0; i < ad_obj_n; i++)
-        {
-            line("[o] %s\n", ad_obj[i]);
-        }
-        ad_obj_n = 0;
-    }
-    if (ad_cat_ready)
-    {
-        for (int i = 0; i < ad_cat_n; i++)
-        {
-            line("[cat] %s\n", ad_cat[i]);
-        }
-        line("[diff] %s\n", ad_diff);
-        ad_cat_ready = 0;
-    }
-    for (int i = 0; i < ad_nv_n; i++)
-    {
-        line("[nv] %s\n", ad_nv[i]);
     }
     for (int i = 0; i < ad_enemy_n && i < 4; i++)
     {

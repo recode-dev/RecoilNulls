@@ -15,7 +15,6 @@ static int wall_tiles_h = 0;
 static int wall_w = 0;
 static int wall_h = 0;
 static int wall_have = 0;
-static int wall_hole_n = 0;
 static uintptr_t wall_map = 0;
 static int wall_dirty = 1;
 static uint64_t wall_fail_ms = 0;
@@ -87,11 +86,6 @@ int wall_ready()
     return wall_have;
 }
 
-int wall_holes()
-{
-    return wall_hole_n;
-}
-
 void wall_drop()
 {
     wall_tiles = 0;
@@ -101,7 +95,6 @@ void wall_drop()
     wall_w = 0;
     wall_h = 0;
     wall_have = 0;
-    wall_hole_n = 0;
     wall_dirty = 1;
     wall_fail_ms = 0;
     wall_types_clear();
@@ -125,8 +118,7 @@ void wall_bind(uintptr_t tileMap)
         wall_w = 0;
         wall_h = 0;
         wall_have = 0;
-        wall_hole_n = 0;
-        wall_dirty = 1;
+            wall_dirty = 1;
         wall_fail_ms = 0;
     }
     if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_W_OFF), &mapW) ||
@@ -164,7 +156,6 @@ int wall_build()
     int holes = 0;
     int i = 0;
     wall_have = 0;
-    wall_hole_n = 0;
     if (!wall_tiles)
     {
         return 0;
@@ -219,11 +210,7 @@ int wall_build()
         }
         wall_grid[i] = bits;
     }
-    if (holes)
-    {
-        wall_hole_n = holes;
-        return 0;
-    }
+    if (holes) return 0;
     wall_w = width;
     wall_h = height;
     wall_have = 1;

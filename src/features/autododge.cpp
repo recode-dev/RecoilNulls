@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <vector>
 
-int active = 0, moving = 0, in_move = 0;
+int active = 0, in_move = 0;
 int ad_beam_n = 0;
 int ad_ind_n = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
@@ -31,17 +31,6 @@ int ad_threat_piercechars[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_hit[256] = {0};
 
-char ad_vp[AD_VP_MAX][128] = {{0}};
-int ad_vp_n = 0;
-char ad_probe[256] = {0};
-char ad_obj[AD_OBJ_MAX][88] = {{0}};
-int ad_obj_n = 0;
-char ad_cat[AD_CAT_MAX][620] = {{0}};
-int ad_cat_n = 0;
-int ad_cat_ready = 0;
-char ad_diff[600] = {0};
-char ad_nv[AD_NV_MAX][96] = {{0}};
-int ad_nv_n = 0;
 int ad_enemy_pid[AD_ENEMY_MAX] = {0};
 float ad_enemy_x[AD_ENEMY_MAX] = {0.0f};
 float ad_enemy_y[AD_ENEMY_MAX] = {0.0f};
@@ -61,10 +50,8 @@ constexpr uint64_t RICOCHET_HOLD_MS = 700;
 
 namespace
 {
-constexpr uintptr_t EARLY_TICKS_OFF = 0x80;
 constexpr float SPEED_SCALE = 1.0f, RADIUS_SCALE = 1.0f;
 constexpr float DEG_TO_RAD = 0.0174532925f;
-constexpr int32_t EARLY_TICK_MS = 16;
 constexpr float INF_F = std::numeric_limits<float>::infinity();
 constexpr float VV_EPS = 1e-6f, DT_MIN = 0.005f, DT_MAX = 0.2f;
 constexpr float POS_DELTA_MIN_SQ = 16.0f, PLAYER_ALONG_MIN = 0.0f;
@@ -74,7 +61,9 @@ constexpr float DEF_SPEED_MIN = 200.0f, DEF_SPEED_MAX = 20000.0f,
                 DIR_NEW = 0.45f;
 constexpr float HITBOX_FALLBACK = 120.0f, SPEED_FALLBACK = 720.0f;
 constexpr float DANGER_RADIUS = 550.0f, DANGER_RADIUS_RICOCHET = 800.0f;
-constexpr float TTC_MIN = 0.05f, DANGER_WALL = 0.9f;
+constexpr float TTC_MIN = 0.05f;
+constexpr float PIN_PENALTY = 2.0f;
+constexpr float BORDER_MARGIN = 600.0f, BORDER_ESCAPE_W = 0.55f;
 constexpr float DANGER_SUM_WEIGHT = 0.50f, DANGER_MAX = 1.0f,
                 DANGER_PICK_EPS = 0.02f;
 constexpr float INTEREST_ESCAPE_W = 0.7f, INTEREST_GOAL_W = 0.3f;
@@ -115,16 +104,12 @@ struct ProjectileState
     float dir_x, dir_y, speed, radius, meas;
     char name[128];
     float spawnX, spawnY, prevX, prevY;
-    int earlyTicks;
-    uint64_t spawnedAt, lastSeen, lastTs;
+    uint64_t lastSeen, lastTs;
     int32_t lastX, lastY, pid;
-    int32_t seen;
-    bool probed;
     float last_ux, last_uy;
+    uint64_t ricochetUntil;
     bool isIndirect, isBeam, hasVelocity, isRicochet;
     bool isBouncing, piercesChars, piercesEnv, piercesEnvButter;
-    uint64_t ricochetUntil;
-    int32_t rawSpeed, rawRadius, rawEarly;
 };
 
 static uintptr_t char_vt_rva = 0;
@@ -230,6 +215,16 @@ static int32_t clamp_axis(float value, int tiles) noexcept
     return (int32_t)roundf(value);
 }
 
+static float pinPenalty(float mx, float my, float dx, float dy) noexcept
+{
+    int32_t tx = clamp_axis(mx + dx * REACH, wall_cache_w());
+    int32_t ty = clamp_axis(my + dy * REACH, wall_cache_h());
+    float ex = (float)tx - mx, ey = (float)ty - my;
+    float room = sqrtf(std::fma(ex, ex, ey * ey));
+    if (room >= REACH) return 0.0f;
+    return PIN_PENALTY * (1.0f - room / REACH);
+}
+
 static void clearHeading() noexcept
 {
     headingIdx = -1;
@@ -248,7 +243,6 @@ static void endDodge() noexcept
     ad_target_x = INT32_MAX;
     ad_target_y = INT32_MAX;
     active = 0;
-    moving = 0;
 }
 
 static uintptr_t call_fn(uintptr_t fn, uintptr_t a, uintptr_t b) noexcept
@@ -309,14 +303,14 @@ static float dangerFor(
         if (c > max_c) max_c = c;
         sum_c += c;
     }
-    if (wallAhead(mx, my, dx, dy, speed, bodyR) > 0.0f) return DANGER_WALL;
     float danger = max_c + DANGER_SUM_WEIGHT * (sum_c - max_c);
     if (g_has_burst)
     {
         float parallel = fabsf(dx * g_burst_vx + dy * g_burst_vy);
         danger += parallel * BURST_PARALLEL_PENALTY;
     }
-    return danger > DANGER_MAX ? DANGER_MAX : danger;
+    if (danger > DANGER_MAX) danger = DANGER_MAX;
+    return danger + wallAhead(mx, my, dx, dy, speed, bodyR);
 }
 
 static void snapshot_hit(float mx, float my)
@@ -484,7 +478,6 @@ static bool try_post_dodge(float mx, float my, uint64_t now)
     ad_target_x = tx;
     ad_target_y = ty;
     active = 1;
-    moving = 1;
     return true;
 }
 }
@@ -500,11 +493,6 @@ void autododge_reset()
     ad_proj_n = 0;
     ad_enemy_n = 0;
     ad_threat_n = 0;
-    ad_vp_n = 0;
-    ad_obj_n = 0;
-    ad_cat_n = 0;
-    ad_cat_ready = 0;
-    ad_nv_n = 0;
     proj_cache_storage.clear();
     proj_cache_index.clear();
     headingIdx = -1;
@@ -515,7 +503,6 @@ void autododge_reset()
     ad_target_x = INT32_MAX;
     ad_target_y = INT32_MAX;
     active = 0;
-    moving = 0;
     ad_vx = 0.0f;
     ad_vy = 0.0f;
     prev_mx = 0.0f;
@@ -535,9 +522,6 @@ void autododge()
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = 0;
     ad_ind_n = 0;
-    ad_vp_n = 0;
-    ad_obj_n = 0;
-    ad_nv_n = 0;
     if (lastHpSeen && own_hp < lastHpSeen)
     {
         pendingHit = 1;
@@ -663,16 +647,12 @@ void autododge()
             state.prevX = px;
             state.prevY = py;
             state.lastTs = now;
-            int32_t projSpeed, projRadius, projEarly;
+            int32_t projSpeed, projRadius;
             read_int(dataPtr + PROJECTILEDATA_SPEED_OFF, &projSpeed);
             memcpy(&projRadius,
                    data + PROJECTILEDATA_RADIUS_OFF,
                    sizeof(projRadius));
-            read_int(dataPtr + EARLY_TICKS_OFF, &projEarly);
             state.pid = pid;
-            state.rawSpeed = projSpeed;
-            state.rawRadius = projRadius;
-            state.rawEarly = projEarly;
             state.isIndirect = data[PROJECTILEDATA_INDIRECT_OFF] != 0;
             state.isBeam = data[PROJECTILEDATA_ISBEAM_OFF] != 0;
             state.isBouncing = data[PROJECTILEDATA_ISBOUNCING_OFF] != 0;
@@ -684,9 +664,6 @@ void autododge()
             state.ricochetUntil = state.isBouncing ? (now + 2000) : 0;
             state.speed = (float)projSpeed * SPEED_SCALE;
             state.radius = (float)projRadius * RADIUS_SCALE;
-            state.earlyTicks = projEarly;
-            state.spawnedAt =
-                now - (uint64_t)state.earlyTicks * (uint64_t)EARLY_TICK_MS;
             state.spawnX = px;
             state.spawnY = py;
             {
@@ -781,7 +758,6 @@ void autododge()
         }
         ProjectileState& state = proj_cache_storage[it->second];
         state.lastSeen = now;
-        state.seen++;
         if (state.isRicochet && now >= state.ricochetUntil)
             state.isRicochet = false;
         if (!state.hasVelocity && state.speed > 0.0f)
@@ -1017,6 +993,30 @@ void autododge()
         ey /= elen;
     }
 
+    {
+        float bx = 0.0f, by = 0.0f;
+        int tw = wall_cache_w(), th = wall_cache_h();
+        if (tw > 0 && th > 0)
+        {
+            if (mx < BORDER_MARGIN) bx += 1.0f;
+            if ((float)tw * WALL_TILE_SIZE - mx < BORDER_MARGIN) bx -= 1.0f;
+            if (my < BORDER_MARGIN) by += 1.0f;
+            if ((float)th * WALL_TILE_SIZE - my < BORDER_MARGIN) by -= 1.0f;
+            float bl = sqrtf(std::fma(bx, bx, by * by));
+            if (bl > VV_EPS)
+            {
+                ex = ex * (1.0f - BORDER_ESCAPE_W) + (bx / bl) * BORDER_ESCAPE_W;
+                ey = ey * (1.0f - BORDER_ESCAPE_W) + (by / bl) * BORDER_ESCAPE_W;
+                elen = sqrtf(std::fma(ex, ex, ey * ey));
+                if (elen > 0.001f)
+                {
+                    ex /= elen;
+                    ey /= elen;
+                }
+            }
+        }
+    }
+
     if (g_has_burst)
     {
         float px1 = -g_burst_vy, py1 = g_burst_vx;
@@ -1056,7 +1056,8 @@ void autododge()
     for (int i = 0; i < CARDINALS; i++)
     {
         float d =
-            dangerFor(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED, bodyR);
+            dangerFor(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED, bodyR) +
+            pinPenalty(mx, my, cardDirX[i], cardDirY[i]);
         float dotEscape = cardDirX[i] * ex + cardDirY[i] * ey;
         float escapeScore = (dotEscape + SPEED_MIN) * HALF;
         float dotGoal = cardDirX[i] * gx + cardDirY[i] * gy;
@@ -1085,8 +1086,11 @@ void autododge()
     float outDirX = cardDirX[bestIdx], outDirY = cardDirY[bestIdx];
     if (hasPrev)
     {
-        float prevD = dangerFor(mx, my, prevDirX, prevDirY, CHAR_SPEED, bodyR);
-        if (now < dirLockUntil || prevD <= bestDanger + HYSTERESIS_MARGIN)
+        float prevPin = pinPenalty(mx, my, prevDirX, prevDirY);
+        float prevD =
+            dangerFor(mx, my, prevDirX, prevDirY, CHAR_SPEED, bodyR) + prevPin;
+        if ((now < dirLockUntil && prevPin < PIN_PENALTY * HALF) ||
+            prevD <= bestDanger + HYSTERESIS_MARGIN)
         {
             outDirX = prevDirX;
             outDirY = prevDirY;
@@ -1111,5 +1115,4 @@ void autododge()
         ad_target_y = ty;
     }
     active = 1;
-    moving = 1;
 }

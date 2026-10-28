@@ -14,7 +14,6 @@ int wall_build();
 void wall_drop();
 void wall_bind(uintptr_t tileMap);
 int wall_ready();
-int wall_holes();
 int wall_maybe_refresh(uint64_t now_ms);
 int wall_is_blocked_at(float x, float y, int mask);
 int wall_is_blocked_wide(float x, float y, float r, int mask);

@@ -226,10 +226,6 @@ BOOL pointer_plausible(uintptr_t value)
     }
     return YES;
 }
-BOOL read_byte(uintptr_t address, uint8_t* out)
-{
-    return read_bytes(address, out, 1);
-}
 BOOL read_int(uintptr_t address, int32_t* out)
 {
     if (!out)
@@ -414,7 +410,6 @@ void poll_for_game(int tick)
 }
 uintptr_t base = 0;
 uintptr_t manager_ptr = 0;
-uint64_t ticks_a = 0;
 float own_speed = 720.0f;
 float own_r = 120.0f;
 float own_vel_x = 0.0f;
@@ -654,7 +649,6 @@ void scan_world()
     track_own_speed();
     tilemap_tick(clientPtr);
     wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));
-    ticks_a++;
 }
 
 uint32_t workload_ticks = 0;
