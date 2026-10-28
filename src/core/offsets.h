@@ -12,7 +12,7 @@ inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM =
     0xa7f47cULL;
 
 inline constexpr uint64_t PROJECTILEDATA_SPEED_OFF = 0x124ULL;
-inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0x74ULL;
+inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0x130ULL;
 inline constexpr uint64_t PROJECTILEDATA_SHOT_BY_HERO_OFF = 0x1d8ULL;
 inline constexpr uint64_t PROJECTILEDATA_ISBEAM_OFF = 0x1d9ULL;
 inline constexpr uint64_t PROJECTILEDATA_ISBOUNCING_OFF = 0x1daULL;
