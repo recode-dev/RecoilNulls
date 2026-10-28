@@ -569,12 +569,14 @@ static bool struct_scan_remember(uintptr_t address, const char* label)
     return true;
 }
 
+static constexpr bool kStructDump = false;
 static bool struct_scan_dump_buffer(uintptr_t address,
                                     const char* label,
                                     const uint8_t* source,
                                     size_t bytes,
                                     int32_t pid)
 {
+    if (!kStructDump) return true;
     if (!source || !bytes || bytes > STRUCT_SCAN_MAX_BYTES) return false;
     uint8_t buffer[STRUCT_SCAN_MAX_BYTES];
     memcpy(buffer, source, bytes);
@@ -663,6 +665,7 @@ static bool struct_scan_vtable_in_image(uintptr_t vtable)
 
 static void struct_scan_string(uintptr_t value, const char* label)
 {
+    if (!kStructDump) return;
     if (!value || !pointer_plausible(value)) return;
     struct_scan_dump(value, label, 0x20, 0);
     char text[96]{};
@@ -675,6 +678,7 @@ static void struct_scan_string(uintptr_t value, const char* label)
 
 static void struct_scan_tilemap(uintptr_t tileMap)
 {
+    if (!kStructDump) return;
     int32_t width = 0, height = 0;
     void* arrayRaw = nullptr;
     if (!tileMap || !pointer_plausible(tileMap)) return;
@@ -758,6 +762,7 @@ static void struct_scan_tilemap(uintptr_t tileMap)
 
 static void struct_scan_flush_input_messages()
 {
+    if (!kStructDump) return;
     StructScanPendingInput pending[STRUCT_SCAN_MAX_PENDING_INPUTS]{};
     size_t count = 0;
     os_unfair_lock_lock(&structScanLock);
@@ -793,99 +798,46 @@ static void scan_offset_audit()
     lastMs = now;
     if (!own_elem) return;
 
-    int32_t x = 0, y = 0, oi = 0, tm = 0, gid = 0, hp = 0, hp2 = 0, d0 = 0,
-            alive140 = 0, act1e8 = 0;
+    int32_t x = 0, y = 0, oi = 0, tm = 0, gid = 0, hp = 0;
     read_int(own_elem + 0x30, &x);
     read_int(own_elem + 0x34, &y);
     read_int(own_elem + 0x3c, &oi);
     read_int(own_elem + 0x40, &tm);
     read_int(own_elem + 0x08, &gid);
     read_int(own_elem + 0xc4, &hp);
-    read_int(own_elem + 0xc8, &hp2);
-    read_int(own_elem + 0xd0, &d0);
-    read_int(own_elem + 0x140, &alive140);
-    read_int(own_elem + 0x1e8, &act1e8);
-    void* dataRaw = nullptr;
-    read_ptr(own_elem + 0x10, &dataRaw);
-    const uintptr_t data = reinterpret_cast<uintptr_t>(dataRaw);
-    line("[OFFCHK] own=%p x=%d y=%d oi=%d team=%d gid=%d hp=%d hp2=%d "
-         "d0=%d alive140=%d act1e8=%d def=%p\n",
-         (void*)own_elem,
-         x,
-         y,
-         oi,
-         tm,
-         gid,
-         hp,
-         hp2,
-         d0,
-         alive140,
-         act1e8,
-         (void*)data);
+    void* ownDefRaw = nullptr;
+    read_ptr(own_elem + 0x10, &ownDefRaw);
+    const uintptr_t ownDef = reinterpret_cast<uintptr_t>(ownDefRaw);
 
-    if (data)
+    int32_t mySpd = -1;
+    int32_t myRad = -1;
+    if (ownDef)
     {
-        int32_t d6c = 0, d74 = 0, d118 = 0, d124 = 0, d130 = 0, d13c = 0;
-        int32_t d1d4 = 0, d1d8 = 0, d200 = 0, d208 = 0, d210 = 0, d218 = 0;
-        int32_t d294 = 0, d298 = 0, d50 = 0, d54 = 0;
-        read_int(data + 0x50, &d50);
-        read_int(data + 0x54, &d54);
-        read_int(data + 0x6c, &d6c);
-        read_int(data + 0x74, &d74);
-        read_int(data + 0x118, &d118);
-        read_int(data + 0x124, &d124);
-        read_int(data + 0x130, &d130);
-        read_int(data + 0x13c, &d13c);
-        read_int(data + 0x1d4, &d1d4);
-        read_int(data + 0x1d8, &d1d8);
-        read_int(data + 0x200, &d200);
-        read_int(data + 0x208, &d208);
-        read_int(data + 0x210, &d210);
-        read_int(data + 0x218, &d218);
-        read_int(data + 0x294, &d294);
-        read_int(data + 0x298, &d298);
-        line("[OFFCHK] def d50=%d d54=%d d6c=%d d74=%d d118=%d d124=%d "
-             "d130=%d d13c=%d d1d4=%d d1d8=%d d200=%d d208=%d d210=%d "
-             "d218=%d d294=%d d298=%d\n",
-             d50,
-             d54,
-             d6c,
-             d74,
-             d118,
-             d124,
-             d130,
-             d13c,
-             d1d4,
-             d1d8,
-             d200,
-             d208,
-             d210,
-             d218,
-             d294,
-             d298);
+        if (addr_charspeed)
+            mySpd = static_cast<int32_t>(scan_call(addr_charspeed, ownDef, 0));
+        if (addr_charradius)
+            myRad = static_cast<int32_t>(scan_call(addr_charradius, ownDef, 0));
+    }
+    line("[OFFCHK] own x=%d y=%d hp=%d team=%d idx=%d gid=%d spd=%d r=%d\n",
+         x, y, hp, tm, oi, gid, mySpd, myRad);
 
-        const int32_t rvSpeed =
-            static_cast<int32_t>(scan_call(addr_charspeed, data, 0));
-        const int32_t rvRadius =
-            static_cast<int32_t>(scan_call(addr_charradius, data, 0));
-        const int32_t rvEarly =
-            static_cast<int32_t>(scan_call(addr_projearly, data, 0));
-        const uintptr_t rvBeam = scan_call(addr_projbeam, data, 0);
-        const uintptr_t rvName = scan_call(addr_dataname, data, 0);
-        char nameText[64]{};
-        if (rvName)
-            read_scstring(rvName,
-                          SCSTRING_DEFAULT_MAX_LENGTH,
-                          nameText,
-                          sizeof(nameText));
-        line("[OFFCHK] rva speed=%d radius=%d early=%d beam=%p name=%p "
-             "text=%s\n",
-             rvSpeed,
-             rvRadius,
-             rvEarly,
-             (void*)rvBeam,
-             (void*)rvName,
-             nameText[0] ? nameText : "?");
+    if (scene_object)
+    {
+        void* ctrlRaw = nullptr;
+        uintptr_t ctrl = 0;
+        if (read_ptr(scene_object + static_cast<uintptr_t>(CLIENT_OFF), &ctrlRaw) &&
+            ctrlRaw)
+            ctrl = reinterpret_cast<uintptr_t>(ctrlRaw);
+        int32_t cIdx = -1;
+        int32_t cTeam = -1;
+        int32_t cCount = 0;
+        if (ctrl)
+        {
+            read_int(ctrl + static_cast<uintptr_t>(CLIENT_OWNINDEX_OFF), &cIdx);
+            read_int(ctrl + static_cast<uintptr_t>(CLIENT_OWNTEAM_OFF), &cTeam);
+            read_int(ctrl + static_cast<uintptr_t>(MGR_COUNT_OFF), &cCount);
+        }
+        line("[OFFCHK] ctrl idx=%d team=%d count=%d\n", cIdx, cTeam, cCount);
     }
 
     uintptr_t proj = 0;
@@ -904,60 +856,23 @@ static void scan_offset_audit()
     }
     if (proj)
     {
-        int32_t px = 0, py = 0, p38 = 0, p3c = 0, p40 = 0, pd0 = 0, p118 = 0;
+        int32_t px = 0, py = 0, pteam = 0, pspd = 0, prad = 0;
         read_int(proj + 0x30, &px);
         read_int(proj + 0x34, &py);
-        read_int(proj + 0x38, &p38);
-        read_int(proj + 0x3c, &p3c);
-        read_int(proj + 0x40, &p40);
-        read_int(proj + 0xd0, &pd0);
-        read_int(proj + 0x118, &p118);
-        void* pdataRaw = nullptr;
-        read_ptr(proj + 0x10, &pdataRaw);
-        const uintptr_t pdata = reinterpret_cast<uintptr_t>(pdataRaw);
-        char pname[64]{};
-        if (pdata)
-        {
-            const uintptr_t s = scan_call(addr_dataname, pdata, 0);
-            if (s)
-                read_scstring(
-                    s, SCSTRING_DEFAULT_MAX_LENGTH, pname, sizeof(pname));
-        }
-        line("[OFFCHK] proj=%p x=%d y=%d p38=%d oi=%d team=%d o118=%d oD0=%d "
-             "def=%p name=%s\n",
-             (void*)proj,
-             px,
-             py,
-             p38,
-             p3c,
-             p40,
-             p118,
-             pd0,
-             (void*)pdata,
-             pname[0] ? pname : "?");
-    }
-
-    if (proj)
-    {
+        read_int(proj + 0x40, &pteam);
         void* pdefRaw = nullptr;
         read_ptr(proj + 0x10, &pdefRaw);
         const uintptr_t pdef = reinterpret_cast<uintptr_t>(pdefRaw);
+        char pname[64]{};
         if (pdef)
         {
-            int32_t s6c = 0, s74 = 0, s124 = 0, s1d4 = 0, s1d8 = 0;
-            read_int(pdef + 0x6c, &s6c);
-            read_int(pdef + 0x74, &s74);
-            read_int(pdef + 0x124, &s124);
-            read_int(pdef + 0x1d4, &s1d4);
-            read_int(pdef + 0x1d8, &s1d8);
-            line("[OFFCHK] pdef=%p d6c=%d d74=%d d124=%d d1d4=%d d1d8=%d\n",
-                 (void*)pdef,
-                 s6c,
-                 s74,
-                 s124,
-                 s1d4,
-                 s1d8);
+            read_int(pdef + 0x124, &pspd);
+            read_int(pdef + 0x74, &prad);
+            const uintptr_t ns = scan_call(addr_dataname, pdef, 0);
+            if (ns) read_scstring(ns, SCSTRING_DEFAULT_MAX_LENGTH, pname, sizeof(pname));
         }
+        line("[OFFCHK] proj name=%s team=%d x=%d y=%d spd=%d r=%d\n",
+             pname[0] ? pname : "?", pteam, px, py, pspd, prad);
     }
 
     int shownEnemy = 0;
@@ -981,71 +896,14 @@ static void scan_offset_audit()
         if (edef)
         {
             const uintptr_t ns = scan_call(addr_dataname, edef, 0);
-            if (ns)
-                read_scstring(
-                    ns, SCSTRING_DEFAULT_MAX_LENGTH, ename, sizeof(ename));
+            if (ns) read_scstring(ns, SCSTRING_DEFAULT_MAX_LENGTH, ename, sizeof(ename));
             if (addr_charspeed)
                 espd = static_cast<int32_t>(scan_call(addr_charspeed, edef, 0));
         }
-        line("[OFFCHK] enemy=%p name=%s team=%d hp=%d x=%d y=%d spd=%d\n",
-             (void*)obj,
-             ename[0] ? ename : "?",
-             et,
-             eh,
-             ex,
-             ey,
-             espd);
+        line("[OFFCHK] enemy name=%s hp=%d x=%d y=%d spd=%d\n",
+             ename[0] ? ename : "?", eh, ex, ey, espd);
         shownEnemy++;
     }
-
-    if (scene_object)
-    {
-        void* ctrlRaw = nullptr;
-        uintptr_t ctrl = 0;
-        if (read_ptr(scene_object + static_cast<uintptr_t>(CLIENT_OFF),
-                     &ctrlRaw) &&
-            ctrlRaw)
-            ctrl = reinterpret_cast<uintptr_t>(ctrlRaw);
-        int32_t cOwn = 0, cTeam = 0, cCount = 0, cMoveX = 0, cMoveY = 0,
-                cMoveOn = 0, cMoveZero = 0;
-        if (ctrl)
-        {
-            read_int(ctrl + 0xe0, &cOwn);
-            read_int(ctrl + 0xe4, &cTeam);
-            read_int(ctrl + 0x0c, &cCount);
-            read_int(ctrl + 0xfcc, &cMoveX);
-            read_int(ctrl + 0xfd0, &cMoveY);
-            read_int(ctrl + 0xf9c, &cMoveOn);
-            read_int(ctrl + 0xfa0, &cMoveZero);
-        }
-        line("[OFFCHK] ctrl=%p ownIdx=%d ownTeam=%d count=%d mvX=%d mvY=%d "
-             "mvOn=%d mvZero=%d\n",
-             (void*)ctrl,
-             cOwn,
-             cTeam,
-             cCount,
-             cMoveX,
-             cMoveY,
-             cMoveOn,
-             cMoveZero);
-    }
-
-    const uintptr_t rvOwnChar = scan_call(addr_getownchar, scene_object, 0);
-    const uintptr_t rvOwnTeam = scan_call(addr_getteam, scene_object, 0);
-    const uintptr_t rvOwnIdx = scan_call(addr_getownidx, scene_object, 0);
-    const uintptr_t rvGetX = scan_call(addr_getx, own_elem, 0);
-    const uintptr_t rvGetY = scan_call(addr_gety, own_elem, 0);
-    const uintptr_t rvGetGid = scan_call(addr_getgid, own_elem, 0);
-    const uintptr_t rvGetData = scan_call(addr_getdata, own_elem, 0);
-    line("[OFFCHK] rva2 ownChar=%p ownTeam=%p ownIdx=%p getX=%p getY=%p "
-         "getGid=%p getData=%p\n",
-         (void*)rvOwnChar,
-         (void*)rvOwnTeam,
-         (void*)rvOwnIdx,
-         (void*)rvGetX,
-         (void*)rvGetY,
-         (void*)rvGetGid,
-         (void*)rvGetData);
 }
 
 static void scan_required_structures(bool newMatch)
@@ -1253,6 +1111,7 @@ static void scan_required_structures(bool newMatch)
         }
     }
     scan_offset_audit();
+    if (!kStructDump) return;
     line("[STRUCTSCAN] totals records=%zu projectileDefinitions=%zu "
          "otherDataTypes=%zu objectTypes=%zu tileTypes=%zu\n",
          structScanRecordCount,
