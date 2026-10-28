@@ -165,6 +165,13 @@ BOOL addr_writable(uintptr_t address, size_t length)
 {
     return writable(address, length);
 }
+inline constexpr int PAGE_CACHE_SLOTS = 256;
+static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
+static __thread uint8_t page_cache_ok[PAGE_CACHE_SLOTS];
+static void read_cache_reset()
+{
+    for (int i = 0; i < PAGE_CACHE_SLOTS; i++) page_cache_key[i] = 0;
+}
 BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
     GumPageProtection protection = GUM_PAGE_NO_ACCESS;
@@ -196,16 +203,25 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     cursor = address;
     for (int guard = 0; cursor < end && guard < 64; guard++)
     {
-        if (!gum_memory_query_protection((gconstpointer)cursor, &protection))
+        uintptr_t page = cursor & ~(static_cast<uintptr_t>(pageSize) - 1);
+        int slot = (int)((page >> 12) & (PAGE_CACHE_SLOTS - 1));
+        uint8_t ok = 0;
+        if (page_cache_key[slot] == page)
+        {
+            ok = page_cache_ok[slot];
+        }
+        else
+        {
+            if (gum_memory_query_protection((gconstpointer)page, &protection))
+                ok = (protection & GUM_PAGE_READ) ? 1 : 0;
+            page_cache_key[slot] = page;
+            page_cache_ok[slot] = ok;
+        }
+        if (!ok)
         {
             return NO;
         }
-        if ((protection & GUM_PAGE_READ) == 0)
-        {
-            return NO;
-        }
-        cursor = (cursor & ~(static_cast<uintptr_t>(pageSize) - 1)) +
-                 static_cast<uintptr_t>(pageSize);
+        cursor = page + static_cast<uintptr_t>(pageSize);
     }
     if (cursor < end)
     {
@@ -668,8 +684,8 @@ void run_autododge()
     autododge();
     in_move = 0;
 }
-static constexpr uint64_t SCAN_PERIOD_US = 16667ULL;
-static constexpr uint64_t FRAME_DEDUPE_US = 8000ULL;
+static constexpr uint64_t SCAN_PERIOD_US = 8000ULL;
+static constexpr uint64_t FRAME_DEDUPE_US = 4000ULL;
 static uint64_t g_last_scan_us = 0;
 static void scan_frame()
 {
@@ -684,22 +700,24 @@ static void scan_frame()
     }
     g_last_scan_us = now;
     inside_hook = YES;
+    read_cache_reset();
     run_workload();
     inside_hook = NO;
 }
-static void schedule_frame();
-static void frame_tick()
+static dispatch_source_t scan_timer = nullptr;
+static void start_scan_timer()
 {
-    scan_frame();
-    schedule_frame();
-}
-static void schedule_frame()
-{
-    dispatch_after(
-        dispatch_time(DISPATCH_TIME_NOW,
-                      static_cast<int64_t>(SCAN_PERIOD_US * NSEC_PER_USEC)),
-        dispatch_get_main_queue(),
-        ^{ frame_tick(); });
+    if (scan_timer) return;
+    scan_timer = dispatch_source_create(
+        DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+    if (!scan_timer) return;
+    dispatch_source_set_timer(
+        scan_timer,
+        dispatch_time(DISPATCH_TIME_NOW, 0),
+        SCAN_PERIOD_US * NSEC_PER_USEC,
+        NSEC_PER_MSEC);
+    dispatch_source_set_event_handler(scan_timer, ^{ scan_frame(); });
+    dispatch_resume(scan_timer);
 }
 void setup()
 {
@@ -711,10 +729,7 @@ void setup()
     int armed = 0;
     armed += objc_arm(base, "MetalView", "render", scan_frame);
     armed += objc_arm(base, "NullView", "render", scan_frame);
-    if (!armed)
-    {
-        schedule_frame();
-    }
+    start_scan_timer();
     setup_done = YES;
 }
 void resolve_addresses()
