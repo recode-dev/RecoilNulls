@@ -568,8 +568,8 @@ void autododge()
     int32_t ty = axis(my + dir_y * REACH, wall_cache_h());
     float rem_x = (float)(ad_target_x - own_x);
     float rem_y = (float)(ad_target_y - own_y);
-    bool spent =
-        ad_target_x == INT32_MAX || rem_x * rem_x + rem_y * rem_y < REACH * REACH * 0.25f;
+    bool spent = ad_target_x == INT32_MAX ||
+                 rem_x * rem_x + rem_y * rem_y < REACH * REACH * 0.25f;
     bool turned = dir_x * sent_x + dir_y * sent_y < 0.94f;
     if (!ad_human && (spent || turned) && now - sent_ms >= SEND_MS)
     {
