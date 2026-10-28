@@ -6,8 +6,8 @@
 #include "../utils/walls.h"
 #include <cmath>
 #include <cstring>
-using namespace ad;
-
+namespace ad
+{
 Proj* find_proj(int32_t pid)
 {
     Proj* spare = nullptr;
@@ -194,4 +194,5 @@ void evict_stale(uint64_t now)
 {
     for (int i = 0; i < PROJ_SLOTS; i++)
         if (projs[i].pid && now - projs[i].seen > PROJ_TTL_MS) projs[i].pid = 0;
+}
 }
