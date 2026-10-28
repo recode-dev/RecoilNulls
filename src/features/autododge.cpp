@@ -197,10 +197,6 @@ void collect_projs(uint64_t now, float mx, float my)
         float dx = px - mx, dy = py - my;
         if (!st->vel) continue;
         float vx = st->ux * st->speed, vy = st->uy * st->speed;
-        if (vx * dx + vy * dy < 0.0f && !(st->flags & (B_BEAM | B_IND)))
-        {
-            float perp = fabsf(dx * vy - dy * vx) / st->speed;
-        }
         if (dx * dx + dy * dy > zone2) continue;
         if (st->flags & B_BEAM)
         {
