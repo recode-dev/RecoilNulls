@@ -304,13 +304,10 @@ static void probe_speed_field(uintptr_t dataPtr, int32_t pid, int32_t raw)
 {
     int len = 0;
     if (ad_probe[0] != 0) return;
-    len = snprintf(ad_probe,
-                   sizeof(ad_probe),
-                   "pid=%d speed@124=%d cand",
-                   pid,
-                   raw);
-    for (uintptr_t off = 0x40;
-         off <= 0x1f0 && len > 0 && len < static_cast<int>(sizeof(ad_probe)) - 16;
+    len = snprintf(
+        ad_probe, sizeof(ad_probe), "pid=%d speed@124=%d cand", pid, raw);
+    for (uintptr_t off = 0x40; off <= 0x1f0 && len > 0 &&
+                               len < static_cast<int>(sizeof(ad_probe)) - 16;
          off += 4)
     {
         int32_t cand = 0;
@@ -378,7 +375,8 @@ void autododge()
     ad_threat_n = 0;
     ad_best_dir = -1;
     own_gid = 0;
-    for (int i = 0; i < AD_REPORT_MAX; i++) ad_threat_name[i][0] = 0;
+    for (int i = 0; i < AD_REPORT_MAX; i++)
+        ad_threat_name[i][0] = 0;
     if (!base || !own_elem || dead)
     {
         active = 0;
