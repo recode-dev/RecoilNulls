@@ -546,8 +546,6 @@ void scan_world()
     uintptr_t own = 0;
     int32_t count = 0;
     int32_t state = -1;
-    int32_t ownIndex = -1;
-    int32_t ownTeam = -1;
     int32_t x = 0;
     int32_t y = 0;
     int32_t hp = 0;
@@ -622,67 +620,11 @@ void scan_world()
     }
     {
         // Resolve the own character through the game's getOwnCharacter()
-        // accessor: one stable RVA that walks the mode manager + index
-        // internally, instead of chasing CLIENT_OWNINDEX/OWNTEAM and
-        // re-matching owner + team against the manager array here.
+        // accessor: a single stable RVA that walks the mode manager + index
+        // internally.
         uintptr_t ownFn = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER);
         uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
-        if (ownByFn && pointer_plausible(ownByFn))
-        {
-            own = ownByFn;
-        }
-    }
-    if (!own)
-    {
-        // Fallback: legacy owner-index + team matching against the manager
-        // array.
-        if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNINDEX_OFF),
-                     &ownIndex) &&
-            ownIndex >= 0 && ownIndex < count)
-        {
-            own_index_v = ownIndex;
-        }
-        if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNTEAM_OFF),
-                     &ownTeam) &&
-            ownTeam >= 0 && ownTeam <= 15)
-        {
-            own_team_b = ownTeam;
-        }
-        int slot = -1;
-        int fallback = -1;
-        if (ownIndex >= 0 && ownIndex < count && obj_valid[ownIndex])
-        {
-            int32_t team = -1;
-            memcpy(&team, obj_block[ownIndex] + OBJ_TEAM_OFF, sizeof(team));
-            if (ownTeam < 0 || team == ownTeam)
-            {
-                slot = ownIndex;
-            }
-            fallback = ownIndex;
-        }
-        if (slot < 0)
-        {
-            for (int i = 0; i < count; i++)
-            {
-                int32_t owner = -1;
-                int32_t team = -1;
-                if (!obj_valid[i]) continue;
-                memcpy(
-                    &owner, obj_block[i] + OBJ_OWNERINDEX_OFF, sizeof(owner));
-                memcpy(&team, obj_block[i] + OBJ_TEAM_OFF, sizeof(team));
-                if (owner != ownIndex) continue;
-                if (ownTeam >= 0 && team != ownTeam) continue;
-                slot = i;
-                break;
-            }
-        }
-        if (slot < 0) slot = fallback;
-        if (slot >= 0)
-        {
-            own_index_v = slot;
-            own = obj_snapshot[slot];
-            if (!own || !pointer_plausible(own)) own = 0;
-        }
+        own = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
     }
     if (!own)
     {
