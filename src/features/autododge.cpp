@@ -410,7 +410,7 @@ void autododge()
             state.rawEarly = projEarly;
 
             state.isIndirect = ind != 0;
-            state.isBeam = call_fn(addr_projbeam, dataPtr, 0) != 0;
+            state.isBeam = false;
             state.speed = (float)projSpeed * SPEED_SCALE;
             state.radius = (float)projRadius * RADIUS_SCALE;
             state.earlyTicks = projEarly;

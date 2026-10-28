@@ -550,13 +550,16 @@ void scan_world()
     {
         own = 0;
     }
-    if (addr_getteam)
+    if (clientPtr)
     {
-        ownTeam = call_int(addr_getteam, clientPtr);
-    }
-    if (addr_getownidx)
-    {
-        ownIndex = call_int(addr_getownidx, clientPtr);
+        int32_t teamFromClient = -1;
+        int32_t indexFromClient = -1;
+        if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNTEAM_OFF),
+                     &teamFromClient))
+            ownTeam = teamFromClient;
+        if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNINDEX_OFF),
+                     &indexFromClient))
+            ownIndex = indexFromClient;
     }
     if (own)
     {
