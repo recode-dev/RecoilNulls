@@ -21,6 +21,10 @@ float ad_threat_ttc[AD_REPORT_MAX] = {0}, ad_threat_ca[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 int ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
 int ad_hit_picked = 0;
+float ad_pad = 0.0f, ad_pad_excess = 0.0f;
+int ad_probe_n = 0;
+int ad_probe_off[AD_PROBE_MAX] = {0};
+float ad_probe_val[AD_PROBE_MAX] = {0};
 float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
 float ad_hit_r[AD_REPORT_MAX] = {0};
 int ad_enemy_pid[AD_ENEMY_MAX] = {0};
@@ -57,6 +61,7 @@ struct Proj
     int32_t pid;
     uint64_t seen;
     float x, y, ux, uy, speed, rad;
+    float min_dmin;
     uint8_t flags;
     bool vel;
     char name[40];
@@ -71,6 +76,13 @@ static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
 static uint32_t last_hp = 0;
 static int pend_dmg = 0;
+
+static float pad = 0.0f;
+
+static float body_rad()
+{
+    return OWN_HITBOX + pad;
+}
 
 static int32_t axis(float v, int tiles)
 {
@@ -194,6 +206,7 @@ static void init_proj(
     st->y = py;
     st->speed = (float)speed;
     st->rad = (float)radius;
+    st->min_dmin = 1e9f;
     st->vel = false;
     st->ux = 0.0f;
     st->uy = 0.0f;
@@ -309,6 +322,15 @@ static void collect_projs(uint64_t now, float mx, float my)
         st->x = px;
         st->y = py;
         float dx = px - mx, dy = py - my;
+        if (st->vel && !(st->flags & (B_BEAM | B_IND)))
+        {
+            float vx = st->ux * st->speed, vy = st->uy * st->speed;
+            if (vx * dx + vy * dy < 0.0f)
+            {
+                float perp = fabsf(dx * vy - dy * vx) / st->speed;
+                if (perp < st->min_dmin) st->min_dmin = perp;
+            }
+        }
         if (dx * dx + dy * dy > zone2) continue;
         if (st->flags & B_BEAM)
         {
@@ -324,7 +346,7 @@ static void collect_projs(uint64_t now, float mx, float my)
         float sx = px - mx, sy = py - my;
         float dot = vx * sx + vy * sy;
         if (dot >= 0.0f) continue;
-        float rad = st->rad + OWN_HITBOX;
+        float rad = st->rad + body_rad();
         float vv = vx * vx + vy * vy;
         float tt = -dot / vv;
         float qx = sx + vx * tt, qy = sy + vy * tt;
@@ -375,6 +397,47 @@ static int nearest_unused(
     }
     *out_clear = bc;
     return best;
+}
+
+static void probe_body()
+{
+    static bool done = false;
+    if (done || !own_elem || !addr_readable(own_elem, 0x100)) return;
+    done = true;
+    ad_probe_n = 0;
+    for (uint64_t off = 0x00; off <= 0xf0 && ad_probe_n < AD_PROBE_MAX; off += 4)
+    {
+        float f = 0.0f;
+        if (!read_bytes(own_elem + off, &f, sizeof(f))) continue;
+        if (!(f > 20.0f && f < 400.0f)) continue;
+        ad_probe_off[ad_probe_n] = (int)off;
+        ad_probe_val[ad_probe_n] = f;
+        ad_probe_n++;
+    }
+}
+
+static void learn_pad(uint64_t now)
+{
+    const Proj* near = nullptr;
+    for (int i = 0; i < PROJ_SLOTS; i++)
+    {
+        const Proj* st = &projs[i];
+        if (!st->pid) continue;
+        if (st->flags & (B_BEAM | B_IND)) continue;
+        if (now - st->seen > 400) continue;
+        if (st->min_dmin > 400.0f) continue;
+        if (near == nullptr || st->min_dmin < near->min_dmin) near = st;
+    }
+    if (near == nullptr)
+    {
+        ad_pad_excess = 0.0f;
+        return;
+    }
+    float excess = near->min_dmin - (near->rad + body_rad());
+    ad_pad_excess = excess;
+    if (excess <= 0.0f || excess > 60.0f) return;
+    pad += excess;
+    if (pad > 90.0f) pad = 90.0f;
 }
 
 static void hit_report(float mx, float my, float dx, float dy)
@@ -465,6 +528,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
 void autododge_reset()
 {
     ad_best_dir = -1;
+    ad_pad = pad;
     ad_char_n = 0;
     ad_proj_n = 0;
     ad_enemy_n = 0;
@@ -476,6 +540,7 @@ void autododge_reset()
     last_hp = 0;
     pend_dmg = 0;
     sent_ms = 0;
+    pad *= 0.75f;
     memset(projs, 0, sizeof(projs));
     end_dodge();
 }
@@ -483,10 +548,15 @@ void autododge_reset()
 void autododge()
 {
     ad_best_dir = -1;
+    ad_pad = pad;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = ad_ind_n = 0;
     threat_n = 0;
-    if (own_hp < last_hp) pend_dmg = (int)(last_hp - own_hp);
+    if (own_hp < last_hp)
+    {
+        pend_dmg = (int)(last_hp - own_hp);
+        learn_pad(us() / 1000);
+    }
     last_hp = own_hp;
     if (!base || !own_elem || dead || !coord_ok)
     {
@@ -501,6 +571,7 @@ void autododge()
     }
     int32_t own_gid = 0;
     read_int(own_elem + OBJ_GLOBALID_OFF, &own_gid);
+    probe_body();
     self_speed = own_speed > 1.0f ? own_speed : 1.0f;
     uint64_t now = us() / 1000;
     float mx = (float)own_x, my = (float)own_y;
