@@ -226,6 +226,13 @@ void collect_projs(uint64_t now, float mx, float my)
             continue;
         float vv = vx * vx + vy * vy;
         if (vv <= 0.0f) continue;
+        int dup = 0;
+        for (int k = 0; k < threat_n && !dup; k++)
+            dup = fabsf(threats[k].x - px) < 1.0f &&
+                  fabsf(threats[k].y - py) < 1.0f &&
+                  fabsf(threats[k].vx - vx) < 1.0f &&
+                  fabsf(threats[k].vy - vy) < 1.0f;
+        if (dup) continue;
         if (threat_n >= THREAT_MAX) continue;
         Threat& t = threats[threat_n++];
         t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.pid = pid;
@@ -263,6 +270,15 @@ static float free_run(float mx, float my, float dx, float dy, float far)
         run = fminf(run, (h - OWN_HITBOX - my) / dy);
     else if (dy < -1e-6f)
         run = fminf(run, (OWN_HITBOX - my) / dy);
+    for (float d = WALL_TILE_SIZE; d < run; d += WALL_TILE_SIZE)
+    {
+        if (wall_is_blocked_wide(
+                mx + dx * d, my + dy * d, OWN_HITBOX, WALL_BLOCKS_MOVEMENT))
+        {
+            run = d;
+            break;
+        }
+    }
     return run > 0.0f ? run : 0.0f;
 }
 static void sim_pos(float mx,
