@@ -217,6 +217,7 @@ static void probe_analyze()
     {
         int pair = 0;
         int pairRot = 0;
+        int vecv = 0;
         int rad = 0;
         int deg = 0;
         int spd = 0;
@@ -235,6 +236,9 @@ static void probe_analyze()
             if (fabsf(f0 - ps.ux) < 0.03f && fabsf(f1 - ps.uy) < 0.03f) pair++;
             if (fabsf(f0 - ps.uy) < 0.03f && fabsf(f1 + ps.ux) < 0.03f)
                 pairRot++;
+            if (fabsf(f0 - ps.ux * ps.spd) < 60.0f &&
+                fabsf(f1 - ps.uy * ps.spd) < 60.0f)
+                vecv++;
             if (fabsf(f0 - ps.ang) < 0.02f) rad++;
             if (fabsf(f0 - ps.ang * 57.29578f) < 1.5f) deg++;
             if (fabsf(f0 - ps.spd) < 8.0f) spd++;
@@ -245,6 +249,7 @@ static void probe_analyze()
         }
         if (pair >= need) probe_add("vec", off, pair, n);
         if (pairRot >= need) probe_add("vec90", off, pairRot, n);
+        if (vecv >= need) probe_add("vec_v", off, vecv, n);
         if (rad >= need) probe_add("ang_rad", off, rad, n);
         if (deg >= need) probe_add("ang_deg", off, deg, n);
         if (spd >= need) probe_add("spd_f", off, spd, n);
@@ -460,13 +465,12 @@ static void snapshot_hit(float mx, float my)
             float rx = threats[i].x - mx;
             float ry = threats[i].y - my;
             float dist = sqrtf(rx * rx + ry * ry);
-            float vv =
-                threats[i].vx * threats[i].vx + threats[i].vy * threats[i].vy;
+            float vv = threats[i].vx * threats[i].vx +
+                       threats[i].vy * threats[i].vy;
             float ca = dist;
             if (vv > VV_EPS)
             {
-                float al =
-                    (rx * threats[i].vx + ry * threats[i].vy) / sqrtf(vv);
+                float al = (rx * threats[i].vx + ry * threats[i].vy) / sqrtf(vv);
                 float perp = dist * dist - al * al;
                 ca = perp > 0.0f ? sqrtf(perp) : 0.0f;
             }
@@ -485,14 +489,18 @@ static void snapshot_hit(float mx, float my)
                             sizeof(ad_hit) - static_cast<size_t>(len),
                             " | ca=%.0f ttc=%.2f r=%.0f",
                             bestCa,
-                            timeToCollision(mx, my, 0.0f, 0.0f, threats[best]),
+                            timeToCollision(mx,
+                                            my,
+                                            0.0f,
+                                            0.0f,
+                                            threats[best]),
                             threats[best].rad);
         }
     }
-    if (picked < 1 && len > 0 && len < static_cast<int>(sizeof(ad_hit)) - 8)
+    if (picked < 1 && len > 0 &&
+        len < static_cast<int>(sizeof(ad_hit)) - 8)
     {
-        snprintf(
-            ad_hit + len, sizeof(ad_hit) - static_cast<size_t>(len), " | none");
+        snprintf(ad_hit + len, sizeof(ad_hit) - static_cast<size_t>(len), " | none");
     }
 }
 
@@ -525,10 +533,13 @@ static void probe_speed_field(uintptr_t dataPtr, int32_t pid, int32_t raw)
 {
     int len = 0;
     if (ad_probe[0] != 0) return;
-    len = snprintf(
-        ad_probe, sizeof(ad_probe), "pid=%d speed@124=%d cand", pid, raw);
-    for (uintptr_t off = 0x40; off <= 0x1f0 && len > 0 &&
-                               len < static_cast<int>(sizeof(ad_probe)) - 16;
+    len = snprintf(ad_probe,
+                   sizeof(ad_probe),
+                   "pid=%d speed@124=%d cand",
+                   pid,
+                   raw);
+    for (uintptr_t off = 0x40;
+         off <= 0x1f0 && len > 0 && len < static_cast<int>(sizeof(ad_probe)) - 16;
          off += 4)
     {
         int32_t cand = 0;
@@ -607,8 +618,7 @@ void autododge()
     lastHpSeen = own_hp;
     ad_best_dir = -1;
     own_gid = 0;
-    for (int i = 0; i < AD_REPORT_MAX; i++)
-        ad_threat_name[i][0] = 0;
+    for (int i = 0; i < AD_REPORT_MAX; i++) ad_threat_name[i][0] = 0;
     if (!base || !own_elem || dead)
     {
         active = 0;
@@ -865,8 +875,7 @@ void autododge()
         if (!blob && !tracked)
         {
             autododge_scanner_event(SCAN_AD_NO_VELOCITY);
-            note_novelo(
-                pid, vtRva, state.rawSpeed, state.radius, px, py, mx, my);
+            note_novelo(pid, vtRva, state.rawSpeed, state.radius, px, py, mx, my);
         }
         if (blob) autododge_scanner_event(SCAN_AD_BLOB);
         float vx = (blob || !tracked) ? 0.0f : state.dir_x * mag;
