@@ -32,11 +32,6 @@ namespace
 constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
-// The dodge release has to name a point that is not our own position. A
-// zero-length move gives the controller a (0,0) heading vector, and its facing
-// resolves to atan2(0,0) - the character snaps round on the spot. Six units is
-// far below a tile (300) and invisible on the map, but keeps the heading alive.
-constexpr float HOLD_EPS = 6.0f;
 constexpr int DIRS = 16;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 }
@@ -299,20 +294,11 @@ static void hold_move()
     {
         return;
     }
-    if (commit_x == 0.0f && commit_y == 0.0f)
-    {
-        return;
-    }
-    int32_t tx = axis((float)own_x + commit_x * HOLD_EPS, wall_cache_w());
-    int32_t ty = axis((float)own_y + commit_y * HOLD_EPS, wall_cache_h());
-    if (tx == axis((float)own_x, wall_cache_w()) &&
-        ty == axis((float)own_y, wall_cache_h()))
-    {
-        // Pinned against the map edge: rounding ate the offset. Sending the
-        // bare position here is exactly the degenerate move we are avoiding.
-        return;
-    }
-    enqueue(tx, ty);
+    int32_t face = 0;
+    read_int(own_elem + OBJ_ATTACK_ANGLE_OFF, &face);
+    enqueue(axis((float)own_x, wall_cache_w()),
+            axis((float)own_y, wall_cache_h()));
+    write_bytes(own_elem + OBJ_ATTACK_ANGLE_OFF, &face, sizeof(face));
 }
 
 static void end_dodge()
