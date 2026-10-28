@@ -357,7 +357,6 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
 }
-}
 static void stop_move()
 {
     float n = sqrtf(commit_x * commit_x + commit_y * commit_y);
@@ -368,6 +367,7 @@ static void stop_move()
     float run = OWN_HITBOX * 1.5f;
     enqueue(axis((float)own_x + commit_x / n * run, wall_cache_w()),
             axis((float)own_y + commit_y / n * run, wall_cache_h()));
+}
 }
 
 static void end_dodge()
