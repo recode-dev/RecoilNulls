@@ -116,7 +116,6 @@ static void learn_vtable()
     char_vt = rva;
 }
 
-
 static float wall_pull(float mx, float my, float dx, float dy)
 {
     int blocked = 0;
