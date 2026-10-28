@@ -265,8 +265,8 @@ static float swept_ca_segment(float mx, float my, const Threat& t) noexcept
     return d1;
 }
 
-static float clearanceFor(
-    float mx, float my, float dx, float dy, float speed) noexcept
+static float
+clearanceFor(float mx, float my, float dx, float dy, float speed) noexcept
 {
     float worst = INF_F;
     for (const auto& t : threats)
@@ -674,7 +674,6 @@ void autododge()
             rebuild_projectile_cache_index();
     }
 
-
     for (const auto& t : threats)
     {
         float ttc = timeToCollision(mx, my, ad_vx, ad_vy, t);
@@ -773,10 +772,9 @@ void autododge()
     }
 
     float outDirX = bestDirX, outDirY = bestDirY;
-    if (hasPrev &&
-        clearanceFor(mx, my, commitDirX, commitDirY, CHAR_SPEED) +
-                OWN_HITBOX * 0.2f >=
-            bestClear)
+    if (hasPrev && clearanceFor(mx, my, commitDirX, commitDirY, CHAR_SPEED) +
+                           OWN_HITBOX * 0.2f >=
+                       bestClear)
     {
         outDirX = commitDirX;
         outDirY = commitDirY;
