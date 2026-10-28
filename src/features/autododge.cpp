@@ -31,24 +31,17 @@ int ad_enemy_aim[AD_ENEMY_MAX] = {0};
 namespace
 {
 constexpr float OWN_HITBOX = 120.0f;
-constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 2.5f;
 constexpr int DIRS = 16;
+constexpr int SIM_STEPS = 32;
 constexpr uint64_t CALM_MS = 145;
-constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
-constexpr int SIM_STEPS = 20;
-constexpr float SIM_T = (float)SIM_STEPS * TICK_MS_SEC;
-constexpr float SIM_STEP_W = 4096.0f;
-constexpr float ROOM_W = 900.0f;
-constexpr float AWAY_W = 250.0f;
-constexpr float MARGIN_CAP = OWN_HITBOX * 3.0f;
-constexpr float TURN_COS = 0.94f;
-constexpr float REM2 = (REACH * 0.5f) * (REACH * 0.5f);
 constexpr uint64_t SEND_MS = 100;
-constexpr int URGENT_STEPS = 3;
-constexpr int TURN_GAIN_STEPS = 2;
 constexpr uint64_t TURN_HOLD_MS = 150;
 constexpr uint64_t HUMAN_MS = 200;
+constexpr float WEIGHT_STEP = 4096.0f;
+constexpr float WEIGHT_POS = 900.0f;
+constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
+constexpr float SIM_T = (float)SIM_STEPS * TICK_MS_SEC;
 }
 namespace ad
 {
@@ -64,7 +57,7 @@ float clear_one(float mx, float my, float dx, float dy, const Threat& t)
     float rx = t.x - mx, ry = t.y - my;
     float vv = sx * sx + sy * sy;
     float tt = 0.0f;
-    if (vv > VV_EPS)
+    if (vv > 1e-6f)
     {
         tt = -(rx * sx + ry * sy) / vv;
         if (tt < 0.0f) tt = 0.0f;
@@ -243,7 +236,7 @@ static uintptr_t obj_rva[COUNT_MAX];
 
 void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
 {
-    float zone = self_speed * 4.0f, zone2 = zone * zone;
+    float zone = self_speed * 6.0f, zone2 = zone * zone;
     for (int i = 0; i < obj_count; i++)
     {
         obj_data[i] = 0;
@@ -271,7 +264,7 @@ float static_clear(const Threat& t, float mx, float my)
     float rx = t.x - mx, ry = t.y - my;
     float vv = t.vx * t.vx + t.vy * t.vy;
     float tt = 0.0f;
-    if (vv > VV_EPS)
+    if (vv > 1e-6f)
     {
         tt = -(rx * t.vx + ry * t.vy) / vv;
         if (tt < 0.0f) tt = 0.0f;
@@ -389,7 +382,7 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
         float sx = t.vx - mx_step, sy = t.vy - my_step;
         float vv = sx * sx + sy * sy;
         float tt = 0.0f;
-        if (vv > VV_EPS)
+        if (vv > 1e-6f)
         {
             tt = -(rx * sx + ry * sy) / vv;
             if (tt < 0.0f) tt = 0.0f;
@@ -403,10 +396,10 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
         if (c < margin) margin = c;
     }
     if (margin > 1e29f) margin = 0.0f;
-    if (margin > MARGIN_CAP) margin = MARGIN_CAP;
+    if (margin > OWN_HITBOX * 3.0f) margin = OWN_HITBOX * 3.0f;
     steps = survive;
-    return (float)survive * SIM_STEP_W + margin + ROOM_W * room +
-           AWAY_W * nearest_away(mx, my, dx, dy) -
+    return (float)survive * WEIGHT_STEP + margin + WEIGHT_POS * room +
+           WEIGHT_POS * 0.28f * nearest_away(mx, my, dx, dy) -
            OWN_HITBOX * wall_pull(mx, my, dx, dy, OWN_HITBOX);
 }
 static void choose(float mx, float my, float& out_x, float& out_y)
@@ -442,10 +435,10 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         int cur = 0;
         dir_value(mx, my, commit_x, commit_y, cur);
         uint64_t now = us() / 1000;
-        bool urgent = (cur > 0 && cur <= URGENT_STEPS) ||
+        bool urgent = (cur > 0 && cur <= 1) ||
                       free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
                           OWN_HITBOX * 2.0f;
-        bool gain = best_steps >= cur + TURN_GAIN_STEPS;
+        bool gain = best_steps >= cur + 2;
         if (!urgent && (now - turn_ms < TURN_HOLD_MS || !gain))
         {
             bx = commit_x, by = commit_y;
@@ -576,8 +569,8 @@ void autododge()
     float rem_x = (float)(ad_target_x - own_x);
     float rem_y = (float)(ad_target_y - own_y);
     bool spent =
-        ad_target_x == INT32_MAX || rem_x * rem_x + rem_y * rem_y < REM2;
-    bool turned = dir_x * sent_x + dir_y * sent_y < TURN_COS;
+        ad_target_x == INT32_MAX || rem_x * rem_x + rem_y * rem_y < REACH * REACH * 0.25f;
+    bool turned = dir_x * sent_x + dir_y * sent_y < 0.94f;
     if (!ad_human && (spent || turned) && now - sent_ms >= SEND_MS)
     {
         sent_ms = now;
