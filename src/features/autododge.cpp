@@ -426,8 +426,8 @@ static void choose(float mx, float my, float& out_x, float& out_y)
             float along = dx * commit_x + dy * commit_y;
             if (!pass && has && along < 0.0f) continue;
             float v = dir_value(mx, my, dx, dy);
-            if (v > best + 0.02f ||
-                (!(v < best - 0.02f) && has && along > bx * commit_x + by * commit_y))
+            if (v > best + 0.02f || (!(v < best - 0.02f) && has &&
+                                     along > bx * commit_x + by * commit_y))
             {
                 best = v;
                 bx = dx;
