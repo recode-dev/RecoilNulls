@@ -149,8 +149,13 @@ void diag_tick()
         hz = workload_ticks - prev_ticks;
         prev_ticks = workload_ticks;
     }
+    int32_t own_aim = 0;
+    if (own_elem)
+    {
+        read_int(own_elem + OBJ_ATTACK_ANGLE_OFF, &own_aim);
+    }
     line("[m] hz=%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d dir=%s "
-         "map=%dx%d dodge=%d hit=%d beam=%d ind=%d\n",
+         "map=%dx%d dodge=%d hit=%d beam=%d ind=%d fd=%d\n",
          static_cast<unsigned long>(hz),
          obj_count,
          ad_char_n,
@@ -166,7 +171,8 @@ void diag_tick()
          dodge_count,
          hit_count,
          ad_beam_n,
-         ad_ind_n);
+         ad_ind_n,
+         own_aim);
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) r=%.0f d=%.0f "
