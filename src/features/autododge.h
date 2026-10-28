@@ -22,6 +22,7 @@ extern float ad_threat_r[AD_REPORT_MAX];
 extern float ad_threat_d[AD_REPORT_MAX];
 extern float ad_threat_ttc[AD_REPORT_MAX];
 extern char ad_threat_name[AD_REPORT_MAX][40];
+extern char ad_probe[256];
 extern int ad_enemy_pid[AD_ENEMY_MAX];
 extern float ad_enemy_x[AD_ENEMY_MAX];
 extern float ad_enemy_y[AD_ENEMY_MAX];

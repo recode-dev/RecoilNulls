@@ -6,6 +6,7 @@
 #include "../utils/walls.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 #include <map>
 #include <cstdint>
@@ -30,6 +31,7 @@ float ad_threat_r[AD_REPORT_MAX] = {0.0f};
 float ad_threat_d[AD_REPORT_MAX] = {0.0f};
 float ad_threat_ttc[AD_REPORT_MAX] = {0.0f};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
+char ad_probe[256] = {0};
 int ad_enemy_pid[AD_ENEMY_MAX] = {0};
 float ad_enemy_x[AD_ENEMY_MAX] = {0.0f};
 float ad_enemy_y[AD_ENEMY_MAX] = {0.0f};
@@ -124,6 +126,7 @@ struct ProjectileState
 };
 
 static uintptr_t char_vt_rva = 0;
+static int32_t own_gid = 0;
 static std::vector<ProjectileState> proj_cache_storage;
 static std::map<int32_t, size_t> proj_cache_index;
 
@@ -297,6 +300,30 @@ dangerFor(float mx, float my, float dx, float dy, float speed, float bodyR)
 }
 }
 
+static void probe_speed_field(uintptr_t dataPtr, int32_t pid, int32_t raw)
+{
+    int len = 0;
+    if (ad_probe[0] != 0) return;
+    len = snprintf(ad_probe,
+                   sizeof(ad_probe),
+                   "pid=%d speed@124=%d cand",
+                   pid,
+                   raw);
+    for (uintptr_t off = 0x40;
+         off <= 0x1f0 && len > 0 && len < static_cast<int>(sizeof(ad_probe)) - 16;
+         off += 4)
+    {
+        int32_t cand = 0;
+        if (!read_int(dataPtr + off, &cand)) continue;
+        if (cand < 300 || cand > 9000) continue;
+        len += snprintf(ad_probe + len,
+                        sizeof(ad_probe) - static_cast<size_t>(len),
+                        " %x=%d",
+                        static_cast<unsigned>(off),
+                        cand);
+    }
+}
+
 static void learn_char_vtable()
 {
     void* dataPtr = nullptr;
@@ -350,8 +377,8 @@ void autododge()
     ad_enemy_n = 0;
     ad_threat_n = 0;
     ad_best_dir = -1;
-    for (int i = 0; i < AD_REPORT_MAX; i++)
-        ad_threat_name[i][0] = 0;
+    own_gid = 0;
+    for (int i = 0; i < AD_REPORT_MAX; i++) ad_threat_name[i][0] = 0;
     if (!base || !own_elem || dead)
     {
         active = 0;
@@ -359,6 +386,8 @@ void autododge()
         return;
     }
     learn_char_vtable();
+    own_gid = 0;
+    read_int(own_elem + static_cast<uintptr_t>(OBJ_GLOBALID_OFF), &own_gid);
 
     uint64_t now = us() / 1000;
     float mx = (float)own_x, my = (float)own_y;
@@ -422,7 +451,7 @@ void autododge()
                 memcpy(&cy_i, obj + OBJ_Y_OFF, sizeof(cy_i));
                 ad_char_n++;
                 if (cteam != own_team_b && chp > 0 && cgid > 0 &&
-                    ad_enemy_n < AD_ENEMY_MAX)
+                    cgid != own_gid && ad_enemy_n < AD_ENEMY_MAX)
                 {
                     float edx = (float)cx_i - mx;
                     float edy = (float)cy_i - my;
@@ -482,8 +511,11 @@ void autododge()
                 continue;
             }
 
-            memcpy(
-                &projSpeed, data + PROJECTILEDATA_SPEED_OFF, sizeof(projSpeed));
+            read_int(dataPtr + PROJECTILEDATA_SPEED_OFF, &projSpeed);
+            if (projSpeed < 200 || projSpeed > 20000)
+            {
+                probe_speed_field(dataPtr, pid, projSpeed);
+            }
             memcpy(&projRadius,
                    data + PROJECTILEDATA_RADIUS_OFF,
                    sizeof(projRadius));

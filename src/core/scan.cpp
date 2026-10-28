@@ -502,19 +502,21 @@ static void track_own_speed()
     if (last_pos_us && now_us > last_pos_us)
     {
         float dt = (float)(now_us - last_pos_us) / 1000000.0f;
-        if (dt > 0.004f && dt < 0.5f)
+        if (dt >= 0.06f && dt < 0.25f)
         {
             float dx = (float)(own_x - last_pos_x);
             float dy = (float)(own_y - last_pos_y);
             float sp = sqrtf(dx * dx + dy * dy) / dt;
-            if (sp >= 300.0f && sp <= 1400.0f)
+            if (sp >= 300.0f && sp <= 1100.0f)
             {
-                if (sp > own_speed)
-                    own_speed = sp;
-                else
-                    own_speed = own_speed * 0.995f + sp * 0.005f;
+                if (sp > own_speed) own_speed = sp;
+                else own_speed = own_speed * 0.99f + sp * 0.01f;
             }
+            last_pos_x = own_x;
+            last_pos_y = own_y;
+            last_pos_us = now_us;
         }
+        return;
     }
     last_pos_x = own_x;
     last_pos_y = own_y;
@@ -635,12 +637,40 @@ void scan_world()
     {
         own_team_b = ownTeam;
     }
-    if (own_index_v >= 0 && own_index_v < count)
     {
-        uintptr_t candidate = obj_snapshot[own_index_v];
-        if (candidate && pointer_plausible(candidate) && obj_valid[own_index_v])
+        int slot = -1;
+        int fallback = -1;
+        if (ownIndex >= 0 && ownIndex < count && obj_valid[ownIndex])
         {
-            own = candidate;
+            int32_t team = -1;
+            memcpy(&team, obj_block[ownIndex] + OBJ_TEAM_OFF, sizeof(team));
+            if (ownTeam < 0 || team == ownTeam)
+            {
+                slot = ownIndex;
+            }
+            fallback = ownIndex;
+        }
+        if (slot < 0)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                int32_t owner = -1;
+                int32_t team = -1;
+                if (!obj_valid[i]) continue;
+                memcpy(&owner, obj_block[i] + OBJ_OWNERINDEX_OFF, sizeof(owner));
+                memcpy(&team, obj_block[i] + OBJ_TEAM_OFF, sizeof(team));
+                if (owner != ownIndex) continue;
+                if (ownTeam >= 0 && team != ownTeam) continue;
+                slot = i;
+                break;
+            }
+        }
+        if (slot < 0) slot = fallback;
+        if (slot >= 0)
+        {
+            own_index_v = slot;
+            own = obj_snapshot[slot];
+            if (!own || !pointer_plausible(own)) own = 0;
         }
     }
     if (!own)
@@ -672,6 +702,15 @@ void scan_world()
         own_hp = 0;
     }
     dead = (own_ok_hp && own_hp == 0) ? 1 : 0;
+    if (own_team_b < 0)
+    {
+        int32_t teamOwn = -1;
+        if (read_int(own + static_cast<uintptr_t>(OBJ_TEAM_OFF), &teamOwn) &&
+            teamOwn >= 0 && teamOwn <= 15)
+        {
+            own_team_b = teamOwn;
+        }
+    }
     track_own_speed();
     tilemap_tick(clientPtr);
     wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));

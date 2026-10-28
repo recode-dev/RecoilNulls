@@ -172,6 +172,11 @@ void diag_tick()
              ad_threat_d[i],
              ad_threat_ttc[i]);
     }
+    if (ad_probe[0])
+    {
+        line("[p] %s\n", ad_probe);
+        ad_probe[0] = 0;
+    }
     for (int i = 0; i < ad_enemy_n && i < 4; i++)
     {
         line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f\n",
