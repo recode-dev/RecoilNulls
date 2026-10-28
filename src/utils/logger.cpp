@@ -209,6 +209,15 @@ void diag_tick()
         }
         ad_obj_n = 0;
     }
+    if (ad_cat_ready)
+    {
+        for (int i = 0; i < ad_cat_n; i++)
+        {
+            line("[cat] %s\n", ad_cat[i]);
+        }
+        line("[diff] %s\n", ad_diff);
+        ad_cat_ready = 0;
+    }
     for (int i = 0; i < ad_nv_n; i++)
     {
         line("[nv] %s\n", ad_nv[i]);

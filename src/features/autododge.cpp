@@ -39,6 +39,10 @@ char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_probe[256] = {0};
 char ad_obj[AD_OBJ_MAX][88] = {{0}};
 int ad_obj_n = 0;
+char ad_cat[AD_CAT_MAX][420] = {{0}};
+int ad_cat_n = 0;
+char ad_diff[600] = {0};
+int ad_cat_ready = 0;
 char ad_hit[256] = {0};
 char ad_nv[AD_NV_MAX][96] = {{0}};
 int ad_nv_n = 0;
@@ -264,6 +268,135 @@ static void probe_analyze()
     }
 }
 
+constexpr uintptr_t CAT_LO = 0x0;
+constexpr uintptr_t CAT_HI = 0x220;
+constexpr int CAT_OFF_N = static_cast<int>((CAT_HI - CAT_LO) / 4);
+constexpr int CAT_SAMPLE_MAX = 12;
+
+struct ClassCat
+{
+    uintptr_t vt;
+    int samples;
+    char name[40];
+    int32_t mn[CAT_OFF_N];
+    int32_t mx[CAT_OFF_N];
+};
+
+static ClassCat cats[AD_CAT_MAX];
+static int cat_n = 0;
+static int cat_dirty = 1;
+static uint64_t cat_print_ts = 0;
+
+static void cat_sample(uintptr_t vt, const char* name, uintptr_t dataPtr)
+{
+    ClassCat* slot = nullptr;
+    for (int i = 0; i < cat_n; i++)
+    {
+        if (cats[i].vt == vt)
+        {
+            slot = &cats[i];
+            break;
+        }
+    }
+    if (!slot)
+    {
+        if (cat_n >= AD_CAT_MAX) return;
+        slot = &cats[cat_n];
+        slot->vt = vt;
+        slot->samples = 0;
+        snprintf(slot->name, sizeof(slot->name), "%s", name ? name : "");
+        for (int i = 0; i < CAT_OFF_N; i++)
+        {
+            slot->mn[i] = INT32_MAX;
+            slot->mx[i] = INT32_MIN;
+        }
+        cat_n++;
+        cat_dirty = 1;
+    }
+    if (slot->samples >= CAT_SAMPLE_MAX) return;
+    for (int i = 0; i < CAT_OFF_N; i++)
+    {
+        int32_t value = 0;
+        if (!read_int(dataPtr + CAT_LO + static_cast<uintptr_t>(i) * 4, &value))
+            continue;
+        if (value < slot->mn[i]) slot->mn[i] = value;
+        if (value > slot->mx[i]) slot->mx[i] = value;
+    }
+    slot->samples++;
+    cat_dirty = 1;
+}
+
+static void cat_build(int idx)
+{
+    ClassCat& c = cats[idx];
+    char* out = ad_cat[idx];
+    int cap = static_cast<int>(sizeof(ad_cat[idx]));
+    int len = snprintf(out,
+                       static_cast<size_t>(cap),
+                       "vt=0x%x n=%d %s",
+                       static_cast<unsigned>(c.vt),
+                       c.samples,
+                       c.name[0] ? c.name : "-");
+    int shown = 0;
+    for (int pass = 0; pass < 2; pass++)
+    {
+        for (int i = 0; i < CAT_OFF_N; i++)
+        {
+            if (len < 0 || len >= cap - 24) break;
+            if (c.mn[i] > c.mx[i]) continue;
+            bool varying = c.mn[i] == 0 && c.mx[i] == 1;
+            bool set = c.mn[i] == 1 && c.mx[i] == 1;
+            if (pass == 0 && !varying) continue;
+            if (pass == 1 && (!set || shown >= 12)) continue;
+            len += snprintf(out + len,
+                            static_cast<size_t>(cap - len),
+                            " %x:%s",
+                            static_cast<unsigned>(CAT_LO + i * 4),
+                            varying ? "0-1" : "1");
+            shown++;
+        }
+    }
+}
+
+static void cat_build_diff()
+{
+    int cap = static_cast<int>(sizeof(ad_diff));
+    int len = snprintf(ad_diff,
+                       static_cast<size_t>(cap),
+                       "class diff");
+    if (cat_n < 2)
+    {
+        snprintf(ad_diff, static_cast<size_t>(cap), "class diff single class");
+        return;
+    }
+    for (int i = 0; i < CAT_OFF_N && len > 0 && len < cap - 40; i++)
+    {
+        bool differs = false;
+        for (int k = 1; k < cat_n; k++)
+        {
+            if (cats[k].mx[i] != cats[0].mx[i] ||
+                cats[k].mn[i] != cats[0].mn[i])
+            {
+                differs = true;
+                break;
+            }
+        }
+        if (!differs) continue;
+        len += snprintf(ad_diff + len,
+                        static_cast<size_t>(cap - len),
+                        " %x:",
+                        static_cast<unsigned>(CAT_LO + i * 4));
+        for (int k = 0; k < cat_n && len < cap - 16; k++)
+        {
+            len += snprintf(ad_diff + len,
+                            static_cast<size_t>(cap - len),
+                            "%s%d",
+                            k ? "|" : "",
+                            cats[k].mx[i]);
+        }
+    }
+}
+
 static constexpr int AD_NOTE_MAX = 16;
 static int32_t notePid[AD_NOTE_MAX];
 static uintptr_t noteVt[AD_NOTE_MAX];
@@ -273,8 +406,12 @@ static float notePosY[AD_NOTE_MAX];
 static const char* noteWhy[AD_NOTE_MAX];
 static int noteN = 0;
 
-static void note_obj(
-    int32_t pid, uintptr_t vt, int32_t team, float x, float y, const char* why)
+static void note_obj(int32_t pid,
+                     uintptr_t vt,
+                     int32_t team,
+                     float x,
+                     float y,
+                     const char* why)
 {
     if (noteN >= AD_NOTE_MAX) return;
     notePid[noteN] = pid;
@@ -643,6 +780,16 @@ void autododge()
     ad_enemy_n = 0;
     ad_threat_n = 0;
     ad_nv_n = 0;
+    uint64_t catNow = us() / 1000;
+    if (cat_dirty && cat_n > 0 && catNow - cat_print_ts > 5000)
+    {
+        for (int i = 0; i < cat_n; i++) cat_build(i);
+        cat_build_diff();
+        ad_cat_n = cat_n;
+        ad_cat_ready = 1;
+        cat_dirty = 0;
+        cat_print_ts = catNow;
+    }
     noteN = 0;
     ad_obj_n = 0;
     if (lastHpSeen && own_hp < lastHpSeen)
@@ -721,8 +868,7 @@ void autododge()
         if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
         {
             autododge_scanner_event(SCAN_AD_BAD_VTABLE);
-            note_obj(
-                nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "outimg");
+            note_obj(nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "outimg");
             continue;
         }
         if (vtRva != VTABLE_PROJ_DATA_RVA)
@@ -753,8 +899,7 @@ void autododge()
             else
             {
                 autododge_scanner_event(SCAN_AD_NOT_PROJECTILE_VTABLE);
-                note_obj(
-                    nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "other");
+                note_obj(nb_pid, vtRva, nb_team, (float)nb_x, (float)nb_y, "other");
             }
             continue;
         }
@@ -837,6 +982,7 @@ void autododge()
                               state.name,
                               sizeof(state.name));
 
+            cat_sample(vtRva, state.name, dataPtr);
             proj_cache_index[pid] = proj_cache_storage.size();
             proj_cache_storage.push_back(state);
             it = proj_cache_index.find(pid);
@@ -867,8 +1013,9 @@ void autododge()
                 }
                 float ux = ddx / step;
                 float uy = ddy / step;
-                bool flipped = state.hasVelocity &&
-                               ux * state.dir_x + uy * state.dir_y < 0.0f;
+                bool flipped =
+                    state.hasVelocity &&
+                    ux * state.dir_x + uy * state.dir_y < 0.0f;
                 if (state.hasVelocity && !flipped)
                 {
                     ux = state.dir_x * DIR_KEEP + ux * DIR_NEW;
