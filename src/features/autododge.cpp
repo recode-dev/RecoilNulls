@@ -43,6 +43,7 @@ int ad_enemy_aim[AD_ENEMY_MAX] = {0};
 constexpr float AWARE = 4400.0f, SKIN = 90.0f, REACH = 700.0f;
 constexpr float ESCAPE_TIME_K = 1.3f, ESCAPE_TIME_MIN = 0.15f;
 constexpr float INCOMING_K = 2.0f, INCOMING_MARGIN = 40.0f;
+constexpr float CLEAR_HORIZON = 0.6f, CLEAR_SWITCH_MARGIN = 25.0f;
 constexpr uint32_t SEND_MIN_MS = 16;
 constexpr float PROBE_T = 0.12f;
 constexpr int PROBE_N = 6;
@@ -56,28 +57,14 @@ constexpr float VV_EPS = 1e-6f, DT_MIN = 0.005f, DT_MAX = 0.2f;
 constexpr float POS_DELTA_MIN_SQ = 16.0f, PLAYER_ALONG_MIN = 0.0f;
 constexpr float BLOB_SPEED_MAX = 1600.0f, DIR_KEEP = 0.55f;
 constexpr float DIR_NEW = 0.45f;
-constexpr float DANGER_RADIUS = 550.0f, DANGER_RADIUS_RICOCHET = 800.0f;
-constexpr float IMMINENT_S = 0.55f, IMMINENT_M = 40.0f;
-constexpr float IMMINENT_DANGER = 4.0f, CONTACT_DANGER = 3.0f;
 constexpr float PIN_PENALTY = 2.0f;
-constexpr float BORDER_MARGIN = 600.0f, BORDER_ESCAPE_W = 0.55f;
-constexpr float WALL_DANGER_W = 0.85f;
 constexpr float DANGER_PICK_EPS = 0.02f;
-constexpr float INTEREST_ESCAPE_W = 0.7f, INTEREST_GOAL_W = 0.3f;
-constexpr float INTEREST_BACK_DOT = -0.5f, INTEREST_BACK_PENALTY = 0.2f;
-constexpr float ESCAPE_DIST_BIAS = 100.0f, POS_CHANGE_MIN_SQ = 64.0f,
-                QUADRATIC_K = 2.0f;
+constexpr float POS_CHANGE_MIN_SQ = 64.0f, QUADRATIC_K = 2.0f;
 constexpr float OWN_VEL_MAX = 4000.0f;
 constexpr uint64_t PROJ_CACHE_TTL_MS = 1024;
-constexpr float HALF = 0.5f, SPEED_MIN = 1.0f, HYSTERESIS_MARGIN = 0.25f;
-constexpr uint64_t DIR_HOLD_MS = 350;
+constexpr float SPEED_MIN = 1.0f;
 constexpr int AD_HIT_SCAN = 64;
 constexpr float BEHIND_MARGIN = 50.0f;
-constexpr float STRAFE_RANGE = 3600.0f, STRAFE_BLEND = 0.6f;
-constexpr uint64_t STRAFE_FLIP_MS = 2500;
-constexpr float BURST_DOT_MIN = 0.95f;
-constexpr float BURST_PARALLEL_PENALTY = 0.40f;
-constexpr float BURST_PERP_BLEND = 0.70f;
 constexpr float RICOCHET_DOT_THRESHOLD = 0.5f;
 constexpr float RICOCHET_MIN_STEP = 30.0f;
 constexpr int CARDINALS = 8;
@@ -125,8 +112,7 @@ static void rebuild_projectile_cache_index()
 }
 
 static std::vector<Threat> threats;
-static uint64_t lastSentAt = 0, dirLockUntil = 0, strafeFlipAt = 0;
-static float strafeSign = 1.0f;
+static uint64_t lastSentAt = 0;
 static uint32_t lastHpSeen = 0;
 static int pendingHit = 0, pendingDmg = 0;
 static float commitDirX = 0.0f, commitDirY = 0.0f;
@@ -134,8 +120,6 @@ static float CHAR_SPEED = 0.0f;
 static float ad_vx = 0.0f, ad_vy = 0.0f;
 static float prev_mx = 0.0f, prev_my = 0.0f;
 static uint64_t prev_time = 0;
-static bool g_has_burst = false;
-static float g_burst_vx = 0.0f, g_burst_vy = 0.0f;
 
 static float point_to_segment_dist(
     float px, float py, float ax, float ay, float bx, float by) noexcept
@@ -254,7 +238,6 @@ static void clearHeading() noexcept
 
 static void endDodge() noexcept
 {
-    dirLockUntil = 0;
     clearHeading();
     ad_target_x = INT32_MAX;
     ad_target_y = INT32_MAX;
@@ -297,35 +280,31 @@ static float swept_ca_segment(float mx, float my, const Threat& t) noexcept
     return d1;
 }
 
-static float dangerFor(
-    float mx, float my, float dx, float dy, float speed, float bodyR) noexcept
+static float clearanceFor(
+    float mx, float my, float dx, float dy, float speed) noexcept
 {
-    float mvx = speed * dx, mvy = speed * dy;
-    float danger = 0.0f;
+    float worst = INF_F;
     for (const auto& t : threats)
     {
         if (!threat_soon(t, mx, my) &&
             !(t.ricochet != 0 && !threat_receding(t, mx, my, ad_vx, ad_vy)))
             continue;
-        float ttc = timeToCollision(mx, my, mvx, mvy, t);
-        float ca = swept_ca(mx, my, mvx, mvy, t.x, t.y, t.vx, t.vy);
-        float seg_ca = swept_ca_segment(mx, my, t);
-        if (seg_ca < ca) ca = seg_ca;
-        float radius = t.ricochet ? DANGER_RADIUS_RICOCHET : DANGER_RADIUS;
-        float m = ca - t.rad;
-        if (ttc > 0.0f && ttc < IMMINENT_S && m < IMMINENT_M)
-            danger += IMMINENT_DANGER;
-        else if (m <= 0.0f)
-            danger += CONTACT_DANGER;
-        else if (m < radius)
-            danger += (radius - m) / radius;
+        float rvx = t.vx - dx * speed, rvy = t.vy - dy * speed;
+        float rx = t.x - mx, ry = t.y - my;
+        float vv = std::fma(rvx, rvx, rvy * rvy);
+        float tt = 0.0f;
+        if (vv > VV_EPS)
+        {
+            tt = -std::fma(rx, rvx, ry * rvy) / vv;
+            if (tt < 0.0f) tt = 0.0f;
+            if (tt > CLEAR_HORIZON) tt = CLEAR_HORIZON;
+        }
+        float cx = std::fma(rvx, tt, rx);
+        float cy = std::fma(rvy, tt, ry);
+        float d = sqrtf(std::fma(cx, cx, cy * cy)) - t.rad;
+        if (d < worst) worst = d;
     }
-    if (g_has_burst)
-    {
-        float parallel = fabsf(dx * g_burst_vx + dy * g_burst_vy);
-        danger += parallel * BURST_PARALLEL_PENALTY;
-    }
-    return danger + WALL_DANGER_W * wallAhead(mx, my, dx, dy, speed, bodyR);
+    return worst;
 }
 
 static void snapshot_hit(float mx, float my)
@@ -403,49 +382,6 @@ static bool char_like(uintptr_t vtRva) noexcept
     return char_vt_rva != 0 && vtRva == char_vt_rva;
 }
 
-static void detect_burst()
-{
-    g_has_burst = false;
-    g_burst_vx = 0.0f;
-    g_burst_vy = 0.0f;
-    int n = static_cast<int>(threats.size());
-    if (n < 2) return;
-    float acc_x = 0.0f, acc_y = 0.0f;
-    int burst_threats = 0;
-    for (int i = 0; i < n; i++)
-    {
-        float vix = threats[i].vx, viy = threats[i].vy;
-        float mi = sqrtf(std::fma(vix, vix, viy * viy));
-        if (mi < 100.0f) continue;
-        int same = 0;
-        for (int j = 0; j < n; j++)
-        {
-            if (i == j) continue;
-            float vjx = threats[j].vx, vjy = threats[j].vy;
-            float mj = sqrtf(std::fma(vjx, vjx, vjy * vjy));
-            if (mj < 100.0f) continue;
-            float dot = std::fma(vix, vjx, viy * vjy);
-            if (dot / (mi * mj) > BURST_DOT_MIN) same++;
-        }
-        if (same >= 1)
-        {
-            acc_x += vix / mi;
-            acc_y += viy / mi;
-            burst_threats++;
-        }
-    }
-    if (burst_threats >= 2)
-    {
-        float mag = sqrtf(std::fma(acc_x, acc_x, acc_y * acc_y));
-        if (mag > 0.001f)
-        {
-            g_burst_vx = acc_x / mag;
-            g_burst_vy = acc_y / mag;
-            g_has_burst = true;
-        }
-    }
-}
-
 }
 
 void autododge_reset()
@@ -454,7 +390,6 @@ void autododge_reset()
     lastHpSeen = 0;
     pendingHit = 0;
     pendingDmg = 0;
-    dirLockUntil = 0;
     ad_char_n = 0;
     ad_proj_n = 0;
     ad_enemy_n = 0;
@@ -462,8 +397,6 @@ void autododge_reset()
     proj_cache_storage.clear();
     proj_cache_index.clear();
     lastSentAt = 0;
-    strafeFlipAt = 0;
-    strafeSign = 1.0f;
     commitDirX = 0.0f;
     commitDirY = 0.0f;
     ad_target_x = INT32_MAX;
@@ -474,9 +407,6 @@ void autododge_reset()
     prev_mx = 0.0f;
     prev_my = 0.0f;
     prev_time = 0;
-    g_has_burst = false;
-    g_burst_vx = 0.0f;
-    g_burst_vy = 0.0f;
 }
 
 void autododge()
@@ -800,7 +730,6 @@ void autododge()
             rebuild_projectile_cache_index();
     }
 
-    detect_burst();
 
     for (const auto& t : threats)
     {
@@ -859,35 +788,6 @@ void autododge()
     }
     autododge_scanner_report();
 
-    int nearest = -1;
-    float nearestD2 = INF_F;
-    for (int i = 0; i < ad_enemy_n; i++)
-    {
-        float edx = ad_enemy_x[i] - mx, edy = ad_enemy_y[i] - my;
-        float d2 = std::fma(edx, edx, edy * edy);
-        if (d2 < nearestD2)
-        {
-            nearestD2 = d2;
-            nearest = i;
-        }
-    }
-    float sx = 0.0f, sy = 0.0f;
-    if (nearest >= 0 && nearestD2 < STRAFE_RANGE * STRAFE_RANGE)
-    {
-        if (now >= strafeFlipAt)
-        {
-            strafeSign = -strafeSign;
-            strafeFlipAt = now + STRAFE_FLIP_MS;
-        }
-        float rdx = mx - ad_enemy_x[nearest];
-        float rdy = my - ad_enemy_y[nearest];
-        float rlen = sqrtf(std::fma(rdx, rdx, rdy * rdy));
-        if (rlen > 1.0f)
-        {
-            sx = rdy / rlen * strafeSign;
-            sy = -rdx / rlen * strafeSign;
-        }
-    }
     bool anySoon = false;
     for (const auto& t : threats)
         if (threat_soon(t, mx, my))
@@ -901,153 +801,41 @@ void autododge()
         return;
     }
 
-    float ex = 0.0f, ey = 0.0f;
-    bool anyEscape = false;
-    for (const auto& t : threats)
-    {
-        if (!threat_soon(t, mx, my) &&
-            !(t.ricochet != 0 && !threat_receding(t, mx, my, ad_vx, ad_vy)))
-            continue;
-        float dx = mx - t.x, dy = my - t.y;
-        float distSq = std::fma(dx, dx, dy * dy);
-        if (distSq > 1.0f)
-        {
-            float dist = sqrtf(distSq);
-            float w = SPEED_MIN / (dist + ESCAPE_DIST_BIAS);
-            if (t.ricochet) w *= 2.0f;
-            ex = std::fma(dx / dist, w, ex);
-            ey = std::fma(dy / dist, w, ey);
-            anyEscape = true;
-        }
-    }
-    if (!anyEscape && sx == 0.0f && sy == 0.0f && commitDirX == 0.0f &&
-        commitDirY == 0.0f)
-    {
-        endDodge();
-        return;
-    }
-    float elen = sqrtf(std::fma(ex, ex, ey * ey));
-    if (elen > 0.001f)
-    {
-        ex /= elen;
-        ey /= elen;
-    }
-
-    {
-        float bx = 0.0f, by = 0.0f;
-        if (mx < BORDER_MARGIN) bx += 1.0f;
-        if ((float)tw * WALL_TILE_SIZE - mx < BORDER_MARGIN) bx -= 1.0f;
-        if (my < BORDER_MARGIN) by += 1.0f;
-        if ((float)th * WALL_TILE_SIZE - my < BORDER_MARGIN) by -= 1.0f;
-        float bl = sqrtf(std::fma(bx, bx, by * by));
-        if (bl > VV_EPS)
-        {
-            ex = ex * (1.0f - BORDER_ESCAPE_W) + (bx / bl) * BORDER_ESCAPE_W;
-            ey = ey * (1.0f - BORDER_ESCAPE_W) + (by / bl) * BORDER_ESCAPE_W;
-            elen = sqrtf(std::fma(ex, ex, ey * ey));
-            if (elen > 0.001f)
-            {
-                ex /= elen;
-                ey /= elen;
-            }
-        }
-    }
-
-    if (g_has_burst)
-    {
-        float px1 = -g_burst_vy, py1 = g_burst_vx;
-        float px2 = g_burst_vy, py2 = -g_burst_vx;
-        float dot1 = ex * px1 + ey * py1;
-        float dot2 = ex * px2 + ey * py2;
-        float perpX = (dot1 >= dot2) ? px1 : px2;
-        float perpY = (dot1 >= dot2) ? py1 : py2;
-        ex = ex * (1.0f - BURST_PERP_BLEND) + perpX * BURST_PERP_BLEND;
-        ey = ey * (1.0f - BURST_PERP_BLEND) + perpY * BURST_PERP_BLEND;
-        elen = sqrtf(std::fma(ex, ex, ey * ey));
-        if (elen > 0.001f)
-        {
-            ex /= elen;
-            ey /= elen;
-        }
-    }
-
-    float gx = 0.0f, gy = 0.0f;
-    if (!threats.empty() && wall_cache_w() > 0 && wall_cache_h() > 0)
-    {
-        gx = (wall_cache_w() * WALL_TILE_SIZE * HALF) - mx;
-        gy = (wall_cache_h() * WALL_TILE_SIZE * HALF) - my;
-        float glen = sqrtf(std::fma(gx, gx, gy * gy));
-        if (glen > 0.001f)
-        {
-            gx /= glen;
-            gy /= glen;
-        }
-    }
-
-    bool imminent = false;
-    for (const auto& t : threats)
-    {
-        float ttc = timeToCollision(mx, my, ad_vx, ad_vy, t);
-        if (ttc <= 0.0f || ttc > 0.6f) continue;
-        float ca = swept_ca(mx, my, ad_vx, ad_vy, t.x, t.y, t.vx, t.vy);
-        if (ca - t.rad < 40.0f)
-        {
-            imminent = true;
-            break;
-        }
-    }
-    bool strafeOn = (sx != 0.0f || sy != 0.0f) && !imminent;
     bool hasPrev = commitDirX != 0.0f || commitDirY != 0.0f;
-    float prevDirX = commitDirX, prevDirY = commitDirY;
     int bestIdx = 0;
-    float bestDanger = INF_F, bestInterest = -INF_F;
-
+    float bestClear = -INF_F, bestDanger = INF_F;
     for (int i = 0; i < CARDINALS; i++)
     {
-        float d =
-            dangerFor(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED, bodyR) +
-            pinPenalty(mx, my, cardDirX[i], cardDirY[i]);
-        float dotEscape = cardDirX[i] * ex + cardDirY[i] * ey;
-        float escapeScore = (dotEscape + SPEED_MIN) * HALF;
-        float dotGoal = cardDirX[i] * gx + cardDirY[i] * gy;
-        float goalScore = (dotGoal + SPEED_MIN) * HALF;
-        float inter = std::fma(
-            escapeScore, INTEREST_ESCAPE_W, goalScore * INTEREST_GOAL_W);
-        if (strafeOn) d -= STRAFE_BLEND * (cardDirX[i] * sx + cardDirY[i] * sy);
-        if (hasPrev)
-        {
-            float dotPrev = cardDirX[i] * prevDirX + cardDirY[i] * prevDirY;
-            if (dotPrev < INTEREST_BACK_DOT) inter -= INTEREST_BACK_PENALTY;
-        }
+        float clear = clearanceFor(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED);
+        float d = -clear + pinPenalty(mx, my, cardDirX[i], cardDirY[i]) +
+                  wallAhead(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED, bodyR);
         bool better = false;
         if (d < bestDanger - DANGER_PICK_EPS)
             better = true;
-        else if (fabsf(d - bestDanger) <= DANGER_PICK_EPS &&
-                 inter > bestInterest)
-            better = true;
+        else if (d <= bestDanger + DANGER_PICK_EPS && hasPrev)
+        {
+            float dotNew = cardDirX[i] * commitDirX + cardDirY[i] * commitDirY;
+            float dotBest =
+                cardDirX[bestIdx] * commitDirX + cardDirY[bestIdx] * commitDirY;
+            if (dotNew > dotBest) better = true;
+        }
         if (better)
         {
             bestDanger = d;
-            bestInterest = inter;
+            bestClear = clear;
             bestIdx = i;
         }
     }
 
     float outDirX = cardDirX[bestIdx], outDirY = cardDirY[bestIdx];
-    if (hasPrev)
+    if (hasPrev &&
+        clearanceFor(mx, my, commitDirX, commitDirY, CHAR_SPEED) +
+                CLEAR_SWITCH_MARGIN >=
+            bestClear)
     {
-        float prevPin = pinPenalty(mx, my, prevDirX, prevDirY);
-        float prevD =
-            dangerFor(mx, my, prevDirX, prevDirY, CHAR_SPEED, bodyR) + prevPin;
-        if ((now < dirLockUntil && prevPin < PIN_PENALTY * HALF) ||
-            prevD <= bestDanger + HYSTERESIS_MARGIN)
-        {
-            outDirX = prevDirX;
-            outDirY = prevDirY;
-        }
+        outDirX = commitDirX;
+        outDirY = commitDirY;
     }
-    if (hasPrev && (outDirX != prevDirX || outDirY != prevDirY))
-        dirLockUntil = now + DIR_HOLD_MS;
     commitDirX = outDirX;
     commitDirY = outDirY;
     ad_best_dir = bestIdx;
