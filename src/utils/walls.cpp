@@ -188,8 +188,7 @@ int wall_build()
         {
             continue;
         }
-        if (!pointer_plausible(tile) ||
-            !read_ptr(tile, &type))
+        if (!pointer_plausible(tile) || !read_ptr(tile, &type))
         {
             holes++;
             continue;
