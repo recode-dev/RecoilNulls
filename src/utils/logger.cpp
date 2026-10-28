@@ -116,9 +116,12 @@ void diag_tick()
         static uint64_t last_fast = 0;
         uint64_t prev = __atomic_load_n(&last_fast, __ATOMIC_RELAXED);
         bool slot = !prev || now_us - prev >= 50000;
-        if (slot &&
-            !__atomic_compare_exchange_n(
-                &last_fast, &prev, now_us, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED))
+        if (slot && !__atomic_compare_exchange_n(&last_fast,
+                                                 &prev,
+                                                 now_us,
+                                                 false,
+                                                 __ATOMIC_RELAXED,
+                                                 __ATOMIC_RELAXED))
             slot = false;
         if (slot)
         {
