@@ -19,6 +19,7 @@ inline constexpr uint64_t PROJECTILEDATA_PIERCES_CHARS_OFF = 0x1e4ULL;
 inline constexpr uint64_t PROJECTILEDATA_PIERCES_ENV_OFF = 0x1e5ULL;
 inline constexpr uint64_t PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF = 0x1e6ULL;
 inline constexpr uint64_t PROJECTILEDATA_INDIRECT_OFF = 0x108ULL;
+inline constexpr uint64_t PROJECTILEDATA_MAX_BOUNCES_OFF = 0x1e0ULL;
 inline constexpr uint64_t RVA_CSV_GET_INT = 0xbc6dfcULL;
 inline constexpr uint64_t SM_COL_NUMBULLETS_RVA = 0x10ccfe0ULL;
 inline constexpr uint64_t SM_COL_MSBETWEEN_RVA = 0x10ccfd4ULL;

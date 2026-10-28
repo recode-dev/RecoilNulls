@@ -28,6 +28,8 @@ int ad_threat_ind[AD_REPORT_MAX] = {0};
 int ad_threat_pierce[AD_REPORT_MAX] = {0};
 int ad_threat_bounce[AD_REPORT_MAX] = {0};
 int ad_threat_piercechars[AD_REPORT_MAX] = {0};
+int ad_threat_bn[AD_REPORT_MAX] = {0};
+int ad_threat_bm[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_hit[256] = {0};
 
@@ -44,7 +46,6 @@ constexpr float HORIZON_S = 1.55f, ENGAGE = 120.0f;
 constexpr uint32_t SEND_MIN_MS = 16;
 constexpr float PROBE_T = 0.12f;
 constexpr int PROBE_N = 6;
-constexpr uint64_t RICOCHET_HOLD_MS = 700;
 
 namespace
 {
@@ -67,7 +68,7 @@ constexpr float INTEREST_BACK_DOT = -0.5f, INTEREST_BACK_PENALTY = 0.2f;
 constexpr float ESCAPE_DIST_BIAS = 100.0f, POS_CHANGE_MIN_SQ = 64.0f,
                 QUADRATIC_K = 2.0f;
 constexpr float OWN_VEL_MAX = 4000.0f;
-constexpr uint64_t PROJ_CACHE_TTL_MS = 1024, BOUNCE_HOLD_MS = 2000;
+constexpr uint64_t PROJ_CACHE_TTL_MS = 1024;
 constexpr float HALF = 0.5f, SPEED_MIN = 1.0f, HYSTERESIS_MARGIN = 0.25f;
 constexpr uint64_t DIR_HOLD_MS = 350;
 constexpr int AD_HIT_SCAN = 64;
@@ -92,6 +93,7 @@ struct Threat
     int ricochet;
     int pierce;
     int bounce;
+    int bn, bm;
     int pierceChars;
     int32_t pid;
     char name[40];
@@ -104,7 +106,7 @@ struct ProjectileState
     uint64_t lastSeen, lastTs, burstEnd;
     int32_t lastX, lastY, pid;
     float last_ux, last_uy;
-    uint64_t ricochetUntil;
+    int32_t maxBounces, bounces;
     bool isIndirect, isBeam, hasVelocity, isRicochet;
     bool isBouncing, piercesChars, piercesEnv, piercesEnvButter;
 };
@@ -684,8 +686,10 @@ void autododge()
             state.piercesEnv = data[PROJECTILEDATA_PIERCES_ENV_OFF] != 0;
             state.piercesEnvButter =
                 data[PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF] != 0;
-            state.isRicochet = state.isBouncing;
-            state.ricochetUntil = state.isBouncing ? (now + BOUNCE_HOLD_MS) : 0;
+            memcpy(&state.maxBounces,
+                   data + PROJECTILEDATA_MAX_BOUNCES_OFF,
+                   sizeof(state.maxBounces));
+            state.isRicochet = state.isBouncing && state.maxBounces > 0;
             state.speed = (float)projSpeed;
             state.radius = (float)projRadius;
             {
@@ -763,8 +767,9 @@ void autododge()
                 if (state.hasVelocity && dot_prev < RICOCHET_DOT_THRESHOLD &&
                     step > RICOCHET_MIN_STEP)
                 {
-                    state.isRicochet = true;
-                    state.ricochetUntil = now + RICOCHET_HOLD_MS;
+                    state.bounces++;
+                    state.isRicochet =
+                        state.isBouncing && state.bounces <= state.maxBounces;
                 }
                 state.dir_x = ux;
                 state.dir_y = uy;
@@ -778,8 +783,6 @@ void autododge()
         }
         ProjectileState& state = proj_cache_storage[it->second];
         state.lastSeen = now;
-        if (state.isRicochet && now >= state.ricochetUntil)
-            state.isRicochet = false;
         float dx = px - mx, dy = py - my;
         if (std::fma(dx, dx, dy * dy) > zoneSq) continue;
         if (state.isBeam)
@@ -835,6 +838,8 @@ void autododge()
         item.ricochet = state.isRicochet ? 1 : 0;
         item.pierce = (state.piercesEnv || state.piercesEnvButter) ? 1 : 0;
         item.bounce = state.isBouncing ? 1 : 0;
+        item.bn = state.bounces;
+        item.bm = state.maxBounces;
         item.pierceChars = state.piercesChars ? 1 : 0;
         item.pid = pid;
         if (state.burstEnd > frameBurstEnd) frameBurstEnd = state.burstEnd;
@@ -904,6 +909,8 @@ void autododge()
         ad_threat_pierce[slot] = t.pierce;
         ad_threat_bounce[slot] = t.bounce;
         ad_threat_piercechars[slot] = t.pierceChars;
+        ad_threat_bn[slot] = t.bn;
+        ad_threat_bm[slot] = t.bm;
         ad_threat_score[slot] = score;
         memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
         ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';
@@ -963,9 +970,7 @@ void autododge()
     }
     if (!inDanger && hasRicochet) inDanger = true;
     if (inDanger)
-        dangerHoldUntil = hasRicochet
-                              ? (now + RICOCHET_HOLD_MS)
-                              : (frameBurstEnd > now ? frameBurstEnd : now);
+        dangerHoldUntil = frameBurstEnd > now ? frameBurstEnd : now;
     if (!inDanger && now > dangerHoldUntil)
     {
         enter_post_dodge(now);
