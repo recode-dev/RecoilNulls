@@ -793,8 +793,8 @@ static void scan_offset_audit()
     lastMs = now;
     if (!own_elem) return;
 
-    int32_t x = 0, y = 0, oi = 0, tm = 0, gid = 0, hp = 0, hp2 = 0,
-            d0 = 0, alive140 = 0, act1e8 = 0;
+    int32_t x = 0, y = 0, oi = 0, tm = 0, gid = 0, hp = 0, hp2 = 0, d0 = 0,
+            alive140 = 0, act1e8 = 0;
     read_int(own_elem + 0x30, &x);
     read_int(own_elem + 0x34, &y);
     read_int(own_elem + 0x3c, &oi);
@@ -810,7 +810,17 @@ static void scan_offset_audit()
     const uintptr_t data = reinterpret_cast<uintptr_t>(dataRaw);
     line("[OFFCHK] own=%p x=%d y=%d oi=%d team=%d gid=%d hp=%d hp2=%d "
          "d0=%d alive140=%d act1e8=%d def=%p\n",
-         (void*)own_elem, x, y, oi, tm, gid, hp, hp2, d0, alive140, act1e8,
+         (void*)own_elem,
+         x,
+         y,
+         oi,
+         tm,
+         gid,
+         hp,
+         hp2,
+         d0,
+         alive140,
+         act1e8,
          (void*)data);
 
     if (data)
@@ -837,18 +847,44 @@ static void scan_offset_audit()
         line("[OFFCHK] def d50=%d d54=%d d6c=%d d74=%d d118=%d d124=%d "
              "d130=%d d13c=%d d1d4=%d d1d8=%d d200=%d d208=%d d210=%d "
              "d218=%d d294=%d d298=%d\n",
-             d50, d54, d6c, d74, d118, d124, d130, d13c, d1d4, d1d8,
-             d200, d208, d210, d218, d294, d298);
+             d50,
+             d54,
+             d6c,
+             d74,
+             d118,
+             d124,
+             d130,
+             d13c,
+             d1d4,
+             d1d8,
+             d200,
+             d208,
+             d210,
+             d218,
+             d294,
+             d298);
 
-        const int32_t rvSpeed = static_cast<int32_t>(scan_call(addr_charspeed, data, 0));
-        const int32_t rvRadius = static_cast<int32_t>(scan_call(addr_charradius, data, 0));
-        const int32_t rvEarly = static_cast<int32_t>(scan_call(addr_projearly, data, 0));
+        const int32_t rvSpeed =
+            static_cast<int32_t>(scan_call(addr_charspeed, data, 0));
+        const int32_t rvRadius =
+            static_cast<int32_t>(scan_call(addr_charradius, data, 0));
+        const int32_t rvEarly =
+            static_cast<int32_t>(scan_call(addr_projearly, data, 0));
         const uintptr_t rvBeam = scan_call(addr_projbeam, data, 0);
         const uintptr_t rvName = scan_call(addr_dataname, data, 0);
         char nameText[64]{};
-        if (rvName) read_scstring(rvName, SCSTRING_DEFAULT_MAX_LENGTH, nameText, sizeof(nameText));
-        line("[OFFCHK] rva speed=%d radius=%d early=%d beam=%p name=%p text=%s\n",
-             rvSpeed, rvRadius, rvEarly, (void*)rvBeam, (void*)rvName,
+        if (rvName)
+            read_scstring(rvName,
+                          SCSTRING_DEFAULT_MAX_LENGTH,
+                          nameText,
+                          sizeof(nameText));
+        line("[OFFCHK] rva speed=%d radius=%d early=%d beam=%p name=%p "
+             "text=%s\n",
+             rvSpeed,
+             rvRadius,
+             rvEarly,
+             (void*)rvBeam,
+             (void*)rvName,
              nameText[0] ? nameText : "?");
     }
 
@@ -883,11 +919,21 @@ static void scan_offset_audit()
         if (pdata)
         {
             const uintptr_t s = scan_call(addr_dataname, pdata, 0);
-            if (s) read_scstring(s, SCSTRING_DEFAULT_MAX_LENGTH, pname, sizeof(pname));
+            if (s)
+                read_scstring(
+                    s, SCSTRING_DEFAULT_MAX_LENGTH, pname, sizeof(pname));
         }
         line("[OFFCHK] proj=%p x=%d y=%d p38=%d oi=%d team=%d o118=%d oD0=%d "
              "def=%p name=%s\n",
-             (void*)proj, px, py, p38, p3c, p40, p118, pd0, (void*)pdata,
+             (void*)proj,
+             px,
+             py,
+             p38,
+             p3c,
+             p40,
+             p118,
+             pd0,
+             (void*)pdata,
              pname[0] ? pname : "?");
     }
 
@@ -895,7 +941,9 @@ static void scan_offset_audit()
     {
         void* ctrlRaw = nullptr;
         uintptr_t ctrl = 0;
-        if (read_ptr(scene_object + static_cast<uintptr_t>(CLIENT_OFF), &ctrlRaw) && ctrlRaw)
+        if (read_ptr(scene_object + static_cast<uintptr_t>(CLIENT_OFF),
+                     &ctrlRaw) &&
+            ctrlRaw)
             ctrl = reinterpret_cast<uintptr_t>(ctrlRaw);
         int32_t cOwn = 0, cTeam = 0, cCount = 0, cMoveX = 0, cMoveY = 0,
                 cMoveOn = 0, cMoveZero = 0;
@@ -911,7 +959,13 @@ static void scan_offset_audit()
         }
         line("[OFFCHK] ctrl=%p ownIdx=%d ownTeam=%d count=%d mvX=%d mvY=%d "
              "mvOn=%d mvZero=%d\n",
-             (void*)ctrl, cOwn, cTeam, cCount, cMoveX, cMoveY, cMoveOn,
+             (void*)ctrl,
+             cOwn,
+             cTeam,
+             cCount,
+             cMoveX,
+             cMoveY,
+             cMoveOn,
              cMoveZero);
     }
 
@@ -924,8 +978,13 @@ static void scan_offset_audit()
     const uintptr_t rvGetData = scan_call(addr_getdata, own_elem, 0);
     line("[OFFCHK] rva2 ownChar=%p ownTeam=%p ownIdx=%p getX=%p getY=%p "
          "getGid=%p getData=%p\n",
-         (void*)rvOwnChar, (void*)rvOwnTeam, (void*)rvOwnIdx, (void*)rvGetX,
-         (void*)rvGetY, (void*)rvGetGid, (void*)rvGetData);
+         (void*)rvOwnChar,
+         (void*)rvOwnTeam,
+         (void*)rvOwnIdx,
+         (void*)rvGetX,
+         (void*)rvGetY,
+         (void*)rvGetGid,
+         (void*)rvGetData);
 }
 
 static void scan_required_structures(bool newMatch)
