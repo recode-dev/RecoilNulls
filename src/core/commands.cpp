@@ -182,6 +182,7 @@ int enqueue_skill(int x, int y, int type, void* skillData)
                     sizeof(skillData));
     }
     ci_sign(msg, battle);
+    struct_scan_capture_input_message(reinterpret_cast<uintptr_t>(msg));
     if (type == TYPE_MOVE)
     {
         (void)pred_set(x, y);

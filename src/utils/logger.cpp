@@ -1,5 +1,6 @@
 #include "../core/scan.h"
 #include "../core/scstring.h"
+#include "../core/commands.h"
 #include "../utils/walls.h"
 #include <CoreFoundation/CFDate.h>
 #include <dispatch/dispatch.h>
@@ -9,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
+#include <os/lock.h>
 #include <cmath>
 #include <limits>
 #include <unistd.h>
@@ -97,6 +99,41 @@ static int hit_count = 0;
 static int32_t last_hp = -1;
 static int32_t last_tx = INT32_MAX;
 static int32_t last_ty = INT32_MAX;
+
+constexpr size_t STRUCT_SCAN_MAX_BYTES = 0x2D0;
+constexpr size_t STRUCT_SCAN_MAX_RECORDS = 2048;
+constexpr size_t STRUCT_SCAN_MAX_PROJECTILES = 64;
+constexpr size_t STRUCT_SCAN_MAX_OBJECT_SAMPLES = 1;
+constexpr size_t STRUCT_SCAN_MAX_DATA_TYPES = 64;
+constexpr size_t STRUCT_SCAN_MAX_TILE_TYPES = 32;
+struct StructScanRecord
+{
+    uintptr_t address;
+    char label[48];
+};
+static StructScanRecord structScanRecords[STRUCT_SCAN_MAX_RECORDS]{};
+static size_t structScanRecordCount = 0;
+static size_t structScanTileTypeCount = 0;
+static uintptr_t structScanTileTypes[STRUCT_SCAN_MAX_TILE_TYPES]{};
+static uintptr_t structScanTileMapAddress = 0;
+constexpr size_t STRUCT_SCAN_MAX_PENDING_INPUTS = 2;
+struct StructScanPendingInput
+{
+    uintptr_t address;
+    uintptr_t skillAddress;
+    uint8_t message[MSG_SIZE + MSG_SLACK];
+    uint8_t skillData[0x60];
+    bool hasSkillData;
+};
+static StructScanPendingInput structScanPendingInputs[STRUCT_SCAN_MAX_PENDING_INPUTS]{};
+static size_t structScanInputMessageCount = 0;
+static StructScanTypeSamples structScanDataTypes[STRUCT_SCAN_MAX_DATA_TYPES]{};
+
+static StructScanObjectSamples structScanObjectTypes[STRUCT_SCAN_MAX_DATA_TYPES]{};
+static size_t structScanObjectTypeCount = 0;
+static size_t structScanDataVtableCount = 0;
+static size_t structScanProjectileCount = 0;
+static os_unfair_lock structScanLock = OS_UNFAIR_LOCK_INIT;
 
 void document_path(char* out, size_t cap)
 {
@@ -502,6 +539,418 @@ static uintptr_t scan_call(uintptr_t fn, uintptr_t a, uintptr_t b)
     return ((fn_t)target)(a, b);
 }
 
+static bool struct_scan_remember(uintptr_t address, const char* label)
+{
+    const char* recordLabel = label ? label : "?";
+    for (size_t i = 0; i < structScanRecordCount; i++)
+        if (structScanRecords[i].address == address &&
+            strcmp(structScanRecords[i].label, recordLabel) == 0)
+            return false;
+    if (structScanRecordCount >= STRUCT_SCAN_MAX_RECORDS) return false;
+    StructScanRecord& record = structScanRecords[structScanRecordCount++];
+    record.address = address;
+    snprintf(record.label, sizeof(record.label), "%s", recordLabel);
+    return true;
+}
+
+static bool struct_scan_dump_buffer(uintptr_t address,
+                                    const char* label,
+                                    const uint8_t* source,
+                                    size_t bytes,
+                                    int32_t pid)
+{
+    if (!source || !bytes || bytes > STRUCT_SCAN_MAX_BYTES)
+        return false;
+    uint8_t buffer[STRUCT_SCAN_MAX_BYTES];
+    memcpy(buffer, source, bytes);
+    const char* safeLabel = label ? label : "?";
+    size_t redactedBegin = bytes;
+    size_t redactedEnd = bytes;
+    if (strcmp(safeLabel, "BattleMode") == 0)
+    {
+        redactedBegin = static_cast<size_t>(BM_HASH_KEY_OFF);
+        redactedEnd = redactedBegin + 0x10;
+    }
+    else if (strncmp(safeLabel, "ClientInputMessage", 18) == 0)
+    {
+        redactedBegin = static_cast<size_t>(CI_TOKEN_OFF);
+        redactedEnd = redactedBegin + sizeof(uint32_t);
+    }
+    if (redactedBegin < bytes)
+    {
+        if (redactedEnd > bytes) redactedEnd = bytes;
+        memset(buffer + redactedBegin, 0, redactedEnd - redactedBegin);
+    }
+
+    os_unfair_lock_lock(&structScanLock);
+    const bool remembered = struct_scan_remember(address, safeLabel);
+    if (!remembered)
+    {
+        os_unfair_lock_unlock(&structScanLock);
+        return false;
+    }
+    os_unfair_lock_unlock(&structScanLock);
+    line("[STRUCTSCAN] begin label=%s address=%p bytes=0x%zx pid=%d\n",
+         safeLabel, (void*)address, bytes, pid);
+    if (redactedBegin < bytes)
+        line("[STRUCTSCAN] redacted label=%s begin=0x%zx end=0x%zx\n",
+             safeLabel, redactedBegin, redactedEnd);
+    for (size_t off = 0; off + sizeof(uint32_t) <= bytes; off += 4)
+    {
+        uint32_t bits = 0;
+        int32_t integer = 0;
+        float real = 0.0f;
+        memcpy(&bits, buffer + off, sizeof(bits));
+        memcpy(&integer, buffer + off, sizeof(integer));
+        memcpy(&real, buffer + off, sizeof(real));
+        line("[STRUCTSCAN] field label=%s pid=%d off=0x%03zx bits=%08x i=%d f=%.6g\n",
+             safeLabel, pid, off, bits, integer, real);
+    }
+    line("[STRUCTSCAN] end label=%s address=%p\n",
+         safeLabel, (void*)address);
+    return true;
+}
+
+static bool struct_scan_dump(uintptr_t address,
+                             const char* label,
+                             size_t bytes,
+                             int32_t pid)
+{
+    uint8_t buffer[STRUCT_SCAN_MAX_BYTES];
+    if (!address || !bytes || bytes > sizeof(buffer) ||
+        !read_bytes(address, buffer, bytes))
+    {
+        line("[STRUCTSCAN] unreadable label=%s address=%p bytes=0x%zx pid=%d\n",
+             label ? label : "?", (void*)address, bytes, pid);
+        return false;
+    }
+    return struct_scan_dump_buffer(address, label, buffer, bytes, pid);
+}
+
+static bool struct_scan_vtable_in_image(uintptr_t vtable)
+{
+    return vtable >= base + static_cast<uintptr_t>(DC_RVA_LO) &&
+           vtable < base + static_cast<uintptr_t>(DC_RVA_LO + DC_RVA_SIZE);
+}
+
+static void struct_scan_string(uintptr_t value, const char* label)
+{
+    if (!value || !pointer_plausible(value)) return;
+    struct_scan_dump(value, label, 0x20, 0);
+    char text[96]{};
+    if (read_scstring(value, SCSTRING_DEFAULT_MAX_LENGTH, text, sizeof(text)))
+        line("[STRUCTSCAN] string label=%s address=%p text=%s\n",
+             label, (void*)value, text);
+}
+
+static void struct_scan_tilemap(uintptr_t tileMap)
+{
+    int32_t width = 0, height = 0;
+    void* arrayRaw = nullptr;
+    if (!tileMap || !pointer_plausible(tileMap)) return;
+    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_W_OFF), &width) ||
+        !read_int(tileMap + static_cast<uintptr_t>(TILEMAP_H_OFF), &height) ||
+        width <= 0 || width > WALL_MAX_MAP_TILES || height <= 0 ||
+        height > WALL_MAX_MAP_TILES ||
+        !read_ptr(tileMap + static_cast<uintptr_t>(TILEMAP_ARRAY_OFF), &arrayRaw) ||
+        !arrayRaw)
+    {
+        os_unfair_lock_lock(&structScanLock);
+        if (structScanTileMapAddress == tileMap) structScanTileMapAddress = 0;
+        os_unfair_lock_unlock(&structScanLock);
+        line("[STRUCTSCAN] tilemap-unavailable address=%p\n", (void*)tileMap);
+        return;
+    }
+
+    os_unfair_lock_lock(&structScanLock);
+    const bool alreadyScanned = structScanTileMapAddress == tileMap;
+    if (!alreadyScanned) structScanTileMapAddress = tileMap;
+    os_unfair_lock_unlock(&structScanLock);
+    if (alreadyScanned)
+    {
+        line("[STRUCTSCAN] tilemap-skip address=%p reason=already-scanned\n",
+             (void*)tileMap);
+        return;
+    }
+    struct_scan_dump(tileMap, "TileMap", 0x100, 0);
+
+    const uintptr_t array = reinterpret_cast<uintptr_t>(arrayRaw);
+    const size_t total = static_cast<size_t>(width) *
+                         static_cast<size_t>(height);
+    const size_t probes = total;
+    size_t typeOverflow = 0;
+    bool tileSampleDumped = false;
+
+    for (size_t probe = 0; probe < total; probe++)
+    {
+        const size_t index = probe;
+        void* tileRaw = nullptr;
+        if (!read_ptr(array + index * sizeof(uintptr_t), &tileRaw) || !tileRaw)
+            continue;
+        const uintptr_t tile = reinterpret_cast<uintptr_t>(tileRaw);
+        void* typeRaw = nullptr;
+        if (!pointer_plausible(tile) || !read_ptr(tile, &typeRaw) || !typeRaw)
+            continue;
+        const uintptr_t type = reinterpret_cast<uintptr_t>(typeRaw);
+        if (!pointer_plausible(type)) continue;
+        if (!tileSampleDumped)
+        {
+            tileSampleDumped = struct_scan_dump(tile, "Tile/sample", 0x20, 0);
+        }
+
+        if (structScanTileTypeCount >= STRUCT_SCAN_MAX_TILE_TYPES)
+        {
+            typeOverflow++;
+            continue;
+        }
+        bool typeSeen = false;
+        for (size_t i = 0; i < structScanTileTypeCount; i++)
+            if (structScanTileTypes[i] == type) typeSeen = true;
+        if (typeSeen) continue;
+
+        char typeLabel[48];
+        snprintf(typeLabel, sizeof(typeLabel), "TileType/sample-%zu",
+                 structScanTileTypeCount);
+        if (struct_scan_dump(type, typeLabel, 0x60, 0))
+            structScanTileTypes[structScanTileTypeCount++] = type;
+    }
+    line("[STRUCTSCAN] tilemap-samples width=%d height=%d probed=%zu "
+         "tileTypes=%zu typeOverflow=%zu\n",
+         width, height, probes, structScanTileTypeCount, typeOverflow);
+}
+
+void struct_scan_capture_input_message(uintptr_t message)
+{
+    if (!message || !pointer_plausible(message)) return;
+    StructScanPendingInput pending{};
+    if (!read_bytes(message, pending.message, sizeof(pending.message))) return;
+    pending.address = message;
+    void* skillRaw = nullptr;
+    if (read_ptr(message + static_cast<uintptr_t>(OFF_CLIENTINPUT_SKILLDATA),
+                 &skillRaw) && skillRaw &&
+        pointer_plausible(reinterpret_cast<uintptr_t>(skillRaw)) &&
+        read_bytes(reinterpret_cast<uintptr_t>(skillRaw),
+                   pending.skillData,
+                   sizeof(pending.skillData)))
+    {
+        pending.skillAddress = reinterpret_cast<uintptr_t>(skillRaw);
+        pending.hasSkillData = true;
+    }
+
+    os_unfair_lock_lock(&structScanLock);
+    if (structScanInputMessageCount < STRUCT_SCAN_MAX_PENDING_INPUTS)
+    {
+        structScanPendingInputs[structScanInputMessageCount++] = pending;
+    }
+    os_unfair_lock_unlock(&structScanLock);
+}
+
+static void struct_scan_flush_input_messages()
+{
+    StructScanPendingInput pending[STRUCT_SCAN_MAX_PENDING_INPUTS]{};
+    size_t count = 0;
+    os_unfair_lock_lock(&structScanLock);
+    count = structScanInputMessageCount;
+    if (count > STRUCT_SCAN_MAX_PENDING_INPUTS)
+        count = STRUCT_SCAN_MAX_PENDING_INPUTS;
+    memcpy(pending, structScanPendingInputs, count * sizeof(pending[0]));
+    memset(structScanPendingInputs, 0, sizeof(structScanPendingInputs));
+    structScanInputMessageCount = 0;
+    os_unfair_lock_unlock(&structScanLock);
+
+    for (size_t i = 0; i < count; i++)
+    {
+        struct_scan_dump_buffer(pending[i].address,
+                                "ClientInputMessage",
+                                pending[i].message,
+                                sizeof(pending[i].message),
+                                0);
+        if (pending[i].hasSkillData)
+            struct_scan_dump_buffer(pending[i].skillAddress,
+                                    "ClientInputSkillData",
+                                    pending[i].skillData,
+                                    sizeof(pending[i].skillData),
+                                    0);
+    }
+}
+
+static void scan_required_structures(bool newMatch)
+{
+    if (newMatch)
+    {
+        os_unfair_lock_lock(&structScanLock);
+        structScanRecordCount = 0;
+        structScanTileTypeCount = 0;
+        structScanDataVtableCount = 0;
+        structScanObjectTypeCount = 0;
+        structScanProjectileCount = 0;
+        structScanTileMapAddress = 0;
+        structScanInputMessageCount = 0;
+        memset(structScanPendingInputs, 0, sizeof(structScanPendingInputs));
+        memset(structScanDataTypes, 0, sizeof(structScanDataTypes));
+        memset(structScanObjectTypes, 0, sizeof(structScanObjectTypes));
+        memset(structScanTileTypes, 0, sizeof(structScanTileTypes));
+        os_unfair_lock_unlock(&structScanLock);
+    }
+    if (!base || !scene_object || !own_elem) return;
+    struct_scan_flush_input_messages();
+
+    line("[STRUCTSCAN] pass objects=%d own=%p scene=%p manager=%p tilemap-cache=%dx%d\n",
+         obj_count, (void*)own_elem, (void*)scene_object, (void*)manager_ptr,
+         wall_cache_w(), wall_cache_h());
+
+    int32_t ownPid = 0;
+    read_int(own_elem + static_cast<uintptr_t>(OBJ_GLOBALID_OFF), &ownPid);
+    struct_scan_dump(own_elem, "GameObjectClient/own", OBJ_BLOCK_SIZE, ownPid);
+
+    // State slot and scene/client chain consumed by scan_world/client().
+    const uintptr_t stateSlot = reinterpret_cast<uintptr_t>(read_global_ptr(STATE_RVA));
+    struct_scan_dump(stateSlot, "BattleState", 0x58, 0);
+    struct_scan_dump(scene_object, "Scene", 0x80, 0);
+    void* ctrlRaw = nullptr;
+    if (read_ptr(scene_object + static_cast<uintptr_t>(CLIENT_OFF), &ctrlRaw) &&
+        ctrlRaw)
+        struct_scan_dump(reinterpret_cast<uintptr_t>(ctrlRaw), "BattleClient", 0x80, 0);
+    struct_scan_dump(manager_ptr, "GameObjectManager", 0x40, 0);
+    if (manager_array_ptr && manager_count_v > 0 && manager_count_v <= OBJECT_COUNT_MAX)
+    {
+        const size_t arrayBytes = static_cast<size_t>(manager_count_v) * sizeof(uintptr_t);
+            uint8_t arrayHead[STRUCT_SCAN_MAX_BYTES]{};
+            const size_t maxArrayBytes = STRUCT_SCAN_MAX_BYTES -
+                                         (STRUCT_SCAN_MAX_BYTES % sizeof(uintptr_t));
+            const size_t bytes = arrayBytes < maxArrayBytes ? arrayBytes : maxArrayBytes;
+        if (read_bytes(manager_array_ptr, arrayHead, bytes))
+        {
+            char label[48];
+            snprintf(label, sizeof(label), "GameObjectManager/array-%d", manager_count_v);
+            struct_scan_dump(manager_array_ptr, label, bytes, 0);
+        }
+    }
+
+    // The other project-owned data layouts are grouped by validated in-image vtable.
+    const uintptr_t projVt = base + static_cast<uintptr_t>(VTABLE_PROJ_DATA_RVA);
+    if (addr_getdata)
+    {
+        for (int i = 0; i < obj_count; i++)
+        {
+            if (!obj_valid[i]) continue;
+            const uintptr_t obj = obj_snapshot[i];
+            if (!obj || !pointer_plausible(obj)) continue;
+            void* objectVtableRaw = nullptr;
+            if (read_ptr(obj, &objectVtableRaw) && objectVtableRaw)
+            {
+                const uintptr_t objectVtable = reinterpret_cast<uintptr_t>(objectVtableRaw);
+                if (struct_scan_vtable_in_image(objectVtable))
+                {
+                    size_t objectType = 0;
+                    while (objectType < structScanObjectTypeCount &&
+                           structScanObjectTypes[objectType].vtable != objectVtable)
+                        objectType++;
+                    if (objectType == structScanObjectTypeCount &&
+                        structScanObjectTypeCount < STRUCT_SCAN_MAX_DATA_TYPES)
+                    {
+                        structScanObjectTypes[objectType].vtable = objectVtable;
+                        structScanObjectTypeCount++;
+                    }
+                    if (objectType < structScanObjectTypeCount &&
+                        structScanObjectTypes[objectType].samples < STRUCT_SCAN_MAX_OBJECT_SAMPLES)
+                    {
+                        char objectLabel[48];
+                        snprintf(objectLabel, sizeof(objectLabel),
+                                 "GameObject/vt-%llx-sample-%zu",
+                                 static_cast<unsigned long long>(objectVtable - base),
+                                 structScanObjectTypes[objectType].samples);
+                        if (struct_scan_dump(obj, objectLabel, OBJ_BLOCK_SIZE, 0))
+                            structScanObjectTypes[objectType].samples++;
+                    }
+                }
+            }
+            int32_t pid = 0;
+            read_int(obj + static_cast<uintptr_t>(OBJ_GLOBALID_OFF), &pid);
+
+            void* dataRaw = nullptr;
+            if (!read_ptr(obj + static_cast<uintptr_t>(ELEM_DEF_OFF), &dataRaw) ||
+                !dataRaw)
+                continue;
+            const uintptr_t data = reinterpret_cast<uintptr_t>(dataRaw);
+            void* vtableRaw = nullptr;
+            if (!read_ptr(data, &vtableRaw) || !vtableRaw) continue;
+            const uintptr_t vtable = reinterpret_cast<uintptr_t>(vtableRaw);
+
+            if (vtable == projVt)
+            {
+                if (structScanProjectileCount < STRUCT_SCAN_MAX_PROJECTILES &&
+                    struct_scan_dump(data, "ProjectileData", STRUCT_SCAN_MAX_BYTES, pid))
+                    structScanProjectileCount++;
+                continue;
+            }
+            if (!struct_scan_vtable_in_image(vtable)) continue;
+
+            size_t typeIndex = 0;
+            while (typeIndex < structScanDataVtableCount &&
+                   structScanDataTypes[typeIndex].vtable != vtable)
+                typeIndex++;
+            if (typeIndex >= STRUCT_SCAN_MAX_DATA_TYPES) continue;
+            if (typeIndex == structScanDataVtableCount)
+            {
+                structScanDataTypes[typeIndex].vtable = vtable;
+                structScanDataVtableCount++;
+            }
+            if (structScanDataTypes[typeIndex].samples >= 3) continue;
+
+            char name[64] = "?";
+            const uintptr_t nameValue = scan_call(addr_dataname, data, 0);
+            if (nameValue)
+                read_scstring(nameValue, SCSTRING_DEFAULT_MAX_LENGTH, name, sizeof(name));
+            char label[48];
+            snprintf(label, sizeof(label), "DataType/vt-%llx-sample-%zu-%s",
+                     static_cast<unsigned long long>(vtable - base),
+                     structScanDataTypes[typeIndex].samples, name);
+            if (struct_scan_dump(data, label, 0x100, pid))
+                structScanDataTypes[typeIndex].samples++;
+            if (nameValue)
+                struct_scan_string(nameValue, "SCString/data-name");
+        }
+    }
+
+    const uintptr_t tileMapFn = callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP);
+    const uintptr_t ctrl = controller();
+    const uintptr_t tileMap = tileMapFn && ctrl
+                                  ? scan_call(tileMapFn, ctrl, 0)
+                                  : 0;
+    if (tileMap) struct_scan_tilemap(tileMap);
+
+    // Capture the live input manager and queue links without enqueueing a test command.
+    const uintptr_t battleFn = callable(RVA_BATTLEMODE_GETINSTANCE);
+    uintptr_t battle = 0;
+    if (battleFn)
+    {
+        using battle_fn_t = uintptr_t (*)();
+        battle = reinterpret_cast<battle_fn_t>(battleFn)();
+    }
+    if (battle && pointer_plausible(battle))
+    {
+        struct_scan_dump(battle, "BattleMode", 0x80, 0);
+        void* inputManagerRaw = nullptr;
+        if (read_ptr(battle + static_cast<uintptr_t>(MGR_OFF), &inputManagerRaw) &&
+            inputManagerRaw && pointer_plausible(reinterpret_cast<uintptr_t>(inputManagerRaw)))
+        {
+            const uintptr_t inputManager = reinterpret_cast<uintptr_t>(inputManagerRaw);
+            struct_scan_dump(inputManager, "ClientInputManager", 0x50, 0);
+            void* queueRaw = nullptr;
+            if (read_ptr(inputManager + static_cast<uintptr_t>(CI_MGR_QUEUE_OFF), &queueRaw) &&
+                queueRaw && pointer_plausible(reinterpret_cast<uintptr_t>(queueRaw)))
+                struct_scan_dump(reinterpret_cast<uintptr_t>(queueRaw),
+                                  "ClientInputQueue", 0x40, 0);
+        }
+    }
+    line("[STRUCTSCAN] totals records=%zu projectileDefinitions=%zu "
+         "otherDataTypes=%zu objectTypes=%zu tileTypes=%zu\n",
+         structScanRecordCount, structScanProjectileCount,
+         structScanDataVtableCount, structScanObjectTypeCount,
+         structScanTileTypeCount);
+}
+
 void scan_projectile_data(bool newMatch)
 {
     struct ScanStats
@@ -671,8 +1120,11 @@ void scan_projectile_data(bool newMatch)
         const uintptr_t nameStr = scan_call(addr_dataname, data, 0);
         char name[64] = "?";
         if (nameStr)
+        {
             read_scstring(
                 nameStr, SCSTRING_DEFAULT_MAX_LENGTH, name, sizeof(name));
+            struct_scan_string(nameStr, "SCString/projectile-name");
+        }
 
         bool alreadyDetailed = false;
         for (size_t j = 0; j < detailedCount; j++)
@@ -719,29 +1171,6 @@ void scan_projectile_data(bool newMatch)
                  configuredRadius,
                  name);
 
-            line("[SCANNER] raw-begin data=%p pid=%d bytes=0x%zx\n",
-                 (void*)data,
-                 pid,
-                 sizeof(buf));
-            for (size_t off = 0; off + sizeof(uint32_t) <= sizeof(buf);
-                 off += 4)
-            {
-                uint32_t bits = 0;
-                int32_t iv = 0;
-                float fv = 0.0f;
-                memcpy(&bits, buf + off, sizeof(bits));
-                memcpy(&iv, buf + off, sizeof(iv));
-                memcpy(&fv, buf + off, sizeof(fv));
-                line("[SCANNER] raw data=%p pid=%d off=0x%03zx bits=%08x "
-                     "i=%d f=%.6g\n",
-                     (void*)data,
-                     pid,
-                     off,
-                     bits,
-                     iv,
-                     fv);
-            }
-            line("[SCANNER] raw-end data=%p pid=%d\n", (void*)data, pid);
         }
     }
 
@@ -829,6 +1258,7 @@ void tick()
     {
         line("\n##### match #####\n");
         scan_projectile_data(true);
+        scan_required_structures(true);
         last_hp = -1;
         last_tx = INT32_MAX;
         last_ty = INT32_MAX;
@@ -839,6 +1269,7 @@ void tick()
     line("\n--- t=%llu ---\n", ticks.load(std::memory_order_relaxed));
     dump_ad();
     scan_projectile_data(false);
+    scan_required_structures(false);
     lastMs.store(now);
     fflush(file);
     rotate_if_needed();
