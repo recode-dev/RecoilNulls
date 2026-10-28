@@ -969,8 +969,7 @@ void autododge()
         }
     }
     if (!inDanger && hasRicochet) inDanger = true;
-    if (inDanger)
-        dangerHoldUntil = frameBurstEnd > now ? frameBurstEnd : now;
+    if (inDanger) dangerHoldUntil = frameBurstEnd > now ? frameBurstEnd : now;
     if (!inDanger && now > dangerHoldUntil)
     {
         enter_post_dodge(now);
