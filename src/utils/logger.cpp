@@ -173,7 +173,7 @@ void diag_tick()
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) |v|=%.0f spd=%.0f "
-             "r=%.0f d=%.0f ca=%.0f ttc=%.3f\n",
+             "r=%.0f ind=%d d=%.0f ca=%.0f ttc=%.3f\n",
              i,
              ad_threat_name[i][0] ? ad_threat_name[i] : "-",
              ad_threat_pid[i],
@@ -185,6 +185,7 @@ void diag_tick()
                    ad_threat_vy[i] * ad_threat_vy[i]),
              ad_threat_spd[i],
              ad_threat_r[i],
+             ad_threat_ind[i],
              ad_threat_d[i],
              ad_threat_ca[i],
              ad_threat_ttc[i]);
