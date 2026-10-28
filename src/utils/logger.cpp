@@ -819,13 +819,21 @@ static void scan_offset_audit()
             myRad = static_cast<int32_t>(scan_call(addr_charradius, ownDef, 0));
     }
     line("[OFFCHK] own x=%d y=%d hp=%d team=%d idx=%d gid=%d spd=%d r=%d\n",
-         x, y, hp, tm, oi, gid, mySpd, myRad);
+         x,
+         y,
+         hp,
+         tm,
+         oi,
+         gid,
+         mySpd,
+         myRad);
 
     if (scene_object)
     {
         void* ctrlRaw = nullptr;
         uintptr_t ctrl = 0;
-        if (read_ptr(scene_object + static_cast<uintptr_t>(CLIENT_OFF), &ctrlRaw) &&
+        if (read_ptr(scene_object + static_cast<uintptr_t>(CLIENT_OFF),
+                     &ctrlRaw) &&
             ctrlRaw)
             ctrl = reinterpret_cast<uintptr_t>(ctrlRaw);
         int32_t cIdx = -1;
@@ -869,10 +877,17 @@ static void scan_offset_audit()
             read_int(pdef + 0x124, &pspd);
             read_int(pdef + 0x74, &prad);
             const uintptr_t ns = scan_call(addr_dataname, pdef, 0);
-            if (ns) read_scstring(ns, SCSTRING_DEFAULT_MAX_LENGTH, pname, sizeof(pname));
+            if (ns)
+                read_scstring(
+                    ns, SCSTRING_DEFAULT_MAX_LENGTH, pname, sizeof(pname));
         }
         line("[OFFCHK] proj name=%s team=%d x=%d y=%d spd=%d r=%d\n",
-             pname[0] ? pname : "?", pteam, px, py, pspd, prad);
+             pname[0] ? pname : "?",
+             pteam,
+             px,
+             py,
+             pspd,
+             prad);
     }
 
     int shownEnemy = 0;
@@ -896,12 +911,18 @@ static void scan_offset_audit()
         if (edef)
         {
             const uintptr_t ns = scan_call(addr_dataname, edef, 0);
-            if (ns) read_scstring(ns, SCSTRING_DEFAULT_MAX_LENGTH, ename, sizeof(ename));
+            if (ns)
+                read_scstring(
+                    ns, SCSTRING_DEFAULT_MAX_LENGTH, ename, sizeof(ename));
             if (addr_charspeed)
                 espd = static_cast<int32_t>(scan_call(addr_charspeed, edef, 0));
         }
         line("[OFFCHK] enemy name=%s hp=%d x=%d y=%d spd=%d\n",
-             ename[0] ? ename : "?", eh, ex, ey, espd);
+             ename[0] ? ename : "?",
+             eh,
+             ex,
+             ey,
+             espd);
         shownEnemy++;
     }
 }
