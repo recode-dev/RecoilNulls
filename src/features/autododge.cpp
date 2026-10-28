@@ -136,9 +136,126 @@ struct ProjectileState
     int earlyTicks;
     uint64_t spawnedAt, lastSeen, lastTs;
     int32_t lastX, lastY, pid;
+    int32_t seen;
+    bool probed;
+    float last_ux, last_uy;
     bool isIndirect, isBeam, hasVelocity;
     int32_t rawSpeed, rawRadius, rawEarly;
 };
+
+constexpr int PROBE_MAX_SAMPLES = 48;
+constexpr int PROBE_BYTES = 0x300;
+constexpr int PROBE_MIN_HITS = 10;
+
+struct ProbeSample
+{
+    uint8_t bytes[PROBE_BYTES];
+    float ux, uy, ang, spd;
+    int valid_len;
+};
+
+char ad_vp[AD_VP_MAX][128] = {{0}};
+int ad_vp_n = 0;
+static ProbeSample probe_samples[PROBE_MAX_SAMPLES];
+static int probe_count = 0;
+static int probe_analysis_done = 0;
+
+static float mag_of(const ProjectileState& st)
+{
+    float m = st.speed;
+    if (m < DEF_SPEED_MIN || m > DEF_SPEED_MAX) m = st.meas;
+    return m;
+}
+
+static void probe_sample(uintptr_t objPtr, float ux, float uy, float spd)
+{
+    ProbeSample* ps = nullptr;
+    if (probe_count >= PROBE_MAX_SAMPLES) return;
+    if (spd <= SPEED_MIN) return;
+    ps = &probe_samples[probe_count];
+    memset(ps->bytes, 0, PROBE_BYTES);
+    ps->valid_len = 0;
+    for (int chunk = 0; chunk < PROBE_BYTES; chunk += 0x100)
+    {
+        if (!read_bytes(objPtr + static_cast<uintptr_t>(chunk),
+                        ps->bytes + chunk,
+                        0x100))
+        {
+            break;
+        }
+        ps->valid_len = chunk + 0x100;
+    }
+    if (ps->valid_len < 0x40) return;
+    ps->ux = ux;
+    ps->uy = uy;
+    ps->ang = atan2f(uy, ux);
+    ps->spd = spd;
+    probe_count++;
+}
+
+static void probe_add(const char* what, int off, int hits, int total)
+{
+    if (ad_vp_n >= AD_VP_MAX) return;
+    snprintf(ad_vp[ad_vp_n],
+             sizeof(ad_vp[ad_vp_n]),
+             "%s off=0x%x hit=%d/%d",
+             what,
+             static_cast<unsigned>(off),
+             hits,
+             total);
+    ad_vp_n++;
+}
+
+static void probe_analyze()
+{
+    int n = probe_count;
+    int need = 0;
+    if (probe_analysis_done || n < PROBE_MIN_HITS) return;
+    probe_analysis_done = 1;
+    need = n - (n / 10);
+    for (int off = 0; off + 8 <= PROBE_BYTES; off += 4)
+    {
+        int pair = 0;
+        int pairRot = 0;
+        int rad = 0;
+        int deg = 0;
+        int spd = 0;
+        int ispd = 0;
+        for (int i = 0; i < n; i++)
+        {
+            const ProbeSample& ps = probe_samples[i];
+            float f0 = 0.0f;
+            if (off + 8 > ps.valid_len) continue;
+            float f1 = 0.0f;
+            int32_t iv = 0;
+            memcpy(&f0, ps.bytes + off, 4);
+            memcpy(&f1, ps.bytes + off + 4, 4);
+            if (!(f0 == f0) || !(f1 == f1)) continue;
+            if (fabsf(f0) > 1e18f || fabsf(f1) > 1e18f) continue;
+            if (fabsf(f0 - ps.ux) < 0.03f && fabsf(f1 - ps.uy) < 0.03f) pair++;
+            if (fabsf(f0 - ps.uy) < 0.03f && fabsf(f1 + ps.ux) < 0.03f)
+                pairRot++;
+            if (fabsf(f0 - ps.ang) < 0.02f) rad++;
+            if (fabsf(f0 - ps.ang * 57.29578f) < 1.5f) deg++;
+            if (fabsf(f0 - ps.spd) < 8.0f) spd++;
+            memcpy(&iv, ps.bytes + off, 4);
+            if (iv > 0 && iv - static_cast<int32_t>(ps.spd) < 8 &&
+                static_cast<int32_t>(ps.spd) - iv < 8)
+                ispd++;
+        }
+        if (pair >= need) probe_add("vec", off, pair, n);
+        if (pairRot >= need) probe_add("vec90", off, pairRot, n);
+        if (rad >= need) probe_add("ang_rad", off, rad, n);
+        if (deg >= need) probe_add("ang_deg", off, deg, n);
+        if (spd >= need) probe_add("spd_f", off, spd, n);
+        if (ispd >= need) probe_add("spd_i", off, ispd, n);
+    }
+    if (ad_vp_n == 0)
+    {
+        snprintf(ad_vp[0], sizeof(ad_vp[0]), "no candidates n=%d", n);
+        ad_vp_n = 1;
+    }
+}
 
 static uintptr_t char_vt_rva = 0;
 static int32_t own_gid = 0;
@@ -343,13 +460,12 @@ static void snapshot_hit(float mx, float my)
             float rx = threats[i].x - mx;
             float ry = threats[i].y - my;
             float dist = sqrtf(rx * rx + ry * ry);
-            float vv =
-                threats[i].vx * threats[i].vx + threats[i].vy * threats[i].vy;
+            float vv = threats[i].vx * threats[i].vx +
+                       threats[i].vy * threats[i].vy;
             float ca = dist;
             if (vv > VV_EPS)
             {
-                float al =
-                    (rx * threats[i].vx + ry * threats[i].vy) / sqrtf(vv);
+                float al = (rx * threats[i].vx + ry * threats[i].vy) / sqrtf(vv);
                 float perp = dist * dist - al * al;
                 ca = perp > 0.0f ? sqrtf(perp) : 0.0f;
             }
@@ -368,14 +484,18 @@ static void snapshot_hit(float mx, float my)
                             sizeof(ad_hit) - static_cast<size_t>(len),
                             " | ca=%.0f ttc=%.2f r=%.0f",
                             bestCa,
-                            timeToCollision(mx, my, 0.0f, 0.0f, threats[best]),
+                            timeToCollision(mx,
+                                            my,
+                                            0.0f,
+                                            0.0f,
+                                            threats[best]),
                             threats[best].rad);
         }
     }
-    if (picked < 1 && len > 0 && len < static_cast<int>(sizeof(ad_hit)) - 8)
+    if (picked < 1 && len > 0 &&
+        len < static_cast<int>(sizeof(ad_hit)) - 8)
     {
-        snprintf(
-            ad_hit + len, sizeof(ad_hit) - static_cast<size_t>(len), " | none");
+        snprintf(ad_hit + len, sizeof(ad_hit) - static_cast<size_t>(len), " | none");
     }
 }
 
@@ -408,10 +528,13 @@ static void probe_speed_field(uintptr_t dataPtr, int32_t pid, int32_t raw)
 {
     int len = 0;
     if (ad_probe[0] != 0) return;
-    len = snprintf(
-        ad_probe, sizeof(ad_probe), "pid=%d speed@124=%d cand", pid, raw);
-    for (uintptr_t off = 0x40; off <= 0x1f0 && len > 0 &&
-                               len < static_cast<int>(sizeof(ad_probe)) - 16;
+    len = snprintf(ad_probe,
+                   sizeof(ad_probe),
+                   "pid=%d speed@124=%d cand",
+                   pid,
+                   raw);
+    for (uintptr_t off = 0x40;
+         off <= 0x1f0 && len > 0 && len < static_cast<int>(sizeof(ad_probe)) - 16;
          off += 4)
     {
         int32_t cand = 0;
@@ -490,8 +613,7 @@ void autododge()
     lastHpSeen = own_hp;
     ad_best_dir = -1;
     own_gid = 0;
-    for (int i = 0; i < AD_REPORT_MAX; i++)
-        ad_threat_name[i][0] = 0;
+    for (int i = 0; i < AD_REPORT_MAX; i++) ad_threat_name[i][0] = 0;
     if (!base || !own_elem || dead)
     {
         active = 0;
@@ -700,6 +822,8 @@ void autododge()
                 }
                 state.dir_x = ux;
                 state.dir_y = uy;
+                state.last_ux = ux;
+                state.last_uy = uy;
                 state.hasVelocity = true;
             }
             state.lastX = px_i;
@@ -708,6 +832,13 @@ void autododge()
         }
         ProjectileState& state = proj_cache_storage[it->second];
         state.lastSeen = now;
+        state.seen++;
+        if (state.hasVelocity && state.seen >= 2 && !state.probed &&
+            probe_count < PROBE_MAX_SAMPLES)
+        {
+            state.probed = true;
+            probe_sample(objPtr, state.last_ux, state.last_uy, mag_of(state));
+        }
 
         if (!state.hasVelocity && state.speed > 0.0f)
         {
@@ -718,6 +849,8 @@ void autododge()
             {
                 state.dir_x = dx / len;
                 state.dir_y = dy / len;
+                state.last_ux = state.dir_x;
+                state.last_uy = state.dir_y;
                 state.hasVelocity = true;
             }
         }
@@ -737,8 +870,7 @@ void autododge()
         if (!blob && !tracked)
         {
             autododge_scanner_event(SCAN_AD_NO_VELOCITY);
-            note_novelo(
-                pid, vtRva, state.rawSpeed, state.radius, px, py, mx, my);
+            note_novelo(pid, vtRva, state.rawSpeed, state.radius, px, py, mx, my);
         }
         if (blob) autododge_scanner_event(SCAN_AD_BLOB);
         float vx = (blob || !tracked) ? 0.0f : state.dir_x * mag;
@@ -847,6 +979,7 @@ void autododge()
         memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
         ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';
     }
+    probe_analyze();
     if (pendingHit)
     {
         snapshot_hit(mx, my);
