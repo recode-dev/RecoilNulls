@@ -709,16 +709,13 @@ static void snapshot_hit(float mx, float my)
         picked++;
         if (len > 0 && len < static_cast<int>(sizeof(ad_hit)) - 40)
         {
-            len += snprintf(ad_hit + len,
-                            sizeof(ad_hit) - static_cast<size_t>(len),
-                            " | ca=%.0f ttc=%.2f r=%.0f",
-                            bestCa,
-                            timeToCollision(mx,
-                                            my,
-                                            own_vel_x,
-                                            own_vel_y,
-                                            threats[best]),
-                            threats[best].rad);
+            len += snprintf(
+                ad_hit + len,
+                sizeof(ad_hit) - static_cast<size_t>(len),
+                " | ca=%.0f ttc=%.2f r=%.0f",
+                bestCa,
+                timeToCollision(mx, my, own_vel_x, own_vel_y, threats[best]),
+                threats[best].rad);
         }
     }
     if (picked < 1 && len > 0 && len < static_cast<int>(sizeof(ad_hit)) - 8)
