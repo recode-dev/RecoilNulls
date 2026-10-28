@@ -183,10 +183,32 @@ void diag_tick()
              ad_threat_ca[i],
              ad_threat_ttc[i]);
     }
-    if (ad_hit[0])
+    if (ad_hit_n >= 0 && ad_hit_dmg > 0)
     {
-        line("[hit] %s\n", ad_hit);
-        ad_hit[0] = 0;
+        char buf[256];
+        int len = snprintf(buf,
+                           sizeof(buf),
+                           "dmg=%d act=%d n=%d p=(%d,%d)",
+                           ad_hit_dmg,
+                           ad_hit_act,
+                           ad_hit_n,
+                           ad_hit_x,
+                           ad_hit_y);
+        if (ad_hit_picked < 1 && len > 0)
+            snprintf(buf + len, sizeof(buf) - (size_t)len, " | none");
+        for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++)
+        {
+            if (len <= 0 || len >= (int)sizeof(buf) - 40) break;
+            len += snprintf(buf + len,
+                            sizeof(buf) - (size_t)len,
+                            " | ca=%.0f ttc=%.2f r=%.0f",
+                            ad_hit_ca[i],
+                            ad_hit_ttc[i],
+                            ad_hit_r[i]);
+        }
+        line("[hit] %s\n", buf);
+        ad_hit_dmg = 0;
+        ad_hit_picked = 0;
     }
     for (int i = 0; i < ad_enemy_n && i < 4; i++)
     {

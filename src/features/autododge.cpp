@@ -25,7 +25,10 @@ float ad_threat_r[AD_REPORT_MAX] = {0}, ad_threat_d[AD_REPORT_MAX] = {0};
 float ad_threat_ttc[AD_REPORT_MAX] = {0}, ad_threat_ca[AD_REPORT_MAX] = {0};
 float ad_threat_score[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
-char ad_hit[256] = {0};
+int ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
+int ad_hit_picked = 0;
+float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
+float ad_hit_r[AD_REPORT_MAX] = {0};
 
 int ad_enemy_pid[AD_ENEMY_MAX] = {0};
 float ad_enemy_x[AD_ENEMY_MAX] = {0.0f};
@@ -285,56 +288,33 @@ clearanceFor(float mx, float my, float dx, float dy, float speed) noexcept
 
 static void snapshot_hit(float mx, float my)
 {
-    int len = 0, picked = 0;
     char used[AD_REPORT_MAX] = {0};
-    len = snprintf(ad_hit,
-                   sizeof(ad_hit),
-                   "dmg=%d act=%d n=%d p=(%.0f,%.0f)",
-                   pendingDmg,
-                   active,
-                   static_cast<int>(threats.size()),
-                   mx,
-                   my);
+    ad_hit_dmg = pendingDmg;
+    ad_hit_act = active;
+    ad_hit_n = (int)threats.size();
+    ad_hit_x = (int)mx;
+    ad_hit_y = (int)my;
+    ad_hit_picked = 0;
     for (int step = 0; step < AD_REPORT_MAX; step++)
     {
         int best = -1;
         float bestCa = 1e9f;
-        for (int i = 0; i < static_cast<int>(threats.size()); i++)
+        for (int i = 0; i < (int)threats.size() && i < AD_REPORT_MAX * 8; i++)
         {
-            if (i >= AD_REPORT_MAX * 8 || used[i]) continue;
-            float ca = swept_ca(mx,
-                                my,
-                                ad_vx,
-                                ad_vy,
-                                threats[i].x,
-                                threats[i].y,
-                                threats[i].vx,
-                                threats[i].vy);
+            if (used[i]) continue;
+            float ca = swept_ca(mx, my, ad_vx, ad_vy, threats[i].x,
+                                threats[i].y, threats[i].vx, threats[i].vy);
             float seg_ca = swept_ca_segment(mx, my, threats[i]);
             if (seg_ca < ca) ca = seg_ca;
-            if (ca < bestCa)
-            {
-                bestCa = ca;
-                best = i;
-            }
+            if (ca < bestCa) { bestCa = ca; best = i; }
         }
-        if (best < 0 || picked >= AD_REPORT_MAX) break;
+        if (best < 0) break;
         used[best] = 1;
-        picked++;
-        if (len > 0 && len < static_cast<int>(sizeof(ad_hit)) - 40)
-        {
-            len +=
-                snprintf(ad_hit + len,
-                         sizeof(ad_hit) - static_cast<size_t>(len),
-                         " | ca=%.0f ttc=%.2f r=%.0f",
-                         bestCa,
-                         timeToCollision(mx, my, ad_vx, ad_vy, threats[best]),
-                         threats[best].rad);
-        }
+        ad_hit_ca[step] = bestCa;
+        ad_hit_ttc[step] = timeToCollision(mx, my, ad_vx, ad_vy, threats[best]);
+        ad_hit_r[step] = threats[best].rad;
+        ad_hit_picked++;
     }
-    if (picked < 1 && len > 0 && len < static_cast<int>(sizeof(ad_hit)) - 8)
-        snprintf(
-            ad_hit + len, sizeof(ad_hit) - static_cast<size_t>(len), " | none");
 }
 
 static void learn_char_vtable()
