@@ -32,6 +32,7 @@ namespace
 constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
+constexpr float HOLD_EPS = 6.0f;
 constexpr int DIRS = 16;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 }
@@ -296,9 +297,9 @@ static void hold_move()
     }
     int32_t face = 0;
     read_int(own_elem + OBJ_ATTACK_ANGLE_OFF, &face);
-    enqueue(axis((float)own_x, wall_cache_w()),
-            axis((float)own_y, wall_cache_h()));
-    write_bytes(own_elem + OBJ_ATTACK_ANGLE_OFF, &face, sizeof(face));
+    const float r = (float)face * 0.017453292f;
+    enqueue(axis((float)own_x + cosf(r) * HOLD_EPS, wall_cache_w()),
+            axis((float)own_y + sinf(r) * HOLD_EPS, wall_cache_h()));
 }
 
 static void end_dodge()
