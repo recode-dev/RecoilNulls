@@ -56,12 +56,12 @@ constexpr float POS_DELTA_MIN_SQ = 16.0f, PLAYER_ALONG_MIN = 0.0f;
 constexpr float BLOB_SPEED_MAX = 1600.0f, DIR_KEEP = 0.55f;
 constexpr float DIR_NEW = 0.45f;
 constexpr float DANGER_RADIUS = 550.0f, DANGER_RADIUS_RICOCHET = 800.0f;
-constexpr float TTC_MIN = 0.05f;
+constexpr float IMMINENT_S = 0.55f, IMMINENT_M = 40.0f;
+constexpr float IMMINENT_DANGER = 4.0f, CONTACT_DANGER = 3.0f;
 constexpr float PIN_PENALTY = 2.0f;
 constexpr float BORDER_MARGIN = 600.0f, BORDER_ESCAPE_W = 0.55f;
 constexpr float WALL_DANGER_W = 0.85f;
-constexpr float DANGER_SUM_WEIGHT = 0.50f, DANGER_MAX = 1.0f,
-                DANGER_PICK_EPS = 0.02f;
+constexpr float DANGER_PICK_EPS = 0.02f;
 constexpr float INTEREST_ESCAPE_W = 0.7f, INTEREST_GOAL_W = 0.3f;
 constexpr float INTEREST_BACK_DOT = -0.5f, INTEREST_BACK_PENALTY = 0.2f;
 constexpr float ESCAPE_DIST_BIAS = 100.0f, POS_CHANGE_MIN_SQ = 64.0f,
@@ -294,31 +294,30 @@ static float dangerFor(
     float mx, float my, float dx, float dy, float speed, float bodyR) noexcept
 {
     float mvx = speed * dx, mvy = speed * dy;
-    float max_c = 0.0f, sum_c = 0.0f;
+    float danger = 0.0f;
     for (const auto& t : threats)
     {
         if (!threat_soon(t, mx, my) &&
             !(t.ricochet != 0 && !threat_receding(t, mx, my, ad_vx, ad_vy)))
             continue;
         float ttc = timeToCollision(mx, my, mvx, mvy, t);
-        if (ttc < TTC_MIN) return DANGER_MAX;
         float ca = swept_ca(mx, my, mvx, mvy, t.x, t.y, t.vx, t.vy);
         float seg_ca = swept_ca_segment(mx, my, t);
         if (seg_ca < ca) ca = seg_ca;
         float radius = t.ricochet ? DANGER_RADIUS_RICOCHET : DANGER_RADIUS;
         float m = ca - t.rad;
-        float c = (radius - m) / radius;
-        if (c < 0.0f) c = 0.0f;
-        if (c > max_c) max_c = c;
-        sum_c += c;
+        if (ttc > 0.0f && ttc < IMMINENT_S && m < IMMINENT_M)
+            danger += IMMINENT_DANGER;
+        else if (m <= 0.0f)
+            danger += CONTACT_DANGER;
+        else if (m < radius)
+            danger += (radius - m) / radius;
     }
-    float danger = max_c + DANGER_SUM_WEIGHT * (sum_c - max_c);
     if (g_has_burst)
     {
         float parallel = fabsf(dx * g_burst_vx + dy * g_burst_vy);
         danger += parallel * BURST_PARALLEL_PENALTY;
     }
-    if (danger > DANGER_MAX) danger = DANGER_MAX;
     return danger + WALL_DANGER_W * wallAhead(mx, my, dx, dy, speed, bodyR);
 }
 
@@ -984,6 +983,19 @@ void autododge()
         }
     }
 
+    bool imminent = false;
+    for (const auto& t : threats)
+    {
+        float ttc = timeToCollision(mx, my, ad_vx, ad_vy, t);
+        if (ttc <= 0.0f || ttc > 0.6f) continue;
+        float ca = swept_ca(mx, my, ad_vx, ad_vy, t.x, t.y, t.vx, t.vy);
+        if (ca - t.rad < 40.0f)
+        {
+            imminent = true;
+            break;
+        }
+    }
+    bool strafeOn = (sx != 0.0f || sy != 0.0f) && !imminent;
     bool hasPrev = commitDirX != 0.0f || commitDirY != 0.0f;
     float prevDirX = commitDirX, prevDirY = commitDirY;
     int bestIdx = 0;
@@ -1000,7 +1012,7 @@ void autododge()
         float goalScore = (dotGoal + SPEED_MIN) * HALF;
         float inter = std::fma(
             escapeScore, INTEREST_ESCAPE_W, goalScore * INTEREST_GOAL_W);
-        inter += STRAFE_BLEND * (cardDirX[i] * sx + cardDirY[i] * sy);
+        if (strafeOn) d -= STRAFE_BLEND * (cardDirX[i] * sx + cardDirY[i] * sy);
         if (hasPrev)
         {
             float dotPrev = cardDirX[i] * prevDirX + cardDirY[i] * prevDirY;
