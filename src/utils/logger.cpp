@@ -128,6 +128,16 @@ struct StructScanPendingInput
 static StructScanPendingInput
     structScanPendingInputs[STRUCT_SCAN_MAX_PENDING_INPUTS]{};
 static size_t structScanInputMessageCount = 0;
+struct StructScanTypeSamples
+{
+    uintptr_t vtable;
+    size_t samples;
+};
+struct StructScanObjectSamples
+{
+    uintptr_t vtable;
+    size_t samples;
+};
 static StructScanTypeSamples structScanDataTypes[STRUCT_SCAN_MAX_DATA_TYPES]{};
 
 static StructScanObjectSamples
