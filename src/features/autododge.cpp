@@ -30,8 +30,12 @@ float ad_threat_vy[AD_REPORT_MAX] = {0.0f};
 float ad_threat_r[AD_REPORT_MAX] = {0.0f};
 float ad_threat_d[AD_REPORT_MAX] = {0.0f};
 float ad_threat_ttc[AD_REPORT_MAX] = {0.0f};
+float ad_threat_ca[AD_REPORT_MAX] = {0.0f};
+float ad_threat_score[AD_REPORT_MAX] = {0.0f};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_probe[256] = {0};
+char ad_nv[AD_NV_MAX][96] = {{0}};
+int ad_nv_n = 0;
 int ad_enemy_pid[AD_ENEMY_MAX] = {0};
 float ad_enemy_x[AD_ENEMY_MAX] = {0.0f};
 float ad_enemy_y[AD_ENEMY_MAX] = {0.0f};
@@ -77,6 +81,10 @@ constexpr float POS_DELTA_MIN_SQ = 16.0f;
 constexpr float PLAYER_ALONG_MIN = 0.0f;
 constexpr float BLOB_SPEED_MAX = 1600.0f;
 constexpr float DIR_KEEP = 0.55f;
+constexpr float MEAS_KEEP = 0.5f;
+constexpr float MEAS_NEW = 0.5f;
+constexpr float DEF_SPEED_MIN = 200.0f;
+constexpr float DEF_SPEED_MAX = 20000.0f;
 constexpr float DIR_NEW = 0.45f;
 constexpr float HITBOX_FALLBACK = 120.0f;
 constexpr float SPEED_FALLBACK = 720.0f;
@@ -118,7 +126,7 @@ struct Body
 
 struct ProjectileState
 {
-    float dir_x, dir_y, speed, radius;
+    float dir_x, dir_y, speed, radius, meas;
     char name[128];
     float spawnX, spawnY;
     int earlyTicks;
@@ -303,14 +311,42 @@ dangerFor(float mx, float my, float dx, float dy, float speed, float bodyR)
 }
 }
 
+static void note_novelo(int32_t pid,
+                        uintptr_t vtRva,
+                        int32_t rawSpeed,
+                        float rad,
+                        float px,
+                        float py,
+                        float mx,
+                        float my)
+{
+    float dx = px - mx;
+    float dy = py - my;
+    if (ad_nv_n >= AD_NV_MAX) return;
+    snprintf(ad_nv[ad_nv_n],
+             sizeof(ad_nv[ad_nv_n]),
+             "pid=%d vt=0x%x spd=%d r=%.0f p=(%.0f,%.0f) d=%.0f",
+             pid,
+             static_cast<unsigned>(vtRva),
+             rawSpeed,
+             rad,
+             px,
+             py,
+             sqrtf(dx * dx + dy * dy));
+    ad_nv_n++;
+}
+
 static void probe_speed_field(uintptr_t dataPtr, int32_t pid, int32_t raw)
 {
     int len = 0;
     if (ad_probe[0] != 0) return;
-    len = snprintf(
-        ad_probe, sizeof(ad_probe), "pid=%d speed@124=%d cand", pid, raw);
-    for (uintptr_t off = 0x40; off <= 0x1f0 && len > 0 &&
-                               len < static_cast<int>(sizeof(ad_probe)) - 16;
+    len = snprintf(ad_probe,
+                   sizeof(ad_probe),
+                   "pid=%d speed@124=%d cand",
+                   pid,
+                   raw);
+    for (uintptr_t off = 0x40;
+         off <= 0x1f0 && len > 0 && len < static_cast<int>(sizeof(ad_probe)) - 16;
          off += 4)
     {
         int32_t cand = 0;
@@ -376,10 +412,10 @@ void autododge()
     ad_proj_n = 0;
     ad_enemy_n = 0;
     ad_threat_n = 0;
+    ad_nv_n = 0;
     ad_best_dir = -1;
     own_gid = 0;
-    for (int i = 0; i < AD_REPORT_MAX; i++)
-        ad_threat_name[i][0] = 0;
+    for (int i = 0; i < AD_REPORT_MAX; i++) ad_threat_name[i][0] = 0;
     if (!base || !own_elem || dead)
     {
         active = 0;
@@ -566,6 +602,13 @@ void autododge()
             float step = sqrtf(ddx * ddx + ddy * ddy);
             if (dt > DT_MIN && dt < DT_MAX && step * step >= POS_DELTA_MIN_SQ)
             {
+                float inst = step / dt;
+                if (inst >= 100.0f && inst <= 9000.0f)
+                {
+                    state.meas = state.meas > 0.0f
+                                     ? state.meas * MEAS_KEEP + inst * MEAS_NEW
+                                     : inst;
+                }
                 float ux = ddx / step;
                 float uy = ddy / step;
                 if (state.hasVelocity)
@@ -610,13 +653,19 @@ void autododge()
             continue;
         }
 
-        bool blob = !state.isBeam && !state.isIndirect && state.speed > 0.0f &&
-                    state.speed < BLOB_SPEED_MAX;
-        bool tracked = state.hasVelocity && state.speed > SPEED_MIN;
-        if (!blob && !tracked) autododge_scanner_event(SCAN_AD_NO_VELOCITY);
+        float mag = state.speed;
+        if (mag < DEF_SPEED_MIN || mag > DEF_SPEED_MAX) mag = state.meas;
+        bool blob = !state.isBeam && !state.isIndirect && mag > 0.0f &&
+                    mag < BLOB_SPEED_MAX;
+        bool tracked = state.hasVelocity && mag > SPEED_MIN;
+        if (!blob && !tracked)
+        {
+            autododge_scanner_event(SCAN_AD_NO_VELOCITY);
+            note_novelo(pid, vtRva, state.rawSpeed, state.radius, px, py, mx, my);
+        }
         if (blob) autododge_scanner_event(SCAN_AD_BLOB);
-        float vx = (blob || !tracked) ? 0.0f : state.dir_x * state.speed;
-        float vy = (blob || !tracked) ? 0.0f : state.dir_y * state.speed;
+        float vx = (blob || !tracked) ? 0.0f : state.dir_x * mag;
+        float vy = (blob || !tracked) ? 0.0f : state.dir_y * mag;
         float speedNow = sqrtf(vx * vx + vy * vy);
         float ux = speedNow > SPEED_MIN ? vx / speedNow : 0.0f;
         float uy = speedNow > SPEED_MIN ? vy / speedNow : 0.0f;
@@ -677,6 +726,17 @@ void autododge()
         float relx = t.x - mx;
         float rely = t.y - my;
         float dist = sqrtf(relx * relx + rely * rely);
+        float vv = t.vx * t.vx + t.vy * t.vy;
+        float along = 0.0f;
+        float ca = dist;
+        float score = 0.0f;
+        if (vv > VV_EPS)
+        {
+            along = (relx * t.vx + rely * t.vy) / sqrtf(vv);
+            float perp = dist * dist - along * along;
+            ca = perp > 0.0f ? sqrtf(perp) : 0.0f;
+        }
+        score = timeToClosestApproach(t, mx, my) >= 0.0f ? ca : ca + 1000000.0f;
         int slot = ad_threat_n;
         if (slot < AD_REPORT_MAX)
         {
@@ -687,9 +747,12 @@ void autododge()
             int worst = 0;
             for (int i = 1; i < AD_REPORT_MAX; i++)
             {
-                if (ad_threat_ttc[i] > ad_threat_ttc[worst]) worst = i;
+                if (ad_threat_score[i] > ad_threat_score[worst])
+                {
+                    worst = i;
+                }
             }
-            if (ttc >= ad_threat_ttc[worst]) continue;
+            if (score >= ad_threat_score[worst]) continue;
             slot = worst;
         }
         ad_threat_pid[slot] = t.pid;
@@ -700,6 +763,8 @@ void autododge()
         ad_threat_r[slot] = t.rad;
         ad_threat_d[slot] = dist;
         ad_threat_ttc[slot] = ttc;
+        ad_threat_ca[slot] = ca;
+        ad_threat_score[slot] = score;
         memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
         ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';
     }
