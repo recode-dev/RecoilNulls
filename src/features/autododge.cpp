@@ -33,7 +33,7 @@ constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
-constexpr uint64_t CALM_MS = 250;
+constexpr uint64_t CALM_MS = 100;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 }
 namespace ad
@@ -279,7 +279,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         float a = 6.2831853f * (float)i / (float)DIRS;
         float dx = cosf(a), dy = sinf(a);
         float v = dir_value(mx, my, dx, dy);
-        if (has) v += OWN_HITBOX * 0.25f * (dx * commit_x + dy * commit_y);
+        if (has) v += OWN_HITBOX * (dx * commit_x + dy * commit_y);
         if (v > best)
         {
             best = v, bx = dx, by = dy;
@@ -371,11 +371,11 @@ void autododge()
         return;
     }
     float dir_x = 1.0f, dir_y = 0.0f;
-    if (active && (commit_x != 0.0f || commit_y != 0.0f))
+    if (commit_x != 0.0f || commit_y != 0.0f)
     {
         dir_x = commit_x, dir_y = commit_y;
     }
-    else
+    if (threat_n)
     {
         choose(mx, my, dir_x, dir_y);
     }
