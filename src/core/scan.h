@@ -20,10 +20,7 @@ extern const char* image_name;
 extern BOOL setup_done;
 extern __thread BOOL inside_hook;
 extern uintptr_t addr_dataname;
-BOOL query_region(uintptr_t address,
-                  vm_prot_t* protection,
-                  vm_prot_t* maxProtection,
-                  mach_vm_size_t* regionSize,
+BOOL query_region(uintptr_t address, vm_prot_t* protection, vm_prot_t* maxProtection, mach_vm_size_t* regionSize,
                   uintptr_t* regionStart);
 BOOL addr_writable(uintptr_t address, size_t length);
 BOOL read_bytes(uintptr_t address, void* out, size_t length);
@@ -37,90 +34,38 @@ void* read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 BOOL find_game_image(uintptr_t* out_base);
 void poll_for_game(int tick);
-static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
-{
+static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags) {
     vm_prot_t protection = 0;
-    if (flags)
-    {
-        *flags = 0;
-    }
-    if (!query_region(address, &protection, nullptr, nullptr, nullptr))
-    {
-        return NO;
-    }
-    if (flags)
-    {
-        *flags = protection;
-    }
+    if (flags) { *flags = 0; }
+    if (!query_region(address, &protection, nullptr, nullptr, nullptr)) { return NO; }
+    if (flags) { *flags = protection; }
     return YES;
 }
 extern int gum_live;
 extern uint32_t workload_ticks;
-static inline BOOL addr_readable(uintptr_t address, size_t length)
-{
-    if (!address || !length)
-    {
-        return NO;
-    }
-    if (!gum_live)
-    {
-        return NO;
-    }
-    return gum_memory_is_readable((gconstpointer)address,
-                                  static_cast<gsize>(length))
-               ? YES
-               : NO;
+static inline BOOL addr_readable(uintptr_t address, size_t length) {
+    if (!address || !length) { return NO; }
+    if (!gum_live) { return NO; }
+    return gum_memory_is_readable((gconstpointer)address, static_cast<gsize>(length)) ? YES : NO;
 }
-static inline BOOL addr_executable(uintptr_t address)
-{
+static inline BOOL addr_executable(uintptr_t address) {
     vm_prot_t flags = 0;
-    if (!region_flags(address, &flags))
-    {
-        return NO;
-    }
+    if (!region_flags(address, &flags)) { return NO; }
     return (flags & VM_PROT_EXECUTE) ? YES : NO;
 }
-static inline BOOL object_plausible(void* object)
-{
-    if (!object)
-    {
-        return NO;
-    }
+static inline BOOL object_plausible(void* object) {
+    if (!object) { return NO; }
     uintptr_t address = (uintptr_t)object;
-    if (address < HEAP_REGION_MAX_SIZE)
-    {
-        return NO;
-    }
-    if (address & 7)
-    {
-        return NO;
-    }
-    if (!addr_readable(address, sizeof(void*)))
-    {
-        return NO;
-    }
+    if (address < HEAP_REGION_MAX_SIZE) { return NO; }
+    if (address & 7) { return NO; }
+    if (!addr_readable(address, sizeof(void*))) { return NO; }
     uintptr_t vtable = 0;
-    if (!read_bytes(address, &vtable, sizeof(vtable)))
-    {
-        return NO;
-    }
-    if (!vtable)
-    {
-        return NO;
-    }
-    if (!addr_readable(vtable, sizeof(void*)))
-    {
-        return NO;
-    }
+    if (!read_bytes(address, &vtable, sizeof(vtable))) { return NO; }
+    if (!vtable) { return NO; }
+    if (!addr_readable(vtable, sizeof(void*))) { return NO; }
     uintptr_t firstEntry = 0;
-    if (!read_bytes(vtable, &firstEntry, sizeof(firstEntry)))
-    {
-        return NO;
-    }
-    if (!firstEntry)
-    {
-        return NO;
-    }
+    if (!read_bytes(vtable, &firstEntry, sizeof(firstEntry))) { return NO; }
+    if (!firstEntry) { return NO; }
     return addr_executable(firstEntry);
 }
 inline constexpr int COUNT_MAX = 512;

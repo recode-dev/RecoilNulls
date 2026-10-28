@@ -76,8 +76,7 @@ static int32_t axis(float v, int tiles) {
 static void release_move() {
     if (!coord_ok || wall_cache_w() <= 0 || wall_cache_h() <= 0) { return; }
     float step = self_speed * (float)INPUT_TICKS * (float)TICK_MS * 0.001f;
-    enqueue(axis((float)own_x + commit_x * step, wall_cache_w()),
-            axis((float)own_y + commit_y * step, wall_cache_h()));
+    enqueue(axis((float)own_x + commit_x * step, wall_cache_w()), axis((float)own_y + commit_y * step, wall_cache_h()));
 }
 static void end_dodge() {
     if (active) release_move();
@@ -89,25 +88,17 @@ static void learn_vtable() {
     void* data = nullptr;
     void* vt = nullptr;
     if (char_vt || !base || !own_elem) return;
-    if (!read_ptr(own_elem + ELEM_DEF_OFF, &data) || !data ||
-        !pointer_plausible((uintptr_t)data))
-        return;
+    if (!read_ptr(own_elem + ELEM_DEF_OFF, &data) || !data || !pointer_plausible((uintptr_t)data)) return;
     if (!read_ptr((uintptr_t)data, &vt) || !vt) return;
     uintptr_t rva = (uintptr_t)vt - base;
-    if (rva == VTABLE_PROJ_DATA_RVA || rva < DC_RVA_LO ||
-        rva >= DC_RVA_LO + DC_RVA_SIZE)
-        return;
+    if (rva == VTABLE_PROJ_DATA_RVA || rva < DC_RVA_LO || rva >= DC_RVA_LO + DC_RVA_SIZE) return;
     char_vt = rva;
 }
 static float wall_pull(float mx, float my, float dx, float dy) {
     int blocked = 0;
     for (int i = 1; i <= WALL_PROBES; i++) {
         float d = REACH * 0.5f * (float)i / (float)WALL_PROBES;
-        blocked +=
-            wall_is_blocked_wide(
-                mx + dx * d, my + dy * d, OWN_HITBOX, WALL_BLOCKS_MOVEMENT)
-                ? 1
-                : 0;
+        blocked += wall_is_blocked_wide(mx + dx * d, my + dy * d, OWN_HITBOX, WALL_BLOCKS_MOVEMENT) ? 1 : 0;
     }
     float pin_x = (float)axis(mx + dx * REACH, wall_cache_w()) - mx;
     float pin_y = (float)axis(my + dy * REACH, wall_cache_h()) - my;
@@ -134,7 +125,9 @@ static float dir_threat(float mx, float my, float dx, float dy) {
     }
     return worst;
 }
-static float dir_value(float mx, float my, float dx, float dy) { return dir_threat(mx, my, dx, dy) - OWN_HITBOX * wall_pull(mx, my, dx, dy); }
+static float dir_value(float mx, float my, float dx, float dy) {
+    return dir_threat(mx, my, dx, dy) - OWN_HITBOX * wall_pull(mx, my, dx, dy);
+}
 static Proj* find_proj(int32_t pid) {
     Proj* spare = nullptr;
     Proj* stale = &projs[0];
@@ -148,8 +141,7 @@ static Proj* find_proj(int32_t pid) {
     }
     return spare ? spare : stale;
 }
-static void init_proj(
-    Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now) {
+static void init_proj(Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now) {
     uint8_t data[PROJ_DATA_BLOCK_SIZE];
     int32_t speed = 0;
     int32_t radius = 0;
@@ -171,18 +163,14 @@ static void init_proj(
     st->flags = 0;
     if (data[PROJECTILEDATA_ISBEAM_OFF]) st->flags |= B_BEAM;
     if (data[PROJECTILEDATA_INDIRECT_OFF]) st->flags |= B_IND;
-    if (data[PROJECTILEDATA_PIERCES_ENV_OFF] ||
-        data[PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF])
-        st->flags |= B_PIERCE;
+    if (data[PROJECTILEDATA_PIERCES_ENV_OFF] || data[PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF]) st->flags |= B_PIERCE;
     st->name[0] = '\0';
     uintptr_t str = 0;
     if (addr_dataname) {
         using name_fn = uintptr_t (*)(uintptr_t);
         str = reinterpret_cast<name_fn>(addr_dataname)(dataPtr);
     }
-    if (str)
-        read_scstring(
-            str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
+    if (str) read_scstring(str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
     int near = -1;
     float best = 1e30f;
     for (int i = 0; i < ad_enemy_n; i++) {
@@ -208,8 +196,7 @@ static void collect_chars(int32_t own_gid, float mx, float my) {
         memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
         if (!dataPtr || !char_vt || !pointer_plausible(dataPtr)) continue;
         uintptr_t vt = 0;
-        if (!read_ptr(dataPtr, &vt) || vt < base || vt - base != char_vt)
-            continue;
+        if (!read_ptr(dataPtr, &vt) || vt < base || vt - base != char_vt) continue;
         ad_char_n++;
         int32_t team, hp, gid, xi, yi, aim;
         memcpy(&team, obj + OBJ_TEAM_OFF, sizeof(team));
@@ -218,8 +205,7 @@ static void collect_chars(int32_t own_gid, float mx, float my) {
         memcpy(&xi, obj + OBJ_X_OFF, sizeof(xi));
         memcpy(&yi, obj + OBJ_Y_OFF, sizeof(yi));
         memcpy(&aim, obj + OBJ_ATTACK_ANGLE_OFF, sizeof(aim));
-        if (team == own_team_b || hp <= 0 || gid <= 0 || gid == own_gid)
-            continue;
+        if (team == own_team_b || hp <= 0 || gid <= 0 || gid == own_gid) continue;
         if (ad_enemy_n >= AD_ENEMY_MAX) continue;
         int k = ad_enemy_n++;
         float ex = (float)xi - mx, ey = (float)yi - my;
@@ -278,15 +264,12 @@ static void collect_projs(uint64_t now, float mx, float my) {
             continue;
         }
         if (st->flags & B_IND) ad_ind_n++;
-        if (!(st->flags & (B_IND | B_PIERCE)) &&
-            !wall_los(px, py, mx, my, WALL_BLOCKS_PROJECTILES))
-            continue;
+        if (!(st->flags & (B_IND | B_PIERCE)) && !wall_los(px, py, mx, my, WALL_BLOCKS_PROJECTILES)) continue;
         float dot = vx * dx + vy * dy;
         if (dot >= 0.0f) continue;
         float rad = st->rad + body_rad();
         float vv = vx * vx + vy * vy, tt = -dot / vv;
-        float qx = dx + vx * tt, qy = dy + vy * tt,
-              dmin = sqrtf(qx * qx + qy * qy);
+        float qx = dx + vx * tt, qy = dy + vy * tt, dmin = sqrtf(qx * qx + qy * qy);
         if (dmin > rad + st->speed * (float)TICK_MS * 0.001f) continue;
         if (threat_n >= THREAT_MAX) continue;
         float gap = fmaxf(rad * rad - dmin * dmin, 0.0f);
@@ -301,8 +284,7 @@ static void evict_stale(uint64_t now) {
     for (int i = 0; i < PROJ_SLOTS; i++)
         if (projs[i].pid && now - projs[i].seen > PROJ_TTL_MS) projs[i].pid = 0;
 }
-static int nearest_unused(
-    float mx, float my, float dx, float dy, const int* used, float* out_clear) {
+static int nearest_unused(float mx, float my, float dx, float dy, const int* used, float* out_clear) {
     int best = -1;
     float bc = 1e30f;
     for (int i = 0; i < threat_n; i++) {
@@ -379,8 +361,7 @@ static void fill_report(float mx, float my, float dx, float dy) {
         ad_threat_r[s] = t.rad;
         ad_threat_ca[s] = bc;
         ad_threat_ttc[s] = t.tt;
-        ad_threat_d[s] =
-            sqrtf((t.x - mx) * (t.x - mx) + (t.y - my) * (t.y - my));
+        ad_threat_d[s] = sqrtf((t.x - mx) * (t.x - mx) + (t.y - my) * (t.y - my));
         memcpy(ad_threat_name[s], t.name, sizeof(ad_threat_name[s]));
         ad_threat_name[s][sizeof(ad_threat_name[s]) - 1] = '\0';
     }

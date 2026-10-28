@@ -15,10 +15,7 @@ const char* image_name = "Nulls Brawl";
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
 uintptr_t addr_dataname = 0;
-BOOL query_region(uintptr_t address,
-                  vm_prot_t* protection,
-                  vm_prot_t* maxProtection,
-                  mach_vm_size_t* regionSize,
+BOOL query_region(uintptr_t address, vm_prot_t* protection, vm_prot_t* maxProtection, mach_vm_size_t* regionSize,
                   uintptr_t* regionStart) {
     GumPageProtection pageProtection = GUM_PAGE_NO_ACCESS;
     guint pageSize = 0;
@@ -57,8 +54,9 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length) {
         uintptr_t page = cursor & ~(static_cast<uintptr_t>(pageSize) - 1);
         int slot = (int)((page >> 12) & (PAGE_CACHE_SLOTS - 1));
         uint8_t ok = 0;
-        if (page_cache_key[slot] == page) { ok = page_cache_ok[slot]; }
-        else {
+        if (page_cache_key[slot] == page) {
+            ok = page_cache_ok[slot];
+        } else {
             if (gum_memory_query_protection((gconstpointer)page, &protection))
                 ok = (protection & GUM_PAGE_READ) ? 1 : 0;
             page_cache_key[slot] = page;
@@ -94,8 +92,7 @@ BOOL writable(uintptr_t address, size_t length) {
         uintptr_t next = 0;
         if (!gum_memory_query_protection((gconstpointer)cursor, &protection)) { return NO; }
         if ((protection & GUM_PAGE_WRITE) == 0) { return NO; }
-        next = (cursor & ~(static_cast<uintptr_t>(pageSize) - 1)) +
-               static_cast<uintptr_t>(pageSize);
+        next = (cursor & ~(static_cast<uintptr_t>(pageSize) - 1)) + static_cast<uintptr_t>(pageSize);
         if (next <= cursor) { return NO; }
         cursor = next;
     }
@@ -105,11 +102,7 @@ BOOL write_bytes(uintptr_t address, const void* src, size_t length) {
     if (!src || !length) { return NO; }
     if (!address) { return NO; }
     if (!gum_live) { return NO; }
-    return gum_memory_write((gpointer)address,
-                            static_cast<const guint8*>(src),
-                            static_cast<gsize>(length))
-               ? YES
-               : NO;
+    return gum_memory_write((gpointer)address, static_cast<const guint8*>(src), static_cast<gsize>(length)) ? YES : NO;
 }
 BOOL read_ptr(uintptr_t address, uintptr_t* out) {
     if (!out || (address & 7)) { return NO; }
@@ -170,10 +163,8 @@ void poll_for_game(int tick) {
         setup();
         return;
     }
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                                 static_cast<int64_t>(0.5 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(),
-                   ^{ poll_for_game(tick + 1); });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(0.5 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{ poll_for_game(tick + 1); });
 }
 uintptr_t base = 0;
 uintptr_t manager_ptr = 0;
@@ -184,8 +175,7 @@ uint32_t own_hp = 0;
 uint64_t us() { return static_cast<uint64_t>(g_get_monotonic_time()); }
 using fn_self_t = uintptr_t (*)(uintptr_t);
 static uintptr_t call(uintptr_t fn, uintptr_t self) {
-    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self)
-        return 0;
+    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self) return 0;
     return ((fn_self_t)fn)(self);
 }
 uintptr_t manager_array_ptr = 0;
@@ -240,10 +230,8 @@ static void track_own_speed() {
             float dy = (float)(own_y - last_pos_y);
             float sp = sqrtf(dx * dx + dy * dy) / dt;
             if (sp >= 300.0f && sp <= 1100.0f) {
-                if (sp > own_speed)
-                    own_speed = sp;
-                else
-                    own_speed = own_speed * 0.99f + sp * 0.01f;
+                if (sp > own_speed) own_speed = sp;
+                else own_speed = own_speed * 0.99f + sp * 0.01f;
                 own_vel_x = own_vel_x * 0.5f + (dx / dt) * 0.5f;
                 own_vel_y = own_vel_y * 0.5f + (dy / dt) * 0.5f;
             }
@@ -285,9 +273,9 @@ void scan_world() {
     state = battle_state();
     slot = (uintptr_t)read_global_ptr(STATE_RVA);
     scene_object = 0;
-    if (slot &&
-        read_ptr(slot + static_cast<uintptr_t>(SCENE_OFF), &sceneValue) &&
-        sceneValue) { scene_object = (uintptr_t)sceneValue; }
+    if (slot && read_ptr(slot + static_cast<uintptr_t>(SCENE_OFF), &sceneValue) && sceneValue) {
+        scene_object = (uintptr_t)sceneValue;
+    }
     if (state != 5) {
         world_reset();
         return;
@@ -298,29 +286,23 @@ void scan_world() {
         world_reset();
         return;
     }
-    if (!read_ptr(clientPtr + static_cast<uintptr_t>(MODE_MANAGER_OFF),
-                  &value) ||
-        !value) {
+    if (!read_ptr(clientPtr + static_cast<uintptr_t>(MODE_MANAGER_OFF), &value) || !value) {
         world_reset();
         return;
     }
     mgrPtr = (uintptr_t)value;
     manager_ptr = mgrPtr;
-    if (!read_int(mgrPtr + static_cast<uintptr_t>(MGR_COUNT_OFF), &count) ||
-        count <= 0 || count > OBJECT_COUNT_MAX) {
+    if (!read_int(mgrPtr + static_cast<uintptr_t>(MGR_COUNT_OFF), &count) || count <= 0 || count > OBJECT_COUNT_MAX) {
         world_reset();
         return;
     }
-    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(MGR_ARRAY_OFF), &value) ||
-        !value) {
+    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(MGR_ARRAY_OFF), &value) || !value) {
         world_reset();
         return;
     }
     array = (uintptr_t)value;
     if (count > COUNT_MAX) count = COUNT_MAX;
-    if (!read_bytes(array,
-                    obj_snapshot,
-                    static_cast<size_t>(count) * sizeof(uintptr_t))) {
+    if (!read_bytes(array, obj_snapshot, static_cast<size_t>(count) * sizeof(uintptr_t))) {
         world_reset();
         return;
     }
@@ -329,11 +311,10 @@ void scan_world() {
     obj_count = count;
     for (int i = 0; i < count; i++) {
         uintptr_t objPtr = obj_snapshot[i];
-        obj_valid[i] = (objPtr && pointer_plausible(objPtr) &&
-                        read_bytes(objPtr, obj_block[i], OBJ_BLOCK_SIZE))
-                           ? 1
-                           : 0;
-    } {
+        obj_valid[i] =
+            (objPtr && pointer_plausible(objPtr) && read_bytes(objPtr, obj_block[i], OBJ_BLOCK_SIZE)) ? 1 : 0;
+    }
+    {
         uintptr_t ownFn = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER);
         uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
         own = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
@@ -353,8 +334,7 @@ void scan_world() {
         own_y = y;
         coord_ok = 1;
     }
-    if (read_int(own + static_cast<uintptr_t>(OBJ_HP_OFF), &hp) && hp >= 0 &&
-        hp < 1000000) {
+    if (read_int(own + static_cast<uintptr_t>(OBJ_HP_OFF), &hp) && hp >= 0 && hp < 1000000) {
         own_ok_hp = 1;
         own_hp = static_cast<uint32_t>(hp);
     } else {
@@ -362,10 +342,8 @@ void scan_world() {
         own_hp = 0;
     }
     dead = (own_ok_hp && own_hp == 0) ? 1 : 0;
-    own_index_v = static_cast<int32_t>(
-        call(callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX), clientPtr));
-    own_team_b = static_cast<int32_t>(
-        call(callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM), clientPtr));
+    own_index_v = static_cast<int32_t>(call(callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX), clientPtr));
+    own_team_b = static_cast<int32_t>(call(callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM), clientPtr));
     track_own_speed();
     tilemap_tick(clientPtr);
     wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));
@@ -395,13 +373,9 @@ static void scan_frame() {
 static dispatch_source_t scan_timer = nullptr;
 static void start_scan_timer() {
     if (scan_timer) { return; }
-    scan_timer = dispatch_source_create(
-        DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+    scan_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
     if (!scan_timer) { return; }
-    dispatch_source_set_timer(scan_timer,
-                              dispatch_time(DISPATCH_TIME_NOW, 0),
-                              SCAN_PERIOD_US * NSEC_PER_USEC,
-                              0);
+    dispatch_source_set_timer(scan_timer, dispatch_time(DISPATCH_TIME_NOW, 0), SCAN_PERIOD_US * NSEC_PER_USEC, 0);
     dispatch_source_set_event_handler(scan_timer, ^{ scan_frame(); });
     dispatch_resume(scan_timer);
 }
