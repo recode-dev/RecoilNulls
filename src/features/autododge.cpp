@@ -425,10 +425,9 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         int cur = 0;
         dir_value(mx, my, commit_x, commit_y, cur);
         uint64_t now = us() / 1000;
-        bool urgent =
-            (cur > 0 && cur <= URGENT_STEPS) ||
-            free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
-                OWN_HITBOX * 2.0f;
+        bool urgent = (cur > 0 && cur <= URGENT_STEPS) ||
+                      free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
+                          OWN_HITBOX * 2.0f;
         bool gain = best_steps >= cur + TURN_GAIN_STEPS;
         if (!urgent && (now - turn_ms < TURN_HOLD_MS || !gain))
         {
