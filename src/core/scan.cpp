@@ -583,7 +583,8 @@ void run_autododge()
     autododge();
     in_move = 0;
 }
-static constexpr uint64_t SCAN_PERIOD_US = 16000ULL;
+static constexpr uint64_t TICK_US = 50000ULL;
+static constexpr uint64_t SCAN_PERIOD_US = TICK_US / 6;
 static void scan_frame()
 {
     if (inside_hook)
