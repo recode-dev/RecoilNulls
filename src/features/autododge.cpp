@@ -37,14 +37,13 @@ float ad_enemy_y[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_hp[AD_ENEMY_MAX] = {0};
 float ad_enemy_d[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_aim[AD_ENEMY_MAX] = {0};
+int ad_enemy_burst[AD_ENEMY_MAX] = {0};
 
 constexpr float AWARE = 4400.0f, REACT_S = 0.35f, SKIN = 90.0f, REACH = 700.0f;
 constexpr float HORIZON_S = 1.55f, ENGAGE = 120.0f;
-constexpr uint32_t RELEASE_GRACE_MS = 400, SEND_MIN_MS = 16;
+constexpr uint32_t SEND_MIN_MS = 16;
 constexpr float PROBE_T = 0.12f;
 constexpr int PROBE_N = 6;
-constexpr uint64_t POST_DODGE_HOLD_MS = 350;
-constexpr uint64_t DANGER_HOLD_MS = 400;
 constexpr uint64_t RICOCHET_HOLD_MS = 700;
 
 namespace
@@ -102,7 +101,7 @@ struct ProjectileState
     float dir_x, dir_y, speed, radius;
     char name[128];
     float prevX, prevY;
-    uint64_t lastSeen, lastTs;
+    uint64_t lastSeen, lastTs, burstEnd;
     int32_t lastX, lastY, pid;
     float last_ux, last_uy;
     uint64_t ricochetUntil;
@@ -124,7 +123,7 @@ static void rebuild_projectile_cache_index()
 
 static std::vector<Threat> threats;
 static int headingIdx = -1;
-static uint64_t lastDangerTs = 0, lastSentAt = 0, dirLockUntil = 0;
+static uint64_t lastSentAt = 0, dirLockUntil = 0;
 static uint32_t lastHpSeen = 0;
 static int pendingHit = 0, pendingDmg = 0;
 static float commitDirX = 0.0f, commitDirY = 0.0f;
@@ -136,7 +135,7 @@ static bool g_has_burst = false;
 static float g_burst_vx = 0.0f, g_burst_vy = 0.0f;
 static uint64_t postDodgeUntil = 0;
 static float postDodgeDirX = 0.0f, postDodgeDirY = 0.0f;
-static uint64_t dangerHoldUntil = 0;
+static uint64_t dangerHoldUntil = 0, frameBurstEnd = 0;
 
 static float point_to_segment_dist(
     float px, float py, float ax, float ay, float bx, float by) noexcept
@@ -248,6 +247,31 @@ static uintptr_t call_fn(uintptr_t fn, uintptr_t a, uintptr_t b) noexcept
     if (!target) return 0;
     using fn_t = uintptr_t (*)(uintptr_t, uintptr_t);
     return ((fn_t)target)(a, b);
+}
+
+static int32_t csv_int(uintptr_t row, uintptr_t colRva) noexcept
+{
+    int32_t idx = -1;
+    if (!read_int(base + colRva, &idx) || idx < 0) return -1;
+    return (int32_t)call_fn(base + RVA_CSV_GET_INT, row, (uintptr_t)idx);
+}
+
+static int32_t burst_window_ms(uintptr_t skill) noexcept
+{
+    uintptr_t row = 0;
+    int32_t nb = 0, mb = 0, at = 0, per = 0, win = 0;
+    if (!skill || !read_ptr(skill + SKILL_ROW_OFF, (void**)&row) || !row)
+        return 0;
+    nb = csv_int(row, SM_COL_NUMBULLETS_RVA);
+    mb = csv_int(row, SM_COL_MSBETWEEN_RVA);
+    at = csv_int(row, SM_COL_ACTIVETIME_RVA);
+    if (nb < 1 || nb > 64 || mb < 0 || mb > 5000 || at < 0 || at > 20000)
+        return 0;
+    per = mb > 0 ? at / mb : 1;
+    if (per < 1) per = 1;
+    win = nb * per * mb;
+    if (win < at) win = at;
+    return (win > 0 && win <= 20000) ? win : 0;
 }
 
 static float swept_ca(float mx,
@@ -431,14 +455,8 @@ static void enter_post_dodge(uint64_t now) noexcept
     if (headingIdx < 0) return;
     if (postDodgeUntil != 0) return;
     if (commitDirX == 0.0f && commitDirY == 0.0f) return;
-    uint64_t holdMs = POST_DODGE_HOLD_MS;
-    for (const auto& t : threats)
-        if (t.pierceChars)
-        {
-            holdMs = POST_DODGE_HOLD_MS * 2;
-            break;
-        }
-    postDodgeUntil = now + holdMs;
+    if (frameBurstEnd <= now) return;
+    postDodgeUntil = frameBurstEnd;
     postDodgeDirX = commitDirX;
     postDodgeDirY = commitDirY;
 }
@@ -479,10 +497,11 @@ void autododge_reset()
     ad_proj_n = 0;
     ad_enemy_n = 0;
     ad_threat_n = 0;
+    frameBurstEnd = 0;
+    for (int i = 0; i < AD_ENEMY_MAX; i++) ad_enemy_burst[i] = 0;
     proj_cache_storage.clear();
     proj_cache_index.clear();
     headingIdx = -1;
-    lastDangerTs = 0;
     lastSentAt = 0;
     commitDirX = 0.0f;
     commitDirY = 0.0f;
@@ -566,6 +585,7 @@ void autododge()
 
     CHAR_SPEED = own_speed;
     threats.clear();
+    frameBurstEnd = 0;
     threats.reserve(32);
     float bodyR = OWN_HITBOX + SKIN;
     float zoneSq = AWARE * AWARE;
@@ -610,6 +630,17 @@ void autododge()
                     ad_enemy_d[ad_enemy_n] =
                         sqrtf(std::fma(edx, edx, edy * edy));
                     ad_enemy_aim[ad_enemy_n] = cang;
+                    {
+                        uintptr_t skills = 0, skill = 0;
+                        int32_t bwin = 0;
+                        if (read_ptr(dataPtr + CHAR_DATA_SKILLS_OFF,
+                                     (void**)&skills) &&
+                            pointer_plausible(skills) &&
+                            read_ptr(skills, (void**)&skill) &&
+                            pointer_plausible(skill))
+                            bwin = burst_window_ms(skill);
+                        ad_enemy_burst[ad_enemy_n] = bwin;
+                    }
                     ad_enemy_n++;
                 }
             }
@@ -669,6 +700,10 @@ void autododge()
                         bestK = k;
                     }
                 }
+                state.burstEnd =
+                    bestK >= 0 && ad_enemy_burst[bestK] > 0
+                        ? now + (uint64_t)ad_enemy_burst[bestK]
+                        : 0;
                 if (bestK >= 0)
                 {
                     float ang = (float)ad_enemy_aim[bestK] * DEG_TO_RAD;
@@ -802,6 +837,7 @@ void autododge()
         item.bounce = state.isBouncing ? 1 : 0;
         item.pierceChars = state.piercesChars ? 1 : 0;
         item.pid = pid;
+        if (state.burstEnd > frameBurstEnd) frameBurstEnd = state.burstEnd;
         memcpy(item.name, state.name, sizeof(item.name) - 1);
         item.name[sizeof(item.name) - 1] = '\0';
         threats.push_back(item);
@@ -888,7 +924,7 @@ void autododge()
 
     if (threats.empty())
     {
-        if (now - lastDangerTs > RELEASE_GRACE_MS)
+        if (now >= frameBurstEnd)
         {
             enter_post_dodge(now);
             if (try_post_dodge(mx, my, now)) return;
@@ -927,13 +963,10 @@ void autododge()
     }
     if (!inDanger && hasRicochet) inDanger = true;
     if (inDanger)
-    {
-        lastDangerTs = now;
-        dangerHoldUntil =
-            now + (hasRicochet ? RICOCHET_HOLD_MS : DANGER_HOLD_MS);
-    }
-    if (!inDanger && now > dangerHoldUntil &&
-        (headingIdx < 0 || now - lastDangerTs > RELEASE_GRACE_MS))
+        dangerHoldUntil = hasRicochet
+                              ? (now + RICOCHET_HOLD_MS)
+                              : (frameBurstEnd > now ? frameBurstEnd : now);
+    if (!inDanger && now > dangerHoldUntil)
     {
         enter_post_dodge(now);
         if (try_post_dodge(mx, my, now)) return;

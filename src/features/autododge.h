@@ -37,6 +37,7 @@ extern float ad_enemy_y[AD_ENEMY_MAX];
 extern int ad_enemy_hp[AD_ENEMY_MAX];
 extern float ad_enemy_d[AD_ENEMY_MAX];
 extern int ad_enemy_aim[AD_ENEMY_MAX];
+extern int ad_enemy_burst[AD_ENEMY_MAX];
 void autododge_reset();
 void autododge();
 #endif
