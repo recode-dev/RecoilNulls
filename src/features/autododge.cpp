@@ -1,5 +1,5 @@
 #include "autododge.h"
-#include "adcore.h"
+#include "../core/adcore.h"
 #include "../core/commands.h"
 #include "../core/scan.h"
 #include "../core/scstring.h"
@@ -34,7 +34,7 @@ constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
-constexpr int INPUT_TICKS = 3;
+constexpr int RELEASE_TICKS = 3;
 constexpr float TURN_PER_TICK = 1.5707963f;
 constexpr int WALL_PROBES = 3;
 }
@@ -45,6 +45,21 @@ int threat_n = 0;
 Proj projs[PROJ_SLOTS];
 uintptr_t char_vt = 0;
 float self_speed = 1.0f;
+int pend_dmg = 0;
+float clear_one(float mx, float my, float dx, float dy, const Threat& t)
+{
+    float sx = t.vx - dx * self_speed, sy = t.vy - dy * self_speed;
+    float rx = t.x - mx, ry = t.y - my;
+    float vv = sx * sx + sy * sy;
+    float tt = 0.0f;
+    if (vv > VV_EPS)
+    {
+        tt = -(rx * sx + ry * sy) / vv;
+        if (tt < 0.0f) tt = 0.0f;
+    }
+    float cx = rx + sx * tt, cy = ry + sy * tt;
+    return sqrtf(cx * cx + cy * cy) - t.rad;
+}
 }
 namespace ad
 {
@@ -237,7 +252,6 @@ namespace
 static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
 static uint32_t last_hp = 0;
-static int pend_dmg = 0;
 static uint64_t last_turn_ms = 0;
 static int32_t axis(float v, int tiles)
 {
@@ -252,14 +266,13 @@ static void release_move()
     {
         return;
     }
-    float step = self_speed * (float)INPUT_TICKS * (float)TICK_MS * 0.001f;
+    float step = self_speed * (float)(TICK_MS * RELEASE_TICKS) * 0.001f;
     enqueue(axis((float)own_x + commit_x * step, wall_cache_w()),
             axis((float)own_y + commit_y * step, wall_cache_h()));
 }
 static void end_dodge()
 {
     if (active) release_move();
-    commit_x = 0.0f, commit_y = 0.0f;
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
     active = 0;
 }
@@ -295,20 +308,6 @@ static float wall_pull(float mx, float my, float dx, float dy)
     float room = sqrtf(pin_x * pin_x + pin_y * pin_y) / REACH;
     return (float)blocked / (float)WALL_PROBES + (1.0f - room);
 }
-static float clear_one(float mx, float my, float dx, float dy, const Threat& t)
-{
-    float sx = t.vx - dx * self_speed, sy = t.vy - dy * self_speed;
-    float rx = t.x - mx, ry = t.y - my;
-    float vv = sx * sx + sy * sy;
-    float tt = 0.0f;
-    if (vv > VV_EPS)
-    {
-        tt = -(rx * sx + ry * sy) / vv;
-        if (tt < 0.0f) tt = 0.0f;
-    }
-    float cx = rx + sx * tt, cy = ry + sy * tt;
-    return sqrtf(cx * cx + cy * cy) - t.rad;
-}
 static float dir_threat(float mx, float my, float dx, float dy)
 {
     float worst = 1e30f;
@@ -322,78 +321,6 @@ static float dir_threat(float mx, float my, float dx, float dy)
 static float dir_value(float mx, float my, float dx, float dy)
 {
     return dir_threat(mx, my, dx, dy) - OWN_HITBOX * wall_pull(mx, my, dx, dy);
-}
-static int nearest_unused(
-    float mx, float my, float dx, float dy, const int* used, float* out_clear)
-{
-    int best = -1;
-    float bc = 1e30f;
-    for (int i = 0; i < threat_n; i++)
-    {
-        bool skip = false;
-        for (int k = 0; k < AD_REPORT_MAX; k++)
-            if (used[k] == i) skip = true;
-        if (skip) continue;
-        float c = clear_one(mx, my, dx, dy, threats[i]);
-        if (c < bc)
-        {
-            bc = c;
-            best = i;
-        }
-    }
-    *out_clear = bc;
-    return best;
-}
-static void hit_report(float mx, float my, float dx, float dy)
-{
-    ad_hit_dmg = pend_dmg;
-    ad_hit_act = active;
-    ad_hit_n = threat_n;
-    ad_hit_x = (int)mx;
-    ad_hit_y = (int)my;
-    ad_hit_picked = 0;
-    int used[AD_REPORT_MAX] = {-1, -1, -1};
-    for (int s = 0; s < AD_REPORT_MAX; s++)
-    {
-        float bc = 0.0f;
-        int best = nearest_unused(mx, my, dx, dy, used, &bc);
-        if (best < 0) break;
-        used[s] = best;
-        ad_hit_ca[s] = bc;
-        ad_hit_ttc[s] = threats[best].tt;
-        ad_hit_r[s] = threats[best].rad;
-        ad_hit_picked++;
-    }
-    pend_dmg = 0;
-}
-static void fill_report(float mx, float my, float dx, float dy)
-{
-    ad_threat_n = threat_n < AD_REPORT_MAX ? threat_n : AD_REPORT_MAX;
-    int used[AD_REPORT_MAX] = {-1, -1, -1};
-    for (int s = 0; s < ad_threat_n; s++)
-    {
-        float bc = 0.0f;
-        int best = nearest_unused(mx, my, dx, dy, used, &bc);
-        if (best < 0)
-        {
-            ad_threat_n = s;
-            break;
-        }
-        used[s] = best;
-        const Threat& t = threats[best];
-        ad_threat_pid[s] = t.pid;
-        ad_threat_x[s] = t.x;
-        ad_threat_y[s] = t.y;
-        ad_threat_vx[s] = t.vx;
-        ad_threat_vy[s] = t.vy;
-        ad_threat_r[s] = t.rad;
-        ad_threat_ca[s] = bc;
-        ad_threat_ttc[s] = t.tt;
-        ad_threat_d[s] =
-            sqrtf((t.x - mx) * (t.x - mx) + (t.y - my) * (t.y - my));
-        memcpy(ad_threat_name[s], t.name, sizeof(ad_threat_name[s]));
-        ad_threat_name[s][sizeof(ad_threat_name[s]) - 1] = '\0';
-    }
 }
 static void choose(float mx, float my, float& out_x, float& out_y)
 {
@@ -469,6 +396,7 @@ void autododge_reset()
     last_hp = 0;
     pend_dmg = 0;
     sent_ms = 0;
+    commit_x = 0.0f, commit_y = 0.0f;
     memset(projs, 0, sizeof(projs));
     end_dodge();
 }

@@ -28,7 +28,11 @@ extern int threat_n;
 extern Proj projs[PROJ_SLOTS];
 extern uintptr_t char_vt;
 extern float self_speed;
+extern int pend_dmg;
 void evict_stale(uint64_t now);
 void collect_chars(int32_t own_gid, float mx, float my);
 void collect_projs(uint64_t now, float mx, float my);
+float clear_one(float mx, float my, float dx, float dy, const Threat& t);
+void hit_report(float mx, float my, float dx, float dy);
+void fill_report(float mx, float my, float dx, float dy);
 }
