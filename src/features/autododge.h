@@ -1,11 +1,32 @@
 #ifndef FEATURES_AUTODODGE_AUTODODGE_H
 #define FEATURES_AUTODODGE_AUTODODGE_H
 #include <cstdint>
+inline constexpr int AD_REPORT_MAX = 3;
+inline constexpr int AD_ENEMY_MAX = 4;
 extern int in_move;
 extern int active;
 extern int moving;
 extern int32_t ad_target_x;
 extern int32_t ad_target_y;
+extern int ad_best_dir;
+extern int ad_char_n;
+extern int ad_proj_n;
+extern int ad_enemy_n;
+extern int ad_threat_n;
+extern int ad_threat_pid[AD_REPORT_MAX];
+extern float ad_threat_x[AD_REPORT_MAX];
+extern float ad_threat_y[AD_REPORT_MAX];
+extern float ad_threat_vx[AD_REPORT_MAX];
+extern float ad_threat_vy[AD_REPORT_MAX];
+extern float ad_threat_r[AD_REPORT_MAX];
+extern float ad_threat_d[AD_REPORT_MAX];
+extern float ad_threat_ttc[AD_REPORT_MAX];
+extern char ad_threat_name[AD_REPORT_MAX][40];
+extern int ad_enemy_pid[AD_ENEMY_MAX];
+extern float ad_enemy_x[AD_ENEMY_MAX];
+extern float ad_enemy_y[AD_ENEMY_MAX];
+extern int ad_enemy_hp[AD_ENEMY_MAX];
+extern float ad_enemy_d[AD_ENEMY_MAX];
 void autododge_reset();
 void autododge();
 #endif

@@ -1,3 +1,4 @@
+#include "autododge.h"
 #include "../core/commands.h"
 #include "../core/scan.h"
 #include "../core/scstring.h"
@@ -15,6 +16,25 @@ int moving = 0;
 int in_move = 0;
 int32_t ad_target_x = INT32_MAX;
 int32_t ad_target_y = INT32_MAX;
+int ad_best_dir = -1;
+int ad_char_n = 0;
+int ad_proj_n = 0;
+int ad_enemy_n = 0;
+int ad_threat_n = 0;
+int ad_threat_pid[AD_REPORT_MAX] = {0};
+float ad_threat_x[AD_REPORT_MAX] = {0.0f};
+float ad_threat_y[AD_REPORT_MAX] = {0.0f};
+float ad_threat_vx[AD_REPORT_MAX] = {0.0f};
+float ad_threat_vy[AD_REPORT_MAX] = {0.0f};
+float ad_threat_r[AD_REPORT_MAX] = {0.0f};
+float ad_threat_d[AD_REPORT_MAX] = {0.0f};
+float ad_threat_ttc[AD_REPORT_MAX] = {0.0f};
+char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
+int ad_enemy_pid[AD_ENEMY_MAX] = {0};
+float ad_enemy_x[AD_ENEMY_MAX] = {0.0f};
+float ad_enemy_y[AD_ENEMY_MAX] = {0.0f};
+int ad_enemy_hp[AD_ENEMY_MAX] = {0};
+float ad_enemy_d[AD_ENEMY_MAX] = {0.0f};
 
 static struct
 {
@@ -44,7 +64,7 @@ namespace
 constexpr uintptr_t EARLY_TICKS_OFF = 0x80;
 
 constexpr float SPEED_SCALE = 1.0f;
-constexpr float RADIUS_SCALE = 10.0f;
+constexpr float RADIUS_SCALE = 1.0f;
 constexpr int32_t EARLY_TICK_MS = 16;
 
 constexpr float INF_F = std::numeric_limits<float>::infinity();
@@ -54,8 +74,8 @@ constexpr float DT_MAX = 0.3f;
 constexpr float POS_DELTA_MIN_SQ = 16.0f;
 constexpr float PLAYER_ALONG_MIN = 0.0f;
 constexpr float BLOB_SPEED_MAX = 1600.0f;
-constexpr float VEL_ALPHA_NEW = 1.0f;
-constexpr float VEL_ALPHA_EXIST = 0.4f;
+constexpr float DIR_KEEP = 0.55f;
+constexpr float DIR_NEW = 0.45f;
 constexpr float HITBOX_FALLBACK = 120.0f;
 constexpr float SPEED_FALLBACK = 720.0f;
 constexpr float BODY_EXTRA_R = 120.0f;
@@ -83,6 +103,8 @@ static const float cardDirY[CARDINALS] = {0.0f, 1.0f, 0.0f, -1.0f};
 struct Threat
 {
     float x, y, vx, vy, rad;
+    int32_t pid;
+    char name[40];
 };
 struct Body
 {
@@ -91,7 +113,7 @@ struct Body
 
 struct ProjectileState
 {
-    float vx, vy, speed, radius;
+    float dir_x, dir_y, speed, radius;
     char name[128];
     float spawnX, spawnY;
     int earlyTicks;
@@ -101,6 +123,7 @@ struct ProjectileState
     int32_t rawSpeed, rawRadius, rawEarly;
 };
 
+static uintptr_t char_vt_rva = 0;
 static std::vector<ProjectileState> proj_cache_storage;
 static std::map<int32_t, size_t> proj_cache_index;
 
@@ -274,8 +297,38 @@ dangerFor(float mx, float my, float dx, float dy, float speed, float bodyR)
 }
 }
 
+static void learn_char_vtable()
+{
+    void* dataPtr = nullptr;
+    void* vt = nullptr;
+    if (char_vt_rva || !base || !own_elem) return;
+    if (!read_ptr(own_elem + ELEM_DEF_OFF, &dataPtr) || !dataPtr) return;
+    if (!pointer_plausible((uintptr_t)dataPtr)) return;
+    if (!read_ptr((uintptr_t)dataPtr, &vt) || !vt) return;
+    uintptr_t rva = (uintptr_t)vt - base;
+    if (rva == 0 || rva == VTABLE_PROJ_DATA_RVA) return;
+    if (rva < DC_RVA_LO || rva >= DC_RVA_LO + DC_RVA_SIZE) return;
+    char_vt_rva = rva;
+}
+
+static bool char_like(uintptr_t vtRva, const uint8_t* obj)
+{
+    int32_t team = 0, hp = 0, gid = 0;
+    if (char_vt_rva) return vtRva == char_vt_rva;
+    if (vtRva == VTABLE_PROJ_DATA_RVA) return false;
+    memcpy(&team, obj + OBJ_TEAM_OFF, sizeof(team));
+    memcpy(&hp, obj + OBJ_HP_OFF, sizeof(hp));
+    memcpy(&gid, obj + OBJ_GLOBALID_OFF, sizeof(gid));
+    return team >= 0 && team <= 1 && hp > 0 && hp <= 200000 && gid > 0;
+}
+
 void autododge_reset()
 {
+    ad_best_dir = -1;
+    ad_char_n = 0;
+    ad_proj_n = 0;
+    ad_enemy_n = 0;
+    ad_threat_n = 0;
     proj_cache_storage.clear();
     proj_cache_index.clear();
     headingIdx = -1;
@@ -292,12 +345,19 @@ void autododge_reset()
 
 void autododge()
 {
+    ad_char_n = 0;
+    ad_proj_n = 0;
+    ad_enemy_n = 0;
+    ad_threat_n = 0;
+    ad_best_dir = -1;
+    for (int i = 0; i < AD_REPORT_MAX; i++) ad_threat_name[i][0] = 0;
     if (!base || !own_elem || dead)
     {
         active = 0;
         moving = 0;
         return;
     }
+    learn_char_vtable();
 
     uint64_t now = us() / 1000;
     float mx = (float)own_x, my = (float)own_y;
@@ -349,11 +409,37 @@ void autododge()
             autododge_scanner_event(SCAN_AD_BAD_VTABLE);
             continue;
         }
-        if (dataVtable - base != VTABLE_PROJ_DATA_RVA)
+        if (vtRva != VTABLE_PROJ_DATA_RVA)
         {
-            autododge_scanner_event(SCAN_AD_NOT_PROJECTILE_VTABLE);
+            if (char_like(vtRva, obj))
+            {
+                int32_t cteam = 0, chp = 0, cgid = 0, cx_i = 0, cy_i = 0;
+                memcpy(&cteam, obj + OBJ_TEAM_OFF, sizeof(cteam));
+                memcpy(&chp, obj + OBJ_HP_OFF, sizeof(chp));
+                memcpy(&cgid, obj + OBJ_GLOBALID_OFF, sizeof(cgid));
+                memcpy(&cx_i, obj + OBJ_X_OFF, sizeof(cx_i));
+                memcpy(&cy_i, obj + OBJ_Y_OFF, sizeof(cy_i));
+                ad_char_n++;
+                if (cteam != own_team_b && chp > 0 && cgid > 0 &&
+                    ad_enemy_n < AD_ENEMY_MAX)
+                {
+                    float edx = (float)cx_i - mx;
+                    float edy = (float)cy_i - my;
+                    ad_enemy_pid[ad_enemy_n] = cgid;
+                    ad_enemy_x[ad_enemy_n] = (float)cx_i;
+                    ad_enemy_y[ad_enemy_n] = (float)cy_i;
+                    ad_enemy_hp[ad_enemy_n] = chp;
+                    ad_enemy_d[ad_enemy_n] = sqrtf(edx * edx + edy * edy);
+                    ad_enemy_n++;
+                }
+            }
+            else
+            {
+                autododge_scanner_event(SCAN_AD_NOT_PROJECTILE_VTABLE);
+            }
             continue;
         }
+        ad_proj_n++;
 
         int32_t pid = 0, teamId = 0, px_i = 0, py_i = 0;
         memcpy(&pid, obj + OBJ_GLOBALID_OFF, sizeof(pid));
@@ -380,8 +466,6 @@ void autododge()
             autododge_scanner_event(SCAN_AD_DEAD);
             continue;
         }
-
-        if (px != 0.0f && py != 0.0f) bodies.push_back({px, py, myRadius});
 
         auto it = proj_cache_index.find(pid);
         if (it == proj_cache_index.end())
@@ -445,13 +529,24 @@ void autododge()
             float dt = (float)(now - state.lastTs) / 1000.0f;
             float ddx = (float)px_i - (float)state.lastX;
             float ddy = (float)py_i - (float)state.lastY;
-            if (dt > DT_MIN && dt < DT_MAX &&
-                ddx * ddx + ddy * ddy >= POS_DELTA_MIN_SQ)
+            float step = sqrtf(ddx * ddx + ddy * ddy);
+            if (dt > DT_MIN && dt < DT_MAX && step * step >= POS_DELTA_MIN_SQ)
             {
-                float alpha =
-                    state.hasVelocity ? VEL_ALPHA_EXIST : VEL_ALPHA_NEW;
-                state.vx = state.vx * (SPEED_MIN - alpha) + (ddx / dt) * alpha;
-                state.vy = state.vy * (SPEED_MIN - alpha) + (ddy / dt) * alpha;
+                float ux = ddx / step;
+                float uy = ddy / step;
+                if (state.hasVelocity)
+                {
+                    ux = state.dir_x * DIR_KEEP + ux * DIR_NEW;
+                    uy = state.dir_y * DIR_KEEP + uy * DIR_NEW;
+                    float norm = sqrtf(ux * ux + uy * uy);
+                    if (norm > VV_EPS)
+                    {
+                        ux /= norm;
+                        uy /= norm;
+                    }
+                }
+                state.dir_x = ux;
+                state.dir_y = uy;
                 state.hasVelocity = true;
             }
             state.lastX = px_i;
@@ -468,8 +563,8 @@ void autododge()
             float len = sqrtf(dx * dx + dy * dy);
             if (len > 1.0f)
             {
-                state.vx = (dx / len) * state.speed;
-                state.vy = (dy / len) * state.speed;
+                state.dir_x = dx / len;
+                state.dir_y = dy / len;
                 state.hasVelocity = true;
             }
         }
@@ -483,12 +578,14 @@ void autododge()
 
         bool blob = !state.isBeam && !state.isIndirect && state.speed > 0.0f &&
                     state.speed < BLOB_SPEED_MAX;
-        float speedNow = sqrtf(state.vx * state.vx + state.vy * state.vy);
-        if (!blob && speedNow < SPEED_MIN)
-            autododge_scanner_event(SCAN_AD_NO_VELOCITY);
+        bool tracked = state.hasVelocity && state.speed > SPEED_MIN;
+        if (!blob && !tracked) autododge_scanner_event(SCAN_AD_NO_VELOCITY);
         if (blob) autododge_scanner_event(SCAN_AD_BLOB);
-        float ux = (blob || speedNow < SPEED_MIN) ? 0.0f : state.vx / speedNow;
-        float uy = (blob || speedNow < SPEED_MIN) ? 0.0f : state.vy / speedNow;
+        float vx = (blob || !tracked) ? 0.0f : state.dir_x * state.speed;
+        float vy = (blob || !tracked) ? 0.0f : state.dir_y * state.speed;
+        float speedNow = sqrtf(vx * vx + vy * vy);
+        float ux = speedNow > SPEED_MIN ? vx / speedNow : 0.0f;
+        float uy = speedNow > SPEED_MIN ? vy / speedNow : 0.0f;
 
         if (!blob && speedNow >= SPEED_MIN)
         {
@@ -510,11 +607,16 @@ void autododge()
             }
         }
         autododge_scanner_event(SCAN_AD_THREAT_CANDIDATE);
-        threats.push_back({px,
-                           py,
-                           blob ? 0.0f : state.vx,
-                           blob ? 0.0f : state.vy,
-                           state.radius + myRadius});
+        Threat item{};
+        item.x = px;
+        item.y = py;
+        item.vx = vx;
+        item.vy = vy;
+        item.rad = state.radius + myRadius;
+        item.pid = pid;
+        memcpy(item.name, state.name, sizeof(item.name) - 1);
+        item.name[sizeof(item.name) - 1] = '\0';
+        threats.push_back(item);
     }
 
     {
@@ -535,6 +637,38 @@ void autododge()
             rebuild_projectile_cache_index();
     }
     if (threats.size() >= 32) autododge_scanner_event(SCAN_AD_MAX_THREATS);
+    for (const auto& t : threats)
+    {
+        float ttc = timeToCollision(mx, my, 0.0f, 0.0f, t);
+        float relx = t.x - mx;
+        float rely = t.y - my;
+        float dist = sqrtf(relx * relx + rely * rely);
+        int slot = ad_threat_n;
+        if (slot < AD_REPORT_MAX)
+        {
+            ad_threat_n++;
+        }
+        else
+        {
+            int worst = 0;
+            for (int i = 1; i < AD_REPORT_MAX; i++)
+            {
+                if (ad_threat_ttc[i] > ad_threat_ttc[worst]) worst = i;
+            }
+            if (ttc >= ad_threat_ttc[worst]) continue;
+            slot = worst;
+        }
+        ad_threat_pid[slot] = t.pid;
+        ad_threat_x[slot] = t.x;
+        ad_threat_y[slot] = t.y;
+        ad_threat_vx[slot] = t.vx;
+        ad_threat_vy[slot] = t.vy;
+        ad_threat_r[slot] = t.rad;
+        ad_threat_d[slot] = dist;
+        ad_threat_ttc[slot] = ttc;
+        memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
+        ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';
+    }
     autododge_scanner_report();
 
     if (threats.empty() && bodies.empty())
@@ -645,6 +779,7 @@ void autododge()
     commitDirX = outDirX;
     commitDirY = outDirY;
     headingIdx = bestIdx;
+    ad_best_dir = bestIdx;
     lastGoodTs = now;
 
     int32_t tx = clamp_axis(mx + outDirX * TUNE.REACH, wall_cache_w());

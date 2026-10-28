@@ -2,6 +2,7 @@
 #include <dispatch/dispatch.h>
 #include <mach/mach_time.h>
 #include <cstdint>
+#include <cmath>
 #include <cstring>
 #include <cstdio>
 #include <atomic>
@@ -433,25 +434,18 @@ uintptr_t base = 0;
 uintptr_t manager_ptr = 0;
 uint64_t ticks_a = 0;
 float own_speed = 720.0f;
-float own_r = 60.0f;
+float own_r = 120.0f;
 uint32_t own_hp = 0;
 uint64_t us()
 {
     return static_cast<uint64_t>(g_get_monotonic_time());
 }
 using fn_self_t = uintptr_t (*)(uintptr_t);
-using fn_self_int_t = int32_t (*)(uintptr_t);
 static uintptr_t call(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self)
         return 0;
     return ((fn_self_t)fn)(self);
-}
-static int32_t call_int(uintptr_t fn, uintptr_t self)
-{
-    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self)
-        return 0;
-    return ((fn_self_int_t)fn)(self);
 }
 uintptr_t manager_array_ptr = 0;
 int32_t manager_count_v = 0;
@@ -478,6 +472,9 @@ static int battle_state()
     return state;
 }
 static int battle_ticks = 0;
+static int32_t last_pos_x = 0;
+static int32_t last_pos_y = 0;
+static uint64_t last_pos_us = 0;
 static void world_reset()
 {
     own_elem = 0;
@@ -493,24 +490,68 @@ static void world_reset()
     obj_count = 0;
     scene_object = 0;
     battle_ticks = 0;
+    own_index_v = -1;
+    own_team_b = -1;
+    last_pos_us = 0;
     wall_drop();
     autododge_reset();
 }
+static void track_own_speed()
+{
+    uint64_t now_us = us();
+    if (last_pos_us && now_us > last_pos_us)
+    {
+        float dt = (float)(now_us - last_pos_us) / 1000000.0f;
+        if (dt > 0.004f && dt < 0.5f)
+        {
+            float dx = (float)(own_x - last_pos_x);
+            float dy = (float)(own_y - last_pos_y);
+            float sp = sqrtf(dx * dx + dy * dy) / dt;
+            if (sp >= 300.0f && sp <= 1400.0f)
+            {
+                if (sp > own_speed) own_speed = sp;
+                else own_speed = own_speed * 0.995f + sp * 0.005f;
+            }
+        }
+    }
+    last_pos_x = own_x;
+    last_pos_y = own_y;
+    last_pos_us = now_us;
+}
+
+static void tilemap_tick(uintptr_t clientPtr)
+{
+    static uint64_t last_us = 0;
+    uint64_t now_us = us();
+    uintptr_t tileMapFn = 0;
+    uintptr_t tileMap = 0;
+    if (last_us && now_us - last_us < 2000000ULL)
+    {
+        return;
+    }
+    last_us = now_us;
+    tileMapFn = callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP);
+    tileMap = tileMapFn ? call(tileMapFn, clientPtr) : 0;
+    if (pointer_plausible(tileMap))
+    {
+        wall_bind(tileMap);
+    }
+}
+
 void scan_world()
 {
+    void* value = nullptr;
     uintptr_t clientPtr = 0;
-    uintptr_t own = 0;
-    uintptr_t ownData = 0;
     uintptr_t mgrPtr = 0;
     uintptr_t array = 0;
-    void* value = nullptr;
+    uintptr_t own = 0;
     int32_t count = 0;
+    int32_t state = -1;
     int32_t ownIndex = -1;
     int32_t ownTeam = -1;
     int32_t x = 0;
     int32_t y = 0;
     int32_t hp = 0;
-    int32_t state = -1;
     uintptr_t slot = 0;
     void* sceneValue = nullptr;
     if (!base) return;
@@ -535,93 +576,11 @@ void scan_world()
         world_reset();
         return;
     }
-    own = addr_getownchar ? call(addr_getownchar, clientPtr) : 0;
-    if (base)
-    {
-        uintptr_t tileMapFn = callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP);
-        uintptr_t tileMap = tileMapFn ? call(tileMapFn, clientPtr) : 0;
-        if (pointer_plausible(tileMap))
-        {
-            wall_bind(tileMap);
-            wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));
-        }
-    }
-    if (!pointer_plausible(own))
-    {
-        own = 0;
-    }
-    if (clientPtr)
-    {
-        int32_t teamFromClient = -1;
-        int32_t indexFromClient = -1;
-        if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNTEAM_OFF),
-                     &teamFromClient))
-            ownTeam = teamFromClient;
-        if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNINDEX_OFF),
-                     &indexFromClient))
-            ownIndex = indexFromClient;
-    }
-    if (own)
-    {
-        own_elem = own;
-    }
-    if (ownTeam >= 0 && ownTeam <= 15)
-    {
-        own_team_b = ownTeam;
-    }
-    if (ownIndex >= 0 && ownIndex < 64)
-    {
-        own_index_v = ownIndex;
-    }
-    if (own)
-    {
-        if (read_int(own + static_cast<uintptr_t>(OBJ_X_OFF), &x) &&
-            read_int(own + static_cast<uintptr_t>(OBJ_Y_OFF), &y))
-        {
-            own_x = x;
-            own_y = y;
-        }
-        if (read_int(own + static_cast<uintptr_t>(OBJ_HP_OFF), &hp) &&
-            hp >= 0 && hp < 1000000)
-        {
-            own_ok_hp = 1;
-            own_hp = static_cast<uint32_t>(hp);
-        }
-        else
-        {
-            own_ok_hp = 0;
-            own_hp = 0;
-        }
-        dead = (own_ok_hp && own_hp == 0) ? 1 : 0;
-        coord_ok = 1;
-    }
-    else
-    {
-        dead = 1;
-    }
-    if (own)
-    {
-        int32_t probe = 0;
-        ownData = addr_getdata ? call(addr_getdata, own) : 0;
-        if (pointer_plausible(ownData) && read_int(ownData, &probe))
-        {
-            int32_t radius = 0;
-            int32_t speed = 0;
-            radius = call_int(addr_charradius, ownData);
-            speed = call_int(addr_charspeed, ownData);
-            own_r = static_cast<float>(radius);
-            if (speed >= 300 && speed <= 3000)
-                own_speed = static_cast<float>(speed);
-        }
-    }
     if (!read_ptr(clientPtr + static_cast<uintptr_t>(MODE_MANAGER_OFF),
                   &value) ||
         !value)
     {
-        manager_ptr = 0;
-        manager_array_ptr = 0;
-        manager_count_v = 0;
-        obj_count = 0;
+        world_reset();
         return;
     }
     mgrPtr = (uintptr_t)value;
@@ -629,17 +588,13 @@ void scan_world()
     if (!read_int(mgrPtr + static_cast<uintptr_t>(MGR_COUNT_OFF), &count) ||
         count <= 0 || count > OBJECT_COUNT_MAX)
     {
-        manager_array_ptr = 0;
-        manager_count_v = 0;
-        obj_count = 0;
+        world_reset();
         return;
     }
     if (!read_ptr(mgrPtr + static_cast<uintptr_t>(MGR_ARRAY_OFF), &value) ||
         !value)
     {
-        manager_array_ptr = 0;
-        manager_count_v = 0;
-        obj_count = 0;
+        world_reset();
         return;
     }
     array = (uintptr_t)value;
@@ -648,9 +603,7 @@ void scan_world()
                     obj_snapshot,
                     static_cast<size_t>(count) * sizeof(uintptr_t)))
     {
-        manager_array_ptr = 0;
-        manager_count_v = 0;
-        obj_count = 0;
+        world_reset();
         return;
     }
     manager_array_ptr = array;
@@ -666,21 +619,68 @@ void scan_world()
         if (!obj_valid[i])
         {
             autododge_scanner_event(SCAN_AD_INVALID_SNAPSHOT);
-            continue;
         }
-        int32_t team = 0;
-        int32_t hpNow = 0;
-        memcpy(&team, obj_block[i] + OBJ_TEAM_OFF, sizeof(team));
-        memcpy(&hpNow, obj_block[i] + OBJ_HP_OFF, sizeof(hpNow));
-        if (team == own_team_b || hpNow <= 0) continue;
     }
+    if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNINDEX_OFF),
+                 &ownIndex) &&
+        ownIndex >= 0 && ownIndex < count)
+    {
+        own_index_v = ownIndex;
+    }
+    if (read_int(clientPtr + static_cast<uintptr_t>(CLIENT_OWNTEAM_OFF),
+                 &ownTeam) &&
+        ownTeam >= 0 && ownTeam <= 15)
+    {
+        own_team_b = ownTeam;
+    }
+    if (own_index_v >= 0 && own_index_v < count)
+    {
+        uintptr_t candidate = obj_snapshot[own_index_v];
+        if (candidate && pointer_plausible(candidate) && obj_valid[own_index_v])
+        {
+            own = candidate;
+        }
+    }
+    if (!own)
+    {
+        own_elem = 0;
+        own_ok_hp = 0;
+        own_hp = 0;
+        dead = 1;
+        coord_ok = 0;
+        return;
+    }
+    own_elem = own;
+    if (read_int(own + static_cast<uintptr_t>(OBJ_X_OFF), &x) &&
+        read_int(own + static_cast<uintptr_t>(OBJ_Y_OFF), &y))
+    {
+        own_x = x;
+        own_y = y;
+        coord_ok = 1;
+    }
+    if (read_int(own + static_cast<uintptr_t>(OBJ_HP_OFF), &hp) && hp >= 0 &&
+        hp < 1000000)
+    {
+        own_ok_hp = 1;
+        own_hp = static_cast<uint32_t>(hp);
+    }
+    else
+    {
+        own_ok_hp = 0;
+        own_hp = 0;
+    }
+    dead = (own_ok_hp && own_hp == 0) ? 1 : 0;
+    track_own_speed();
+    tilemap_tick(clientPtr);
+    wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));
     ticks_a++;
 }
+
 void run_workload()
 {
-    wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));
     scan_world();
     run_autododge();
+    diag_tick();
 }
 void run_autododge()
 {
