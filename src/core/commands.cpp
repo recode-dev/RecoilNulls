@@ -279,3 +279,22 @@ int pred_set(int x, int y)
     ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, PRED_FLAG);
     return 1;
 }
+
+int move_direct(int x, int y)
+{
+    uintptr_t setFn = 0;
+    uintptr_t ctrl = 0;
+    static uintptr_t c_set = 0;
+    if (!coord_ok)
+    {
+        return 0;
+    }
+    setFn = callable_cached(&c_set, MOVE_RVA);
+    ctrl = controller();
+    if (!setFn || !ctrl)
+    {
+        return 0;
+    }
+    ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, 0);
+    return 1;
+}
