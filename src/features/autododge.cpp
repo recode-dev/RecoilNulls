@@ -41,7 +41,7 @@ int ad_enemy_aim[AD_ENEMY_MAX] = {0};
 constexpr float AWARE = 4400.0f, REACT_S = 0.35f, SKIN = 90.0f, REACH = 700.0f;
 constexpr float HORIZON_S = 1.55f, ENGAGE = 120.0f;
 constexpr uint32_t RELEASE_GRACE_MS = 400, SEND_MIN_MS = 16;
-constexpr float WALL_HIT = 9000.0f, PROBE_T = 0.12f;
+constexpr float PROBE_T = 0.12f;
 constexpr int PROBE_N = 6;
 constexpr float MIN_POS = 15.0f;
 constexpr uint64_t POST_DODGE_HOLD_MS = 350;
@@ -64,6 +64,7 @@ constexpr float DANGER_RADIUS = 550.0f, DANGER_RADIUS_RICOCHET = 800.0f;
 constexpr float TTC_MIN = 0.05f;
 constexpr float PIN_PENALTY = 2.0f;
 constexpr float BORDER_MARGIN = 600.0f, BORDER_ESCAPE_W = 0.55f;
+constexpr float WALL_DANGER_W = 0.85f;
 constexpr float DANGER_SUM_WEIGHT = 0.50f, DANGER_MAX = 1.0f,
                 DANGER_PICK_EPS = 0.02f;
 constexpr float INTEREST_ESCAPE_W = 0.7f, INTEREST_GOAL_W = 0.3f;
@@ -77,7 +78,6 @@ constexpr float BEHIND_MARGIN = 50.0f;
 constexpr float BURST_DOT_MIN = 0.95f;
 constexpr float BURST_PARALLEL_PENALTY = 0.40f;
 constexpr float BURST_PERP_BLEND = 0.70f;
-constexpr float POST_DODGE_OVERRIDE_TTC = 0.075f;
 constexpr float POST_DODGE_CA_MARGIN = 20.0f;
 constexpr float RICOCHET_DOT_THRESHOLD = 0.5f;
 constexpr float RICOCHET_MIN_STEP = 30.0f;
@@ -202,7 +202,7 @@ static float wallAhead(float mx,
                                  WALL_BLOCKS_MOVEMENT))
             blocked++;
     }
-    return WALL_HIT * (float)blocked / (float)PROBE_N;
+    return (float)blocked / (float)PROBE_N;
 }
 
 static int32_t clamp_axis(float value, int tiles) noexcept
@@ -310,7 +310,7 @@ static float dangerFor(
         danger += parallel * BURST_PARALLEL_PENALTY;
     }
     if (danger > DANGER_MAX) danger = DANGER_MAX;
-    return danger + wallAhead(mx, my, dx, dy, speed, bodyR);
+    return danger + WALL_DANGER_W * wallAhead(mx, my, dx, dy, speed, bodyR);
 }
 
 static void snapshot_hit(float mx, float my)
@@ -465,12 +465,10 @@ static bool try_post_dodge(float mx, float my, uint64_t now)
     {
         float ca = swept_ca(mx, my, mvx, mvy, t.x, t.y, t.vx, t.vy);
         if (ca > t.rad + myRadius + POST_DODGE_CA_MARGIN) continue;
-        float ttc = timeToCollision(mx, my, mvx, mvy, t);
-        if (ttc > 0.0f && ttc < POST_DODGE_OVERRIDE_TTC)
-        {
-            postDodgeUntil = 0;
-            return false;
-        }
+        if (timeToClosestApproach(t, mx, my, mvx, mvy) < 0.0f && !t.ricochet)
+            continue;
+        postDodgeUntil = 0;
+        return false;
     }
     int32_t tx = clamp_axis(mx + postDodgeDirX * REACH, wall_cache_w());
     int32_t ty = clamp_axis(my + postDodgeDirY * REACH, wall_cache_h());
