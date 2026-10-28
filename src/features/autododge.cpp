@@ -294,7 +294,8 @@ static void hold_move()
     {
         return;
     }
-    enqueue(axis((float)own_x, wall_cache_w()), axis((float)own_y, wall_cache_h()));
+    enqueue(axis((float)own_x, wall_cache_w()),
+            axis((float)own_y, wall_cache_h()));
 }
 
 static void end_dodge()
