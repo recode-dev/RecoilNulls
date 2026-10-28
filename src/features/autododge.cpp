@@ -32,7 +32,6 @@ namespace
 constexpr float OWN_HITBOX = 120.0f;
 constexpr float VV_EPS = 1e-6f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
-constexpr uint64_t DWELL_MS = 150;
 constexpr int DIRS = 16;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 }
@@ -251,7 +250,6 @@ namespace
 {
 static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
-static uint64_t dir_ms = 0;
 static uint32_t last_hp = 0;
 static float dir_threat(float mx, float my, float dx, float dy)
 {
@@ -339,7 +337,6 @@ void autododge_reset()
     last_hp = 0;
     pend_dmg = 0;
     sent_ms = 0;
-    dir_ms = 0;
     commit_x = 0.0f, commit_y = 0.0f;
     memset(projs, 0, sizeof(projs));
     end_dodge();
@@ -381,16 +378,13 @@ void autododge()
         return;
     }
     float dir_x = 1.0f, dir_y = 0.0f;
-    const float px = commit_x, py = commit_y;
-    choose(mx, my, dir_x, dir_y);
-    if ((px != 0.0f || py != 0.0f) && now - dir_ms < DWELL_MS)
+    if (active && (commit_x != 0.0f || commit_y != 0.0f))
     {
-        dir_x = px, dir_y = py;
-        commit_x = px, commit_y = py;
+        dir_x = commit_x, dir_y = commit_y;
     }
     else
     {
-        dir_ms = now;
+        choose(mx, my, dir_x, dir_y);
     }
     fill_report(mx, my, dir_x, dir_y);
     int32_t tx = axis(mx + dir_x * REACH, wall_cache_w());
