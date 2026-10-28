@@ -38,7 +38,11 @@ constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 constexpr int SIM_STEPS = 20;
 constexpr float SIM_T = (float)SIM_STEPS * TICK_MS_SEC;
 constexpr float SIM_STEP_W = 4096.0f;
-constexpr float ROOM_W = 240.0f;
+constexpr float ROOM_W = 900.0f;
+constexpr float AWAY_W = 250.0f;
+constexpr float MARGIN_CAP = OWN_HITBOX * 3.0f;
+constexpr float TURN_COS = 0.94f;
+constexpr float REM2 = (OWN_HITBOX * 3.0f) * (OWN_HITBOX * 3.0f);
 constexpr uint64_t SEND_MS = 100;
 constexpr uint64_t STOP_HOLD_MS = 250;
 constexpr float STOP_RUN = OWN_HITBOX * 0.5f;
@@ -271,6 +275,7 @@ static float commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
 static uint64_t calm_ms = 0;
 static uint64_t stop_ms = 0;
+static float sent_x = 1.0f, sent_y = 0.0f;
 static float stop_x = 0.0f, stop_y = 0.0f;
 static uint32_t last_hp = 0;
 static float free_run(float mx, float my, float dx, float dy, float far)
@@ -317,6 +322,19 @@ static void sim_pos(float mx,
         ay = OWN_HITBOX;
     else if (ay > h)
         ay = h;
+}
+static float nearest_away(float mx, float my, float dx, float dy)
+{
+    float best = 1e30f, dot = 0.0f;
+    for (int i = 0; i < ad_enemy_n; i++)
+    {
+        float ex = ad_enemy_x[i] - mx, ey = ad_enemy_y[i] - my;
+        float d = sqrtf(ex * ex + ey * ey);
+        if (d < 1.0f || d >= best) continue;
+        best = d;
+        dot = (dx * ex + dy * ey) / d;
+    }
+    return best < 1e29f ? -dot : 0.0f;
 }
 static float dir_value(float mx, float my, float dx, float dy, int& steps)
 {
@@ -365,8 +383,10 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
         if (c < margin) margin = c;
     }
     if (margin > 1e29f) margin = 0.0f;
+    if (margin > MARGIN_CAP) margin = MARGIN_CAP;
     steps = survive;
-    return (float)survive * SIM_STEP_W + margin + ROOM_W * room -
+    return (float)survive * SIM_STEP_W + margin + ROOM_W * room +
+           AWAY_W * nearest_away(mx, my, dx, dy) -
            OWN_HITBOX * wall_pull(mx, my, dx, dy, OWN_HITBOX);
 }
 static void choose(float mx, float my, float& out_x, float& out_y)
@@ -514,9 +534,15 @@ void autododge()
     fill_report(mx, my, dir_x, dir_y);
     int32_t tx = axis(mx + dir_x * REACH, wall_cache_w());
     int32_t ty = axis(my + dir_y * REACH, wall_cache_h());
-    if (now - sent_ms >= SEND_MS)
+    float rem_x = (float)(ad_target_x - own_x);
+    float rem_y = (float)(ad_target_y - own_y);
+    bool spent = ad_target_x == INT32_MAX ||
+                 rem_x * rem_x + rem_y * rem_y < REM2;
+    bool turned = dir_x * sent_x + dir_y * sent_y < TURN_COS;
+    if ((spent || turned) && now - sent_ms >= SEND_MS)
     {
         sent_ms = now;
+        sent_x = dir_x, sent_y = dir_y;
         enqueue(tx, ty);
         ad_target_x = tx;
         ad_target_y = ty;
