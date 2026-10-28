@@ -10,7 +10,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-namespace {
+namespace
+{
 constexpr long long LOG_MAX_BYTES = 4000000;
 constexpr uint64_t REPORT_US = 1000000ULL;
 
@@ -25,13 +26,15 @@ int hit_count = 0;
 int match_open = 0;
 int idle_logged = 0;
 
-void document_path(char* out, size_t cap) {
+void document_path(char* out, size_t cap)
+{
     const char* home = getenv("HOME");
     out[0] = 0;
     if (home != nullptr) snprintf(out, cap, "%s/Documents", home);
 }
 
-void line(const char* format, ...) {
+void line(const char* format, ...)
+{
     if (log_file == nullptr) return;
     va_list args;
     va_start(args, format);
@@ -40,7 +43,8 @@ void line(const char* format, ...) {
     fflush(log_file);
 }
 
-void rotate_if_needed() {
+void rotate_if_needed()
+{
     FILE* probe = fopen(log_path, "rb");
     if (probe == nullptr) return;
     fseek(probe, 0, SEEK_END);
@@ -52,7 +56,8 @@ void rotate_if_needed() {
     rename(log_path, backup);
 }
 
-bool open_log() {
+bool open_log()
+{
     char dir[1024];
     if (log_file != nullptr) return true;
     document_path(dir, sizeof(dir));
@@ -61,7 +66,8 @@ bool open_log() {
     log_file = fopen(log_path, "a");
     if (log_file == nullptr) return false;
     fseek(log_file, 0, SEEK_END);
-    if (ftell(log_file) == 0) {
+    if (ftell(log_file) == 0)
+    {
         fprintf(log_file, "=== autododge log ===\n");
         fprintf(log_file, "documents: %s\n", dir);
         fflush(log_file);
@@ -69,8 +75,10 @@ bool open_log() {
     return true;
 }
 
-const char* dir_name(int dir) {
-    switch (dir) {
+const char* dir_name(int dir)
+{
+    switch (dir)
+    {
     case 0:
         return "+x";
     case 1:
@@ -93,16 +101,19 @@ const char* dir_name(int dir) {
 }
 }
 
-void diag_tick() {
+void diag_tick()
+{
     uint64_t now_us = 0;
     unsigned long hz = 0;
     if (!open_log()) return;
     now_us = us();
     if (last_report_us && now_us - last_report_us < REPORT_US) return;
     last_report_us = now_us;
-    if (!base || !own_elem || dead) {
+    if (!base || !own_elem || dead)
+    {
         if (!base || !own_elem) match_open = 0;
-        if (!idle_logged) {
+        if (!idle_logged)
+        {
             line("idle\n");
             idle_logged = 1;
         }
@@ -110,7 +121,8 @@ void diag_tick() {
         return;
     }
     idle_logged = 0;
-    if (!match_open) {
+    if (!match_open)
+    {
         line("\n=== match ===\n");
         match_open = 1;
         dodge_count = 0;
@@ -121,12 +133,14 @@ void diag_tick() {
     }
     if (last_hp > 0 && static_cast<int32_t>(own_hp) < last_hp) hit_count++;
     last_hp = static_cast<int32_t>(own_hp);
-    if (active && (ad_target_x != last_tx || ad_target_y != last_ty)) {
+    if (active && (ad_target_x != last_tx || ad_target_y != last_ty))
+    {
         dodge_count++;
         last_tx = ad_target_x;
         last_ty = ad_target_y;
     }
-    if (!active) {
+    if (!active)
+    {
         last_tx = INT32_MAX;
         last_ty = INT32_MAX;
     }
@@ -137,32 +151,78 @@ void diag_tick() {
     }
     line("[m] hz=%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d dir=%s "
          "map=%dx%d dodge=%d hit=%d beam=%d ind=%d pad=%d\n",
-         static_cast<unsigned long>(hz), obj_count, ad_char_n, ad_proj_n, ad_enemy_n, own_hp, own_x, own_y,
-         (int)(own_speed + 0.5f), active ? dir_name(ad_best_dir) : "idle", wall_cache_w(), wall_cache_h(), dodge_count,
-         hit_count, ad_beam_n, ad_ind_n, (int)(ad_pad + 0.5f));
-    for (int i = 0; i < ad_threat_n && i < 3; i++) {
+         static_cast<unsigned long>(hz),
+         obj_count,
+         ad_char_n,
+         ad_proj_n,
+         ad_enemy_n,
+         own_hp,
+         own_x,
+         own_y,
+         (int)(own_speed + 0.5f),
+         active ? dir_name(ad_best_dir) : "idle",
+         wall_cache_w(),
+         wall_cache_h(),
+         dodge_count,
+         hit_count,
+         ad_beam_n,
+         ad_ind_n,
+         (int)(ad_pad + 0.5f));
+    for (int i = 0; i < ad_threat_n && i < 3; i++)
+    {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) r=%.0f d=%.0f "
              "ca=%.0f ttc=%.3f\n",
-             i, ad_threat_name[i][0] ? ad_threat_name[i] : "-", ad_threat_pid[i], ad_threat_x[i], ad_threat_y[i],
-             ad_threat_vx[i], ad_threat_vy[i], ad_threat_r[i], ad_threat_d[i], ad_threat_ca[i], ad_threat_ttc[i]);
+             i,
+             ad_threat_name[i][0] ? ad_threat_name[i] : "-",
+             ad_threat_pid[i],
+             ad_threat_x[i],
+             ad_threat_y[i],
+             ad_threat_vx[i],
+             ad_threat_vy[i],
+             ad_threat_r[i],
+             ad_threat_d[i],
+             ad_threat_ca[i],
+             ad_threat_ttc[i]);
     }
-    if (ad_hit_n >= 0 && ad_hit_dmg > 0) {
+    if (ad_hit_n >= 0 && ad_hit_dmg > 0)
+    {
         char buf[256];
-        int len = snprintf(buf, sizeof(buf), "dmg=%d act=%d n=%d p=(%d,%d) pad=%d ex=%.0f", ad_hit_dmg, ad_hit_act,
-                           ad_hit_n, ad_hit_x, ad_hit_y, (int)(ad_pad + 0.5f), ad_pad_excess);
-        if (ad_hit_picked < 1 && len > 0) snprintf(buf + len, sizeof(buf) - (size_t)len, " | none");
-        for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++) {
+        int len = snprintf(buf,
+                           sizeof(buf),
+                           "dmg=%d act=%d n=%d p=(%d,%d) pad=%d ex=%.0f",
+                           ad_hit_dmg,
+                           ad_hit_act,
+                           ad_hit_n,
+                           ad_hit_x,
+                           ad_hit_y,
+                           (int)(ad_pad + 0.5f),
+                           ad_pad_excess);
+        if (ad_hit_picked < 1 && len > 0)
+            snprintf(buf + len, sizeof(buf) - (size_t)len, " | none");
+        for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++)
+        {
             if (len <= 0 || len >= (int)sizeof(buf) - 40) break;
-            len += snprintf(buf + len, sizeof(buf) - (size_t)len, " | ca=%.0f ttc=%.2f r=%.0f", ad_hit_ca[i],
-                            ad_hit_ttc[i], ad_hit_r[i]);
+            len += snprintf(buf + len,
+                            sizeof(buf) - (size_t)len,
+                            " | ca=%.0f ttc=%.2f r=%.0f",
+                            ad_hit_ca[i],
+                            ad_hit_ttc[i],
+                            ad_hit_r[i]);
         }
         line("[hit] %s\n", buf);
         ad_hit_dmg = 0;
         ad_hit_picked = 0;
     }
-    for (int i = 0; i < ad_enemy_n && i < 4; i++) {
-        line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f a=%d\n", i, ad_enemy_pid[i], ad_enemy_x[i], ad_enemy_y[i],
-             ad_enemy_hp[i], ad_enemy_d[i], ad_enemy_aim[i]);
+    for (int i = 0; i < ad_enemy_n && i < 4; i++)
+    {
+        line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f a=%d\n",
+             i,
+             ad_enemy_pid[i],
+             ad_enemy_x[i],
+             ad_enemy_y[i],
+             ad_enemy_hp[i],
+             ad_enemy_d[i],
+             ad_enemy_aim[i]);
     }
     rotate_if_needed();
 }

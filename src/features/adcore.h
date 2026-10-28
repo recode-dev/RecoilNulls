@@ -1,18 +1,21 @@
 #pragma once
 #include <cstdint>
-namespace ad {
+namespace ad
+{
 constexpr float OWN_HITBOX = 120.0f;
 constexpr int THREAT_MAX = 32;
 constexpr int PROJ_SLOTS = 48;
 constexpr uint64_t TICK_MS = 50;
 constexpr uint64_t PROJ_TTL_MS = TICK_MS * 20;
 constexpr uint8_t B_BEAM = 1, B_IND = 2, B_PIERCE = 4;
-struct Threat {
+struct Threat
+{
     float x, y, vx, vy, rad, tt;
     int32_t pid;
     char name[40];
 };
-struct Proj {
+struct Proj
+{
     int32_t pid;
     uint64_t seen;
     float x, y, ux, uy, speed, rad;
