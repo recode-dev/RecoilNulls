@@ -280,8 +280,8 @@ static float swept_ca_segment(float mx, float my, const Threat& t) noexcept
     return d1;
 }
 
-static float clearanceFor(
-    float mx, float my, float dx, float dy, float speed) noexcept
+static float
+clearanceFor(float mx, float my, float dx, float dy, float speed) noexcept
 {
     float worst = INF_F;
     for (const auto& t : threats)
@@ -730,7 +730,6 @@ void autododge()
             rebuild_projectile_cache_index();
     }
 
-
     for (const auto& t : threats)
     {
         float ttc = timeToCollision(mx, my, ad_vx, ad_vy, t);
@@ -806,9 +805,11 @@ void autododge()
     float bestClear = -INF_F, bestDanger = INF_F;
     for (int i = 0; i < CARDINALS; i++)
     {
-        float clear = clearanceFor(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED);
-        float d = -clear + pinPenalty(mx, my, cardDirX[i], cardDirY[i]) +
-                  wallAhead(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED, bodyR);
+        float clear =
+            clearanceFor(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED);
+        float d =
+            -clear + pinPenalty(mx, my, cardDirX[i], cardDirY[i]) +
+            wallAhead(mx, my, cardDirX[i], cardDirY[i], CHAR_SPEED, bodyR);
         bool better = false;
         if (d < bestDanger - DANGER_PICK_EPS)
             better = true;
@@ -828,10 +829,9 @@ void autododge()
     }
 
     float outDirX = cardDirX[bestIdx], outDirY = cardDirY[bestIdx];
-    if (hasPrev &&
-        clearanceFor(mx, my, commitDirX, commitDirY, CHAR_SPEED) +
-                CLEAR_SWITCH_MARGIN >=
-            bestClear)
+    if (hasPrev && clearanceFor(mx, my, commitDirX, commitDirY, CHAR_SPEED) +
+                           CLEAR_SWITCH_MARGIN >=
+                       bestClear)
     {
         outDirX = commitDirX;
         outDirY = commitDirY;
