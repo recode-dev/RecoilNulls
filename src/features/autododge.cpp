@@ -143,45 +143,99 @@ void init_proj(
     }
 }
 
-void collect_chars(int32_t own_gid, float mx, float my)
+static void add_char(const uint8_t* obj, int32_t own_gid, float mx, float my)
 {
-    for (int i = 0; i < obj_count; i++)
-    {
-        if (!obj_valid[i]) continue;
-        const uint8_t* obj = obj_block[i];
-        uintptr_t dataPtr = 0;
-        memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
-        if (!dataPtr || !char_vt || !pointer_plausible(dataPtr)) continue;
-        uintptr_t vt = 0;
-        if (!read_ptr(dataPtr, &vt) || vt < base || vt - base != char_vt)
-            continue;
-        ad_char_n++;
-        int32_t team, hp, gid, xi, yi, aim;
-        memcpy(&team, obj + OBJ_TEAM_OFF, sizeof(team));
-        memcpy(&hp, obj + OBJ_HP_OFF, sizeof(hp));
-        memcpy(&gid, obj + OBJ_GLOBALID_OFF, sizeof(gid));
-        memcpy(&xi, obj + OBJ_X_OFF, sizeof(xi));
-        memcpy(&yi, obj + OBJ_Y_OFF, sizeof(yi));
-        memcpy(&aim, obj + OBJ_ATTACK_ANGLE_OFF, sizeof(aim));
-        if (team == own_team_b || hp <= 0 || gid <= 0 || gid == own_gid)
-            continue;
-        if (ad_enemy_n >= AD_ENEMY_MAX) continue;
-        int k = ad_enemy_n++;
-        float ex = (float)xi - mx, ey = (float)yi - my;
-        ad_enemy_pid[k] = gid;
-        ad_enemy_x[k] = (float)xi;
-        ad_enemy_y[k] = (float)yi;
-        ad_enemy_hp[k] = hp;
-        ad_enemy_d[k] = sqrtf(ex * ex + ey * ey);
-        ad_enemy_aim[k] = aim;
-    }
+    ad_char_n++;
+    int32_t team, hp, gid, xi, yi, aim;
+    memcpy(&team, obj + OBJ_TEAM_OFF, sizeof(team));
+    memcpy(&hp, obj + OBJ_HP_OFF, sizeof(hp));
+    memcpy(&gid, obj + OBJ_GLOBALID_OFF, sizeof(gid));
+    memcpy(&xi, obj + OBJ_X_OFF, sizeof(xi));
+    memcpy(&yi, obj + OBJ_Y_OFF, sizeof(yi));
+    memcpy(&aim, obj + OBJ_ATTACK_ANGLE_OFF, sizeof(aim));
+    if (team == own_team_b || hp <= 0 || gid <= 0 || gid == own_gid) return;
+    if (ad_enemy_n >= AD_ENEMY_MAX) return;
+    int k = ad_enemy_n++;
+    float ex = (float)xi - mx, ey = (float)yi - my;
+    ad_enemy_pid[k] = gid;
+    ad_enemy_x[k] = (float)xi;
+    ad_enemy_y[k] = (float)yi;
+    ad_enemy_hp[k] = hp;
+    ad_enemy_d[k] = sqrtf(ex * ex + ey * ey);
+    ad_enemy_aim[k] = aim;
 }
 
-void collect_projs(uint64_t now, float mx, float my)
+static void add_proj(
+    const uint8_t* obj, uintptr_t dataPtr, uint64_t now, float mx, float my,
+    float zone2)
+{
+    int32_t pid, team, xi, yi, dead;
+    memcpy(&pid, obj + OBJ_GLOBALID_OFF, sizeof(pid));
+    memcpy(&team, obj + OBJ_TEAM_OFF, sizeof(team));
+    memcpy(&xi, obj + OBJ_X_OFF, sizeof(xi));
+    memcpy(&yi, obj + OBJ_Y_OFF, sizeof(yi));
+    memcpy(&dead, obj + OBJ_DEADFLAG_OFF, sizeof(dead));
+    if (!pid || team == own_team_b || dead) return;
+    ad_proj_n++;
+    float px = (float)xi, py = (float)yi;
+    Proj* st = find_proj(pid);
+    if (st->pid != pid)
+    {
+        init_proj(st, pid, dataPtr, px, py, now);
+        if (st->pid != pid) return;
+    }
+    st->seen = now;
+    float step_x = px - st->x, step_y = py - st->y;
+    float step = sqrtf(step_x * step_x + step_y * step_y);
+    if (step > 1.0f)
+    {
+        st->ux = step_x / step;
+        st->uy = step_y / step;
+        st->vel = true;
+    }
+    st->x = px, st->y = py;
+    float dx = px - mx, dy = py - my;
+    if (!st->vel) return;
+    float vx = st->ux * st->speed, vy = st->uy * st->speed;
+    if (dx * dx + dy * dy > zone2) return;
+    if (st->flags & B_BEAM)
+    {
+        ad_beam_n++;
+        return;
+    }
+    if (st->flags & B_IND) ad_ind_n++;
+    if (!(st->flags & (B_IND | B_PIERCE)) &&
+        !wall_los(px, py, mx, my, WALL_BLOCKS_PROJECTILES))
+        return;
+    float vv = vx * vx + vy * vy;
+    if (vv <= 0.0f) return;
+    for (int k = 0; k < threat_n; k++)
+    {
+        if (fabsf(threats[k].x - px) < 1.0f &&
+            fabsf(threats[k].y - py) < 1.0f &&
+            fabsf(threats[k].vx - vx) < 1.0f &&
+            fabsf(threats[k].vy - vy) < 1.0f)
+            return;
+    }
+    if (threat_n >= THREAT_MAX) return;
+    Threat& t = threats[threat_n++];
+    t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.pid = pid;
+    t.rad = st->rad + OWN_HITBOX;
+    t.tt = -(dx * vx + dy * vy) / vv;
+    memcpy(t.name, st->name, sizeof(t.name));
+    t.name[sizeof(t.name) - 1] = '\0';
+}
+
+static uintptr_t obj_data[COUNT_MAX];
+static uintptr_t obj_rva[COUNT_MAX];
+
+void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
 {
     float zone = self_speed * 4.0f, zone2 = zone * zone;
     for (int i = 0; i < obj_count; i++)
     {
+        obj_data[i] = 0;
+        obj_rva[i] = 0;
         if (!obj_valid[i]) continue;
         const uint8_t* obj = obj_block[i];
         uintptr_t dataPtr = 0;
@@ -189,61 +243,14 @@ void collect_projs(uint64_t now, float mx, float my)
         if (!dataPtr || !pointer_plausible(dataPtr)) continue;
         uintptr_t vt = 0;
         if (!read_ptr(dataPtr, &vt) || vt < base) continue;
-        if (vt - base != VTABLE_PROJ_DATA_RVA) continue;
-        int32_t pid, team, xi, yi, dead;
-        memcpy(&pid, obj + OBJ_GLOBALID_OFF, 4);
-        memcpy(&team, obj + OBJ_TEAM_OFF, 4);
-        memcpy(&xi, obj + OBJ_X_OFF, 4);
-        memcpy(&yi, obj + OBJ_Y_OFF, 4);
-        memcpy(&dead, obj + OBJ_DEADFLAG_OFF, 4);
-        if (!pid || team == own_team_b || dead) continue;
-        ad_proj_n++;
-        float px = (float)xi, py = (float)yi;
-        Proj* st = find_proj(pid);
-        if (st->pid != pid)
-        {
-            init_proj(st, pid, dataPtr, px, py, now);
-            if (st->pid != pid) continue;
-        }
-        st->seen = now;
-        float step_x = px - st->x, step_y = py - st->y;
-        float step = sqrtf(step_x * step_x + step_y * step_y);
-        if (step > 1.0f)
-        {
-            st->ux = step_x / step;
-            st->uy = step_y / step;
-            st->vel = true;
-        }
-        st->x = px, st->y = py;
-        float dx = px - mx, dy = py - my;
-        if (!st->vel) continue;
-        float vx = st->ux * st->speed, vy = st->uy * st->speed;
-        if (dx * dx + dy * dy > zone2) continue;
-        if (st->flags & B_BEAM)
-        {
-            ad_beam_n++;
-            continue;
-        }
-        if (st->flags & B_IND) ad_ind_n++;
-        if (!(st->flags & (B_IND | B_PIERCE)) &&
-            !wall_los(px, py, mx, my, WALL_BLOCKS_PROJECTILES))
-            continue;
-        float vv = vx * vx + vy * vy;
-        if (vv <= 0.0f) continue;
-        int dup = 0;
-        for (int k = 0; k < threat_n && !dup; k++)
-            dup = fabsf(threats[k].x - px) < 1.0f &&
-                  fabsf(threats[k].y - py) < 1.0f &&
-                  fabsf(threats[k].vx - vx) < 1.0f &&
-                  fabsf(threats[k].vy - vy) < 1.0f;
-        if (dup) continue;
-        if (threat_n >= THREAT_MAX) continue;
-        Threat& t = threats[threat_n++];
-        t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.pid = pid;
-        t.rad = st->rad + OWN_HITBOX;
-        t.tt = -(dx * vx + dy * vy) / vv;
-        memcpy(t.name, st->name, sizeof(t.name));
-        t.name[sizeof(t.name) - 1] = '\0';
+        obj_data[i] = dataPtr;
+        obj_rva[i] = vt - base;
+        if (char_vt && obj_rva[i] == char_vt) add_char(obj, own_gid, mx, my);
+    }
+    for (int i = 0; i < obj_count; i++)
+    {
+        if (obj_rva[i] == VTABLE_PROJ_DATA_RVA)
+            add_proj(obj_block[i], obj_data[i], now, mx, my, zone2);
     }
 }
 
@@ -365,27 +372,27 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     float bx = has ? commit_x : 1.0f;
     float by = has ? commit_y : 0.0f;
     float best = -1e30f;
-    int best_steps = 0;
+    int best_steps = 0, cur_steps = -1;
     for (int i = 0; i < DIRS; i++)
     {
         float a = 6.2831853f * (float)i / (float)DIRS;
         float dx = cosf(a), dy = sinf(a);
         int steps = 0;
         float v = dir_value(mx, my, dx, dy, steps);
-        if (has) v += OWN_HITBOX * (dx * commit_x + dy * commit_y);
+        if (has)
+        {
+            if (dx == commit_x && dy == commit_y) cur_steps = steps;
+            v += OWN_HITBOX * (dx * commit_x + dy * commit_y);
+        }
         if (v > best)
         {
             best = v, bx = dx, by = dy, best_steps = steps;
         }
     }
-    if (has)
+    if (has && best_steps <= cur_steps &&
+        bx * commit_x + by * commit_y >= DEADBAND)
     {
-        int cur = 0;
-        dir_value(mx, my, commit_x, commit_y, cur);
-        if (best_steps <= cur && bx * commit_x + by * commit_y >= DEADBAND)
-        {
-            bx = commit_x, by = commit_y;
-        }
+        bx = commit_x, by = commit_y;
     }
     ad_best_dir = ((int)lroundf(atan2f(by, bx) * 1.2732395f) + 8) & 7;
     commit_x = bx, commit_y = by;
@@ -475,8 +482,7 @@ void autododge()
     uint64_t now = us() / 1000;
     float mx = (float)own_x, my = (float)own_y;
     evict_stale(now);
-    collect_chars(own_gid, mx, my);
-    collect_projs(now, mx, my);
+    collect_world(now, own_gid, mx, my);
     if (pend_dmg) hit_report(mx, my, commit_x, commit_y);
     if (threat_n)
     {
