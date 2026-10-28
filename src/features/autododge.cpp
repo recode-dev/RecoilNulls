@@ -34,6 +34,7 @@ float ad_threat_ca[AD_REPORT_MAX] = {0.0f};
 float ad_threat_score[AD_REPORT_MAX] = {0.0f};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
 char ad_probe[256] = {0};
+char ad_hit[256] = {0};
 char ad_nv[AD_NV_MAX][96] = {{0}};
 int ad_nv_n = 0;
 int ad_enemy_pid[AD_ENEMY_MAX] = {0};
@@ -105,6 +106,8 @@ constexpr float QUADRATIC_K = 2.0f;
 constexpr float HALF = 0.5f;
 constexpr float SPEED_MIN = 1.0f;
 constexpr float HYSTERESIS_MARGIN = 0.25f;
+constexpr uint64_t DIR_HOLD_MS = 200;
+constexpr int AD_HIT_SCAN = 64;
 
 constexpr int CARDINALS = 8;
 constexpr float DIAG = 0.70710678f;
@@ -152,6 +155,10 @@ static std::vector<Body> bodies;
 static std::vector<Threat> threats;
 static int headingIdx = -1;
 static uint64_t lastDangerTs = 0, lastGoodTs = 0, lastSentAt = 0;
+static uint64_t dirLockUntil = 0;
+static uint32_t lastHpSeen = 0;
+static int pendingHit = 0;
+static int pendingDmg = 0;
 static float commitDirX = 0.0f, commitDirY = 0.0f;
 static float CHAR_SPEED = SPEED_FALLBACK;
 
@@ -254,6 +261,7 @@ static void clearHeading()
 
 static void endDodge()
 {
+    dirLockUntil = 0;
     if (headingIdx < 0) return;
     clearHeading();
     ad_target_x = INT32_MAX;
@@ -311,6 +319,68 @@ dangerFor(float mx, float my, float dx, float dy, float speed, float bodyR)
 }
 }
 
+static void snapshot_hit(float mx, float my)
+{
+    int len = 0;
+    int picked = 0;
+    char used[AD_HIT_SCAN] = {0};
+    len = snprintf(ad_hit,
+                   sizeof(ad_hit),
+                   "dmg=%d act=%d n=%d p=(%.0f,%.0f)",
+                   pendingDmg,
+                   active,
+                   static_cast<int>(threats.size()),
+                   mx,
+                   my);
+    for (int step = 0; step < AD_REPORT_MAX; step++)
+    {
+        int best = -1;
+        float bestCa = 1e9f;
+        for (int i = 0; i < static_cast<int>(threats.size()); i++)
+        {
+            if (i >= AD_HIT_SCAN || used[i]) continue;
+            float rx = threats[i].x - mx;
+            float ry = threats[i].y - my;
+            float dist = sqrtf(rx * rx + ry * ry);
+            float vv = threats[i].vx * threats[i].vx +
+                       threats[i].vy * threats[i].vy;
+            float ca = dist;
+            if (vv > VV_EPS)
+            {
+                float al = (rx * threats[i].vx + ry * threats[i].vy) / sqrtf(vv);
+                float perp = dist * dist - al * al;
+                ca = perp > 0.0f ? sqrtf(perp) : 0.0f;
+            }
+            if (ca < bestCa)
+            {
+                bestCa = ca;
+                best = i;
+            }
+        }
+        if (best < 0 || picked >= AD_REPORT_MAX) break;
+        used[best] = 1;
+        picked++;
+        if (len > 0 && len < static_cast<int>(sizeof(ad_hit)) - 40)
+        {
+            len += snprintf(ad_hit + len,
+                            sizeof(ad_hit) - static_cast<size_t>(len),
+                            " | ca=%.0f ttc=%.2f r=%.0f",
+                            bestCa,
+                            timeToCollision(mx,
+                                            my,
+                                            0.0f,
+                                            0.0f,
+                                            threats[best]),
+                            threats[best].rad);
+        }
+    }
+    if (picked < 1 && len > 0 &&
+        len < static_cast<int>(sizeof(ad_hit)) - 8)
+    {
+        snprintf(ad_hit + len, sizeof(ad_hit) - static_cast<size_t>(len), " | none");
+    }
+}
+
 static void note_novelo(int32_t pid,
                         uintptr_t vtRva,
                         int32_t rawSpeed,
@@ -340,10 +410,13 @@ static void probe_speed_field(uintptr_t dataPtr, int32_t pid, int32_t raw)
 {
     int len = 0;
     if (ad_probe[0] != 0) return;
-    len = snprintf(
-        ad_probe, sizeof(ad_probe), "pid=%d speed@124=%d cand", pid, raw);
-    for (uintptr_t off = 0x40; off <= 0x1f0 && len > 0 &&
-                               len < static_cast<int>(sizeof(ad_probe)) - 16;
+    len = snprintf(ad_probe,
+                   sizeof(ad_probe),
+                   "pid=%d speed@124=%d cand",
+                   pid,
+                   raw);
+    for (uintptr_t off = 0x40;
+         off <= 0x1f0 && len > 0 && len < static_cast<int>(sizeof(ad_probe)) - 16;
          off += 4)
     {
         int32_t cand = 0;
@@ -385,6 +458,10 @@ static bool char_like(uintptr_t vtRva, const uint8_t* obj)
 void autododge_reset()
 {
     ad_best_dir = -1;
+    lastHpSeen = 0;
+    pendingHit = 0;
+    pendingDmg = 0;
+    dirLockUntil = 0;
     ad_char_n = 0;
     ad_proj_n = 0;
     ad_enemy_n = 0;
@@ -410,10 +487,15 @@ void autododge()
     ad_enemy_n = 0;
     ad_threat_n = 0;
     ad_nv_n = 0;
+    if (lastHpSeen && own_hp < lastHpSeen)
+    {
+        pendingHit = 1;
+        pendingDmg = static_cast<int>(lastHpSeen - own_hp);
+    }
+    lastHpSeen = own_hp;
     ad_best_dir = -1;
     own_gid = 0;
-    for (int i = 0; i < AD_REPORT_MAX; i++)
-        ad_threat_name[i][0] = 0;
+    for (int i = 0; i < AD_REPORT_MAX; i++) ad_threat_name[i][0] = 0;
     if (!base || !own_elem || dead)
     {
         active = 0;
@@ -659,8 +741,7 @@ void autododge()
         if (!blob && !tracked)
         {
             autododge_scanner_event(SCAN_AD_NO_VELOCITY);
-            note_novelo(
-                pid, vtRva, state.rawSpeed, state.radius, px, py, mx, my);
+            note_novelo(pid, vtRva, state.rawSpeed, state.radius, px, py, mx, my);
         }
         if (blob) autododge_scanner_event(SCAN_AD_BLOB);
         float vx = (blob || !tracked) ? 0.0f : state.dir_x * mag;
@@ -766,6 +847,11 @@ void autododge()
         ad_threat_score[slot] = score;
         memcpy(ad_threat_name[slot], t.name, sizeof(ad_threat_name[slot]));
         ad_threat_name[slot][sizeof(ad_threat_name[slot]) - 1] = '\0';
+    }
+    if (pendingHit)
+    {
+        snapshot_hit(mx, my);
+        pendingHit = 0;
     }
     autododge_scanner_report();
 
@@ -879,13 +965,17 @@ void autododge()
     if (hasPrev)
     {
         float prevD = dangerFor(mx, my, prevDirX, prevDirY, CHAR_SPEED, bodyR);
-        if (prevD <= bestDanger + HYSTERESIS_MARGIN)
+        if (now < dirLockUntil || prevD <= bestDanger + HYSTERESIS_MARGIN)
         {
             outDirX = prevDirX;
             outDirY = prevDirY;
         }
     }
 
+    if (hasPrev && (outDirX != prevDirX || outDirY != prevDirY))
+    {
+        dirLockUntil = now + DIR_HOLD_MS;
+    }
     commitDirX = outDirX;
     commitDirY = outDirY;
     headingIdx = bestIdx;

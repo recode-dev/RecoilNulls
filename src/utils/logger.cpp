@@ -186,6 +186,11 @@ void diag_tick()
         line("[p] %s\n", ad_probe);
         ad_probe[0] = 0;
     }
+    if (ad_hit[0])
+    {
+        line("[hit] %s\n", ad_hit);
+        ad_hit[0] = 0;
+    }
     for (int i = 0; i < ad_nv_n; i++)
     {
         line("[nv] %s\n", ad_nv[i]);

@@ -26,6 +26,7 @@ extern char ad_probe[256];
 inline constexpr int AD_NV_MAX = 3;
 extern char ad_nv[AD_NV_MAX][96];
 extern int ad_nv_n;
+extern char ad_hit[256];
 extern float ad_threat_ca[AD_REPORT_MAX];
 extern float ad_threat_score[AD_REPORT_MAX];
 extern int ad_enemy_pid[AD_ENEMY_MAX];
