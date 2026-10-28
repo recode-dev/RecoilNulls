@@ -9,7 +9,6 @@ uintptr_t entry_callable(uintptr_t rva);
 [[nodiscard]] void* msg_alloc();
 void* manager();
 int pred_set(int x, int y);
-int move_direct(int x, int y);
 int ci_load_constants();
 uint32_t ci_sign(void* ci, void* battle);
 int enqueue(int x, int y);

@@ -575,7 +575,7 @@ void autododge()
     {
         sent_ms = now;
         sent_x = dir_x, sent_y = dir_y;
-        move_direct(tx, ty);
+        enqueue(tx, ty);
         ad_target_x = tx;
         ad_target_y = ty;
     }
