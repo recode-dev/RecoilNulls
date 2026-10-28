@@ -39,7 +39,7 @@ float ad_enemy_y[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_hp[AD_ENEMY_MAX] = {0};
 float ad_enemy_d[AD_ENEMY_MAX] = {0.0f};
 int ad_enemy_aim[AD_ENEMY_MAX] = {0};
-int ad_enemy_burst[AD_ENEMY_MAX] = {0};
+int ad_enemy_hold[AD_ENEMY_MAX] = {0};
 
 constexpr float AWARE = 4400.0f, REACT_S = 0.35f, SKIN = 90.0f, REACH = 700.0f;
 constexpr float HORIZON_S = 1.55f, ENGAGE = 120.0f;
@@ -103,7 +103,7 @@ struct ProjectileState
     float dir_x, dir_y, speed, radius;
     char name[128];
     float prevX, prevY;
-    uint64_t lastSeen, lastTs, burstEnd;
+    uint64_t lastSeen, lastTs, holdEnd;
     int32_t lastX, lastY, pid;
     float last_ux, last_uy;
     int32_t maxBounces, bounces;
@@ -137,7 +137,7 @@ static bool g_has_burst = false;
 static float g_burst_vx = 0.0f, g_burst_vy = 0.0f;
 static uint64_t postDodgeUntil = 0;
 static float postDodgeDirX = 0.0f, postDodgeDirY = 0.0f;
-static uint64_t dangerHoldUntil = 0, frameBurstEnd = 0;
+static uint64_t dangerHoldUntil = 0, frameHoldEnd = 0;
 
 static float point_to_segment_dist(
     float px, float py, float ax, float ay, float bx, float by) noexcept
@@ -258,7 +258,17 @@ static int32_t csv_int(uintptr_t row, uintptr_t colRva) noexcept
     return (int32_t)call_fn(base + RVA_CSV_GET_INT, row, (uintptr_t)idx);
 }
 
-static int32_t burst_window_ms(uintptr_t skill) noexcept
+static int32_t skill_cooldown_ms(uintptr_t skill) noexcept
+{
+    uintptr_t row = 0;
+    int32_t cd = 0;
+    if (!skill || !read_ptr(skill + SKILL_ROW_OFF, (void**)&row) || !row)
+        return 0;
+    cd = csv_int(row, SM_COL_COOLDOWN_RVA);
+    return (cd >= 100 && cd <= 5000) ? cd : 0;
+}
+
+static int32_t skill_burst_ms(uintptr_t skill) noexcept
 {
     uintptr_t row = 0;
     int32_t nb = 0, mb = 0, at = 0, per = 0, win = 0;
@@ -457,8 +467,8 @@ static void enter_post_dodge(uint64_t now) noexcept
     if (headingIdx < 0) return;
     if (postDodgeUntil != 0) return;
     if (commitDirX == 0.0f && commitDirY == 0.0f) return;
-    if (frameBurstEnd <= now) return;
-    postDodgeUntil = frameBurstEnd;
+    if (frameHoldEnd <= now) return;
+    postDodgeUntil = frameHoldEnd;
     postDodgeDirX = commitDirX;
     postDodgeDirY = commitDirY;
 }
@@ -499,9 +509,9 @@ void autododge_reset()
     ad_proj_n = 0;
     ad_enemy_n = 0;
     ad_threat_n = 0;
-    frameBurstEnd = 0;
+    frameHoldEnd = 0;
     for (int i = 0; i < AD_ENEMY_MAX; i++)
-        ad_enemy_burst[i] = 0;
+        ad_enemy_hold[i] = 0;
     proj_cache_storage.clear();
     proj_cache_index.clear();
     headingIdx = -1;
@@ -588,7 +598,7 @@ void autododge()
 
     CHAR_SPEED = own_speed;
     threats.clear();
-    frameBurstEnd = 0;
+    frameHoldEnd = 0;
     threats.reserve(32);
     float bodyR = OWN_HITBOX + SKIN;
     float zoneSq = AWARE * AWARE;
@@ -634,15 +644,25 @@ void autododge()
                         sqrtf(std::fma(edx, edx, edy * edy));
                     ad_enemy_aim[ad_enemy_n] = cang;
                     {
-                        uintptr_t skills = 0, skill = 0;
-                        int32_t bwin = 0;
-                        if (read_ptr(dataPtr + CHAR_DATA_SKILLS_OFF,
-                                     (void**)&skills) &&
-                            pointer_plausible(skills) &&
-                            read_ptr(skills, (void**)&skill) &&
+                        uintptr_t charPtr = obj_snapshot[i];
+                        uintptr_t arr = 0, skill = 0;
+                        int32_t cnt = 0, bwin = 0, cd = 0, hold = 0;
+                        if (read_bytes(charPtr + OBJ_SKILL_COUNT_OFF,
+                                       &cnt,
+                                       sizeof(cnt)) &&
+                            cnt > 0 &&
+                            read_bytes(charPtr + OBJ_SKILLS_OFF,
+                                       &arr,
+                                       sizeof(arr)) &&
+                            pointer_plausible(arr) &&
+                            read_ptr(arr, (void**)&skill) &&
                             pointer_plausible(skill))
-                            bwin = burst_window_ms(skill);
-                        ad_enemy_burst[ad_enemy_n] = bwin;
+                        {
+                            bwin = skill_burst_ms(skill);
+                            cd = skill_cooldown_ms(skill);
+                            hold = bwin > cd ? bwin : cd;
+                        }
+                        ad_enemy_hold[ad_enemy_n] = hold;
                     }
                     ad_enemy_n++;
                 }
@@ -705,8 +725,8 @@ void autododge()
                         bestK = k;
                     }
                 }
-                state.burstEnd = bestK >= 0 && ad_enemy_burst[bestK] > 0
-                                     ? now + (uint64_t)ad_enemy_burst[bestK]
+                state.holdEnd = bestK >= 0 && ad_enemy_hold[bestK] > 0
+                                     ? now + (uint64_t)ad_enemy_hold[bestK]
                                      : 0;
                 if (bestK >= 0)
                 {
@@ -842,7 +862,7 @@ void autododge()
         item.bm = state.maxBounces;
         item.pierceChars = state.piercesChars ? 1 : 0;
         item.pid = pid;
-        if (state.burstEnd > frameBurstEnd) frameBurstEnd = state.burstEnd;
+        if (state.holdEnd > frameHoldEnd) frameHoldEnd = state.holdEnd;
         memcpy(item.name, state.name, sizeof(item.name) - 1);
         item.name[sizeof(item.name) - 1] = '\0';
         threats.push_back(item);
@@ -931,7 +951,7 @@ void autododge()
 
     if (threats.empty())
     {
-        if (now >= frameBurstEnd)
+        if (now >= frameHoldEnd)
         {
             enter_post_dodge(now);
             if (try_post_dodge(mx, my, now)) return;
@@ -969,7 +989,7 @@ void autododge()
         }
     }
     if (!inDanger && hasRicochet) inDanger = true;
-    if (inDanger) dangerHoldUntil = frameBurstEnd > now ? frameBurstEnd : now;
+    if (inDanger) dangerHoldUntil = frameHoldEnd > now ? frameHoldEnd : now;
     if (!inDanger && now > dangerHoldUntil)
     {
         enter_post_dodge(now);
