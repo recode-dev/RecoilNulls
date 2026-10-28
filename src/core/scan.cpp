@@ -13,7 +13,7 @@
 #include "scan.h"
 #include "scstring.h"
 #include <frida-gum.h>
-const char* image_names[2] = {"Nulls Brawl", nullptr};
+const char* image_name = "Nulls Brawl";
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
 uintptr_t addr_dataname = 0;
@@ -379,7 +379,7 @@ BOOL find_game_image(uintptr_t* out_base)
         gum_ready = 1;
         gum_live = 1;
     }
-    if (!module_base_by_name(image_names[0], &found))
+    if (!module_base_by_name(image_name, &found))
     {
         return NO;
     }
@@ -411,7 +411,6 @@ void poll_for_game(int tick)
 uintptr_t base = 0;
 uintptr_t manager_ptr = 0;
 float own_speed = 720.0f;
-float own_r = 120.0f;
 float own_vel_x = 0.0f;
 float own_vel_y = 0.0f;
 uint32_t own_hp = 0;

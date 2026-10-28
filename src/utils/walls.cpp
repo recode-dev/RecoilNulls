@@ -81,11 +81,6 @@ int wall_cache_h()
     return wall_h;
 }
 
-int wall_ready()
-{
-    return wall_have;
-}
-
 void wall_drop()
 {
     wall_tiles = 0;
@@ -259,29 +254,27 @@ int wall_is_blocked_at(float x, float y, int mask)
 
 int wall_is_blocked_wide(float x, float y, float r, int mask)
 {
-    float rr = 0.0f;
     if (wall_is_blocked_at(x, y, mask))
     {
         return 1;
     }
-    rr = r > 0.0f ? r : 0.0f;
-    if (rr <= 0.0f)
+    if (r <= 0.0f)
     {
         return 0;
     }
-    if (wall_is_blocked_at(x + rr, y, mask))
+    if (wall_is_blocked_at(x + r, y, mask))
     {
         return 1;
     }
-    if (wall_is_blocked_at(x - rr, y, mask))
+    if (wall_is_blocked_at(x - r, y, mask))
     {
         return 1;
     }
-    if (wall_is_blocked_at(x, y + rr, mask))
+    if (wall_is_blocked_at(x, y + r, mask))
     {
         return 1;
     }
-    if (wall_is_blocked_at(x, y - rr, mask))
+    if (wall_is_blocked_at(x, y - r, mask))
     {
         return 1;
     }

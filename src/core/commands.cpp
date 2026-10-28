@@ -3,13 +3,8 @@
 #include "offsets.h"
 #include "scan.h"
 #include <malloc/malloc.h>
+#include <cstdlib>
 #include <cstring>
-#if CI_HASH_INNER_MASK_RVA && CI_HASH_OUTER_MASK_RVA && BM_HASH_ENABLED_OFF && \
-    BM_HASH_KEY_OFF
-#define CI_SIGNING_ON 1
-#else
-#define CI_SIGNING_ON 0
-#endif
 static uint32_t ci_table[CI_TABLE_TYPES];
 static uint32_t ci_fallback = 0;
 static uint8_t ci_inner[0x10];
@@ -53,9 +48,8 @@ int ci_load_constants()
     ci_ready = 1;
     return 1;
 }
-uint32_t ci_sign([[maybe_unused]] void* ci, [[maybe_unused]] void* battle)
+uint32_t ci_sign(void* ci, void* battle)
 {
-#if CI_SIGNING_ON
     uint8_t key[0x10];
     uint8_t cmd[0x10];
     uint8_t enabled = 0;
@@ -91,9 +85,6 @@ uint32_t ci_sign([[maybe_unused]] void* ci, [[maybe_unused]] void* battle)
         return 0;
     }
     return token;
-#else
-    return 0;
-#endif
 }
 int enqueue_type(int x, int y, int type)
 {
@@ -171,15 +162,24 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     memset(
         msg, 0, static_cast<size_t>(MSG_SIZE) + static_cast<size_t>(MSG_SLACK));
     ((void (*)(void*, int))ctorFn)(msg, TYPE_MOVE);
-    write_bytes((uintptr_t)msg + TYPE_OFF, &type, sizeof(type));
-    write_bytes((uintptr_t)msg + X_OFF, &vx, sizeof(vx));
-    write_bytes((uintptr_t)msg + Y_OFF, &vy, sizeof(vy));
-    if (skillData && ptr_is_heap(skillData))
+    if (!write_bytes((uintptr_t)msg + TYPE_OFF, &type, sizeof(type)) ||
+        !write_bytes((uintptr_t)msg + X_OFF, &vx, sizeof(vx)) ||
+        !write_bytes((uintptr_t)msg + Y_OFF, &vy, sizeof(vy)))
     {
-        write_bytes((uintptr_t)msg +
-                        static_cast<uintptr_t>(OFF_CLIENTINPUT_SKILLDATA),
-                    &skillData,
-                    sizeof(skillData));
+        free(msg);
+        return 0;
+    }
+    if (skillData)
+    {
+        if (!ptr_is_heap(skillData) ||
+            !write_bytes((uintptr_t)msg +
+                             static_cast<uintptr_t>(OFF_CLIENTINPUT_SKILLDATA),
+                         &skillData,
+                         sizeof(skillData)))
+        {
+            free(msg);
+            return 0;
+        }
     }
     ci_sign(msg, battle);
     if (type == TYPE_MOVE)
@@ -227,37 +227,12 @@ static int msg_ok(void* ptr, size_t size)
 }
 void* msg_alloc()
 {
-    uintptr_t stub = entry_callable(ALLOC_RVA);
-    uintptr_t got = 0;
     size_t size =
         static_cast<size_t>(MSG_SIZE) + static_cast<size_t>(MSG_SLACK);
-    void* mem = nullptr;
-    mem = malloc(size);
-    if (msg_ok(mem, size))
-    {
-        memset(mem, 0, size);
-        return mem;
-    }
-    if (stub)
-    {
-        mem = ((void* (*)(size_t))stub)(size);
-        if (msg_ok(mem, size))
-        {
-            memset(mem, 0, size);
-            return mem;
-        }
-    }
-    if (base &&
-        read_ptr(base + ALLOC_GOT_RVA, reinterpret_cast<void**>(&got)) && got)
-    {
-        mem = ((void* (*)(size_t))got)(size);
-        if (msg_ok(mem, size))
-        {
-            memset(mem, 0, size);
-            return mem;
-        }
-    }
-    return nullptr;
+    void* mem = malloc(size);
+    if (!msg_ok(mem, size)) return nullptr;
+    memset(mem, 0, size);
+    return mem;
 }
 void* manager()
 {
@@ -304,28 +279,4 @@ int pred_set(int x, int y)
     ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, PRED_FLAG);
     return 1;
 }
-int move_to(int32_t x, int32_t y)
-{
-    uintptr_t fn = 0;
-    uintptr_t ctrl = 0;
-    if (dead)
-    {
-        return 0;
-    }
-    if (x < -200000 || x > 200000 || y < -200000 || y > 200000)
-    {
-        return 0;
-    }
-    {
-        static uintptr_t c_move = 0;
-        fn = callable_cached(&c_move, MOVE_RVA);
-    }
-    ctrl = controller();
-    if (!fn || !ctrl)
-    {
-        return 0;
-    }
-    ((void (*)(void*, int, int, int))fn)(
-        (void*)ctrl, static_cast<int>(x), static_cast<int>(y), 1);
-    return 1;
-}
+

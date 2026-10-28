@@ -16,7 +16,7 @@
 #include <frida-gum.h>
 #include <objc/runtime.h>
 extern uintptr_t base;
-extern const char* image_names[2];
+extern const char* image_name;
 extern BOOL setup_done;
 extern __thread BOOL inside_hook;
 extern uintptr_t addr_dataname;
@@ -132,7 +132,6 @@ extern uint8_t obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
 extern uint8_t obj_valid[COUNT_MAX];
 extern int obj_count;
 extern uint32_t own_hp;
-extern float own_r;
 extern float own_speed;
 extern float own_vel_x;
 extern float own_vel_y;
