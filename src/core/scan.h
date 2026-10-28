@@ -63,6 +63,7 @@ static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
     return YES;
 }
 extern int gum_live;
+extern uint32_t workload_ticks;
 static inline BOOL addr_readable(uintptr_t address, size_t length)
 {
     if (!address || !length)

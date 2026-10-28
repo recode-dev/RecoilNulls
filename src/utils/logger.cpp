@@ -109,6 +109,7 @@ void struct_scan_capture_input_message(uintptr_t message)
 void diag_tick()
 {
     uint64_t now_us = 0;
+    unsigned long hz = 0;
     if (!open_log()) return;
     now_us = us();
     if (last_report_us && now_us - last_report_us < REPORT_US) return;
@@ -148,8 +149,14 @@ void diag_tick()
         last_tx = INT32_MAX;
         last_ty = INT32_MAX;
     }
-    line("[m] objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d dir=%s "
+    {
+        static uint32_t prev_ticks = 0;
+        hz = workload_ticks - prev_ticks;
+        prev_ticks = workload_ticks;
+    }
+    line("[m] hz=%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d dir=%s "
          "map=%dx%d dodge=%d hit=%d\n",
+         static_cast<unsigned long>(hz),
          obj_count,
          ad_char_n,
          ad_proj_n,
@@ -165,8 +172,8 @@ void diag_tick()
          hit_count);
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {
-        line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) |v|=%.0f r=%.0f "
-             "d=%.0f ca=%.0f ttc=%.3f\n",
+        line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) |v|=%.0f spd=%.0f "
+             "r=%.0f d=%.0f ca=%.0f ttc=%.3f\n",
              i,
              ad_threat_name[i][0] ? ad_threat_name[i] : "-",
              ad_threat_pid[i],
@@ -176,6 +183,7 @@ void diag_tick()
              ad_threat_vy[i],
              sqrtf(ad_threat_vx[i] * ad_threat_vx[i] +
                    ad_threat_vy[i] * ad_threat_vy[i]),
+             ad_threat_spd[i],
              ad_threat_r[i],
              ad_threat_d[i],
              ad_threat_ca[i],
