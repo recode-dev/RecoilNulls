@@ -509,10 +509,8 @@ static void track_own_speed()
             float sp = sqrtf(dx * dx + dy * dy) / dt;
             if (sp >= 300.0f && sp <= 1100.0f)
             {
-                if (sp > own_speed)
-                    own_speed = sp;
-                else
-                    own_speed = own_speed * 0.99f + sp * 0.01f;
+                if (sp > own_speed) own_speed = sp;
+                else own_speed = own_speed * 0.99f + sp * 0.01f;
             }
             last_pos_x = own_x;
             last_pos_y = own_y;
@@ -659,8 +657,7 @@ void scan_world()
                 int32_t owner = -1;
                 int32_t team = -1;
                 if (!obj_valid[i]) continue;
-                memcpy(
-                    &owner, obj_block[i] + OBJ_OWNERINDEX_OFF, sizeof(owner));
+                memcpy(&owner, obj_block[i] + OBJ_OWNERINDEX_OFF, sizeof(owner));
                 memcpy(&team, obj_block[i] + OBJ_TEAM_OFF, sizeof(team));
                 if (owner != ownIndex) continue;
                 if (ownTeam >= 0 && team != ownTeam) continue;
@@ -743,16 +740,16 @@ void run_autododge()
 // (autododge.cpp: earlyTicks * 16, SEND_MIN_MS = 16). Scan at that cadence so
 // we catch every client update, but never busy-loop.
 static constexpr uint64_t SCAN_PERIOD_US = 16667ULL;
-static constexpr uint64_t SCAN_GATE_US = SCAN_PERIOD_US - 2000ULL;
+static constexpr uint64_t FRAME_DEDUPE_US = 8000ULL;
 static uint64_t g_last_scan_us = 0;
 static void scan_frame()
 {
+    const uint64_t now = us();
     if (inside_hook)
     {
         return;
     }
-    const uint64_t now = us();
-    if (now - g_last_scan_us < SCAN_GATE_US)
+    if (now - g_last_scan_us < FRAME_DEDUPE_US)
     {
         return;
     }
