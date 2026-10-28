@@ -118,7 +118,6 @@ constexpr float SPEED_MIN = 1.0f;
 constexpr float HYSTERESIS_MARGIN = 0.25f;
 constexpr uint64_t DIR_HOLD_MS = 200;
 constexpr int AD_HIT_SCAN = 64;
-constexpr float BEHIND_NEAR = 260.0f;
 constexpr float BEHIND_MARGIN = 50.0f;
 constexpr float SWEEP_EPS = 1e-6f;
 
