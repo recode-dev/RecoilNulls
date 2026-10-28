@@ -35,6 +35,7 @@ constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
 constexpr float TURN_PER_TICK = 1.5707963f;
 constexpr int WALL_PROBES = 3;
+constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 }
 namespace ad
 {
@@ -222,11 +223,11 @@ void collect_projs(uint64_t now, float mx, float my)
             continue;
         float dot = vx * dx + vy * dy;
         if (dot >= 0.0f) continue;
-        float rad = st->rad + OWN_HITBOX;
+        float rad = st->rad + OWN_HITBOX + st->speed * TICK_MS_SEC;
         float vv = vx * vx + vy * vy, tt = -dot / vv;
         float qx = dx + vx * tt, qy = dy + vy * tt,
               dmin = sqrtf(qx * qx + qy * qy);
-        if (dmin > rad + st->speed * (float)TICK_MS * 0.001f) continue;
+        if (dmin > rad) continue;
         if (threat_n >= THREAT_MAX) continue;
         float gap = fmaxf(rad * rad - dmin * dmin, 0.0f);
         Threat& t = threats[threat_n++];
