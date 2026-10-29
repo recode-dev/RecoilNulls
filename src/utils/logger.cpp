@@ -980,7 +980,7 @@ void diag_tick()
              ad_pj_sp[i],
              ad_pj_r[i],
              ad_pj_vel[i],
-             ad_pj_info[i][6]);
+             ad_pj_r[i]);
     }
     for (int i = 0; i < ad_enemy_n && i < 4; i++)
     {
