@@ -320,8 +320,7 @@ static float free_run(float mx, float my, float dx, float dy, float far)
         run = fminf(run, (OWN_HITBOX - my) / dy);
     for (float d = WALL_TILE_SIZE; d < run; d += WALL_TILE_SIZE)
     {
-        if (wall_is_blocked_wide(
-                mx + dx * d, my + dy * d, OWN_HITBOX))
+        if (wall_is_blocked_wide(mx + dx * d, my + dy * d, OWN_HITBOX))
         {
             run = d;
             break;

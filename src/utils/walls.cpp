@@ -112,8 +112,7 @@ int wall_build()
     {
         int tx = i % width;
         int ty = i / width;
-        wall_grid[i] = game_tile_passable(
-                           wall_map, tx * 3 + 1, ty * 3 + 1)
+        wall_grid[i] = game_tile_passable(wall_map, tx * 3 + 1, ty * 3 + 1)
                            ? 0
                            : WALL_BLOCKS_MOVEMENT;
     }
@@ -223,9 +222,8 @@ float wall_pull(float mx, float my, float dx, float dy, float radius)
     for (int i = 1; i <= PROBES; i++)
     {
         float d = reach * 0.5f * (float)i / (float)PROBES;
-        blocked += wall_is_blocked_wide(mx + dx * d, my + dy * d, radius)
-                       ? 1
-                       : 0;
+        blocked +=
+            wall_is_blocked_wide(mx + dx * d, my + dy * d, radius) ? 1 : 0;
     }
     float pin_x = (float)axis(mx + dx * reach, wall_cache_w()) - mx;
     float pin_y = (float)axis(my + dy * reach, wall_cache_h()) - my;

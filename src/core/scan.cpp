@@ -248,7 +248,8 @@ int game_tile_passable(uintptr_t tileMap, int cellX, int cellY)
     static pass_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<pass_t>(callable(RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER));
+        fn = reinterpret_cast<pass_t>(
+            callable(RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER));
     }
     if (!fn || !tileMap)
     {
