@@ -638,6 +638,7 @@ void val_tilemap(uintptr_t clientPtr)
 void val_projectile()
 {
     uintptr_t found = 0;
+    uintptr_t objPtr = 0;
     uintptr_t target = base + VTABLE_PROJECTILEDATA_RVA;
     int32_t radius = 0;
     int32_t ttype = 0;
@@ -672,6 +673,7 @@ void val_projectile()
             if (vtable == target)
             {
                 found = dataPtr;
+                objPtr = obj_snapshot[i];
                 break;
             }
             if (!sampleA)
@@ -746,8 +748,8 @@ void val_projectile()
            passes <= 1,
        "passes=%u",
        (unsigned)passes);
-    if (read_int(found + PROJSERVER_STARTTICK_OFF, &startTick) &&
-        read_int(found + PROJSERVER_ENDTICK_OFF, &endTick))
+    if (read_int(objPtr + PROJSERVER_STARTTICK_OFF, &startTick) &&
+        read_int(objPtr + PROJSERVER_ENDTICK_OFF, &endTick))
     {
         vf("PROJSERVER_START/ENDTICK",
            startTick >= 0 && endTick >= startTick,
@@ -759,13 +761,27 @@ void val_projectile()
     {
         vf("PROJSERVER_START/ENDTICK", false, "read failed");
     }
-    if (read_int(found + PROJSERVER_STARTX_OFF, &sx) &&
-        read_int(found + PROJSERVER_STARTY_OFF, &sy) &&
-        read_int(found + PROJSERVER_ENDX_OFF, &ex) &&
-        read_int(found + PROJSERVER_ENDY_OFF, &ey))
+    if (objPtr && (startTick < 0 || endTick < startTick))
+    {
+        char dump[200];
+        int at = 0;
+        at += snprintf(dump, sizeof(dump), " obj=%llx", (unsigned long long)objPtr);
+        for (int i = 0x20; i <= 0x40 && at < (int)sizeof(dump) - 12; i += 4)
+        {
+            int32_t v = 0;
+            read_int(objPtr + i, &v);
+            at += snprintf(dump + at, sizeof(dump) - at, " %x=%d", i, v);
+        }
+        line("[VAL] proj obj dump%s\n", dump);
+    }
+    if (read_int(objPtr + PROJSERVER_STARTX_OFF, &sx) &&
+        read_int(objPtr + PROJSERVER_STARTY_OFF, &sy) &&
+        read_int(objPtr + PROJSERVER_ENDX_OFF, &ex) &&
+        read_int(objPtr + PROJSERVER_ENDY_OFF, &ey))
     {
         vf("PROJSERVER_COORDS",
-           span(sx) && span(sy) && span(ex) && span(ey),
+           sx > 0 && sy > 0 && ex > 0 && ey > 0 && span(sx) && span(sy) &&
+               span(ex) && span(ey),
            "(%d,%d)->(%d,%d)",
            sx,
            sy,
