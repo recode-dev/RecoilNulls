@@ -31,6 +31,7 @@ float ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
 int ad_pj_t0[AD_REPORT_MAX] = {0}, ad_pj_t1[AD_REPORT_MAX] = {0};
 int ad_pj_vel[AD_REPORT_MAX] = {0};
 int ad_shot_tick = 0;
+int ad_proj_list_off = 0;
 int ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
 int ad_hit_picked = 0;
 float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
@@ -236,7 +237,7 @@ static bool proj_shaped(const uint8_t* obj,
     int32_t ax = 0, ay = 0, bx = 0, by = 0;
     memcpy(&t0, obj + PROJSERVER_STARTTICK_OFF, sizeof(t0));
     memcpy(&t1, obj + PROJSERVER_ENDTICK_OFF, sizeof(t1));
-    if (t0 <= 0 || t1 < t0 || t1 - t0 > 400) return false;
+    if (t0 <= 0 || t1 < t0 || t1 - t0 > 3000) return false;
     float w = (float)wall_cache_w() * wall_units(1);
     float h = (float)wall_cache_h() * wall_units(1);
     if (w <= 0.0f || h <= 0.0f) return false;
@@ -386,8 +387,6 @@ static uintptr_t obj_rva[COUNT_MAX];
 
 static uintptr_t proj_list_off = 0;
 
-int ad_proj_list_off = 0;
-
 static int proj_list(uintptr_t mgr, uintptr_t off, uintptr_t* items)
 {
     uintptr_t p = 0;
@@ -430,7 +429,7 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
             int32_t nt0 = 0, nt1 = 0;
             memcpy(&nt0, obj + PROJSERVER_STARTTICK_OFF, sizeof(nt0));
             memcpy(&nt1, obj + PROJSERVER_ENDTICK_OFF, sizeof(nt1));
-            if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 400) ad_shot_tick++;
+            if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 3000) ad_shot_tick++;
         }
         if (!proj_shaped(obj, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey)) continue;
         add_proj(obj,
@@ -457,15 +456,23 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
             uintptr_t items = 0;
             int n = proj_list(mgr, cand[c], &items);
             if (n <= 0) continue;
-            uintptr_t first = 0;
-            uint8_t buf[OBJ_BLOCK_SIZE];
-            if (!read_ptr(items, &first) || !first) continue;
-            if (!read_bytes(first, buf, sizeof(buf))) continue;
-            int32_t t0 = 0, t1 = 0;
-            float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f,
-                  ey = 0.0f;
-            if (!proj_shaped(buf, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
-                continue;
+            bool shaped = false;
+            for (int i = 0; i < n && i < 8 && !shaped; i++)
+            {
+                uintptr_t item = 0;
+                uint8_t buf[OBJ_BLOCK_SIZE];
+                if (!read_ptr(items + (uintptr_t)i * sizeof(uintptr_t),
+                              &item) ||
+                    !item)
+                    continue;
+                if (!read_bytes(item, buf, sizeof(buf))) continue;
+                int32_t t0 = 0, t1 = 0;
+                float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f,
+                      ey = 0.0f;
+                if (proj_shaped(buf, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
+                    shaped = true;
+            }
+            if (!shaped) continue;
             proj_list_off = cand[c];
             break;
         }
@@ -486,7 +493,7 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
             int32_t nt0 = 0, nt1 = 0;
             memcpy(&nt0, buf + PROJSERVER_STARTTICK_OFF, sizeof(nt0));
             memcpy(&nt1, buf + PROJSERVER_ENDTICK_OFF, sizeof(nt1));
-            if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 400) ad_shot_tick++;
+            if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 3000) ad_shot_tick++;
             int32_t t0 = 0, t1 = 0;
             float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f,
                   ey = 0.0f;
