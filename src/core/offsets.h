@@ -9,6 +9,9 @@ inline constexpr uint64_t GAMESTATEMANAGER__CURRENTSTATE = 0x48ULL;
 inline constexpr uint64_t GAMESTATEMANAGER__STATE        = 0x50ULL;
 inline constexpr uint64_t GAMESTATEMANAGER__CLIENT       = 0x28ULL;
 
+inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETTICK                = 0x9a7bc4ULL;
+inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETPREDICTEDTICK        = 0x97d5b8ULL;
+inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETTIMESINCELASTTICK    = 0xac3f80ULL;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__INPUTMANAGER      = 0x58ULL;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28ULL;
 

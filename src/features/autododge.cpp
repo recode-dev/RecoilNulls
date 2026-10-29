@@ -163,6 +163,36 @@ int32_t projectile_target_y(uintptr_t object)
     return call_getter(g_ty, LOGICPROJECTILECLIENT__GETTARGETY, object);
 }
 
+int32_t battle_call(uintptr_t rva)
+{
+    static uintptr_t s0 = 0, s1 = 0, s2 = 0;
+    uintptr_t*       slot = nullptr;
+    uintptr_t        self = client();
+    uintptr_t        fn   = 0;
+    if (rva == LOGICBATTLEMODECLIENT__GETTICK)
+    {
+        slot = &s0;
+    }
+    else if (rva == LOGICBATTLEMODECLIENT__GETPREDICTEDTICK)
+    {
+        slot = &s1;
+    }
+    else
+    {
+        slot = &s2;
+    }
+    if (!*slot)
+    {
+        *slot = callable_at_rva(rva);
+    }
+    fn = *slot;
+    if (!fn || !self)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int32_t (*)(uintptr_t)>(fn)(self);
+}
+
 int32_t object_x(uintptr_t object)
 {
     static uintptr_t slot = 0;
@@ -290,6 +320,9 @@ float    ad_pj_vx[AD_REPORT_MAX] = {0}, ad_pj_vy[AD_REPORT_MAX] = {0};
 float    ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
 int      ad_pj_vel[AD_REPORT_MAX]           = {0};
 int32_t  ad_pj_info[AD_REPORT_MAX][7]       = {{0}};
+int      ad_tick                            = 0;
+int      ad_pred_tick                       = 0;
+int      ad_tick_lag                        = 0;
 int      ad_windup_n                        = 0;
 int      ad_enemy_charge_ms[AD_ENEMY_MAX]   = {0};
 int      ad_enemy_charge_mode[AD_ENEMY_MAX] = {0};
@@ -1055,6 +1088,9 @@ void reset_autododge_state()
 void update_autododge()
 {
     ad_best_dir = -1;
+    ad_tick     = battle_call(LOGICBATTLEMODECLIENT__GETTICK);
+    ad_pred_tick = battle_call(LOGICBATTLEMODECLIENT__GETPREDICTEDTICK);
+    ad_tick_lag  = battle_call(LOGICBATTLEMODECLIENT__GETTIMESINCELASTTICK);
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_ind_n                                         = 0;
     ad_windup_n                                      = 0;

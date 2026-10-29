@@ -772,7 +772,7 @@ void diag_tick()
             int  n = snprintf(buf,
                              sizeof(buf),
                              "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%s n=%d "
-                              "h=%d u=%d hm=%d",
+                              "h=%d u=%d hm=%d tk=%d pt=%d lag=%d",
                              (unsigned long long) (now_us / 1000),
                              own_x,
                              own_y,
@@ -783,7 +783,10 @@ void diag_tick()
                              ad::threat_n,
                              ad_hold_ms,
                              ad_urgent,
-                             ad_human);
+                             ad_human,
+                             ad_tick,
+                             ad_pred_tick,
+                             ad_tick_lag);
             for (int i = 0;
                  i < ad::threat_n && n > 0 && n < (int) sizeof(buf) - 48;
                  i++)
