@@ -254,7 +254,10 @@ void* read_global_ptr(uintptr_t rva)
     }
     return value;
 }
-int game_tile_is_passable_layer(uintptr_t tileMap, int layer, int cellX, int cellY)
+int game_tile_is_passable_layer(uintptr_t tileMap,
+                                int layer,
+                                int cellX,
+                                int cellY)
 {
     typedef uint8_t (*pass_t)(void*, int, int, int, int, int);
     static pass_t fn = nullptr;

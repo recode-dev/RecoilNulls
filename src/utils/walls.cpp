@@ -51,7 +51,8 @@ wall_layout wall_slots = WALL_LAYOUTS[0];
 
 bool wall_read_word(uintptr_t address, uint64_t offset, uint32_t* out)
 {
-    if (!read_bytes(address + static_cast<uintptr_t>(offset), out, sizeof(*out)))
+    if (!read_bytes(
+            address + static_cast<uintptr_t>(offset), out, sizeof(*out)))
     {
         *out = 0;
         return false;
@@ -84,7 +85,9 @@ int wall_subtile_passable(uint32_t mask, int layer, int subX, int subY)
     return (mask & (1u << bit)) ? 0 : 1;
 }
 
-bool wall_tile_union_mask(uintptr_t tile, const wall_layout& layout, uint32_t* out)
+bool wall_tile_union_mask(uintptr_t tile,
+                          const wall_layout& layout,
+                          uint32_t* out)
 {
     uint32_t blockMask = 0;
     uint32_t projectileMask = 0;
@@ -106,18 +109,22 @@ bool wall_tile_union_mask(uintptr_t tile, const wall_layout& layout, uint32_t* o
     return true;
 }
 
-int wall_tile_vision_flag(uintptr_t tile, const wall_layout& layout, uint32_t unionMask)
+int wall_tile_vision_flag(uintptr_t tile,
+                          const wall_layout& layout,
+                          uint32_t unionMask)
 {
     uintptr_t data = 0;
     uint8_t flag = 0;
-    if (!read_ptr(tile + static_cast<uintptr_t>(layout.tile_data_offset), &data) ||
+    if (!read_ptr(tile + static_cast<uintptr_t>(layout.tile_data_offset),
+                  &data) ||
         !pointer_plausible(data))
     {
         return (unionMask & WALL_ALL_SUBTILES) ? 1 : 0;
     }
-    if (!read_bytes(data + static_cast<uintptr_t>(layout.blocks_projectiles_offset),
-                    &flag,
-                    sizeof(flag)))
+    if (!read_bytes(
+            data + static_cast<uintptr_t>(layout.blocks_projectiles_offset),
+            &flag,
+            sizeof(flag)))
     {
         return (unionMask & WALL_ALL_SUBTILES) ? 1 : 0;
     }
@@ -137,7 +144,8 @@ bool wall_layout_dimensions(uintptr_t tileMap,
     {
         return false;
     }
-    if (!read_int(tileMap + static_cast<uintptr_t>(layout.height_offset), height))
+    if (!read_int(tileMap + static_cast<uintptr_t>(layout.height_offset),
+                  height))
     {
         return false;
     }
@@ -156,7 +164,9 @@ bool wall_layout_dimensions(uintptr_t tileMap,
     return *tiles != 0;
 }
 
-int wall_layout_tiles_plausible(uintptr_t tiles, int total, const wall_layout& layout)
+int wall_layout_tiles_plausible(uintptr_t tiles,
+                                int total,
+                                const wall_layout& layout)
 {
     int step = total / 8 > 0 ? total / 8 : 1;
     int checked = 0;
@@ -196,9 +206,11 @@ int wall_layout_agreement(uintptr_t tileMap,
     int samples = 0;
     int matches = 0;
     int cells = 0;
-    for (int cellY = 0; cellY < height && cells < WALL_PROBE_CELLS; cellY += stepY)
+    for (int cellY = 0; cellY < height && cells < WALL_PROBE_CELLS;
+         cellY += stepY)
     {
-        for (int cellX = 0; cellX < width && cells < WALL_PROBE_CELLS; cellX += stepX)
+        for (int cellX = 0; cellX < width && cells < WALL_PROBE_CELLS;
+             cellX += stepX)
         {
             uintptr_t tile = 0;
             uint32_t unionMask = WALL_ALL_SUBTILES;
@@ -218,7 +230,8 @@ int wall_layout_agreement(uintptr_t tileMap,
                 {
                     int subX = corner == 0 ? 1 : 0;
                     int subY = corner == 0 ? 1 : 2;
-                    int local = wall_subtile_passable(unionMask, layer, subX, subY);
+                    int local =
+                        wall_subtile_passable(unionMask, layer, subX, subY);
                     if (local < 0)
                     {
                         continue;
@@ -462,7 +475,8 @@ void wall_cache_bind(uintptr_t tileMap)
         {
             continue;
         }
-        if (!wall_layout_tiles_plausible(tiles, width * height, WALL_LAYOUTS[index]))
+        if (!wall_layout_tiles_plausible(
+                tiles, width * height, WALL_LAYOUTS[index]))
         {
             continue;
         }
@@ -514,8 +528,8 @@ int wall_cache_build()
         if (readable)
         {
             wall_move_mask[index] = unionMask;
-            wall_vision_data[index] =
-                static_cast<uint8_t>(wall_tile_vision_flag(tile, wall_slots, unionMask));
+            wall_vision_data[index] = static_cast<uint8_t>(
+                wall_tile_vision_flag(tile, wall_slots, unionMask));
         }
         if (!game_tile_is_passable_layer(wall_map,
                                          wall_layer,
@@ -529,7 +543,8 @@ int wall_cache_build()
     wall_h = height;
     wall_have = 1;
     wall_dirty = 0;
-    wall_local_trusted = wall_layout_agreement(wall_map, wall_slots, width, height, wall_tiles);
+    wall_local_trusted =
+        wall_layout_agreement(wall_map, wall_slots, width, height, wall_tiles);
     return 1;
 }
 
@@ -683,11 +698,16 @@ float wall_pull(float mx, float my, float dx, float dy, float radius)
     float room = 0.0f;
     for (int index = 1; index <= PROBES; index++)
     {
-        float distance = reach * 0.5f * static_cast<float>(index) / static_cast<float>(PROBES);
-        blocked += wall_cell_blocked_wide(mx + dx * distance, my + dy * distance, radius) ? 1 : 0;
+        float distance = reach * 0.5f * static_cast<float>(index) /
+                         static_cast<float>(PROBES);
+        blocked += wall_cell_blocked_wide(
+                       mx + dx * distance, my + dy * distance, radius)
+                       ? 1
+                       : 0;
     }
     pin_x = static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
     pin_y = static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
     room = sqrtf(pin_x * pin_x + pin_y * pin_y) / reach;
-    return static_cast<float>(blocked) / static_cast<float>(PROBES) + (1.0f - room);
+    return static_cast<float>(blocked) / static_cast<float>(PROBES) +
+           (1.0f - room);
 }
