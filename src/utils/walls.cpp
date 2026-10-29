@@ -171,9 +171,8 @@ int wall_build()
         if (!read_bytes(tile + LOGICTILE_BLOCKMASK_OFF,
                         &blockMask,
                         sizeof(blockMask)) ||
-            !read_bytes(tile + LOGICTILE_FOURTHMASK_OFF,
-                        &hardMask,
-                        sizeof(hardMask)))
+            !read_bytes(
+                tile + LOGICTILE_FOURTHMASK_OFF, &hardMask, sizeof(hardMask)))
         {
             continue;
         }
