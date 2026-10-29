@@ -7,7 +7,7 @@
 #include "offsets.h"
 #include "scan.h"
 
-static constexpr uintptr_t ClientInputTypeTableScanSpan      = 0x20000ULL;
+static constexpr uintptr_t ClientInputTypeTableScanSpan      = 0x20000;
 static constexpr size_t    ClientInputTypeTableScanChunk     = 0x4000;
 static const uint8_t       client_input_type_table_anchor[8] = {
           0xd2, 0xc7, 0xb1, 0xa3, 0xb8, 0xa6, 0xf5, 0xe4};
@@ -249,7 +249,7 @@ static int client_input_message_is_valid(void* memory, size_t size)
     {
         return 0;
     }
-    if ((address & 7ULL) != 0)
+    if ((address & 7) != 0)
     {
         return 0;
     }

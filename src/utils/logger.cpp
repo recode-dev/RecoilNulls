@@ -16,9 +16,9 @@
 namespace
 {
 constexpr long long LOG_MAX_BYTES = 4000000;
-constexpr uint64_t  REPORT_US     = 1000000ULL;
-constexpr uint64_t  FAST_TRACE_US = 50000ULL;
-constexpr uint64_t  IDLE_TRACE_US = 500000ULL;
+constexpr uint64_t  REPORT_US     = 1000000;
+constexpr uint64_t  FAST_TRACE_US = 50000;
+constexpr uint64_t  IDLE_TRACE_US = 500000;
 
 static const char* target_text(char* out, size_t cap)
 {
@@ -561,7 +561,7 @@ void val_tilemap(uintptr_t clientPtr)
                 continue;
             seen++;
             if (mask && !sample) sample = mask;
-            if ((mask | water | hard) & 0x1ffULL) blocked++;
+            if ((mask | water | hard) & 0x1ff) blocked++;
         }
         vf("LOGICTILE__PATHFINDERMASK",
            seen > 0,
@@ -663,12 +663,12 @@ void maybe_validate()
         if (!base || !own_elem || dead) return;
         val_stage = 1;
         validate_offsets();
-        val_probe_next = now_us + 500000ULL;
+        val_probe_next = now_us + 500000;
         return;
     }
     if (val_input_state && val_proj_done) return;
     if (val_probe_next && now_us < val_probe_next) return;
-    val_probe_next = now_us + 1000000ULL;
+    val_probe_next = now_us + 1000000;
     if (!base || !own_elem || dead) return;
     val_ok   = 0;
     val_fail = 0;
@@ -837,8 +837,8 @@ void diag_tick()
         uint32_t        ticks      = workload_ticks - prev_ticks;
         uint64_t dt_ms  = (prev_ms && now_ms > prev_ms) ? now_ms - prev_ms : 0;
         hz              = dt_ms ? static_cast<unsigned long>(
-                         (static_cast<uint64_t>(ticks) * 1000ULL) / dt_ms)
-                                : 0UL;
+                         (static_cast<uint64_t>(ticks) * 1000) / dt_ms)
+                                : 0;
         prev_ticks      = workload_ticks;
         prev_ms         = now_ms;
         wl_avg          = workload_us_n ? workload_us_sum / workload_us_n : 0;
@@ -922,7 +922,7 @@ void diag_tick()
     if (ad_hit_dmg > 0 && !ad_hit_act && ad_hit_n == 0)
     {
         static uint64_t last_env_us = 0;
-        if (!last_env_us || now_us - last_env_us >= 2000000ULL)
+        if (!last_env_us || now_us - last_env_us >= 2000000)
         {
             last_env_us = now_us;
             line("[env] dmg=%d hp=%u p=(%d,%d)\n",

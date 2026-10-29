@@ -16,7 +16,7 @@ inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTS     = 0x0ULL;
 inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT = 0xcULL;
 
 inline constexpr uint64_t LOGICGAMEOBJECT__DATA               = 0x10ULL;
-inline constexpr uint64_t LOGICGAMEOBJECT__DATASCANSPAN       = 0x200ULL;
+inline constexpr uint64_t LOGICGAMEOBJECT__DATASCANSPAN       = 0x200;
 inline constexpr uint64_t LOGICCHARACTER__GLOBALID            = 0x8ULL;
 inline constexpr uint64_t LOGICCHARACTER__X                   = 0x30ULL;
 inline constexpr uint64_t LOGICCHARACTER__Y                   = 0x34ULL;
@@ -32,7 +32,7 @@ inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED = 0x124ULL;
 
 inline constexpr uint64_t LOGICTILE__DATA               = 0x0ULL;
 inline constexpr uint64_t LOGICTILE__PATHFINDERMASK     = 0x10ULL;
-inline constexpr uint64_t LOGICTILE__PATHFINDERMASKSIZE = 0x8ULL;
+inline constexpr uint64_t LOGICTILE__PATHFINDERMASKSIZE = 0x8;
 inline constexpr uint64_t LOGICTILE__WATERPATHFINDERMASK =
     LOGICTILE__PATHFINDERMASK + LOGICTILE__PATHFINDERMASKSIZE;
 inline constexpr uint64_t LOGICTILE__HARDBLOCKMASK =
@@ -50,7 +50,7 @@ inline constexpr uintptr_t LOGICTILE__PATHFINDERMASKREADWINDOWS[5] = {
     LOGICTILE__PATHFINDERMASK + 3 * LOGICTILE__PATHFINDERMASKSIZE,
     LOGICTILE__PATHFINDERMASK + 2 * LOGICTILE__PATHFINDERMASKSIZE};
 inline constexpr uint64_t LOGICTILEDATA__BLOCKSMOVEMENT      = 0x56ULL;
-inline constexpr uint64_t LOGICTILEDATA__BLOCKFLAGSSIZE      = 2ULL;
+inline constexpr uint64_t LOGICTILEDATA__BLOCKFLAGSSIZE      = 2;
 inline constexpr unsigned LOGICTILEDATA__PROJECTILEFLAGSHIFT = 8;
 
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY = 0x20ULL;
@@ -62,13 +62,13 @@ inline constexpr uint64_t SCSTRING__CHARACTERS = 0x8ULL;
 
 inline constexpr uint64_t CLIENTINPUTMANAGER__INPUTQUEUE     = 0x20ULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__SIGNEDDATA     = 0x4ULL;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__SIGNEDDATASIZE = 0x10ULL;
+inline constexpr uint64_t CLIENTINPUTMESSAGE__SIGNEDDATASIZE = 0x10;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__TYPE           = 0x8ULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__X              = 0xcULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__Y              = 0x10ULL;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__SIZE           = 0x48ULL;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__PROBESIZE      = 0x80ULL;
-inline constexpr uint64_t CLIENTINPUT__TYPECOUNT             = 0x17ULL;
+inline constexpr uint64_t CLIENTINPUTMESSAGE__SIZE           = 0x48;
+inline constexpr uint64_t CLIENTINPUTMESSAGE__PROBESIZE      = 0x80;
+inline constexpr uint64_t CLIENTINPUT__TYPECOUNT             = 0x17;
 
 inline constexpr uint64_t BATTLEMODE__GETINSTANCE                = 0x8c5130ULL;
 inline constexpr uint64_t LOGICDATA__GETNAME                     = 0x9a4f1cULL;

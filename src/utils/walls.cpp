@@ -94,7 +94,7 @@ static uint16_t wall_tile_data_flags(uintptr_t tileData)
     if (tileData == wall_flag_source) return wall_flag_value;
     if (!read_bytes(tileData + LOGICTILEDATA__BLOCKSMOVEMENT,
                     &flags,
-                    LOGICTILEDATA__BLOCKFLAGSSIZE))
+                    static_cast<size_t>(LOGICTILEDATA__BLOCKFLAGSSIZE)))
         return 0;
     wall_flag_source = tileData;
     wall_flag_value  = flags;
@@ -105,11 +105,13 @@ static int wall_read_tile(uintptr_t tile, wall_tile_window* window)
 {
     static const uintptr_t* windowSizes = LOGICTILE__PATHFINDERMASKREADWINDOWS;
     if (!tile || !window) return 0;
-    if (read_bytes(tile, window->raw, windowSizes[0])) return 1;
+    if (read_bytes(tile, window->raw, static_cast<size_t>(windowSizes[0])))
+        return 1;
     for (int i = 1; i < 5; i++)
     {
         memset(window->raw, 0, WALL_TILE_WINDOW_SIZE);
-        if (read_bytes(tile, window->raw, windowSizes[i])) return 1;
+        if (read_bytes(tile, window->raw, static_cast<size_t>(windowSizes[i])))
+            return 1;
     }
     return 0;
 }

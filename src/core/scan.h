@@ -4,13 +4,13 @@
 #include <cstdint>
 #define OBJ_BLOCK_SIZE 0xe0
 #ifndef NSEC_PER_SEC
-#define NSEC_PER_SEC 1000000000ull
+#define NSEC_PER_SEC 1000000000ULL
 #endif
 #ifndef NSEC_PER_MSEC
-#define NSEC_PER_MSEC 1000000ull
+#define NSEC_PER_MSEC 1000000ULL
 #endif
 #ifndef NSEC_PER_USEC
-#define NSEC_PER_USEC 1000ull
+#define NSEC_PER_USEC 1000ULL
 #endif
 #include <mach/mach.h>
 #include <frida-gum.h>

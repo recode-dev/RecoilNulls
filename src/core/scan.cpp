@@ -432,7 +432,7 @@ uintptr_t callable(uintptr_t rva)
         return 0;
     }
     uintptr_t address = base + rva;
-    if (address < base || address >= base + 0x2000000ULL)
+    if (address < base || address >= base + 0x2000000)
     {
         return 0;
     }
@@ -523,7 +523,7 @@ uint64_t  us()
 using fn_self_t = uintptr_t (*)(uintptr_t);
 static uintptr_t call(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !base || fn < base || fn >= base + 0x2000000ULL || !self)
+    if (!fn || !base || fn < base || fn >= base + 0x2000000 || !self)
         return 0;
     return ((fn_self_t) fn)(self);
 }
@@ -616,7 +616,7 @@ static void tilemap_tick(uintptr_t clientPtr)
     uint64_t        now_us    = us();
     uintptr_t       tileMapFn = 0;
     uintptr_t       tileMap   = 0;
-    if (last_us && now_us - last_us < 5000000ULL)
+    if (last_us && now_us - last_us < 5000000)
     {
         return;
     }
@@ -773,7 +773,7 @@ void run_autododge()
     update_autododge();
     in_move = 0;
 }
-static constexpr uint64_t TICK_US         = 50000ULL;
+static constexpr uint64_t TICK_US         = 50000;
 static constexpr uint64_t SCAN_PERIOD_US  = TICK_US / 6;
 uint64_t                  workload_us_sum = 0;
 uint32_t                  workload_us_max = 0;
