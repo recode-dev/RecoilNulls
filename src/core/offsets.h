@@ -1,6 +1,7 @@
 #ifndef OFFSETS_H
 #define OFFSETS_H
 
+#include <cstddef>
 #include <cstdint>
 
 inline constexpr uint64_t GameStateManagerRva = 0x1123e58ULL;
@@ -46,13 +47,13 @@ inline constexpr uint64_t LogicTileWaterPathFinderMaskOffset =
     LogicTilePathFinderMaskOffset + LogicTilePathFinderMaskSize;
 inline constexpr uint64_t LogicTileHardBlockMaskOffset =
     LogicTileWaterPathFinderMaskOffset + LogicTilePathFinderMaskSize;
-inline constexpr uint64_t LogicTilePathFinderMaskOffsetCandidates[3] = {
+inline constexpr uintptr_t LogicTilePathFinderMaskOffsetCandidates[3] = {
     LogicTilePathFinderMaskOffset,
     LogicTilePathFinderMaskOffset - LogicTilePathFinderMaskSize,
     LogicTilePathFinderMaskOffset + LogicTilePathFinderMaskSize};
 inline constexpr uint64_t LogicTilePathFinderMaskReadWindowSize =
     LogicTilePathFinderMaskOffset + 6 * LogicTilePathFinderMaskSize;
-inline constexpr uint64_t LogicTilePathFinderMaskReadWindows[5] = {
+inline constexpr uintptr_t LogicTilePathFinderMaskReadWindows[5] = {
     LogicTilePathFinderMaskOffset + 6 * LogicTilePathFinderMaskSize,
     LogicTilePathFinderMaskOffset + 5 * LogicTilePathFinderMaskSize,
     LogicTilePathFinderMaskOffset + 4 * LogicTilePathFinderMaskSize,
