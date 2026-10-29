@@ -42,18 +42,21 @@ int math_cos(int degrees)
     return math_sin(degrees + 90);
 }
 
-int math_get_angle(int x, int y)
+int vector_angle(int x, int y)
 {
     static uintptr_t slot = 0;
+    int              v[2] = {0, 0};
     if (!slot)
     {
-        slot = callable_at_rva(LOGICMATH__GETANGLE);
+        slot = callable_at_rva(LOGICVECTOR2__GETANGLE);
     }
     if (!slot)
     {
         return 0;
     }
-    return reinterpret_cast<int (*)(int, int)>(slot)(x, y);
+    v[0] = x;
+    v[1] = y;
+    return reinterpret_cast<int (*)(int*)>(slot)(v);
 }
 
 int math_distance_square_to_line(int ax, int ay, int bx, int by, int px, int py)
@@ -917,7 +920,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     }
     ad_dir_x = bx, ad_dir_y = by;
     ad_best_dir =
-        (math_get_angle((int) (bx * 1000.0f), (int) (by * 1000.0f)) / 45 + 8) &
+        (vector_angle((int) (bx * 1000.0f), (int) (by * 1000.0f)) / 45 + 8) &
         7;
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
