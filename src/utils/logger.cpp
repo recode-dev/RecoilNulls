@@ -19,7 +19,7 @@ char log_path[1100] = {0};
 FILE* log_file = nullptr;
 uint64_t last_report_us = 0;
 int32_t last_hp = -1;
-float last_tx = 1.0f; // last reported heading, not a target point
+float last_tx = 1.0f;
 float last_ty = 0.0f;
 int dodge_count = 0;
 int hit_count = 0;
@@ -111,10 +111,6 @@ void diag_tick()
     now_us = us();
     if (base && own_elem && !dead)
     {
-        // `last_fast` used to be read here and never written, so `!last_fast`
-        // stayed true and every frame got a row - the log was 120 Hz, not the
-        // intended 20 Hz, which is why rows sit 8 ms apart and the 50 ms grid
-        // looked like 8 ms frames. The compare-exchange writes the slot back.
         static uint64_t last_fast = 0;
         uint64_t prev = __atomic_load_n(&last_fast, __ATOMIC_RELAXED);
         bool slot = !prev || now_us - prev >= 50000;
@@ -192,10 +188,6 @@ void diag_tick()
     }
     if (last_hp > 0 && static_cast<int32_t>(own_hp) < last_hp) hit_count++;
     last_hp = static_cast<int32_t>(own_hp);
-    // The target point is recomputed from the current position on every send,
-    // so with a per-frame send its coordinates change every frame. Count
-    // heading changes instead, otherwise dodge=N turns into a 120 Hz frame
-    // counter and stops meaning "how many dodges".
     if (active && ad_dir_x * last_tx + ad_dir_y * last_ty < 0.94f)
     {
         dodge_count++;
@@ -208,18 +200,11 @@ void diag_tick()
         last_ty = 0.0f;
     }
     {
-        // hz used to be the raw tick delta since the previous report. When the
-        // report is held back (idle, between matches) that delta covers many
-        // seconds and printed as hz=1697. Divide by the real elapsed time so
-        // the column is a rate and stays readable.
         static uint32_t prev_ticks = 0;
         static uint64_t prev_ms = 0;
         uint64_t now_ms = now_us / 1000;
         uint32_t ticks = workload_ticks - prev_ticks;
         uint64_t dt_ms = (prev_ms && now_ms > prev_ms) ? now_ms - prev_ms : 0;
-        // First report of a session has no baseline: the old fallback printed
-        // the raw tick count, which is what produced hz=1132 / 1277 on the
-        // first line of every match.
         hz = dt_ms ? static_cast<unsigned long>(
                          (static_cast<uint64_t>(ticks) * 1000ULL) / dt_ms)
                    : 0UL;
@@ -314,9 +299,6 @@ void diag_tick()
                            ad_hit_n,
                            ad_hit_x,
                            ad_hit_y);
-        // "none" with act=0 is not a dodge failure - it is damage with no
-        // projectile and no live dodge (zone, fall, storm). Tag it so the hit
-        // count is not read as missed dodges.
         if (ad_hit_picked < 1 && len > 0)
         {
             const char* why = ad_hit_n ? " | unresolved" : " | env";

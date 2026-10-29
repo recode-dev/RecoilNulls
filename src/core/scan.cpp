@@ -95,12 +95,7 @@ static void track_own_speed()
         return;
     }
     float dt = (float)(now_us - last_pos_us) / 1000000.0f;
-    if (dt < 0.06f) return; // window not long enough yet, keep accumulating
-    // The sample point has to advance even when the sample is rejected. It
-    // used to advance only inside the accept branch, so the first stop or
-    // loading stall (dt >= 0.25) left dt above the limit for good and the
-    // estimate stayed frozen for the rest of the session - the dodge then
-    // planned with a stale speed and cleared threats it could not clear.
+    if (dt < 0.06f) return;
     if (dt < 0.25f)
     {
         float dx = (float)(own_x - last_pos_x);
@@ -276,15 +271,7 @@ void run_autododge()
     in_move = 0;
 }
 static constexpr uint64_t TICK_US = 50000ULL;
-// The scan loop is not a 50 ms tick. It runs at 120 Hz (8.33 ms) so a heading
-// change can go out on the next frame; ad::TICK_MS == 50 is the step of the
-// prediction grid inside the dodge and has nothing to do with this period.
-// The two used to look like the same thing, which is why the dense log rows
-// were read as 50 ms frames when they are 8 ms frames.
 static constexpr uint64_t SCAN_PERIOD_US = TICK_US / 6;
-// How long one pass over the world costs. The timer runs on the main queue,
-// so every microsecond here is taken straight out of the game's own frame -
-// that is the latency the player feels.
 uint64_t workload_us_sum = 0;
 uint32_t workload_us_max = 0;
 uint32_t workload_us_n = 0;
