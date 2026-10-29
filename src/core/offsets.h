@@ -50,8 +50,8 @@ inline constexpr uint64_t LOGICCHARACTER_ATTACK_ANGLE_OFF = 0xb4ULL;
 inline constexpr uint64_t LOGICCHARACTER_HP_OFF = 0xc4ULL;
 inline constexpr uint64_t LOGICGAMEOBJECT_DATA_OFF = 0x10ULL;
 
-inline constexpr uint64_t PROJECTILEDATA_SPEED_OFF = 0x124ULL;
-inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0x130ULL;
+inline constexpr uint64_t PROJECTILEDATA_SPEED_OFF = 0x9cULL;
+inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0xa4ULL;
 inline constexpr uint64_t PROJECTILEDATA_INDIRECT_OFF = 0x108ULL;
 inline constexpr uint64_t PROJECTILEDATA_ISBEAM_OFF = 0x1d9ULL;
 inline constexpr uint64_t PROJECTILEDATA_ISBOUNCING_OFF = 0x1daULL;
