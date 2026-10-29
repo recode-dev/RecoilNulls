@@ -16,7 +16,7 @@ static int client_input_constants_ready = 0;
 static int client_input_message_is_valid(void* memory, size_t size);
 static void* client_input_battle_instance();
 static void* client_input_manager_of_battle(void* battle);
-static int client_input_queue_has_room(void* manager);
+static int client_input_manager_queue_is_ready(void* manager);
 
 uintptr_t callable_at_rva(uintptr_t rva)
 {
@@ -178,17 +178,11 @@ static void* client_input_battle_instance()
     static uintptr_t slot = 0;
     uintptr_t function =
         client_input_resolve(&slot, RVA_BATTLE_MODE_GET_INSTANCE);
-    void* battle = nullptr;
-    if (!client_input_function_is_callable(function))
+    if (!function)
     {
         return nullptr;
     }
-    battle = reinterpret_cast<void* (*)()>(function)();
-    if (!object_plausible(battle))
-    {
-        return nullptr;
-    }
-    return battle;
+    return reinterpret_cast<void* (*)()>(function)();
 }
 
 static void* client_input_manager_of_battle(void* battle)
@@ -220,10 +214,9 @@ void* get_client_input_manager()
     return client_input_manager_of_battle(client_input_battle_instance());
 }
 
-static int client_input_queue_has_room(void* manager)
+static int client_input_manager_queue_is_ready(void* manager)
 {
     void* queue = nullptr;
-    int32_t pending = 0;
     if (!manager)
     {
         return 0;
@@ -233,17 +226,9 @@ static int client_input_queue_has_room(void* manager)
                   &queue) ||
         !queue)
     {
-        return 1;
+        return 0;
     }
-    if (!read_int(reinterpret_cast<uintptr_t>(queue) + 0xc, &pending))
-    {
-        return 1;
-    }
-    if (pending < 0)
-    {
-        return 1;
-    }
-    return pending < CLIENT_INPUT_MESSAGE_QUEUE_LIMIT ? 1 : 0;
+    return 1;
 }
 
 int enqueue_client_input_message(int type, int x, int y)
@@ -271,7 +256,7 @@ int enqueue_client_input_message(int type, int x, int y)
         return 0;
     }
     battle = client_input_battle_instance();
-    if (!battle)
+    if (!object_plausible(battle))
     {
         return 0;
     }
@@ -280,15 +265,15 @@ int enqueue_client_input_message(int type, int x, int y)
     {
         return 0;
     }
-    constructor = client_input_resolve(&constructor_slot,
-                                       RVA_CLIENT_INPUT_MESSAGE_CONSTRUCTOR);
-    add_input = client_input_resolve(&add_input_slot,
-                                     RVA_CLIENT_INPUT_MANAGER_ADD_INPUT);
+    constructor =
+        client_input_resolve(&constructor_slot, RVA_CLIENT_INPUT_MESSAGE_CONSTRUCTOR);
+    add_input =
+        client_input_resolve(&add_input_slot, RVA_CLIENT_INPUT_MANAGER_ADD_INPUT);
     if (!constructor || !add_input)
     {
         return 0;
     }
-    if (!client_input_queue_has_room(manager))
+    if (!client_input_manager_queue_is_ready(manager))
     {
         return 0;
     }

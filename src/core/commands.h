@@ -11,7 +11,6 @@ inline constexpr size_t CLIENT_INPUT_MESSAGE_SIGNED_SIZE = 0x10;
 inline constexpr uintptr_t CLIENT_INPUT_MESSAGE_CHECKSUM_OFF = 0x34;
 inline constexpr int CLIENT_INPUT_MESSAGE_TYPE_MOVE = 0x2;
 inline constexpr int CLIENT_INPUT_MESSAGE_TYPE_LIMIT = 0x17;
-inline constexpr int CLIENT_INPUT_MESSAGE_QUEUE_LIMIT = 0x1e;
 inline constexpr int CLIENT_INPUT_MESSAGE_PREDICTION_FLAG = 1;
 
 uintptr_t callable_at_rva(uintptr_t rva);
