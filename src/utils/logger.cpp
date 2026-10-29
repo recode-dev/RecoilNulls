@@ -343,7 +343,8 @@ int val_client_input(uintptr_t clientPtr)
     int32_t mx = 0;
     int32_t my = 0;
     uint8_t token[8] = {0};
-    if (!read_ptr(clientPtr + LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF, &manager) ||
+    if (!read_ptr(clientPtr + LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF,
+                  &manager) ||
         !manager || !pointer_plausible(manager))
     {
         return 0;
@@ -365,7 +366,10 @@ int val_client_input(uintptr_t clientPtr)
        true,
        "0x%llx",
        (unsigned long long)manager);
-    vf("CLIENTINPUTMANAGER_QUEUE_OFF", true, "0x%llx", (unsigned long long)queue);
+    vf("CLIENTINPUTMANAGER_QUEUE_OFF",
+       true,
+       "0x%llx",
+       (unsigned long long)queue);
     vf("CLIENTINPUT_QUEUE_COUNT", true, "count=%d", count);
     if (!read_ptr(queue + OBJECTMANAGER_ARRAY_OFF, &array) || !array ||
         !read_ptr(array, &message) || !message || !pointer_plausible(message))
@@ -388,7 +392,11 @@ int val_client_input(uintptr_t clientPtr)
     if (read_int(message + CLIENTINPUTMESSAGE_X_OFF, &mx) &&
         read_int(message + CLIENTINPUTMESSAGE_Y_OFF, &my))
     {
-        vf("CLIENTINPUTMESSAGE_X/Y_OFF", span(mx) && span(my), "x=%d y=%d", mx, my);
+        vf("CLIENTINPUTMESSAGE_X/Y_OFF",
+           span(mx) && span(my),
+           "x=%d y=%d",
+           mx,
+           my);
     }
     else
     {
@@ -405,8 +413,8 @@ int val_client_input(uintptr_t clientPtr)
        addr_readable(message + CLIENTINPUT_SKILLDATA_OFF, 8),
        "readable");
     vf("CLIENTINPUT_TOKEN_INPUT_OFF",
-       addr_readable(message + CLIENTINPUT_TOKEN_OFF + CLIENTINPUT_TOKEN_INPUT_OFF,
-                     4),
+       addr_readable(
+           message + CLIENTINPUT_TOKEN_OFF + CLIENTINPUT_TOKEN_INPUT_OFF, 4),
        "readable");
     return 1;
 }
@@ -497,7 +505,8 @@ void val_character(uintptr_t own)
         BOOL ok = NO;
         if (text && pointer_plausible(text))
         {
-            ok = read_scstring(text, sizeof(name) - 1, name, sizeof(name)) ? YES : NO;
+            ok = read_scstring(text, sizeof(name) - 1, name, sizeof(name)) ? YES
+                                                                           : NO;
         }
         for (size_t i = 0; ok && i < sizeof(name) - 1 && name[i]; i++)
         {
@@ -594,7 +603,8 @@ void val_tilemap(uintptr_t clientPtr)
             uint8_t b = 0;
             if (!read_ptr(tiles + (uintptr_t)i * 8, &item) || !item) continue;
             if (!read_ptr(item, &kind) || !kind) continue;
-            if (!read_bytes(kind + LOGICTILEDATA_FLAGS_OFF, &f, sizeof(f))) continue;
+            if (!read_bytes(kind + LOGICTILEDATA_FLAGS_OFF, &f, sizeof(f)))
+                continue;
             seen++;
             if (f && !sample) sample = f;
             if (read_bytes(kind + TILETYPEDATA_BLOCKFLAGS_OFF, &b, 1) && b)
