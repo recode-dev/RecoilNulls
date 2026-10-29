@@ -1,7 +1,7 @@
 #include "../core/scan.h"
 #include "../core/scstring.h"
 #include "../core/commands.h"
-#include "../features/update_autododge.h"
+#include "../features/autododge.h"
 #include "../utils/walls.h"
 #include <cmath>
 #include <cstdarg>
@@ -70,7 +70,7 @@ bool open_log()
     fseek(log_file, 0, SEEK_END);
     if (ftell(log_file) == 0)
     {
-        fprintf(log_file, "=== update_autododge log ===\n");
+        fprintf(log_file, "=== autododge log ===\n");
         fprintf(log_file, "documents: %s\n", dir);
         fflush(log_file);
     }
@@ -132,18 +132,14 @@ void val_rva_table()
         {"RVA_BATTLE_MODE_GET_INSTANCE", RVA_BATTLE_MODE_GET_INSTANCE},
         {"RVA_GETTILEMAP", RVA_LOGIC_BATTLE_MODE_CLIENT_GET_TILE_MAP},
         {"RVA_GETOWNCHARACTER", RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_CHARACTER},
-        {"RVA_GETOWNPLAYERINDEX",
-         RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_INDEX},
-        {"RVA_GETOWNPLAYERTEAM",
-         RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_TEAM},
+        {"RVA_GETOWNPLAYERINDEX", RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_INDEX},
+        {"RVA_GETOWNPLAYERTEAM", RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_TEAM},
         {"RVA_LOGIC_DATA_GET_NAME", RVA_LOGIC_DATA_GET_NAME},
         {"RVA_SETCLIENTPREDICTIONMOVETO",
          RVA_LOGIC_BATTLE_MODE_CLIENT_SET_CLIENT_PREDICTION_MOVE_TO},
         {"RVA_CLIENTINPUTMESSAGE_CTOR", RVA_CLIENT_INPUT_MESSAGE_CONSTRUCTOR},
-        {"RVA_CLIENT_INPUT_MANAGER_ADD_INPUT",
-         RVA_CLIENT_INPUT_MANAGER_ADD_INPUT},
-        {"RVA_ISPASSABLEPATHFINDER",
-         RVA_LOGIC_TILE_MAP_IS_PASSABLE_PATH_FINDER},
+        {"RVA_CLIENT_INPUT_MANAGER_ADD_INPUT", RVA_CLIENT_INPUT_MANAGER_ADD_INPUT},
+        {"RVA_ISPASSABLEPATHFINDER", RVA_LOGIC_TILE_MAP_IS_PASSABLE_PATH_FINDER},
         {"RVA_ISPLAYERLINEOFSIGHTCLEAR",
          RVA_LOGIC_TILE_MAP_IS_PLAYER_LINE_OF_SIGHT_CLEAR},
         {"RVA_LOGIC_TILE_MAP_TILE_TO_LOGIC", RVA_LOGIC_TILE_MAP_TILE_TO_LOGIC},
@@ -264,8 +260,7 @@ void val_globals(uintptr_t slot)
         }
         else
         {
-            if (read_ptr(clientPtr +
-                             LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF,
+            if (read_ptr(clientPtr + LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF,
                          &manager))
             {
                 vf("LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF",
@@ -279,9 +274,7 @@ void val_globals(uintptr_t slot)
                    false,
                    "read failed");
             }
-            if (manager &&
-                read_int(manager + LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF,
-                         &count))
+            if (manager && read_int(manager + LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF, &count))
             {
                 vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF",
                    count > 0 && count <= OBJECT_COUNT_MAX,
@@ -290,13 +283,9 @@ void val_globals(uintptr_t slot)
             }
             else
             {
-                vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF",
-                   false,
-                   "read failed");
+                vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF", false, "read failed");
             }
-            if (manager &&
-                read_ptr(manager + LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF,
-                         &array))
+            if (manager && read_ptr(manager + LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF, &array))
             {
                 vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF",
                    array && pointer_plausible(array),
@@ -305,9 +294,7 @@ void val_globals(uintptr_t slot)
             }
             else
             {
-                vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF",
-                   false,
-                   "read failed");
+                vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF", false, "read failed");
             }
             val_input_state = val_client_input(slot);
         }
@@ -325,8 +312,7 @@ void val_globals(uintptr_t slot)
     }
     vf("DATACONST_RVA",
        addr_readable(base + DATA_CONST_RVA_LOW, 16) &&
-           addr_readable(base + DATA_CONST_RVA_LOW + DATA_CONST_RVA_SIZE - 16,
-                         16),
+           addr_readable(base + DATA_CONST_RVA_LOW + DATA_CONST_RVA_SIZE - 16, 16),
        "lo=0x%llx size=0x%llx",
        (unsigned long long)DATA_CONST_RVA_LOW,
        (unsigned long long)DATA_CONST_RVA_SIZE);
@@ -370,8 +356,8 @@ int val_client_input(uintptr_t clientPtr)
         return 0;
     }
     val_ci_queue = queue;
-    if (!read_int(queue + LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF, &count) ||
-        count <= 0 || count > 4096)
+    if (!read_int(queue + LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF, &count) || count <= 0 ||
+        count > 4096)
     {
         return 0;
     }
@@ -385,9 +371,8 @@ int val_client_input(uintptr_t clientPtr)
        "0x%llx",
        (unsigned long long)queue);
     vf("CLIENTINPUT_QUEUE_COUNT", true, "count=%d", count);
-    if (!read_ptr(queue + LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF, &array) ||
-        !array || !read_ptr(array, &message) || !message ||
-        !pointer_plausible(message))
+    if (!read_ptr(queue + LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF, &array) || !array ||
+        !read_ptr(array, &message) || !message || !pointer_plausible(message))
     {
         vf("CLIENTINPUT_QUEUE_ARRAY", false, "array/message unreadable");
         return 1;
@@ -555,8 +540,8 @@ void val_character(uintptr_t own)
 void val_tilemap(uintptr_t clientPtr)
 {
     typedef uintptr_t (*map_t)(uintptr_t);
-    map_t fn = reinterpret_cast<map_t>(
-        callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_TILE_MAP));
+    map_t fn =
+        reinterpret_cast<map_t>(callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_TILE_MAP));
     uintptr_t map = fn ? fn(clientPtr) : 0;
     uintptr_t tiles = 0;
     int32_t width = 0;
@@ -576,10 +561,7 @@ void val_tilemap(uintptr_t clientPtr)
     }
     if (read_int(map + LOGIC_TILE_MAP_WIDTH_OFF, &width))
     {
-        vf("LOGIC_TILE_MAP_WIDTH_OFF",
-           width > 0 && width <= 120,
-           "w=%d",
-           width);
+        vf("LOGIC_TILE_MAP_WIDTH_OFF", width > 0 && width <= 120, "w=%d", width);
     }
     else
     {
@@ -587,10 +569,7 @@ void val_tilemap(uintptr_t clientPtr)
     }
     if (read_int(map + LOGIC_TILE_MAP_HEIGHT_OFF, &height))
     {
-        vf("LOGIC_TILE_MAP_HEIGHT_OFF",
-           height > 0 && height <= 120,
-           "h=%d",
-           height);
+        vf("LOGIC_TILE_MAP_HEIGHT_OFF", height > 0 && height <= 120, "h=%d", height);
     }
     else
     {
@@ -697,8 +676,7 @@ void val_projectile()
     }
     {
         bool ticks_ok =
-            read_int(objPtr + LOGIC_PROJECTILE_SERVER_STARTTICK_OFF,
-                     &startTick) &&
+            read_int(objPtr + LOGIC_PROJECTILE_SERVER_STARTTICK_OFF, &startTick) &&
             read_int(objPtr + LOGIC_PROJECTILE_SERVER_ENDTICK_OFF, &endTick);
         if (!ticks_ok || startTick < 0 || endTick < startTick)
         {
@@ -781,33 +759,26 @@ void val_projectile()
     }
     if (read_int(found + LOGIC_PROJECTILE_DATA_CONFIG_TTYPE_OFF, &ttype))
     {
-        vf("LOGIC_PROJECTILE_DATA_CONFIG_TTYPE_OFF",
-           ttype >= -1 && ttype <= 64,
-           "tt=%d",
-           ttype);
+        vf("LOGIC_PROJECTILE_DATA_CONFIG_TTYPE_OFF", ttype >= -1 && ttype <= 64, "tt=%d", ttype);
     }
     else
     {
         vf("LOGIC_PROJECTILE_DATA_CONFIG_TTYPE_OFF", false, "read failed");
     }
     vf("LOGIC_PROJECTILE_DATA_CONFIG_HOMING_OFF",
-       read_bytes(
-           found + LOGIC_PROJECTILE_DATA_CONFIG_HOMING_OFF, &homing, 1) &&
-           homing <= 1,
+       read_bytes(found + LOGIC_PROJECTILE_DATA_CONFIG_HOMING_OFF, &homing, 1) && homing <= 1,
        "homing=%u",
        (unsigned)homing);
     vf("LOGIC_PROJECTILE_DATA_IS_BOUNCING_OFF",
-       read_bytes(
-           found + LOGIC_PROJECTILE_DATA_IS_BOUNCING_OFF, &bouncing, 1) &&
+       read_bytes(found + LOGIC_PROJECTILE_DATA_IS_BOUNCING_OFF, &bouncing, 1) &&
            (bouncing <= 1 || bouncing == 255),
        "bounce=%u",
        (unsigned)bouncing);
     vf("LOGIC_PROJECTILE_DATA_PIERCES_ENV_OFF",
        read_bytes(found + LOGIC_PROJECTILE_DATA_PIERCES_ENV_OFF, &pierce, 1) &&
            pierce <= 1 &&
-           read_bytes(found + LOGIC_PROJECTILE_DATA_PIERCES_ENV_BUTTER_OFF,
-                      &butter,
-                      1) &&
+           read_bytes(
+               found + LOGIC_PROJECTILE_DATA_PIERCES_ENV_BUTTER_OFF, &butter, 1) &&
            butter <= 1,
        "pierce=%u butter=%u",
        (unsigned)pierce,
@@ -840,8 +811,8 @@ void val_projectile()
     {
         vf("PROJSERVER_COORDS", false, "read failed");
     }
-    if (read_ptr(found + LOGIC_PROJECTILE_DATA_CONFIG_ADDRESS_OFF, &cfg) &&
-        cfg && pointer_plausible(cfg))
+    if (read_ptr(found + LOGIC_PROJECTILE_DATA_CONFIG_ADDRESS_OFF, &cfg) && cfg &&
+        pointer_plausible(cfg))
     {
         vf("LOGIC_PROJECTILE_DATA_CONFIG_ADDRESS_OFF",
            addr_readable(cfg, LOGIC_PROJECTILE_DATA_CONFIG_BLOCK_SIZE),

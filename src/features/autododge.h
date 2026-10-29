@@ -88,14 +88,13 @@ extern float self_speed;
 extern int pend_dmg;
 void evict_stale_projectiles(uint64_t now);
 int find_live_projectile(uintptr_t* objOut,
-                         uintptr_t* dataOut,
-                         int32_t* tick0,
-                         int32_t* tick1,
-                         float* px,
-                         float* py);
+                 uintptr_t* dataOut,
+                 int32_t* tick0,
+                 int32_t* tick1,
+                 float* px,
+                 float* py);
 void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my);
-float compute_threat_clearance(
-    float mx, float my, float dx, float dy, const Threat& t);
+float compute_threat_clearance(float mx, float my, float dx, float dy, const Threat& t);
 void report_incoming_hit(float mx, float my, float dx, float dy);
 void fill_autododge_report(float mx, float my, float dx, float dy);
 }

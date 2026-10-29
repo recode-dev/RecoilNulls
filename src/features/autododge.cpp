@@ -1,4 +1,4 @@
-#include "update_autododge.h"
+#include "autododge.h"
 #include "../core/commands.h"
 #include "../core/scan.h"
 #include "../core/scstring.h"
@@ -78,8 +78,7 @@ uintptr_t char_vt = 0;
 float self_speed = 1.0f;
 float own_hitbox = 0.0f;
 int pend_dmg = 0;
-float compute_threat_clearance(
-    float mx, float my, float dx, float dy, const Threat& t)
+float compute_threat_clearance(float mx, float my, float dx, float dy, const Threat& t)
 {
     float sx = t.vx - dx * self_speed, sy = t.vy - dy * self_speed;
     float rx = t.x - mx, ry = t.y - my;
@@ -131,12 +130,9 @@ void init_projectile_state(
         {
             int32_t cr = 0, ct = 0;
             uint8_t ch = 0;
-            memcpy(
-                &cr, cb + LOGIC_PROJECTILE_DATA_CONFIG_RADIUS_OFF, sizeof(cr));
-            memcpy(
-                &ct, cb + LOGIC_PROJECTILE_DATA_CONFIG_TTYPE_OFF, sizeof(ct));
-            memcpy(
-                &ch, cb + LOGIC_PROJECTILE_DATA_CONFIG_HOMING_OFF, sizeof(ch));
+            memcpy(&cr, cb + LOGIC_PROJECTILE_DATA_CONFIG_RADIUS_OFF, sizeof(cr));
+            memcpy(&ct, cb + LOGIC_PROJECTILE_DATA_CONFIG_TTYPE_OFF, sizeof(ct));
+            memcpy(&ch, cb + LOGIC_PROJECTILE_DATA_CONFIG_HOMING_OFF, sizeof(ch));
             if (cr > 0 && cr <= 3000) radius = cr;
             st->homing = ch != 0;
             st->ttype = (int16_t)ct;
@@ -171,8 +167,7 @@ void init_projectile_state(
             str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
 }
 
-static void
-add_character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
+static void add_character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
 {
     ad_char_n++;
     int32_t team, hp, gid, xi, yi, aim;
@@ -229,14 +224,14 @@ static uintptr_t find_projectile_data_asset(uintptr_t objPtr)
 }
 
 static bool is_live_projectile(const uint8_t* obj,
-                               int32_t* tick0,
-                               int32_t* tick1,
-                               float* px,
-                               float* py,
-                               float* sx,
-                               float* sy,
-                               float* ex,
-                               float* ey)
+                        int32_t* tick0,
+                        int32_t* tick1,
+                        float* px,
+                        float* py,
+                        float* sx,
+                        float* sy,
+                        float* ex,
+                        float* ey)
 {
     int32_t t0 = 0, t1 = 0, xi = 0, yi = 0;
     int32_t ax = 0, ay = 0, bx = 0, by = 0;
@@ -302,19 +297,19 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
 }
 
 static void add_projectile_threat(const uint8_t* obj,
-                                  uintptr_t objPtr,
-                                  uint64_t now,
-                                  float mx,
-                                  float my,
-                                  float zone2,
-                                  int32_t tk0,
-                                  int32_t tk1,
-                                  float px,
-                                  float py,
-                                  float sx,
-                                  float sy,
-                                  float ex,
-                                  float ey)
+                     uintptr_t objPtr,
+                     uint64_t now,
+                     float mx,
+                     float my,
+                     float zone2,
+                     int32_t tk0,
+                     int32_t tk1,
+                     float px,
+                     float py,
+                     float sx,
+                     float sy,
+                     float ex,
+                     float ey)
 {
     int32_t pid = 0;
     memcpy(&pid, obj + LOGIC_CHARACTER_GLOBAL_ID_OFF, sizeof(pid));
@@ -323,8 +318,7 @@ static void add_projectile_threat(const uint8_t* obj,
         key = (int32_t)(((objPtr >> 4) ^ (objPtr >> 20)) & 0x7fffffff);
     if (key <= 0) return;
     uintptr_t owner = 0;
-    if (char_vt &&
-        read_ptr(objPtr + LOGIC_PROJECTILE_SERVER_OWNER_OFF, &owner) && owner &&
+    if (char_vt && read_ptr(objPtr + LOGIC_PROJECTILE_SERVER_OWNER_OFF, &owner) && owner &&
         pointer_plausible(owner))
     {
         uintptr_t odata = 0, ovt = 0;
@@ -340,8 +334,7 @@ static void add_projectile_threat(const uint8_t* obj,
     Proj* st = find_projectile_entry(key);
     if (st->pid != key)
     {
-        init_projectile_state(
-            st, key, find_projectile_data_asset(objPtr), px, py, now);
+        init_projectile_state(st, key, find_projectile_data_asset(objPtr), px, py, now);
         if (st->pid != key) return;
     }
     uint64_t prev_ms = st->seen;
@@ -406,9 +399,7 @@ static void add_projectile_threat(const uint8_t* obj,
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
     if (dx * dx + dy * dy > zone2) return;
     if (st->flags & B_IND) ad_ind_n++;
-    if (!(st->flags & (B_IND | B_PIERCE)) &&
-        !wall_line_of_sight_clear(px, py, mx, my))
-        return;
+    if (!(st->flags & (B_IND | B_PIERCE)) && !wall_line_of_sight_clear(px, py, mx, my)) return;
     float vv = vx * vx + vy * vy;
     if (vv <= 0.0f) return;
     float rad = st->rad + own_hitbox + AD_SAFETY;
@@ -464,10 +455,8 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
         {
             int32_t nt0 = 0, nt1 = 0;
-            memcpy(
-                &nt0, obj + LOGIC_PROJECTILE_SERVER_STARTTICK_OFF, sizeof(nt0));
-            memcpy(
-                &nt1, obj + LOGIC_PROJECTILE_SERVER_ENDTICK_OFF, sizeof(nt1));
+            memcpy(&nt0, obj + LOGIC_PROJECTILE_SERVER_STARTTICK_OFF, sizeof(nt0));
+            memcpy(&nt1, obj + LOGIC_PROJECTILE_SERVER_ENDTICK_OFF, sizeof(nt1));
             if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 3000) ad_shot_tick++;
         }
         if (!is_live_projectile(obj, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
@@ -478,36 +467,35 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
             t1 = 0;
         }
         add_projectile_threat(obj,
-                              obj_snapshot[i],
-                              now,
-                              mx,
-                              my,
-                              zone2,
-                              t0,
-                              t1,
-                              px,
-                              py,
-                              sx,
-                              sy,
-                              ex,
-                              ey);
+                 obj_snapshot[i],
+                 now,
+                 mx,
+                 my,
+                 zone2,
+                 t0,
+                 t1,
+                 px,
+                 py,
+                 sx,
+                 sy,
+                 ex,
+                 ey);
     }
 }
 
 int find_live_projectile(uintptr_t* objOut,
-                         uintptr_t* dataOut,
-                         int32_t* tick0,
-                         int32_t* tick1,
-                         float* px,
-                         float* py)
+                 uintptr_t* dataOut,
+                 int32_t* tick0,
+                 int32_t* tick1,
+                 float* px,
+                 float* py)
 {
     for (int i = 0; i < obj_count; i++)
     {
         if (!obj_valid[i] || !obj_snapshot[i]) continue;
         int32_t t0 = 0, t1 = 0;
         float x = 0.0f, y = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
-        if (!is_live_projectile(
-                obj_block[i], &t0, &t1, &x, &y, &sx, &sy, &ex, &ey))
+        if (!is_live_projectile(obj_block[i], &t0, &t1, &x, &y, &sx, &sy, &ex, &ey))
             continue;
         *objOut = obj_snapshot[i];
         *dataOut = find_projectile_data_asset(obj_snapshot[i]);
@@ -595,14 +583,14 @@ static float compute_free_run(float mx, float my, float dx, float dy, float far)
     return run > 0.0f ? run : 0.0f;
 }
 static void simulate_position(float mx,
-                              float my,
-                              float dx,
-                              float dy,
-                              float tk,
-                              float w,
-                              float h,
-                              float& ax,
-                              float& ay)
+                    float my,
+                    float dx,
+                    float dy,
+                    float tk,
+                    float w,
+                    float h,
+                    float& ax,
+                    float& ay)
 {
     float delay = (float)MOVE_DELAY_TICKS * TICK_MS_SEC;
     float coast = tk < delay ? tk : delay;
@@ -670,8 +658,7 @@ static float compute_thrust_penalty(float mx, float my, float dx, float dy)
     }
     return worst;
 }
-static float
-evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
+static float evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
 {
     float far = self_speed * SIM_T;
     float run = compute_free_run(mx, my, dx, dy, far);
@@ -727,8 +714,7 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
            WEIGHT_EDGE * compute_edge_pull(mx, my, dx, dy) -
            own_hitbox * wall_pull(mx, my, dx, dy, own_hitbox);
 }
-static void
-choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
+static void choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
 {
     bool has = commit_x != 0.0f || commit_y != 0.0f;
     float val[DIRS];
@@ -775,15 +761,13 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     if (has)
     {
         int cur = 0;
-        float cur_val =
-            evaluate_dodge_direction(mx, my, commit_x, commit_y, cur) +
-            own_hitbox * COMMIT_BONUS;
+        float cur_val = evaluate_dodge_direction(mx, my, commit_x, commit_y, cur) +
+                        own_hitbox * COMMIT_BONUS;
         bool better = best_steps > cur;
         bool die_fast = better && cur > 0 && cur <= HOLD_DANGER_STEPS;
         bool walled =
-            better &&
-            compute_free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
-                own_hitbox * 2.0f;
+            better && compute_free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
+                          own_hitbox * 2.0f;
         bool held = now - turn_ms < TURN_HOLD_MS;
         bool gain = best > cur_val + own_hitbox * 0.5f;
         if (die_fast || walled)
@@ -847,9 +831,8 @@ static void learn_own_hitbox()
     if (!read_ptr(own_elem + LOGIC_GAME_OBJECT_DATA_OFF, &data) || !data ||
         !pointer_plausible((uintptr_t)data))
         return;
-    if (!read_bytes((uintptr_t)data + LOGIC_CHARACTER_DATA_COLLISION_OFF,
-                    &r,
-                    sizeof(r)))
+    if (!read_bytes(
+            (uintptr_t)data + LOGIC_CHARACTER_DATA_COLLISION_OFF, &r, sizeof(r)))
         return;
     if (r <= 0) return;
     float tile = wall_logic_units(1);
@@ -980,8 +963,7 @@ void update_autododge()
         fy = my + (fy - my) * 0.5f;
     }
     float em = compute_edge_margin();
-    float wu = wall_logic_units(wall_cache_width()),
-          hu = wall_logic_units(wall_cache_height());
+    float wu = wall_logic_units(wall_cache_width()), hu = wall_logic_units(wall_cache_height());
     float lo_x = em < wu * 0.5f ? em : wu * 0.5f;
     float hi_x = wu - em > wu * 0.5f ? wu - em : wu * 0.5f;
     float lo_y = em < hu * 0.5f ? em : hu * 0.5f;

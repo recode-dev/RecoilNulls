@@ -6,7 +6,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdio>
-#include "../features/update_autododge.h"
+#include "../features/autododge.h"
 #include "../utils/walls.h"
 #include "offsets.h"
 #include "scan.h"
@@ -275,8 +275,7 @@ int game_tile_to_logic(int tile)
     static conv_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<conv_t>(
-            callable(RVA_LOGIC_TILE_MAP_TILE_TO_LOGIC));
+        fn = reinterpret_cast<conv_t>(callable(RVA_LOGIC_TILE_MAP_TILE_TO_LOGIC));
     }
     if (!fn)
     {
@@ -291,8 +290,7 @@ int game_logic_to_tile(int unit)
     static conv_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<conv_t>(
-            callable(RVA_LOGIC_TILE_MAP_LOGIC_TO_TILE));
+        fn = reinterpret_cast<conv_t>(callable(RVA_LOGIC_TILE_MAP_LOGIC_TO_TILE));
     }
     if (!fn)
     {
@@ -540,9 +538,8 @@ void scan_world()
         world_reset();
         return;
     }
-    if (!read_ptr(clientPtr +
-                      static_cast<uintptr_t>(
-                          LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF),
+    if (!read_ptr(clientPtr + static_cast<uintptr_t>(
+                                  LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF),
                   &value) ||
         !value)
     {
@@ -551,16 +548,14 @@ void scan_world()
     }
     mgrPtr = (uintptr_t)value;
     manager_ptr = mgrPtr;
-    if (!read_int(mgrPtr + static_cast<uintptr_t>(
-                               LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF),
+    if (!read_int(mgrPtr + static_cast<uintptr_t>(LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF),
                   &count) ||
         count <= 0 || count > OBJECT_COUNT_MAX)
     {
         world_reset();
         return;
     }
-    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(
-                               LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF),
+    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF),
                   &value) ||
         !value)
     {
@@ -588,8 +583,7 @@ void scan_world()
                            : 0;
     }
     {
-        uintptr_t ownFn =
-            callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_CHARACTER);
+        uintptr_t ownFn = callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_CHARACTER);
         uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
         own = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
     }
@@ -623,14 +617,12 @@ void scan_world()
     }
     dead = (own_ok_hp && own_hp == 0) ? 1 : 0;
     own_index_v = static_cast<int32_t>(
-        call(callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_INDEX),
-             clientPtr));
-    own_team_b = static_cast<int32_t>(call(
-        callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_TEAM), clientPtr));
+        call(callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_INDEX), clientPtr));
+    own_team_b = static_cast<int32_t>(
+        call(callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_TEAM), clientPtr));
     track_own_speed();
     tilemap_tick(clientPtr);
-    wall_cache_refresh_if_stale(
-        static_cast<uint64_t>(g_get_real_time() / 1000));
+    wall_cache_refresh_if_stale(static_cast<uint64_t>(g_get_real_time() / 1000));
 }
 uint32_t workload_ticks = 0;
 void run_workload()
