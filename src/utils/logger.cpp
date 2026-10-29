@@ -105,14 +105,16 @@ void diag_tick()
 {
     uint64_t now_us = 0;
     unsigned long hz = 0;
+    uint64_t wl_avg = 0;
+    uint32_t wl_max = 0;
     if (!open_log()) return;
     now_us = us();
     if (base && own_elem && !dead)
     {
-        // The hook runs on more than one thread, so a plain `if` let both of
-        // them through and the dense rows landed 6-10 ms apart instead of
-        // every 50 ms. Reserving the slot with a compare-exchange keeps the
-        // cadence and halves the log size.
+        // `last_fast` used to be read here and never written, so `!last_fast`
+        // stayed true and every frame got a row - the log was 120 Hz, not the
+        // intended 20 Hz, which is why rows sit 8 ms apart and the 50 ms grid
+        // looked like 8 ms frames. The compare-exchange writes the slot back.
         static uint64_t last_fast = 0;
         uint64_t prev = __atomic_load_n(&last_fast, __ATOMIC_RELAXED);
         bool slot = !prev || now_us - prev >= 50000;
@@ -202,20 +204,37 @@ void diag_tick()
         last_ty = INT32_MAX;
     }
     {
+        // hz used to be the raw tick delta since the previous report. When the
+        // report is held back (idle, between matches) that delta covers many
+        // seconds and printed as hz=1697. Divide by the real elapsed time so
+        // the column is a rate and stays readable.
         static uint32_t prev_ticks = 0;
-        hz = workload_ticks - prev_ticks;
+        static uint64_t prev_ms = 0;
+        uint64_t now_ms = now_us / 1000;
+        uint32_t ticks = workload_ticks - prev_ticks;
+        uint64_t dt_ms = (prev_ms && now_ms > prev_ms) ? now_ms - prev_ms : 0;
+        hz = dt_ms ? static_cast<unsigned long>(
+                         (static_cast<uint64_t>(ticks) * 1000ULL) / dt_ms)
+                   : static_cast<unsigned long>(ticks);
         prev_ticks = workload_ticks;
-        // a counter reset between matches showed up as hz=1697 in the log
-        if (hz > 300) hz = 300;
+        prev_ms = now_ms;
+        wl_avg = workload_us_n ? workload_us_sum / workload_us_n : 0;
+        wl_max = workload_us_max;
+        workload_us_sum = 0;
+        workload_us_max = 0;
+        workload_us_n = 0;
     }
     int32_t own_aim = 0;
     if (own_elem)
     {
         read_int(own_elem + OBJ_ATTACK_ANGLE_OFF, &own_aim);
     }
-    line("[m] hz=%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d dir=%s "
-         "map=%dx%d dodge=%d hit=%d beam=%d ind=%d fd=%d tgt=(%d,%d) hu=%d\n",
+    line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
+         "dir=%s map=%dx%d dodge=%d hit=%d beam=%d ind=%d fd=%d tgt=(%d,%d) "
+         "hu=%d\n",
          static_cast<unsigned long>(hz),
+         static_cast<unsigned long>(wl_avg),
+         static_cast<unsigned long>(wl_max),
          obj_count,
          ad_char_n,
          ad_proj_n,

@@ -87,28 +87,34 @@ static void world_reset()
 static void track_own_speed()
 {
     uint64_t now_us = us();
-    if (last_pos_us && now_us > last_pos_us)
+    if (!last_pos_us || now_us <= last_pos_us)
     {
-        float dt = (float)(now_us - last_pos_us) / 1000000.0f;
-        if (dt >= 0.06f && dt < 0.25f)
-        {
-            float dx = (float)(own_x - last_pos_x);
-            float dy = (float)(own_y - last_pos_y);
-            float sp = sqrtf(dx * dx + dy * dy) / dt;
-            if (sp >= 300.0f && sp <= 1100.0f)
-            {
-                if (sp > own_speed)
-                    own_speed = sp;
-                else
-                    own_speed = own_speed * 0.99f + sp * 0.01f;
-                own_vel_x = own_vel_x * 0.5f + (dx / dt) * 0.5f;
-                own_vel_y = own_vel_y * 0.5f + (dy / dt) * 0.5f;
-            }
-            last_pos_x = own_x;
-            last_pos_y = own_y;
-            last_pos_us = now_us;
-        }
+        last_pos_x = own_x;
+        last_pos_y = own_y;
+        last_pos_us = now_us;
         return;
+    }
+    float dt = (float)(now_us - last_pos_us) / 1000000.0f;
+    if (dt < 0.06f) return;  // window not long enough yet, keep accumulating
+    // The sample point has to advance even when the sample is rejected. It
+    // used to advance only inside the accept branch, so the first stop or
+    // loading stall (dt >= 0.25) left dt above the limit for good and the
+    // estimate stayed frozen for the rest of the session - the dodge then
+    // planned with a stale speed and cleared threats it could not clear.
+    if (dt < 0.25f)
+    {
+        float dx = (float)(own_x - last_pos_x);
+        float dy = (float)(own_y - last_pos_y);
+        float sp = sqrtf(dx * dx + dy * dy) / dt;
+        if (sp >= 300.0f && sp <= 1100.0f)
+        {
+            if (sp > own_speed)
+                own_speed = sp;
+            else
+                own_speed = own_speed * 0.99f + sp * 0.01f;
+            own_vel_x = own_vel_x * 0.5f + (dx / dt) * 0.5f;
+            own_vel_y = own_vel_y * 0.5f + (dy / dt) * 0.5f;
+        }
     }
     last_pos_x = own_x;
     last_pos_y = own_y;
@@ -270,7 +276,18 @@ void run_autododge()
     in_move = 0;
 }
 static constexpr uint64_t TICK_US = 50000ULL;
+// The scan loop is not a 50 ms tick. It runs at 120 Hz (8.33 ms) so a heading
+// change can go out on the next frame; ad::TICK_MS == 50 is the step of the
+// prediction grid inside the dodge and has nothing to do with this period.
+// The two used to look like the same thing, which is why the dense log rows
+// were read as 50 ms frames when they are 8 ms frames.
 static constexpr uint64_t SCAN_PERIOD_US = TICK_US / 6;
+// How long one pass over the world costs. The timer runs on the main queue,
+// so every microsecond here is taken straight out of the game's own frame -
+// that is the latency the player feels.
+uint64_t workload_us_sum = 0;
+uint32_t workload_us_max = 0;
+uint32_t workload_us_n = 0;
 static void scan_frame()
 {
     if (inside_hook)
@@ -279,7 +296,12 @@ static void scan_frame()
     }
     inside_hook = YES;
     read_cache_reset();
+    uint64_t t0 = us();
     run_workload();
+    uint64_t spent = us() - t0;
+    workload_us_sum += spent;
+    if (spent > workload_us_max) workload_us_max = (uint32_t)spent;
+    workload_us_n++;
     inside_hook = NO;
 }
 static dispatch_source_t scan_timer = nullptr;

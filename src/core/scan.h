@@ -57,6 +57,8 @@ static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
 }
 extern int gum_live;
 extern uint32_t workload_ticks;
+extern uint64_t workload_us_sum;
+extern uint32_t workload_us_max, workload_us_n;
 static inline BOOL addr_readable(uintptr_t address, size_t length)
 {
     if (!address || !length)

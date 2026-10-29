@@ -38,6 +38,9 @@ constexpr int DIRS = 16;
 constexpr int SIM_STEPS = 32;
 constexpr uint64_t CALM_MS = 200;
 constexpr uint64_t SEND_MS = 100;
+// One frame at the 120 Hz scan rate. Anything that has to beat the joystick or
+// land with a heading change cannot wait for SEND_MS.
+constexpr uint64_t SEND_FAST_MS = 8;
 constexpr uint64_t TURN_HOLD_MS = 200;
 constexpr float MAX_TURN = 1.0471976f;
 // The hold is broken early only when the held heading dies inside twice the
@@ -628,12 +631,19 @@ void autododge()
     bool spent = ad_target_x == INT32_MAX ||
                  rem_x * rem_x + rem_y * rem_y < REACH * REACH * 0.25f;
     bool turned = dir_x * sent_x + dir_y * sent_y < 0.94f;
-    // ad_human used to gate this send, so holding the joystick during a dodge
-    // cancelled the dodge outright - the game kept following the stick and our
-    // move target was never refreshed. Now it is a trigger instead: while a
-    // threat is live we re-assert the dodge at 10 Hz and the stick loses.
-    bool need = spent || turned || ad_human;
-    if (need && now - sent_ms >= SEND_MS)
+    // Two different latencies used to share one 100 ms gate:
+    //   - a changed heading waited for the gate, so the game kept walking to
+    //     the previous target for up to 100 ms after the decision. In the log
+    //     the target sat at 3755,6630 from t=111016747 while the heading moved
+    //     three times, and at 4898,7348 for another 100 ms. Half of a 200 ms
+    //     hold was spent walking somewhere else.
+    //   - a held joystick overwrites the move command every frame, so a 10 Hz
+    //     re-assert only won 1 frame out of 12 - i.e. not at all.
+    // Both now go out on the next frame. Only topping up a spent target keeps
+    // the slow cadence, because that one is not latency sensitive.
+    bool turn_now = (turned || ad_human) && now - sent_ms >= SEND_FAST_MS;
+    bool repeat = spent && now - sent_ms >= SEND_MS;
+    if (turn_now || repeat)
     {
         sent_ms = now;
         sent_x = dir_x, sent_y = dir_y;
