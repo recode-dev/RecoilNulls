@@ -97,8 +97,8 @@ static uint16_t wall_tile_data_flags(uintptr_t tileData)
 
 static int wall_read_tile(uintptr_t tile, wall_tile_window* window)
 {
-    static const uintptr_t windowSizes[5] = {0x40ULL, 0x38ULL, 0x30ULL, 0x28ULL,
-                                             0x20ULL};
+    static const uintptr_t windowSizes[5] = {
+        0x40ULL, 0x38ULL, 0x30ULL, 0x28ULL, 0x20ULL};
     if (!tile || !window) return 0;
     for (int i = 0; i < 5; i++)
     {
@@ -142,8 +142,8 @@ static int wall_collect(int maskOffset, int planes, int* enginePassable)
         uintptr_t pointers[WALL_POINTER_CHUNK];
         int count = total - base;
         if (count > WALL_POINTER_CHUNK) count = WALL_POINTER_CHUNK;
-        if (!read_bytes(wall_tiles + static_cast<uintptr_t>(base) *
-                                        sizeof(uintptr_t),
+        if (!read_bytes(wall_tiles +
+                            static_cast<uintptr_t>(base) * sizeof(uintptr_t),
                         pointers,
                         static_cast<size_t>(count) * sizeof(uintptr_t)))
         {
@@ -220,7 +220,8 @@ static int wall_calibrate()
     int mismatches = wall_collect(wall_mask_offset, wall_planes, &passable);
     if (mismatches < 0) return 0;
     if (mismatches == 0 && passable > 0) return 1;
-    for (int offsetIndex = 0; offsetIndex < WALL_MASK_OFFSET_COUNT; offsetIndex++)
+    for (int offsetIndex = 0; offsetIndex < WALL_MASK_OFFSET_COUNT;
+         offsetIndex++)
     {
         for (int planes = WALL_MAX_MASK_PLANES; planes >= 1; planes--)
         {
@@ -229,9 +230,8 @@ static int wall_calibrate()
             {
                 continue;
             }
-            mismatches = wall_collect(wall_mask_offsets[offsetIndex],
-                                      planes,
-                                      &passable);
+            mismatches =
+                wall_collect(wall_mask_offsets[offsetIndex], planes, &passable);
             if (mismatches < 0) return 0;
             if (mismatches == 0 && passable > 0)
             {

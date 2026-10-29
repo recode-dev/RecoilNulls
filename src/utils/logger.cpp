@@ -269,7 +269,8 @@ void val_globals(uintptr_t slot)
                          &get_client_input_manager))
             {
                 vf("LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF",
-                   get_client_input_manager && pointer_plausible(get_client_input_manager),
+                   get_client_input_manager &&
+                       pointer_plausible(get_client_input_manager),
                    "0x%llx",
                    (unsigned long long)get_client_input_manager);
             }
@@ -280,7 +281,8 @@ void val_globals(uintptr_t slot)
                    "read failed");
             }
             if (get_client_input_manager &&
-                read_int(get_client_input_manager + LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF,
+                read_int(get_client_input_manager +
+                             LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF,
                          &count))
             {
                 vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF",
@@ -295,7 +297,8 @@ void val_globals(uintptr_t slot)
                    "read failed");
             }
             if (get_client_input_manager &&
-                read_ptr(get_client_input_manager + LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF,
+                read_ptr(get_client_input_manager +
+                             LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF,
                          &array))
             {
                 vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF",
@@ -359,13 +362,15 @@ int val_client_input(uintptr_t clientPtr)
     uint8_t token[8] = {0};
     if (!read_ptr(clientPtr + LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF,
                   &get_client_input_manager) ||
-        !get_client_input_manager || !pointer_plausible(get_client_input_manager))
+        !get_client_input_manager ||
+        !pointer_plausible(get_client_input_manager))
     {
         return 0;
     }
     val_ci_manager = get_client_input_manager;
-    if (!read_ptr(get_client_input_manager + CLIENT_INPUT_MANAGER_QUEUE_OFF, &queue) || !queue ||
-        !pointer_plausible(queue))
+    if (!read_ptr(get_client_input_manager + CLIENT_INPUT_MANAGER_QUEUE_OFF,
+                  &queue) ||
+        !queue || !pointer_plausible(queue))
     {
         return 0;
     }
