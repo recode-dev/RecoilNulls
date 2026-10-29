@@ -203,7 +203,6 @@ static void add_proj(const uint8_t* obj,
         init_proj(st, pid, dataPtr, px, py, now);
         if (st->pid != pid) return;
     }
-    uint64_t prev = st->seen;
     st->seen = now;
     float step_x = px - st->x, step_y = py - st->y;
     float step = sqrtf(step_x * step_x + step_y * step_y);
@@ -229,20 +228,6 @@ static void add_proj(const uint8_t* obj,
             vps = cand;
             vux = ddx / len;
             vuy = ddy / len;
-            have = true;
-        }
-    }
-    if (step > 1.0f)
-    {
-        uint64_t dt = now - prev;
-        float meas =
-            (dt >= 20 && dt <= 400) ? step * 1000.0f / (float)dt : 0.0f;
-        if (meas > 50.0f && meas < 20000.0f &&
-            (!have || fabsf(meas - vps) > vps * 0.3f))
-        {
-            vps = meas;
-            vux = step_x / step;
-            vuy = step_y / step;
             have = true;
         }
     }
