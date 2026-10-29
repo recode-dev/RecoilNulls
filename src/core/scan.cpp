@@ -113,6 +113,7 @@ static const memory_region_entry* region_cache_acquire(
     const memory_region_entry* entry = nullptr;
     GumMemoryRange             range;
     GumPageProtection          protection = GUM_PAGE_NO_ACCESS;
+    memory_region_entry*       slot       = nullptr;
     uintptr_t                  start      = 0;
     uintptr_t                  end        = 0;
     entry = region_cache_lookup(address, length, required);
@@ -130,11 +131,11 @@ static const memory_region_entry* region_cache_acquire(
     {
         return nullptr;
     }
-    entry             = &region_cache[region_cache_next];
+    slot              = &region_cache[region_cache_next];
     region_cache_next = (region_cache_next + 1) & (REGION_CACHE_SLOTS - 1);
-    entry->start      = start;
-    entry->end        = end;
-    entry->protection = protection;
+    slot->start       = start;
+    slot->end         = end;
+    slot->protection  = protection;
     return region_cache_lookup(address, length, required);
 }
 void read_cache_reset()
