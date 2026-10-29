@@ -105,7 +105,8 @@ static int wall_read_tile(uintptr_t tile, wall_tile_window* window)
 {
     static const uintptr_t* windowSizes = LogicTilePathFinderMaskReadWindows;
     if (!tile || !window) return 0;
-    for (int i = 0; i < 5; i++)
+    if (read_bytes(tile, window->raw, windowSizes[0])) return 1;
+    for (int i = 1; i < 5; i++)
     {
         memset(window->raw, 0, WALL_TILE_WINDOW_SIZE);
         if (read_bytes(tile, window->raw, windowSizes[i])) return 1;
@@ -180,19 +181,22 @@ static int wall_collect(int maskOffset, int planes, int* enginePassable)
             }
             if (!subtiles) continue;
             wall_blocked_tiles++;
-            for (int bit = 0; bit < WALL_BITS_PER_TILE; bit++)
             {
-                if ((subtiles >> bit) & 1u)
+                int index = tileIndex * WALL_BITS_PER_TILE;
+                int word = index >> 5;
+                int shift = index & 31;
+                wall_movement_bits[word] |= subtiles << shift;
+                if (shift > 32 - WALL_BITS_PER_TILE)
                 {
-                    wall_bit_raise(wall_movement_bits,
-                                   tileIndex * WALL_BITS_PER_TILE + bit);
+                    wall_movement_bits[word + 1] |= subtiles >> (32 - shift);
                 }
             }
         }
     }
-    int width2     = wall_tiles_w;
-    int total2     = width2 * height;
-    int stride     = total2 / WALL_SAMPLE_TILES;
+    if (!enginePassable) return 0;
+    int width2 = wall_tiles_w;
+    int total2 = width2 * height;
+    int stride = total2 / WALL_SAMPLE_TILES;
     int mismatches = 0;
     int sampled    = 0;
     int passable   = 0;
@@ -521,10 +525,21 @@ int wall_cell_blocked_wide(float x, float y, float r)
         highY = wall_h * WALL_SUBTILES_PER_TILE - 1;
     for (int sy = lowY; sy <= highY; sy++)
     {
+        int rowBase =
+            (sy / WALL_SUBTILES_PER_TILE) * wall_w * WALL_BITS_PER_TILE +
+            (sy % WALL_SUBTILES_PER_TILE) * WALL_SUBTILES_PER_TILE;
+        int tileX = lowX / WALL_SUBTILES_PER_TILE;
+        int subX = lowX % WALL_SUBTILES_PER_TILE;
         for (int sx = lowX; sx <= highX; sx++)
         {
-            if (wall_bit_test(wall_movement_bits, wall_subtile_index(sx, sy)))
+            if (wall_bit_test(wall_movement_bits,
+                              rowBase + tileX * WALL_BITS_PER_TILE + subX))
                 return 1;
+            if (++subX == WALL_SUBTILES_PER_TILE)
+            {
+                subX = 0;
+                tileX++;
+            }
         }
     }
     return 0;

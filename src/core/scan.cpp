@@ -61,18 +61,26 @@ BOOL addr_writable(uintptr_t address, size_t length)
 }
 inline constexpr int      PAGE_CACHE_SLOTS = 256;
 static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
-static __thread uint8_t   page_cache_ok[PAGE_CACHE_SLOTS];
-void                      read_cache_reset()
+static __thread uint8_t page_cache_ok[PAGE_CACHE_SLOTS];
+static guint memory_page_size()
+{
+    static guint cached = 0;
+    if (!cached)
+    {
+        cached = gum_query_page_size();
+    }
+    return cached;
+}
+void read_cache_reset()
 {
     for (int i = 0; i < PAGE_CACHE_SLOTS; i++)
         page_cache_key[i] = 0;
 }
 BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
-    GumPageProtection protection = GUM_PAGE_NO_ACCESS;
-    guint             pageSize   = 0;
-    uintptr_t         end        = 0;
-    uintptr_t         cursor     = 0;
+    uintptr_t end = 0;
+    uintptr_t cursor = 0;
+    uintptr_t pageSize = 0;
     if (!out || !length)
     {
         return NO;
@@ -90,50 +98,41 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    pageSize = gum_query_page_size();
+    pageSize = static_cast<uintptr_t>(memory_page_size());
     if (!pageSize)
     {
         return NO;
     }
-    cursor = address;
+    cursor = address & ~(pageSize - 1);
     for (int guard = 0; cursor < end && guard < 64; guard++)
     {
-        uintptr_t page = cursor & ~(static_cast<uintptr_t>(pageSize) - 1);
-        int       slot = (int) ((page >> 12) & (PAGE_CACHE_SLOTS - 1));
-        uint8_t   ok   = 0;
-        if (page_cache_key[slot] == page)
+        int slot = static_cast<int>((cursor >> 12) & (PAGE_CACHE_SLOTS - 1));
+        uint8_t ok = 0;
+        if (page_cache_key[slot] == cursor)
         {
             ok = page_cache_ok[slot];
         }
         else
         {
-            if (gum_memory_query_protection((gconstpointer) page, &protection))
+            GumPageProtection protection = GUM_PAGE_NO_ACCESS;
+            if (gum_memory_query_protection((gconstpointer)cursor, &protection))
+            {
                 ok = (protection & GUM_PAGE_READ) ? 1 : 0;
-            page_cache_key[slot] = page;
-            page_cache_ok[slot]  = ok;
+            }
+            page_cache_key[slot] = cursor;
+            page_cache_ok[slot] = ok;
         }
         if (!ok)
         {
             return NO;
         }
-        cursor = page + static_cast<uintptr_t>(pageSize);
+        cursor += pageSize;
     }
     if (cursor < end)
     {
         return NO;
     }
-    {
-        vm_size_t     got = 0;
-        kern_return_t kr  = vm_read_overwrite(mach_task_self(),
-                                             (vm_address_t) address,
-                                             (vm_size_t) length,
-                                             (vm_address_t) (uintptr_t) out,
-                                             &got);
-        if (kr != KERN_SUCCESS || got != (vm_size_t) length)
-        {
-            return NO;
-        }
-    }
+    __builtin_memcpy(out, reinterpret_cast<const void*>(address), length);
     return YES;
 }
 BOOL pointer_plausible(uintptr_t value)
@@ -173,7 +172,7 @@ BOOL writable(uintptr_t address, size_t length)
     {
         return NO;
     }
-    pageSize = gum_query_page_size();
+    pageSize = memory_page_size();
     if (!pageSize)
     {
         return NO;
