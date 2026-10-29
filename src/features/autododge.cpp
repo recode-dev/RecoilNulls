@@ -416,6 +416,31 @@ static float compute_edge_pull(float mx, float my, float dx, float dy)
     if (my > h - zone) pen += dy * (my - (h - zone)) / zone;
     return pen;
 }
+static float compute_free_run(float mx, float my, float dx, float dy, float far)
+{
+    float run = far;
+    float em  = compute_edge_margin();
+    float w   = wall_logic_units(wall_cache_width());
+    float h   = wall_logic_units(wall_cache_height());
+    if (dx > 1e-6f)
+        run = fminf(run, (w - em - mx) / dx);
+    else if (dx < -1e-6f)
+        run = fminf(run, (em - mx) / dx);
+    if (dy > 1e-6f)
+        run = fminf(run, (h - em - my) / dy);
+    else if (dy < -1e-6f)
+        run = fminf(run, (em - my) / dy);
+    const float step = wall_logic_units(1);
+    for (float d = step; d < run; d += step)
+    {
+        if (wall_cell_blocked_wide(mx + dx * d, my + dy * d, own_hitbox))
+        {
+            run = d;
+            break;
+        }
+    }
+    return run > 0.0f ? run : 0.0f;
+}
 static void simulate_position(float  mx,
                               float  my,
                               float  dx,
@@ -540,13 +565,8 @@ static float compute_thrust_penalty(float mx, float my, float dx, float dy)
 static float
 evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
 {
-    float far      = self_speed * SIM_T;
-    int   path_len = engine_own_path_length();
-    float run      = far;
-    if (path_len > 0 && static_cast<float>(path_len) < run)
-    {
-        run = static_cast<float>(path_len);
-    }
+    float far  = self_speed * SIM_T;
+    float run  = compute_free_run(mx, my, dx, dy, far);
     float room = run >= far ? 1.0f : run / far;
     float w    = wall_logic_units(wall_cache_width()) - compute_edge_margin();
     float h    = wall_logic_units(wall_cache_height()) - compute_edge_margin();
@@ -660,9 +680,10 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             own_hitbox * COMMIT_BONUS;
         bool better   = best_steps > cur;
         bool die_fast = better && cur > 0 && cur <= HOLD_DANGER_STEPS;
-        int  path_len = engine_own_path_length();
-        bool walled   = better && path_len >= 0 &&
-                      static_cast<float>(path_len) < own_hitbox * 2.0f;
+        bool walled =
+            better &&
+            compute_free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
+                own_hitbox * 2.0f;
         bool held   = now - turn_ms < TURN_HOLD_MS;
         bool gain   = best > cur_val + own_hitbox * 0.5f;
         bool windup = ad_windup_n > 0;
@@ -860,6 +881,7 @@ void update_autododge()
     fy         = fminf(fmaxf(fy, lo_y), hi_y);
     int32_t tx = axis(fx, wall_cache_width());
     int32_t ty = axis(fy, wall_cache_height());
+    set_client_prediction_move_to(tx, ty);
     if (now - sent_ms >= SEND_MS)
     {
         sent_ms = now;

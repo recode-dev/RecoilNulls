@@ -906,22 +906,13 @@ void diag_tick()
         {
             forecast = engine_own_pos_at_tick(tick_end, &engine_x, &engine_y);
         }
-        line("[eng] plen=%d win=%d..%d fc=%d e=(%.0f,%.0f) pf=%d/%d sk=%d "
-             "tgt=%d,%d\n",
+        line("[eng] plen=%d win=%d..%d fc=%d e=(%.0f,%.0f)\n",
              path_len,
              window ? (int) tick_start : 0,
              window ? (int) tick_end : 0,
              forecast,
              engine_x,
-             engine_y,
-             engine_pathfind_ok,
-             engine_pathfind_calls,
-             engine_pathfind_skip,
-             (int) engine_pathfind_x,
-             (int) engine_pathfind_y);
-        engine_pathfind_ok    = 0;
-        engine_pathfind_calls = 0;
-        engine_pathfind_skip  = 0;
+             engine_y);
     }
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {

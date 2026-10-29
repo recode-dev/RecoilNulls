@@ -17,19 +17,11 @@ void*               get_client_input_manager();
 int                 engine_own_path_length();
 int                 engine_own_tick_window(int32_t* start, int32_t* end);
 int                 engine_own_pos_at_tick(int32_t tick, float* x, float* y);
-int                 engine_own_pathfind_to(int x, int y, int flag);
-inline constexpr uint64_t PATHFIND_MIN_MS        = 100ULL;
-inline constexpr uint64_t PATHFIND_REFRESH_MS    = 250ULL;
-inline constexpr int      PATHFIND_MIN_REMAINING = 40;
-extern int                engine_pathfind_calls;
-extern int                engine_pathfind_ok;
-extern int                engine_pathfind_skip;
-extern int32_t            engine_pathfind_x;
-extern int32_t            engine_pathfind_y;
-int                       load_client_input_constants();
-int                       client_input_pipeline_state();
-int                       enqueue_client_input_message(int type, int x, int y);
-int                       enqueue_move_input(int x, int y);
-int                       enqueue_move_input_with_type(int x, int y, int type);
+int                 set_client_prediction_move_to(int x, int y);
+int                 load_client_input_constants();
+int                 client_input_pipeline_state();
+int                 enqueue_client_input_message(int type, int x, int y);
+int                 enqueue_move_input(int x, int y);
+int                 enqueue_move_input_with_type(int x, int y, int type);
 
 #endif

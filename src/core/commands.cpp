@@ -454,7 +454,7 @@ int enqueue_move_input_with_type(int x, int y, int type)
     }
     if (type == ClientInputMessageTypeMove)
     {
-        (void) engine_own_pathfind_to(x, y, 0);
+        (void) set_client_prediction_move_to(x, y);
     }
     return 1;
 }
@@ -463,12 +463,6 @@ int enqueue_move_input(int x, int y)
 {
     return enqueue_move_input_with_type(x, y, ClientInputMessageTypeMove);
 }
-
-int     engine_pathfind_calls = 0;
-int     engine_pathfind_ok    = 0;
-int     engine_pathfind_skip  = 0;
-int32_t engine_pathfind_x     = 0;
-int32_t engine_pathfind_y     = 0;
 
 int engine_own_path_length()
 {
@@ -520,47 +514,27 @@ int engine_own_pos_at_tick(int32_t tick, float* x, float* y)
     return 1;
 }
 
-int engine_own_pathfind_to(int x, int y, int flag)
+int set_client_prediction_move_to(int x, int y)
 {
-    static uint64_t last_us = 0;
-    static int32_t  last_x  = 0;
-    static int32_t  last_y  = 0;
-    uintptr_t       self    = own_elem;
-    uintptr_t       battle  = client();
-    uintptr_t function = callable_at_rva(LOGICCHARACTERCLIENTOWN__PATHFINDTO);
-    uint64_t  elapsed  = last_us ? (us() - last_us) / 1000 : ~0ULL;
-    int       remaining;
-    engine_pathfind_calls++;
-    if (!coord_ok || !self || !battle || !function)
+    static uintptr_t slot              = 0;
+    uintptr_t        function          = 0;
+    uintptr_t        controller_object = 0;
+    if (!coord_ok)
     {
         return 0;
     }
-    remaining = engine_own_path_length();
-    // Re-planning every tick rebuilds the tick window from the remaining path,
-    // so the character keeps getting a fresh short budget and outruns its real
-    // speed. Only re-plan when the destination changed or the previous path is
-    // nearly spent.
-    if (x == last_x && y == last_y)
+    function = client_input_resolve(
+        &slot, LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO);
+    if (!function)
     {
-        if (elapsed < PATHFIND_REFRESH_MS &&
-            (remaining < 0 || remaining > PATHFIND_MIN_REMAINING))
-        {
-            engine_pathfind_skip++;
-            return 0;
-        }
-    }
-    else if (elapsed < PATHFIND_MIN_MS && remaining > PATHFIND_MIN_REMAINING)
-    {
-        engine_pathfind_skip++;
         return 0;
     }
-    reinterpret_cast<void (*)(uintptr_t, int, int, bool, uintptr_t)>(function)(
-        self, x, y, flag != 0, battle);
-    engine_pathfind_ok++;
-    engine_pathfind_x = x;
-    engine_pathfind_y = y;
-    last_us           = us();
-    last_x            = x;
-    last_y            = y;
+    controller_object = controller();
+    if (!controller_object)
+    {
+        return 0;
+    }
+    reinterpret_cast<void (*)(uintptr_t, int, int, int)>(function)(
+        controller_object, x, y, ClientInputMessagePredictionFlag);
     return 1;
 }
