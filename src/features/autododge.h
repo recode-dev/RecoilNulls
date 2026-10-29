@@ -52,8 +52,8 @@ extern float ad_enemy_y[AD_ENEMY_MAX];
 extern int ad_enemy_hp[AD_ENEMY_MAX];
 extern float ad_enemy_d[AD_ENEMY_MAX];
 extern int ad_enemy_aim[AD_ENEMY_MAX];
-void autododge_reset();
-void autododge();
+void reset_autododge_state();
+void update_autododge();
 namespace ad
 {
 extern float own_hitbox;
@@ -86,16 +86,16 @@ extern Proj projs[PROJ_SLOTS];
 extern uintptr_t char_vt;
 extern float self_speed;
 extern int pend_dmg;
-void evict_stale(uint64_t now);
-int ad_find_shot(uintptr_t* objOut,
+void evict_stale_projectiles(uint64_t now);
+int find_live_projectile(uintptr_t* objOut,
                  uintptr_t* dataOut,
                  int32_t* tick0,
                  int32_t* tick1,
                  float* px,
                  float* py);
-void collect_world(uint64_t now, int32_t own_gid, float mx, float my);
-float clear_one(float mx, float my, float dx, float dy, const Threat& t);
-void hit_report(float mx, float my, float dx, float dy);
-void fill_report(float mx, float my, float dx, float dy);
+void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my);
+float compute_threat_clearance(float mx, float my, float dx, float dy, const Threat& t);
+void report_incoming_hit(float mx, float my, float dx, float dy);
+void fill_autododge_report(float mx, float my, float dx, float dy);
 }
 #endif

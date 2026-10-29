@@ -5,7 +5,7 @@
 #include <malloc/malloc.h>
 #include <cstdlib>
 #include <cstring>
-static uint32_t ci_table[CLIENTINPUT_TYPE_COUNT];
+static uint32_t ci_table[CLIENT_INPUT_TYPE_COUNT];
 static uint32_t ci_fallback = 0;
 static uint8_t ci_inner[0x10];
 static uint8_t ci_outer[0x10];
@@ -22,9 +22,9 @@ int ci_load_constants()
     {
         return 0;
     }
-    for (i = 0; i < static_cast<int>(CLIENTINPUT_TYPE_COUNT); i++)
+    for (i = 0; i < static_cast<int>(CLIENT_INPUT_TYPE_COUNT); i++)
     {
-        if (!read_bytes(base + CLIENTINPUT_TYPE_TABLE_RVA +
+        if (!read_bytes(base + CLIENT_INPUT_TYPE_TABLE_RVA +
                             static_cast<uintptr_t>(i) * 4ULL,
                         &ci_table[i],
                         sizeof(uint32_t)))
@@ -32,17 +32,17 @@ int ci_load_constants()
             return 0;
         }
     }
-    if (!read_bytes(base + CLIENTINPUT_TYPE_FALLBACK_RVA,
+    if (!read_bytes(base + CLIENT_INPUT_TYPE_FALLBACK_RVA,
                     &ci_fallback,
                     sizeof(uint32_t)))
     {
         return 0;
     }
-    if (!read_bytes(base + CLIENTINPUT_HASH_INNER_MASK_RVA, ci_inner, 0x10))
+    if (!read_bytes(base + CLIENT_INPUT_HASH_INNER_MASK_RVA, ci_inner, 0x10))
     {
         return 0;
     }
-    if (!read_bytes(base + CLIENTINPUT_HASH_OUTER_MASK_RVA, ci_outer, 0x10))
+    if (!read_bytes(base + CLIENT_INPUT_HASH_OUTER_MASK_RVA, ci_outer, 0x10))
     {
         return 0;
     }
@@ -60,7 +60,7 @@ uint32_t ci_sign(void* ci, void* battle)
         return 0;
     }
     if (!read_bytes(
-            (uintptr_t)battle + BATTLEMODE_HASH_ENABLED_OFF, &enabled, 1))
+            (uintptr_t)battle + BATTLE_MODE_HASH_ENABLED_OFF, &enabled, 1))
     {
         return 0;
     }
@@ -72,18 +72,18 @@ uint32_t ci_sign(void* ci, void* battle)
     {
         return 0;
     }
-    if (!read_bytes((uintptr_t)battle + BATTLEMODE_HASH_KEY_OFF, key, 0x10))
+    if (!read_bytes((uintptr_t)battle + BATTLE_MODE_HASH_KEY_OFF, key, 0x10))
     {
         return 0;
     }
-    if (!read_bytes((uintptr_t)ci + CLIENTINPUT_TOKEN_INPUT_OFF, cmd, 0x10))
+    if (!read_bytes((uintptr_t)ci + CLIENT_INPUT_TOKEN_INPUT_OFF, cmd, 0x10))
     {
         return 0;
     }
     token =
         ci_compute_token(key, cmd, ci_table, ci_fallback, ci_inner, ci_outer);
     if (!write_bytes(
-            (uintptr_t)ci + CLIENTINPUT_TOKEN_OFF, &token, sizeof(token)))
+            (uintptr_t)ci + CLIENT_INPUT_TOKEN_OFF, &token, sizeof(token)))
     {
         return 0;
     }
@@ -126,9 +126,9 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     static uintptr_t c_ctor = 0;
     static uintptr_t c_input = 0;
     static uintptr_t c_battle = 0;
-    ctorFn = callable_cached(&c_ctor, RVA_CLIENTINPUTMESSAGE_CONSTRUCT);
-    inputFn = callable_cached(&c_input, RVA_CLIENTINPUTMANAGER_ADDINPUT);
-    battleFn = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
+    ctorFn = callable_cached(&c_ctor, RVA_CLIENT_INPUT_MESSAGE_CONSTRUCTOR);
+    inputFn = callable_cached(&c_input, RVA_CLIENT_INPUT_MANAGER_ADD_INPUT);
+    battleFn = callable_cached(&c_battle, RVA_BATTLE_MODE_GET_INSTANCE);
     if (!inputFn || !ctorFn || !battleFn)
     {
         return 0;
@@ -150,7 +150,7 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     }
     {
         void* mgrInner = nullptr;
-        if (!read_ptr((uintptr_t)mgr + CLIENTINPUTMANAGER_QUEUE_OFF,
+        if (!read_ptr((uintptr_t)mgr + CLIENT_INPUT_MANAGER_QUEUE_OFF,
                       &mgrInner) ||
             !mgrInner)
         {
@@ -166,13 +166,13 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     memset(
         msg, 0, static_cast<size_t>(MSG_SIZE) + static_cast<size_t>(MSG_SLACK));
     ((void (*)(void*, int))ctorFn)(msg, TYPE_MOVE);
-    if (!write_bytes((uintptr_t)msg + CLIENTINPUTMESSAGE_TYPE_OFF,
+    if (!write_bytes((uintptr_t)msg + CLIENT_INPUT_MESSAGE_TYPE_OFF,
                      &type,
                      sizeof(type)) ||
         !write_bytes(
-            (uintptr_t)msg + CLIENTINPUTMESSAGE_X_OFF, &vx, sizeof(vx)) ||
+            (uintptr_t)msg + CLIENT_INPUT_MESSAGE_X_OFF, &vx, sizeof(vx)) ||
         !write_bytes(
-            (uintptr_t)msg + CLIENTINPUTMESSAGE_Y_OFF, &vy, sizeof(vy)))
+            (uintptr_t)msg + CLIENT_INPUT_MESSAGE_Y_OFF, &vy, sizeof(vy)))
     {
         free(msg);
         return 0;
@@ -181,7 +181,7 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     {
         if (!ptr_is_heap(skillData) ||
             !write_bytes((uintptr_t)msg +
-                             static_cast<uintptr_t>(CLIENTINPUT_SKILLDATA_OFF),
+                             static_cast<uintptr_t>(CLIENT_INPUT_SKILL_DATA_OFF),
                          &skillData,
                          sizeof(skillData)))
         {
@@ -249,7 +249,7 @@ void* manager()
         return nullptr;
     }
     static uintptr_t c_battle = 0;
-    uintptr_t battleFn = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
+    uintptr_t battleFn = callable_cached(&c_battle, RVA_BATTLE_MODE_GET_INSTANCE);
     void* battle = nullptr;
     void* mgr = nullptr;
     if (!battleFn)
@@ -261,7 +261,7 @@ void* manager()
     {
         return nullptr;
     }
-    if (!read_ptr((uintptr_t)battle + LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF,
+    if (!read_ptr((uintptr_t)battle + LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF,
                   &mgr) ||
         !mgr)
     {
@@ -280,7 +280,7 @@ int pred_set(int x, int y)
     {
         static uintptr_t c_set = 0;
         setFn = callable_cached(
-            &c_set, RVA_LOGICBATTLEMODECLIENT_SETCLIENTPREDICTIONMOVETO);
+            &c_set, RVA_LOGIC_BATTLE_MODE_CLIENT_SET_CLIENT_PREDICTION_MOVE_TO);
     }
     ctrl = controller();
     if (!setFn || !ctrl)

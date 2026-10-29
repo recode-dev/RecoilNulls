@@ -6,7 +6,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdio>
-#include "../features/autododge.h"
+#include "../features/update_autododge.h"
 #include "../utils/walls.h"
 #include "offsets.h"
 #include "scan.h"
@@ -253,14 +253,14 @@ void* read_global_ptr(uintptr_t rva)
     }
     return value;
 }
-int game_tile_passable(uintptr_t tileMap, int cellX, int cellY)
+int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
 {
     typedef uint8_t (*pass_t)(void*, int, int, int, int, int);
     static pass_t fn = nullptr;
     if (!fn)
     {
         fn = reinterpret_cast<pass_t>(
-            callable(RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER));
+            callable(RVA_LOGIC_TILE_MAP_IS_PASSABLE_PATH_FINDER));
     }
     if (!fn || !tileMap)
     {
@@ -269,29 +269,13 @@ int game_tile_passable(uintptr_t tileMap, int cellX, int cellY)
     return fn(reinterpret_cast<void*>(tileMap), 1, cellX, cellY, 0, 0);
 }
 
-int game_los(uintptr_t tileMap, int ax, int ay, int bx, int by)
-{
-    typedef int (*los_t)(void*, int, int, int, int);
-    static los_t fn = nullptr;
-    if (!fn)
-    {
-        fn = reinterpret_cast<los_t>(
-            callable(RVA_LOGIC_TILEMAP_ISPLAYERLINEOFSIGHTCLEAR));
-    }
-    if (!fn || !tileMap)
-    {
-        return 1;
-    }
-    return fn(reinterpret_cast<void*>(tileMap), ax, ay, bx, by);
-}
-
 int game_tile_to_logic(int tile)
 {
     typedef int (*conv_t)(int);
     static conv_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<conv_t>(callable(RVA_LOGIC_TILE_TO_LOGIC));
+        fn = reinterpret_cast<conv_t>(callable(RVA_LOGIC_TILE_MAP_TILE_TO_LOGIC));
     }
     if (!fn)
     {
@@ -306,7 +290,7 @@ int game_logic_to_tile(int unit)
     static conv_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<conv_t>(callable(RVA_LOGIC_LOGIC_TO_TILE));
+        fn = reinterpret_cast<conv_t>(callable(RVA_LOGIC_TILE_MAP_LOGIC_TO_TILE));
     }
     if (!fn)
     {
@@ -429,13 +413,13 @@ int32_t own_index_v = -1;
 int own_ok_hp = 0;
 static int battle_state()
 {
-    uintptr_t slot = (uintptr_t)read_global_ptr(GAMESTATE_RVA);
+    uintptr_t slot = (uintptr_t)read_global_ptr(GAME_STATE_RVA);
     int32_t state = -1;
     if (!slot)
     {
         return -1;
     }
-    if (!read_int(slot + static_cast<uintptr_t>(GAMESTATE_STATE_OFF), &state))
+    if (!read_int(slot + static_cast<uintptr_t>(GAME_STATE_STATE_OFF), &state))
     {
         return -1;
     }
@@ -465,8 +449,8 @@ static void world_reset()
     own_vel_x = 0.0f;
     own_vel_y = 0.0f;
     last_pos_us = 0;
-    wall_drop();
-    autododge_reset();
+    wall_cache_drop();
+    reset_autododge_state();
 }
 static void track_own_speed()
 {
@@ -510,11 +494,11 @@ static void tilemap_tick(uintptr_t clientPtr)
         return;
     }
     last_us = now_us;
-    tileMapFn = callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP);
+    tileMapFn = callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_TILE_MAP);
     tileMap = tileMapFn ? call(tileMapFn, clientPtr) : 0;
     if (pointer_plausible(tileMap))
     {
-        wall_bind(tileMap);
+        wall_cache_bind(tileMap);
     }
 }
 void scan_world()
@@ -533,10 +517,10 @@ void scan_world()
     void* sceneValue = nullptr;
     if (!base) return;
     state = battle_state();
-    slot = (uintptr_t)read_global_ptr(GAMESTATE_RVA);
+    slot = (uintptr_t)read_global_ptr(GAME_STATE_RVA);
     scene_object = 0;
     if (slot &&
-        read_ptr(slot + static_cast<uintptr_t>(GAMESTATE_SCENE_OFF),
+        read_ptr(slot + static_cast<uintptr_t>(GAME_STATE_SCENE_OFF),
                  &sceneValue) &&
         sceneValue)
     {
@@ -555,7 +539,7 @@ void scan_world()
         return;
     }
     if (!read_ptr(clientPtr + static_cast<uintptr_t>(
-                                  LOGICBATTLEMODECLIENT_OBJECTMANAGER_OFF),
+                                  LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF),
                   &value) ||
         !value)
     {
@@ -564,14 +548,14 @@ void scan_world()
     }
     mgrPtr = (uintptr_t)value;
     manager_ptr = mgrPtr;
-    if (!read_int(mgrPtr + static_cast<uintptr_t>(OBJECTMANAGER_COUNT_OFF),
+    if (!read_int(mgrPtr + static_cast<uintptr_t>(LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF),
                   &count) ||
         count <= 0 || count > OBJECT_COUNT_MAX)
     {
         world_reset();
         return;
     }
-    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(OBJECTMANAGER_ARRAY_OFF),
+    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF),
                   &value) ||
         !value)
     {
@@ -599,7 +583,7 @@ void scan_world()
                            : 0;
     }
     {
-        uintptr_t ownFn = callable(RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER);
+        uintptr_t ownFn = callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_CHARACTER);
         uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
         own = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
     }
@@ -613,14 +597,14 @@ void scan_world()
         return;
     }
     own_elem = own;
-    if (read_int(own + static_cast<uintptr_t>(LOGICCHARACTER_X_OFF), &x) &&
-        read_int(own + static_cast<uintptr_t>(LOGICCHARACTER_Y_OFF), &y))
+    if (read_int(own + static_cast<uintptr_t>(LOGIC_CHARACTER_X_OFF), &x) &&
+        read_int(own + static_cast<uintptr_t>(LOGIC_CHARACTER_Y_OFF), &y))
     {
         own_x = x;
         own_y = y;
         coord_ok = 1;
     }
-    if (read_int(own + static_cast<uintptr_t>(LOGICCHARACTER_HP_OFF), &hp) &&
+    if (read_int(own + static_cast<uintptr_t>(LOGIC_CHARACTER_HP_OFF), &hp) &&
         hp >= 0 && hp < 1000000)
     {
         own_ok_hp = 1;
@@ -633,12 +617,12 @@ void scan_world()
     }
     dead = (own_ok_hp && own_hp == 0) ? 1 : 0;
     own_index_v = static_cast<int32_t>(
-        call(callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX), clientPtr));
+        call(callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_INDEX), clientPtr));
     own_team_b = static_cast<int32_t>(
-        call(callable(RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM), clientPtr));
+        call(callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_TEAM), clientPtr));
     track_own_speed();
     tilemap_tick(clientPtr);
-    wall_maybe_refresh(static_cast<uint64_t>(g_get_real_time() / 1000));
+    wall_cache_refresh_if_stale(static_cast<uint64_t>(g_get_real_time() / 1000));
 }
 uint32_t workload_ticks = 0;
 void run_workload()
@@ -655,7 +639,7 @@ void run_autododge()
         return;
     }
     in_move = 1;
-    autododge();
+    update_autododge();
     in_move = 0;
 }
 static constexpr uint64_t TICK_US = 50000ULL;
@@ -716,24 +700,24 @@ void resolve_addresses()
     {
         return;
     }
-    addr_dataname = callable(RVA_LOGICDATA_GETNAME);
+    addr_dataname = callable(RVA_LOGIC_DATA_GET_NAME);
 }
 int coord_ok = 0;
 int dead = 0;
 int scene_live()
 {
-    uintptr_t slot = (uintptr_t)read_global_ptr(GAMESTATE_RVA);
+    uintptr_t slot = (uintptr_t)read_global_ptr(GAME_STATE_RVA);
     void* value = nullptr;
     int32_t state = -1;
     if (!scene_object || !slot)
     {
         return 0;
     }
-    if (!read_int(slot + GAMESTATE_STATE_OFF, &state) || state != 5)
+    if (!read_int(slot + GAME_STATE_STATE_OFF, &state) || state != 5)
     {
         return 0;
     }
-    if (!read_ptr(slot + GAMESTATE_SCENE_OFF, &value) || !value)
+    if (!read_ptr(slot + GAME_STATE_SCENE_OFF, &value) || !value)
     {
         return 0;
     }

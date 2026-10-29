@@ -18,7 +18,7 @@ static uint64_t wall_fail_ms = 0;
 static uintptr_t wall_raw[WALL_MAX_TOTAL_TILES];
 static int wall_engine_blocked = 0;
 
-int wall_passable_at(float x, float y)
+int wall_cell_is_passable(float x, float y)
 {
     if (!wall_map)
     {
@@ -29,11 +29,11 @@ int wall_passable_at(float x, float y)
     {
         return 0;
     }
-    return game_tile_passable(
+    return game_tile_is_passable(
         wall_map, static_cast<int>(x) / cell, static_cast<int>(y) / cell);
 }
 
-int wall_blocked_count()
+int wall_cached_blocked_count()
 {
     int n = 0;
     for (int i = 0; i < wall_w * wall_h; i++)
@@ -46,23 +46,23 @@ int wall_blocked_count()
     return n;
 }
 
-float wall_units(int tiles)
+float wall_logic_units(int tiles)
 {
     return static_cast<float>(game_tile_to_logic(tiles) -
                               game_tile_to_logic(0));
 }
 
-int wall_cache_w()
+int wall_cache_width()
 {
     return wall_w;
 }
 
-int wall_cache_h()
+int wall_cache_height()
 {
     return wall_h;
 }
 
-void wall_drop()
+void wall_cache_drop()
 {
     wall_tiles = 0;
     wall_tiles_w = 0;
@@ -75,7 +75,7 @@ void wall_drop()
     wall_fail_ms = 0;
 }
 
-void wall_bind(uintptr_t tileMap)
+void wall_cache_bind(uintptr_t tileMap)
 {
     void* tileArray = nullptr;
     int32_t mapW = 0;
@@ -96,18 +96,18 @@ void wall_bind(uintptr_t tileMap)
         wall_dirty = 1;
         wall_fail_ms = 0;
     }
-    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_WIDTH_OFF), &mapW) ||
+    if (!read_int(tileMap + static_cast<uintptr_t>(LOGIC_TILE_MAP_WIDTH_OFF), &mapW) ||
         mapW <= 0 || mapW > WALL_MAX_MAP_TILES)
     {
         return;
     }
-    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_HEIGHT_OFF),
+    if (!read_int(tileMap + static_cast<uintptr_t>(LOGIC_TILE_MAP_HEIGHT_OFF),
                   &mapH) ||
         mapH <= 0 || mapH > WALL_MAX_MAP_TILES)
     {
         return;
     }
-    if (!read_ptr(tileMap + static_cast<uintptr_t>(TILEMAP_TILES_OFF),
+    if (!read_ptr(tileMap + static_cast<uintptr_t>(LOGIC_TILE_MAP_TILES_OFF),
                   &tileArray) ||
         !tileArray)
     {
@@ -124,7 +124,7 @@ void wall_bind(uintptr_t tileMap)
     }
 }
 
-int wall_build()
+int wall_cache_build()
 {
     int width = wall_tiles_w;
     int height = wall_tiles_h;
@@ -168,11 +168,11 @@ int wall_build()
         {
             continue;
         }
-        if (!read_bytes(tile + LOGICTILE_BLOCKMASK_OFF,
+        if (!read_bytes(tile + LOGIC_TILE_BLOCK_MASK_OFF,
                         &blockMask,
                         sizeof(blockMask)) ||
             !read_bytes(
-                tile + LOGICTILE_FOURTHMASK_OFF, &hardMask, sizeof(hardMask)))
+                tile + LOGIC_TILE_FOURTH_MASK_OFF, &hardMask, sizeof(hardMask)))
         {
             continue;
         }
@@ -180,7 +180,7 @@ int wall_build()
         {
             wall_grid[i] = WALL_BLOCKS_MOVEMENT;
         }
-        if (!game_tile_passable(
+        if (!game_tile_is_passable(
                 wall_map, (i % width) * 3 + 1, (i / width) * 3 + 1))
         {
             wall_engine_blocked++;
@@ -193,7 +193,7 @@ int wall_build()
     return 1;
 }
 
-int wall_maybe_refresh(uint64_t now_ms)
+int wall_cache_refresh_if_stale(uint64_t now_ms)
 {
     if (!wall_dirty)
     {
@@ -203,7 +203,7 @@ int wall_maybe_refresh(uint64_t now_ms)
     {
         return 0;
     }
-    if (wall_build())
+    if (wall_cache_build())
     {
         return 1;
     }
@@ -211,7 +211,7 @@ int wall_maybe_refresh(uint64_t now_ms)
     return 0;
 }
 
-int wall_is_blocked_at(float x, float y)
+int wall_cell_blocked_at(float x, float y)
 {
     int tx = 0;
     int ty = 0;
@@ -232,9 +232,9 @@ int wall_is_blocked_at(float x, float y)
     return wall_grid[ty * wall_w + tx] ? 1 : 0;
 }
 
-int wall_is_blocked_wide(float x, float y, float r)
+int wall_cell_blocked_wide(float x, float y, float r)
 {
-    if (wall_is_blocked_at(x, y))
+    if (wall_cell_blocked_at(x, y))
     {
         return 1;
     }
@@ -242,26 +242,26 @@ int wall_is_blocked_wide(float x, float y, float r)
     {
         return 0;
     }
-    if (wall_is_blocked_at(x + r, y))
+    if (wall_cell_blocked_at(x + r, y))
     {
         return 1;
     }
-    if (wall_is_blocked_at(x - r, y))
+    if (wall_cell_blocked_at(x - r, y))
     {
         return 1;
     }
-    if (wall_is_blocked_at(x, y + r))
+    if (wall_cell_blocked_at(x, y + r))
     {
         return 1;
     }
-    if (wall_is_blocked_at(x, y - r))
+    if (wall_cell_blocked_at(x, y - r))
     {
         return 1;
     }
     return 0;
 }
 
-int wall_los(float ax, float ay, float bx, float by)
+int wall_line_of_sight_clear(float ax, float ay, float bx, float by)
 {
     int cx = 0;
     int cy = 0;
@@ -329,14 +329,14 @@ int wall_los(float ax, float ay, float bx, float by)
     return 1;
 }
 
-int wall_engine_blocked_count()
+int wall_engine_blocked_total()
 {
     return wall_engine_blocked;
 }
 
 int32_t axis(float v, int tiles)
 {
-    float limit = wall_units(tiles) - 1.0f;
+    float limit = wall_logic_units(tiles) - 1.0f;
     if (v < 0.0f) return 0;
     if (v > limit) return (int32_t)limit;
     return (int32_t)roundf(v);
@@ -351,10 +351,10 @@ float wall_pull(float mx, float my, float dx, float dy, float radius)
     {
         float d = reach * 0.5f * (float)i / (float)PROBES;
         blocked +=
-            wall_is_blocked_wide(mx + dx * d, my + dy * d, radius) ? 1 : 0;
+            wall_cell_blocked_wide(mx + dx * d, my + dy * d, radius) ? 1 : 0;
     }
-    float pin_x = (float)axis(mx + dx * reach, wall_cache_w()) - mx;
-    float pin_y = (float)axis(my + dy * reach, wall_cache_h()) - my;
+    float pin_x = (float)axis(mx + dx * reach, wall_cache_width()) - mx;
+    float pin_y = (float)axis(my + dy * reach, wall_cache_height()) - my;
     float room = sqrtf(pin_x * pin_x + pin_y * pin_y) / reach;
     return (float)blocked / (float)PROBES + (1.0f - room);
 }
