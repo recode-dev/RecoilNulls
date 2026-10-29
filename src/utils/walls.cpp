@@ -329,7 +329,7 @@ int wall_los(float ax, float ay, float bx, float by)
     return 1;
 }
 
-int wall_engine_blocked()
+int wall_engine_blocked_count()
 {
     return wall_engine_blocked;
 }

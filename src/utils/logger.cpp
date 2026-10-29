@@ -251,7 +251,7 @@ void diag_tick()
          wall_blocked_count(),
          wall_cache_w() * wall_cache_h(),
          ad_pass_own,
-         wall_engine_blocked());
+         wall_engine_blocked_count());
     ad_proj_move = 0;
     ad_proj_sample = 0;
     {
