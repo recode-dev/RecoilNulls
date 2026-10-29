@@ -30,18 +30,20 @@ void run_retry(retry_schedule schedule)
         schedule.elapsed_seconds = 0;
     }
     schedule.elapsed_seconds += schedule.interval_seconds;
-    schedule.interval_seconds = schedule.interval_seconds * 2 > kRetryMaximumIntervalSeconds
-                                    ? kRetryMaximumIntervalSeconds
-                                    : schedule.interval_seconds * 2;
+    schedule.interval_seconds =
+        schedule.interval_seconds * 2 > kRetryMaximumIntervalSeconds
+            ? kRetryMaximumIntervalSeconds
+            : schedule.interval_seconds * 2;
     schedule_retry(schedule);
 }
 
 void schedule_retry(retry_schedule schedule)
 {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                                 schedule.interval_seconds * kNanosecondsPerSecond),
-                   dispatch_get_main_queue(),
-                   ^{ run_retry(schedule); });
+    dispatch_after(
+        dispatch_time(DISPATCH_TIME_NOW,
+                      schedule.interval_seconds * kNanosecondsPerSecond),
+        dispatch_get_main_queue(),
+        ^{ run_retry(schedule); });
 }
 
 void bootstrap()
@@ -51,7 +53,8 @@ void bootstrap()
         return;
     }
     poll_for_game(0);
-    retry_schedule schedule{kRetryInitialIntervalSeconds, kRetryInitialIntervalSeconds};
+    retry_schedule schedule{kRetryInitialIntervalSeconds,
+                            kRetryInitialIntervalSeconds};
     schedule_retry(schedule);
 }
 
@@ -60,5 +63,7 @@ void bootstrap()
 __attribute__((constructor)) static void start()
 {
     static dispatch_once_t once;
-    dispatch_once(&once, ^{ dispatch_async(dispatch_get_main_queue(), ^{ bootstrap(); }); });
+    dispatch_once(&once, ^{
+      dispatch_async(dispatch_get_main_queue(), ^{ bootstrap(); });
+    });
 }
