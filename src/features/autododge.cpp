@@ -24,6 +24,13 @@ float ad_threat_vx[AD_REPORT_MAX] = {0}, ad_threat_vy[AD_REPORT_MAX] = {0};
 float ad_threat_r[AD_REPORT_MAX] = {0}, ad_threat_d[AD_REPORT_MAX] = {0};
 float ad_threat_ttc[AD_REPORT_MAX] = {0}, ad_threat_ca[AD_REPORT_MAX] = {0};
 char ad_threat_name[AD_REPORT_MAX][40] = {{0}};
+int32_t ad_pj_pid[AD_REPORT_MAX] = {0};
+float ad_pj_x[AD_REPORT_MAX] = {0}, ad_pj_y[AD_REPORT_MAX] = {0};
+float ad_pj_vx[AD_REPORT_MAX] = {0}, ad_pj_vy[AD_REPORT_MAX] = {0};
+float ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
+int ad_pj_t0[AD_REPORT_MAX] = {0}, ad_pj_t1[AD_REPORT_MAX] = {0};
+int ad_pj_vel[AD_REPORT_MAX] = {0};
+int ad_shot_tick = 0;
 int ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
 int ad_hit_picked = 0;
 float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
@@ -182,45 +189,133 @@ static void add_char(const uint8_t* obj, int32_t own_gid, float mx, float my)
     ad_enemy_aim[k] = aim;
 }
 
+static float seg_dist(float px, float py, float ax, float ay, float bx, float by)
+{
+    float vx = bx - ax, vy = by - ay;
+    float wx = px - ax, wy = py - ay;
+    float vv = vx * vx + vy * vy;
+    float t = 0.0f;
+    if (vv > 1e-6f)
+    {
+        t = (wx * vx + wy * vy) / vv;
+        if (t < 0.0f)
+            t = 0.0f;
+        else if (t > 1.0f)
+            t = 1.0f;
+    }
+    float dx = wx - vx * t, dy = wy - vy * t;
+    return sqrtf(dx * dx + dy * dy);
+}
+
+static uintptr_t proj_data(uintptr_t objPtr)
+{
+    if (!objPtr) return 0;
+    for (uintptr_t off = 0x8; off < 0x200; off += sizeof(uintptr_t))
+    {
+        uintptr_t v = 0, vt = 0;
+        if (!read_ptr(objPtr + off, &v)) break;
+        if (!v || !pointer_plausible(v)) continue;
+        if (!read_ptr(v, &vt) || vt < base) continue;
+        if (vt - base == VTABLE_PROJECTILEDATA_RVA) return v;
+    }
+    return 0;
+}
+
+static bool proj_shaped(const uint8_t* obj,
+                        int32_t* tick0,
+                        int32_t* tick1,
+                        float* px,
+                        float* py,
+                        float* sx,
+                        float* sy,
+                        float* ex,
+                        float* ey)
+{
+    int32_t t0 = 0, t1 = 0, xi = 0, yi = 0;
+    int32_t ax = 0, ay = 0, bx = 0, by = 0;
+    memcpy(&t0, obj + PROJSERVER_STARTTICK_OFF, sizeof(t0));
+    memcpy(&t1, obj + PROJSERVER_ENDTICK_OFF, sizeof(t1));
+    if (t0 <= 0 || t1 < t0 || t1 - t0 > 400) return false;
+    float w = (float)wall_cache_w() * wall_units(1);
+    float h = (float)wall_cache_h() * wall_units(1);
+    if (w <= 0.0f || h <= 0.0f) return false;
+    memcpy(&xi, obj + PROJSERVER_X_OFF, sizeof(xi));
+    memcpy(&yi, obj + PROJSERVER_Y_OFF, sizeof(yi));
+    if ((float)xi < -300.0f || (float)yi < -300.0f) return false;
+    if ((float)xi > w + 300.0f || (float)yi > h + 300.0f) return false;
+    memcpy(&ax, obj + PROJSERVER_STARTX_OFF, sizeof(ax));
+    memcpy(&ay, obj + PROJSERVER_STARTY_OFF, sizeof(ay));
+    memcpy(&bx, obj + PROJSERVER_ENDX_OFF, sizeof(bx));
+    memcpy(&by, obj + PROJSERVER_ENDY_OFF, sizeof(by));
+    if (ax < -100000 || ay < -100000 || ax > 100000 || ay > 100000) return false;
+    if (bx < -100000 || by < -100000 || bx > 100000 || by > 100000) return false;
+    if (ax == bx && ay == by) return false;
+    if (seg_dist((float)xi, (float)yi, (float)ax, (float)ay, (float)bx, (float)by) >
+        600.0f)
+        return false;
+    *tick0 = t0;
+    *tick1 = t1;
+    *px = (float)xi;
+    *py = (float)yi;
+    *sx = (float)ax;
+    *sy = (float)ay;
+    *ex = (float)bx;
+    *ey = (float)by;
+    return true;
+}
+
 static void add_proj(const uint8_t* obj,
-                     uintptr_t dataPtr,
+                     uintptr_t objPtr,
                      uint64_t now,
                      float mx,
                      float my,
-                     float zone2)
+                     float zone2,
+                     int32_t tk0,
+                     int32_t tk1,
+                     float px,
+                     float py,
+                     float sx,
+                     float sy,
+                     float ex,
+                     float ey)
 {
-    int32_t pid, team, xi, yi;
+    int32_t pid = 0;
     memcpy(&pid, obj + LOGICCHARACTER_GLOBALID_OFF, sizeof(pid));
-    memcpy(&team, obj + LOGICCHARACTER_TEAM_OFF, sizeof(team));
-    memcpy(&xi, obj + LOGICCHARACTER_X_OFF, sizeof(xi));
-    memcpy(&yi, obj + LOGICCHARACTER_Y_OFF, sizeof(yi));
-    if (!pid || team == own_team_b) return;
-    ad_proj_n++;
-    float px = (float)xi, py = (float)yi;
-    Proj* st = find_proj(pid);
-    if (st->pid != pid)
+    int32_t key = pid;
+    if (key <= 0)
+        key = (int32_t)(((objPtr >> 4) ^ (objPtr >> 20)) & 0x7fffffff);
+    if (key <= 0) return;
+    uintptr_t owner = 0;
+    if (char_vt && read_ptr(objPtr + PROJSERVER_OWNER_OFF, &owner) && owner &&
+        pointer_plausible(owner))
     {
-        init_proj(st, pid, dataPtr, px, py, now);
-        if (st->pid != pid) return;
+        uintptr_t odata = 0, ovt = 0;
+        int32_t oteam = 0;
+        if (read_ptr(owner + LOGICGAMEOBJECT_DATA_OFF, &odata) && odata &&
+            pointer_plausible(odata) && read_ptr(odata, &ovt) &&
+            ovt >= base && ovt - base == char_vt &&
+            read_int(owner + LOGICCHARACTER_TEAM_OFF, &oteam) &&
+            oteam == own_team_b)
+            return;
+    }
+    ad_proj_n++;
+    Proj* st = find_proj(key);
+    if (st->pid != key)
+    {
+        init_proj(st, key, proj_data(objPtr), px, py, now);
+        if (st->pid != key) return;
     }
     st->seen = now;
     float step_x = px - st->x, step_y = py - st->y;
     float step = sqrtf(step_x * step_x + step_y * step_y);
     ad_proj_sample++;
     if (step > 1.0f) ad_proj_move++;
-    int32_t tk0 = 0, tk1 = 0, sx = 0, sy = 0, ex = 0, ey = 0;
-    memcpy(&tk0, obj + PROJSERVER_STARTTICK_OFF, sizeof(tk0));
-    memcpy(&tk1, obj + PROJSERVER_ENDTICK_OFF, sizeof(tk1));
-    memcpy(&sx, obj + PROJSERVER_STARTX_OFF, sizeof(sx));
-    memcpy(&sy, obj + PROJSERVER_STARTY_OFF, sizeof(sy));
-    memcpy(&ex, obj + PROJSERVER_ENDX_OFF, sizeof(ex));
-    memcpy(&ey, obj + PROJSERVER_ENDY_OFF, sizeof(ey));
     float vps = 0.0f, vux = 0.0f, vuy = 0.0f;
     bool have = false;
     int32_t ticks = tk1 - tk0;
     if (ticks > 0 && ticks <= 400)
     {
-        float ddx = (float)(ex - sx), ddy = (float)(ey - sy);
+        float ddx = ex - sx, ddy = ey - sy;
         float len = sqrtf(ddx * ddx + ddy * ddy);
         float cand = len / ((float)ticks * TICK_MS_SEC);
         if (len > 0.5f && cand > 50.0f && cand < 20000.0f)
@@ -239,6 +334,20 @@ static void add_proj(const uint8_t* obj,
         st->vel = true;
     }
     st->x = px, st->y = py;
+    if (ad_proj_n <= AD_REPORT_MAX)
+    {
+        int k = ad_proj_n - 1;
+        ad_pj_pid[k] = key;
+        ad_pj_x[k] = px;
+        ad_pj_y[k] = py;
+        ad_pj_vx[k] = st->vel ? st->ux * st->speed : 0.0f;
+        ad_pj_vy[k] = st->vel ? st->uy * st->speed : 0.0f;
+        ad_pj_sp[k] = st->vel ? st->speed : 0.0f;
+        ad_pj_r[k] = st->rad;
+        ad_pj_t0[k] = tk0;
+        ad_pj_t1[k] = tk1;
+        ad_pj_vel[k] = st->vel ? 1 : 0;
+    }
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
@@ -261,7 +370,7 @@ static void add_proj(const uint8_t* obj,
     }
     if (threat_n >= THREAT_MAX) return;
     Threat& t = threats[threat_n++];
-    t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.pid = pid;
+    t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.pid = key;
     t.rad = rad;
     t.tt = tt;
     memcpy(t.name, st->name, sizeof(t.name));
@@ -284,18 +393,68 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
         const uint8_t* obj = obj_block[i];
         uintptr_t dataPtr = 0;
         memcpy(&dataPtr, obj + LOGICGAMEOBJECT_DATA_OFF, sizeof(dataPtr));
-        if (!dataPtr || !pointer_plausible(dataPtr)) continue;
         uintptr_t vt = 0;
-        if (!read_ptr(dataPtr, &vt) || vt < base) continue;
-        obj_data[i] = dataPtr;
-        obj_rva[i] = vt - base;
-        if (char_vt && obj_rva[i] == char_vt) add_char(obj, own_gid, mx, my);
+        if (dataPtr && pointer_plausible(dataPtr) && read_ptr(dataPtr, &vt) &&
+            vt >= base)
+        {
+            obj_data[i] = dataPtr;
+            obj_rva[i] = vt - base;
+        }
+        if (char_vt && obj_rva[i] == char_vt)
+        {
+            add_char(obj, own_gid, mx, my);
+            continue;
+        }
+        int32_t t0 = 0, t1 = 0;
+        float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
+        {
+            int32_t nt0 = 0, nt1 = 0;
+            memcpy(&nt0, obj + PROJSERVER_STARTTICK_OFF, sizeof(nt0));
+            memcpy(&nt1, obj + PROJSERVER_ENDTICK_OFF, sizeof(nt1));
+            if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 400) ad_shot_tick++;
+        }
+        if (!proj_shaped(obj, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey)) continue;
+        add_proj(obj,
+                 obj_snapshot[i],
+                 now,
+                 mx,
+                 my,
+                 zone2,
+                 t0,
+                 t1,
+                 px,
+                 py,
+                 sx,
+                 sy,
+                 ex,
+                 ey);
     }
+}
+
+int ad_find_shot(uintptr_t* objOut,
+                 uintptr_t* dataOut,
+                 int32_t* tick0,
+                 int32_t* tick1,
+                 float* px,
+                 float* py)
+{
     for (int i = 0; i < obj_count; i++)
     {
-        if (obj_rva[i] == VTABLE_PROJECTILEDATA_RVA)
-            add_proj(obj_block[i], obj_data[i], now, mx, my, zone2);
+        if (!obj_valid[i] || !obj_snapshot[i]) continue;
+        int32_t t0 = 0, t1 = 0;
+        float x = 0.0f, y = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
+        if (!proj_shaped(
+                obj_block[i], &t0, &t1, &x, &y, &sx, &sy, &ex, &ey))
+            continue;
+        *objOut = obj_snapshot[i];
+        *dataOut = proj_data(obj_snapshot[i]);
+        *tick0 = t0;
+        *tick1 = t1;
+        *px = x;
+        *py = y;
+        return 1;
     }
+    return 0;
 }
 
 float static_clear(const Threat& t, float mx, float my)
@@ -657,6 +816,7 @@ void autododge()
     ad_best_dir = -1;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_ind_n = 0;
+    ad_shot_tick = 0;
     threat_n = 0;
     if (own_hp < last_hp)
     {

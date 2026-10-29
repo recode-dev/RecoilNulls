@@ -303,7 +303,7 @@ void val_globals(uintptr_t slot)
     {
         vf("VTABLE_PROJECTILEDATA_RVA",
            vtable && addr_executable(vtable),
-           "slot0=0x%llx",
+           "asset anchor slot0=0x%llx",
            (unsigned long long)vtable);
     }
     else
@@ -631,7 +631,6 @@ void val_projectile()
 {
     uintptr_t found = 0;
     uintptr_t objPtr = 0;
-    uintptr_t target = base + VTABLE_PROJECTILEDATA_RVA;
     int32_t radius = 0;
     int32_t ttype = 0;
     int32_t startTick = 0;
@@ -648,41 +647,24 @@ void val_projectile()
     uint8_t passes = 0;
     uintptr_t cfg = 0;
     {
-        int scanned = 0;
-        uintptr_t sampleA = 0;
-        uintptr_t sampleB = 0;
-        for (int i = 0; i < obj_count; i++)
+        float px = 0.0f, py = 0.0f;
+        int32_t t0 = 0, t1 = 0;
+        if (!ad::ad_find_shot(&objPtr, &found, &t0, &t1, &px, &py))
         {
-            uintptr_t dataPtr = 0;
-            uintptr_t vtable = 0;
-            if (!obj_snapshot[i]) continue;
-            if (!read_ptr(obj_snapshot[i] + LOGICGAMEOBJECT_DATA_OFF,
-                          &dataPtr) ||
-                !dataPtr || !pointer_plausible(dataPtr))
-                continue;
-            if (!read_ptr(dataPtr, &vtable)) continue;
-            scanned++;
-            if (vtable == target)
-            {
-                found = dataPtr;
-                objPtr = obj_snapshot[i];
-                break;
-            }
-            if (!sampleA)
-                sampleA = vtable;
-            else if (!sampleB && vtable != sampleA)
-                sampleB = vtable;
+            objPtr = 0;
         }
-        if (!found && val_proj_tries == 5)
+        else if (val_proj_tries == 5)
         {
-            line("[VAL] proj probe objs=%d vt=0x%llx,0x%llx want=0x%llx\n",
-                 scanned,
-                 (unsigned long long)sampleA,
-                 (unsigned long long)sampleB,
-                 (unsigned long long)target);
+            line("[VAL] proj probe objs=%d shot=%d t=%d..%d p=(%.0f,%.0f)\n",
+                 obj_count,
+                 (int)ad_proj_n,
+                 t0,
+                 t1,
+                 px,
+                 py);
         }
     }
-    if (!found)
+    if (!objPtr)
     {
         val_proj_tries++;
         if (val_proj_tries >= 120)
@@ -725,6 +707,40 @@ void val_projectile()
         vf("PROJSERVER_START/ENDTICK", true, "%d..%d", startTick, endTick);
     }
     val_proj_done = 1;
+    vf("PROJSERVER_TICK_SPAN",
+       endTick - startTick > 0 && endTick - startTick <= 400,
+       "%d..%d span=%d",
+       startTick,
+       endTick,
+       endTick - startTick);
+    {
+        int32_t xi = 0, yi = 0;
+        if (read_int(objPtr + PROJSERVER_X_OFF, &xi) &&
+            read_int(objPtr + PROJSERVER_Y_OFF, &yi))
+        {
+            int mapW = wall_cache_w(), mapH = wall_cache_h();
+            float unit = wall_units(1);
+            bool in_map = mapW > 0 && mapH > 0 && xi >= 0 && yi >= 0 &&
+                          (float)xi <= (float)mapW * unit &&
+                          (float)yi <= (float)mapH * unit;
+            vf("PROJSERVER_X/Y_OFF",
+               in_map,
+               "p=(%d,%d) map=%dx%d",
+               xi,
+               yi,
+               mapW,
+               mapH);
+        }
+        else
+        {
+            vf("PROJSERVER_X/Y_OFF", false, "read failed");
+        }
+    }
+    if (!found)
+    {
+        vs("PROJECTILEDATA_*", "shot exposes no data-asset pointer");
+        return;
+    }
     vf("PROJDATA_BLOCK_SIZE",
        addr_readable(found, PROJDATA_BLOCK_SIZE),
        "0x%llx readable 0x%llx",
@@ -1048,7 +1064,7 @@ void diag_tick()
     }
     line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
          "dir=%s map=%dx%d dodge=%d hit=%d hb=%d ind=%d fd=%d tgt=(%d,%d) "
-         "hu=%d pm=%u/%u wb=%d/%d pt=%d wp=%d\n",
+         "hu=%d pm=%u/%u wb=%d/%d pt=%d wp=%d tk=%d\n",
          static_cast<unsigned long>(hz),
          static_cast<unsigned long>(wl_avg),
          static_cast<unsigned long>(wl_max),
@@ -1076,7 +1092,8 @@ void diag_tick()
          wall_blocked_count(),
          wall_cache_w() * wall_cache_h(),
          ad_pass_own,
-         wall_engine_blocked_count());
+         wall_engine_blocked_count(),
+         ad_shot_tick);
     ad_proj_move = 0;
     ad_proj_sample = 0;
     {
@@ -1142,6 +1159,22 @@ void diag_tick()
         line("[hit] %s\n", buf);
         ad_hit_dmg = 0;
         ad_hit_picked = 0;
+    }
+    for (int i = 0; i < ad_proj_n && i < AD_REPORT_MAX; i++)
+    {
+        line("[p%d] pid=%d t=%d..%d p=(%.0f,%.0f) v=(%.0f,%.0f) sp=%.0f "
+             "r=%.0f vel=%d\n",
+             i,
+             ad_pj_pid[i],
+             ad_pj_t0[i],
+             ad_pj_t1[i],
+             ad_pj_x[i],
+             ad_pj_y[i],
+             ad_pj_vx[i],
+             ad_pj_vy[i],
+             ad_pj_sp[i],
+             ad_pj_r[i],
+             ad_pj_vel[i]);
     }
     for (int i = 0; i < ad_enemy_n && i < 4; i++)
     {

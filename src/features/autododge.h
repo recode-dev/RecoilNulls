@@ -32,6 +32,17 @@ extern float ad_hit_ttc[AD_REPORT_MAX];
 extern float ad_hit_r[AD_REPORT_MAX];
 extern float ad_threat_ca[AD_REPORT_MAX];
 extern int ad_ind_n;
+extern int ad_shot_tick;
+extern int32_t ad_pj_pid[AD_REPORT_MAX];
+extern float ad_pj_x[AD_REPORT_MAX];
+extern float ad_pj_y[AD_REPORT_MAX];
+extern float ad_pj_vx[AD_REPORT_MAX];
+extern float ad_pj_vy[AD_REPORT_MAX];
+extern float ad_pj_sp[AD_REPORT_MAX];
+extern float ad_pj_r[AD_REPORT_MAX];
+extern int ad_pj_t0[AD_REPORT_MAX];
+extern int ad_pj_t1[AD_REPORT_MAX];
+extern int ad_pj_vel[AD_REPORT_MAX];
 extern uint64_t ad_qv[16];
 extern uint16_t ad_qc[16];
 extern uint32_t ad_proj_sample, ad_proj_move;
@@ -48,10 +59,6 @@ namespace ad
 extern float own_hitbox;
 constexpr int THREAT_MAX = 32;
 constexpr int PROJ_SLOTS = 48;
-// server logic tick = 20 Hz / 50 ms.
-// v36 proof: TimeUtil::getTicksAsSecondsString(0x28db78) converts ticks with
-// (ticks % 20 == 0 ? ticks / 20 : ticks * 0.05); LogicCharacterServer::
-// MAX_HOLD_TICKS * 0.05 used as seconds. 1 tick = 0.05 s.
 constexpr uint64_t TICK_MS = 50;
 static_assert(TICK_MS == 50, "logic tick is 20 Hz (50 ms) - see v36 0x28db78");
 constexpr uint64_t PROJ_TTL_MS = TICK_MS * 20;
@@ -80,6 +87,12 @@ extern uintptr_t char_vt;
 extern float self_speed;
 extern int pend_dmg;
 void evict_stale(uint64_t now);
+int ad_find_shot(uintptr_t* objOut,
+                 uintptr_t* dataOut,
+                 int32_t* tick0,
+                 int32_t* tick1,
+                 float* px,
+                 float* py);
 void collect_world(uint64_t now, int32_t own_gid, float mx, float my);
 float clear_one(float mx, float my, float dx, float dy, const Threat& t);
 void hit_report(float mx, float my, float dx, float dy);
