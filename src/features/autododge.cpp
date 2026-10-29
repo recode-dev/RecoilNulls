@@ -562,6 +562,10 @@ void autododge_reset()
 }
 void autododge()
 {
+    static uint64_t pass_ms = 0;
+    uint64_t pass = us() / 1000;
+    if (pass_ms && pass - pass_ms < TICK_MS) return;
+    pass_ms = pass;
     ad_best_dir = -1;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = ad_ind_n = 0;
