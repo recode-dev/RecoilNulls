@@ -661,7 +661,8 @@ void val_projectile()
         for (int i = 0; i < obj_count; i++)
         {
             uintptr_t vtable = 0;
-            if (!obj_snapshot[i] || !read_ptr(obj_snapshot[i], &vtable)) continue;
+            if (!obj_snapshot[i] || !read_ptr(obj_snapshot[i], &vtable))
+                continue;
             scanned++;
             if (vtable == target)
             {
