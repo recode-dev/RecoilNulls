@@ -36,6 +36,7 @@ constexpr float OWN_HITBOX = 120.0f;
 constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
 constexpr int SIM_STEPS = 32;
+constexpr float ZONE_FAR = 5000.0f;
 constexpr uint64_t CALM_MS = 200;
 constexpr uint64_t SEND_MS = 100;
 // One frame at the 120 Hz scan rate. Anything that has to beat the joystick or
@@ -247,7 +248,9 @@ static uintptr_t obj_rva[COUNT_MAX];
 
 void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
 {
-    float zone = self_speed * 6.0f, zone2 = zone * zone;
+    float zone = self_speed * 6.0f;
+    if (zone < ZONE_FAR) zone = ZONE_FAR;
+    float zone2 = zone * zone;
     for (int i = 0; i < obj_count; i++)
     {
         obj_data[i] = 0;
