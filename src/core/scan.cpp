@@ -647,8 +647,7 @@ void scan_world()
     slot         = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
     scene_object = 0;
     if (slot &&
-        read_ptr(slot +
-                     static_cast<uintptr_t>(GAMESTATEMANAGER__CURRENTSTATE),
+        read_ptr(slot + static_cast<uintptr_t>(GAMESTATEMANAGER__CURRENTSTATE),
                  &sceneValue) &&
         sceneValue)
     {
@@ -676,9 +675,8 @@ void scan_world()
     }
     mgrPtr      = (uintptr_t) value;
     manager_ptr = mgrPtr;
-    if (!read_int(mgrPtr +
-                      static_cast<uintptr_t>(
-                          LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTCOUNT),
+    if (!read_int(mgrPtr + static_cast<uintptr_t>(
+                               LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTCOUNT),
                   &count) ||
         count <= 0 || count > OBJECT_COUNT_MAX)
     {

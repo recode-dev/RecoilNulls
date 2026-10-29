@@ -126,13 +126,15 @@ static int client_input_constants_at(uintptr_t tableRva)
     {
         return 0;
     }
-    if (!read_bytes(base + tableRva - CLIENTINPUTMESSAGE__TYPETABLEINNERMASKDISTANCE,
+    if (!read_bytes(base + tableRva -
+                        CLIENTINPUTMESSAGE__TYPETABLEINNERMASKDISTANCE,
                     inner,
                     sizeof(inner)))
     {
         return 0;
     }
-    if (!read_bytes(base + tableRva - CLIENTINPUTMESSAGE__TYPETABLEOUTERMASKDISTANCE,
+    if (!read_bytes(base + tableRva -
+                        CLIENTINPUTMESSAGE__TYPETABLEOUTERMASKDISTANCE,
                     outer,
                     sizeof(outer)))
     {
@@ -263,8 +265,7 @@ uint32_t sign_client_input_message(void* ci, void* battle)
     {
         return 0;
     }
-    if (!read_bytes(
-            mode + LOGICBATTLEMODECLIENT__HASHKEY, key, sizeof(key)))
+    if (!read_bytes(mode + LOGICBATTLEMODECLIENT__HASHKEY, key, sizeof(key)))
     {
         return 0;
     }

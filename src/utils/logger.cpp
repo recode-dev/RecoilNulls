@@ -259,8 +259,7 @@ void val_globals(uintptr_t slot)
         {
             vf("GAMESTATEMANAGER__CLIENT", false, "read failed");
         }
-        if (read_bytes(
-                slot + LOGICBATTLEMODECLIENT__HASHENABLED, &hashOn, 1))
+        if (read_bytes(slot + LOGICBATTLEMODECLIENT__HASHENABLED, &hashOn, 1))
         {
             BOOL keyOk =
                 read_bytes(slot + LOGICBATTLEMODECLIENT__HASHKEY, key, 16);
@@ -284,8 +283,7 @@ void val_globals(uintptr_t slot)
         }
         else
         {
-            if (read_ptr(clientPtr +
-                             LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER,
+            if (read_ptr(clientPtr + LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER,
                          &get_client_input_manager))
             {
                 vf("LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER",
@@ -404,8 +402,7 @@ int val_client_input(uintptr_t clientPtr)
        "0x%llx",
        (unsigned long long) queue);
     vf("CLIENTINPUT_QUEUE_COUNT", true, "count=%d", count);
-    if (!read_ptr(queue + LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTS,
-                  &array) ||
+    if (!read_ptr(queue + LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTS, &array) ||
         !array || !read_ptr(array, &message) || !message ||
         !pointer_plausible(message))
     {
@@ -438,8 +435,7 @@ int val_client_input(uintptr_t clientPtr)
         vf("CLIENTINPUTMESSAGE_X/Y_OFF", false, "read failed");
     }
     vf("CLIENTINPUTMESSAGE__CHECKSUM",
-       read_bytes(
-           message + CLIENTINPUTMESSAGE__CHECKSUM, token, sizeof(token)),
+       read_bytes(message + CLIENTINPUTMESSAGE__CHECKSUM, token, sizeof(token)),
        "hash=%02x%02x%02x%02x",
        token[0],
        token[1],
@@ -537,7 +533,7 @@ void val_character(uintptr_t own)
     if (data && pointer_plausible(data))
     {
         typedef uintptr_t (*name_t)(uintptr_t);
-        name_t    fn = reinterpret_cast<name_t>(callable(LOGICDATA__GETNAME));
+        name_t    fn   = reinterpret_cast<name_t>(callable(LOGICDATA__GETNAME));
         uintptr_t text = fn ? fn(data) : 0;
         BOOL      ok   = NO;
         if (text && pointer_plausible(text))
@@ -554,8 +550,8 @@ void val_character(uintptr_t own)
         {
             int32_t   strLen  = -1;
             uintptr_t strData = 0;
-            BOOL      lenOk = read_int(text + SCSTRING__BYTELENGTH, &strLen);
-            BOOL dataOk     = read_ptr(text + SCSTRING__CHARACTERS, &strData);
+            BOOL      lenOk   = read_int(text + SCSTRING__BYTELENGTH, &strLen);
+            BOOL      dataOk  = read_ptr(text + SCSTRING__CHARACTERS, &strData);
             vf("SCSTRING_LENGTH/DATA_OFF",
                lenOk && dataOk && strLen >= 0 && strLen <= 64 &&
                    strLen == (int32_t) strlen(ok ? name : ""),
@@ -606,10 +602,7 @@ void val_tilemap(uintptr_t clientPtr)
     }
     if (read_int(map + LOGICTILEMAP__HEIGHT, &height))
     {
-        vf("LOGICTILEMAP__HEIGHT",
-           height > 0 && height <= 120,
-           "h=%d",
-           height);
+        vf("LOGICTILEMAP__HEIGHT", height > 0 && height <= 120, "h=%d", height);
     }
     else
     {
@@ -641,9 +634,8 @@ void val_tilemap(uintptr_t clientPtr)
             uint64_t  water = 0;
             uint64_t  hard  = 0;
             if (!read_ptr(tiles + (uintptr_t) i * 8, &item) || !item) continue;
-            if (!read_bytes(item + LOGICTILE__PATHFINDERMASK,
-                            &mask,
-                            sizeof(mask)) ||
+            if (!read_bytes(
+                    item + LOGICTILE__PATHFINDERMASK, &mask, sizeof(mask)) ||
                 !read_bytes(item + LOGICTILE__WATERPATHFINDERMASK,
                             &water,
                             sizeof(water)) ||
@@ -712,8 +704,7 @@ void val_projectile()
     }
     {
         bool ticks_ok =
-            read_int(objPtr + LOGICPROJECTILE__SERVERTICKSTART,
-                     &startTick) &&
+            read_int(objPtr + LOGICPROJECTILE__SERVERTICKSTART, &startTick) &&
             read_int(objPtr + LOGICPROJECTILE__SERVERTICKEND, &endTick);
         if (!ticks_ok || startTick < 0 || endTick < startTick)
         {
@@ -854,10 +845,11 @@ void maybe_validate()
     val_skip = 0;
     if (val_input_state == 0)
     {
-        uintptr_t battle = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
-        val_input_state  = (battle && pointer_plausible(battle))
-                               ? val_client_input(battle)
-                               : 0;
+        uintptr_t battle =
+            (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
+        val_input_state = (battle && pointer_plausible(battle))
+                              ? val_client_input(battle)
+                              : 0;
         if (val_input_state == 0 && ++val_input_tries >= 120)
         {
             char why[128];

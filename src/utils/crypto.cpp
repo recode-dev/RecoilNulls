@@ -36,8 +36,8 @@ uint32_t ClientInputMessageComputeChecksum(const uint8_t*  key16,
     constexpr size_t typeSpan = sizeof(uint32_t);
     uint32_t         rawType  = 0;
     memcpy(&rawType,
-           signedData + (CLIENTINPUTMESSAGE__TYPE -
-                         CLIENTINPUTMESSAGE__SIGNEDDATA),
+           signedData +
+               (CLIENTINPUTMESSAGE__TYPE - CLIENTINPUTMESSAGE__SIGNEDDATA),
            sizeof(rawType));
     uint32_t mappedType =
         rawType < CLIENTINPUT__TYPECOUNT ? typeTable[rawType] : typeFallback;
