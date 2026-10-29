@@ -28,6 +28,10 @@ inline constexpr uint64_t LogicCharacterTeamOffset                = 0x40ULL;
 inline constexpr uint64_t LogicCharacterAttackAngleOffset         = 0xb4ULL;
 inline constexpr uint64_t LogicCharacterHitpointsOffset           = 0xc4ULL;
 inline constexpr uint64_t LogicCharacterDataCollisionRadiusOffset = 0x2acULL;
+inline constexpr uint64_t LogicCharacterCurrentChargeUpMillisecondsOffset =
+    0x30cULL;
+inline constexpr uint64_t LogicCharacterChargeUpModeOffset        = 0x310ULL;
+inline constexpr uint64_t LogicCharacterChargeUpMillisecondsOffset = 0x314ULL;
 
 inline constexpr uint64_t LogicProjectileServerXOffset               = 0x38ULL;
 inline constexpr uint64_t LogicProjectileServerYOffset               = 0x3cULL;
@@ -99,6 +103,7 @@ inline constexpr uint64_t LogicTileMapIsPlayerLineOfSightClearRva = 0x943b08ULL;
 inline constexpr uint64_t LogicTileMapTileToLogicRva              = 0x943040ULL;
 inline constexpr uint64_t LogicTileMapLogicToTileRva              = 0x943028ULL;
 inline constexpr uint64_t LogicProjectileDataVtableRva            = 0xff3b18ULL;
+inline constexpr uint64_t LogicProjectileClientGetTravelTicksRva  = 0xa3192cULL;
 
 inline constexpr uint64_t ClientInputTypeTableRva     = 0xe1bd30ULL;
 inline constexpr uint64_t ClientInputTypeFallbackRva  = 0xe1bc28ULL;
