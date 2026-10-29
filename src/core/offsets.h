@@ -19,10 +19,18 @@ inline constexpr uint64_t RVA_CLIENT_INPUT_MESSAGE_CONSTRUCTOR = 0x00a95798ULL;
 inline constexpr uint64_t RVA_CLIENT_INPUT_MANAGER_ADD_INPUT = 0x74675cULL;
 inline constexpr uint64_t RVA_LOGIC_TILE_MAP_IS_PASSABLE_PATH_FINDER =
     0x942ebcULL;
-inline constexpr uint64_t LOGIC_TILE_BLOCK_MASK_OFF = 0x10ULL;
-inline constexpr uint64_t LOGIC_TILE_WATER_MASK_OFF = 0x18ULL;
-inline constexpr uint64_t LOGIC_TILE_THIRD_MASK_OFF = 0x20ULL;
-inline constexpr uint64_t LOGIC_TILE_FOURTH_MASK_OFF = 0x28ULL;
+inline constexpr uint64_t LOGIC_TILE_DATA_POINTER_OFF = 0x0ULL;
+inline constexpr uint64_t LOGIC_TILE_MASK_ARRAY_OFF = 0x10ULL;
+inline constexpr uint64_t LOGIC_TILE_MASK_PLANE_SIZE = 0x8ULL;
+inline constexpr uint64_t LOGIC_TILE_BLOCK_MASK_OFF = LOGIC_TILE_MASK_ARRAY_OFF;
+inline constexpr uint64_t LOGIC_TILE_WATER_MASK_OFF =
+    LOGIC_TILE_MASK_ARRAY_OFF + LOGIC_TILE_MASK_PLANE_SIZE;
+inline constexpr uint64_t LOGIC_TILE_THIRD_MASK_OFF = LOGIC_TILE_WATER_MASK_OFF +
+                                                     LOGIC_TILE_MASK_PLANE_SIZE;
+inline constexpr uint64_t LOGIC_TILE_FOURTH_MASK_OFF = LOGIC_TILE_THIRD_MASK_OFF +
+                                                      LOGIC_TILE_MASK_PLANE_SIZE;
+inline constexpr uint64_t LOGIC_TILE_DATA_BLOCKS_MOVEMENT_OFF = 0x56ULL;
+inline constexpr uint64_t LOGIC_TILE_DATA_BLOCKS_PROJECTILES_OFF = 0x57ULL;
 inline constexpr uint64_t RVA_LOGIC_TILE_MAP_IS_PLAYER_LINE_OF_SIGHT_CLEAR =
     0x943b08ULL;
 inline constexpr uint64_t RVA_LOGIC_TILE_MAP_TILE_TO_LOGIC = 0x943040ULL;

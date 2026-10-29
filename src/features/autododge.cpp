@@ -944,7 +944,7 @@ void update_autododge()
     fill_autododge_report(mx, my, dir_x, dir_y);
     ad_pass_own = wall_cell_is_passable(mx, my);
     float fx = mx + dir_x * REACH, fy = my + dir_y * REACH;
-    for (int k = 0; k < 3 && !wall_line_of_sight_clear(mx, my, fx, fy); k++)
+    for (int k = 0; k < 3 && !wall_path_clear(mx, my, fx, fy); k++)
     {
         fx = mx + (fx - mx) * 0.5f;
         fy = my + (fy - my) * 0.5f;
