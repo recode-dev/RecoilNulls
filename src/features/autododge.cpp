@@ -106,6 +106,39 @@ Proj* find_proj(int32_t pid)
     return spare ? spare : stale;
 }
 
+struct SpdPrior
+{
+    char name[24];
+    float speed;
+};
+static SpdPrior spd_tab[16];
+static int spd_n = 0;
+
+static float speed_prior(const char* nm)
+{
+    if (!nm || !nm[0]) return 0.0f;
+    for (int i = 0; i < spd_n; i++)
+        if (!strcmp(spd_tab[i].name, nm)) return spd_tab[i].speed;
+    return 0.0f;
+}
+static void speed_learn(const char* nm, float v)
+{
+    if (!nm || !nm[0] || v < 100.0f || v > 20000.0f) return;
+    for (int i = 0; i < spd_n; i++)
+    {
+        if (!strcmp(spd_tab[i].name, nm))
+        {
+            spd_tab[i].speed = spd_tab[i].speed * 0.5f + v * 0.5f;
+            return;
+        }
+    }
+    if (spd_n >= 16) return;
+    strncpy(spd_tab[spd_n].name, nm, sizeof(spd_tab[0].name) - 1);
+    spd_tab[spd_n].name[sizeof(spd_tab[0].name) - 1] = '\0';
+    spd_tab[spd_n].speed = v;
+    spd_n++;
+}
+
 void init_proj(
     Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
 {
@@ -115,8 +148,7 @@ void init_proj(
     if (!read_bytes(dataPtr, data, sizeof(data))) return;
     memcpy(&speed, data + PROJECTILEDATA_SPEED_OFF, sizeof(speed));
     memcpy(&radius, data + PROJECTILEDATA_RADIUS_OFF, sizeof(radius));
-    if (speed <= 0) return;
-    if (radius < 0) radius = 0;
+    if (radius < 0 || radius > 3000) radius = 60;
     st->pid = pid;
     st->seen = now;
     st->x = px;
@@ -143,6 +175,10 @@ void init_proj(
     if (str)
         read_scstring(
             str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
+    float prior = speed_prior(st->name);
+    if (prior <= 0.0f)
+        prior = (speed >= 100 && speed <= 20000) ? (float)speed : 1500.0f;
+    st->speed = prior;
     int near = -1;
     float best = 1e30f;
     for (int i = 0; i < ad_enemy_n; i++)
@@ -224,6 +260,7 @@ static void add_proj(const uint8_t* obj,
             float meas = step * 1000.0f / (float)dt;
             if (meas > 50.0f && meas < 20000.0f)
             {
+                speed_learn(st->name, meas);
                 st->speed = st->meas ? st->speed * 0.4f + meas * 0.6f : meas;
                 st->meas = true;
             }
