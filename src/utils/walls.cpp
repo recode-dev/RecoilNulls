@@ -149,7 +149,8 @@ int wall_build()
     {
         return 0;
     }
-    if (!read_bytes(wall_tiles, wall_raw,
+    if (!read_bytes(wall_tiles,
+                    wall_raw,
                     static_cast<size_t>(total) * sizeof(uintptr_t)))
     {
         return 0;
@@ -171,9 +172,7 @@ int wall_build()
         {
             continue;
         }
-        if (!read_bytes(type + LOGICTILEDATA_FLAGS_OFF,
-                        &flags,
-                        sizeof(flags)))
+        if (!read_bytes(type + LOGICTILEDATA_FLAGS_OFF, &flags, sizeof(flags)))
         {
             continue;
         }
@@ -181,8 +180,8 @@ int wall_build()
         {
             wall_grid[i] = WALL_BLOCKS_MOVEMENT;
         }
-        if (!game_tile_passable(wall_map, (i % width) * 3 + 1,
-                                (i / width) * 3 + 1))
+        if (!game_tile_passable(
+                wall_map, (i % width) * 3 + 1, (i / width) * 3 + 1))
         {
             wall_engine_blocked++;
         }
