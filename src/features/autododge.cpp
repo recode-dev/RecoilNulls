@@ -90,6 +90,20 @@ float math_distance_to_line(
     return static_cast<float>(math_sqrt(sq));
 }
 
+int32_t projectile_radius(uintptr_t data)
+{
+    static uintptr_t slot = 0;
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICPROJECTILEDATA__GETRADIUS);
+    }
+    if (!slot || !data)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
+}
+
 int32_t object_x(uintptr_t object)
 {
     static uintptr_t slot = 0;
@@ -305,7 +319,8 @@ void init_projectile_state(
     st->x         = px;
     st->y         = py;
     st->speed     = 0.0f;
-    st->rad       = PROJECTILE_RADIUS;
+    int32_t dataRadius = projectile_radius(dataPtr);
+    st->rad            = dataRadius > 0 ? (float) dataRadius : PROJECTILE_RADIUS;
     st->homing    = false;
     st->ttype     = 0;
     st->vel       = false;
