@@ -57,12 +57,20 @@ BOOL          query_region(uintptr_t       address,
 }
 BOOL addr_writable(uintptr_t address, size_t length)
 {
-    return writable(address, length);
+    return memory_writable(address, length);
 }
-inline constexpr int      PAGE_CACHE_SLOTS = 256;
-static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
-static __thread uint8_t   page_cache_ok[PAGE_CACHE_SLOTS];
-static guint              memory_page_size()
+inline constexpr int      PAGE_CACHE_SLOTS   = 256;
+inline constexpr int      REGION_CACHE_SLOTS = 64;
+struct memory_region_entry
+{
+    uintptr_t         start;
+    uintptr_t         end;
+    GumPageProtection protection;
+};
+static __thread uintptr_t           page_cache_key[PAGE_CACHE_SLOTS];
+static __thread uint8_t             page_cache_ok[PAGE_CACHE_SLOTS];
+static __thread memory_region_entry region_cache[REGION_CACHE_SLOTS];
+static guint                        memory_page_size()
 {
     static guint cached = 0;
     if (!cached)
@@ -71,10 +79,75 @@ static guint              memory_page_size()
     }
     return cached;
 }
+static __thread int region_cache_next = 0;
+static const memory_region_entry* region_cache_lookup(
+    uintptr_t address, size_t length, GumPageProtection required)
+{
+    uintptr_t end = address + length;
+    if (end < address)
+    {
+        return nullptr;
+    }
+    for (int i = 0; i < REGION_CACHE_SLOTS; i++)
+    {
+        const memory_region_entry* entry = &region_cache[i];
+        if (entry->end <= entry->start)
+        {
+            continue;
+        }
+        if (address < entry->start || end > entry->end)
+        {
+            continue;
+        }
+        if ((entry->protection & required) != required)
+        {
+            continue;
+        }
+        return entry;
+    }
+    return nullptr;
+}
+static const memory_region_entry* region_cache_acquire(
+    uintptr_t address, size_t length, GumPageProtection required)
+{
+    const memory_region_entry* entry = nullptr;
+    GumMemoryRange             range;
+    GumPageProtection          protection = GUM_PAGE_NO_ACCESS;
+    uintptr_t                  start      = 0;
+    uintptr_t                  end        = 0;
+    entry = region_cache_lookup(address, length, required);
+    if (entry)
+    {
+        return entry;
+    }
+    if (!gum_memory_query_region((gconstpointer) address, &range, &protection))
+    {
+        return nullptr;
+    }
+    start = static_cast<uintptr_t>(range.base_address);
+    end   = start + static_cast<uintptr_t>(range.size);
+    if (end <= start)
+    {
+        return nullptr;
+    }
+    entry             = &region_cache[region_cache_next];
+    region_cache_next = (region_cache_next + 1) & (REGION_CACHE_SLOTS - 1);
+    entry->start      = start;
+    entry->end        = end;
+    entry->protection = protection;
+    return region_cache_lookup(address, length, required);
+}
 void read_cache_reset()
 {
     for (int i = 0; i < PAGE_CACHE_SLOTS; i++)
         page_cache_key[i] = 0;
+    for (int i = 0; i < REGION_CACHE_SLOTS; i++)
+    {
+        region_cache[i].start      = 0;
+        region_cache[i].end        = 0;
+        region_cache[i].protection = GUM_PAGE_NO_ACCESS;
+    }
+    region_cache_next = 0;
 }
 BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
@@ -106,20 +179,15 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     cursor = address & ~(pageSize - 1);
     for (int guard = 0; cursor < end && guard < 64; guard++)
     {
-        int slot   = static_cast<int>((cursor >> 12) & (PAGE_CACHE_SLOTS - 1));
-        uint8_t ok = 0;
+        int slot = static_cast<int>((cursor >> 12) & (PAGE_CACHE_SLOTS - 1));
+        uint8_t ok   = 0;
         if (page_cache_key[slot] == cursor)
         {
             ok = page_cache_ok[slot];
         }
         else
         {
-            GumPageProtection protection = GUM_PAGE_NO_ACCESS;
-            if (gum_memory_query_protection((gconstpointer) cursor,
-                                            &protection))
-            {
-                ok = (protection & GUM_PAGE_READ) ? 1 : 0;
-            }
+            ok = region_cache_acquire(cursor, 1, GUM_PAGE_READ) ? 1 : 0;
             page_cache_key[slot] = cursor;
             page_cache_ok[slot]  = ok;
         }
@@ -173,6 +241,10 @@ BOOL writable(uintptr_t address, size_t length)
     {
         return NO;
     }
+    if (region_cache_acquire(address, length, GUM_PAGE_WRITE))
+    {
+        return YES;
+    }
     pageSize = memory_page_size();
     if (!pageSize)
     {
@@ -180,13 +252,8 @@ BOOL writable(uintptr_t address, size_t length)
     }
     for (int guard = 0; cursor < end && guard < 64; guard++)
     {
-        GumPageProtection protection = GUM_PAGE_NO_ACCESS;
-        uintptr_t         next       = 0;
-        if (!gum_memory_query_protection((gconstpointer) cursor, &protection))
-        {
-            return NO;
-        }
-        if ((protection & GUM_PAGE_WRITE) == 0)
+        uintptr_t next = 0;
+        if (!region_cache_acquire(cursor, 1, GUM_PAGE_WRITE))
         {
             return NO;
         }
@@ -199,6 +266,45 @@ BOOL writable(uintptr_t address, size_t length)
         cursor = next;
     }
     return cursor >= end;
+}
+BOOL memory_readable(uintptr_t address, size_t length)
+{
+    if (!address || !length || !gum_live)
+    {
+        return NO;
+    }
+    if (region_cache_acquire(address, length, GUM_PAGE_READ))
+    {
+        return YES;
+    }
+    return gum_memory_is_readable((gconstpointer) address,
+                                  static_cast<gsize>(length))
+               ? YES
+               : NO;
+}
+BOOL memory_writable(uintptr_t address, size_t length)
+{
+    return writable(address, length);
+}
+BOOL memory_protection_flags(uintptr_t address, vm_prot_t* flags)
+{
+    const memory_region_entry* entry = nullptr;
+    if (!address || !flags)
+    {
+        return NO;
+    }
+    *flags = 0;
+    if (!gum_live)
+    {
+        return NO;
+    }
+    entry = region_cache_acquire(address, 1, GUM_PAGE_NO_ACCESS);
+    if (entry)
+    {
+        *flags = static_cast<vm_prot_t>(entry->protection);
+        return YES;
+    }
+    return query_region(address, flags, nullptr, nullptr, nullptr);
 }
 BOOL write_bytes(uintptr_t address, const void* src, size_t length)
 {
@@ -214,11 +320,12 @@ BOOL write_bytes(uintptr_t address, const void* src, size_t length)
     {
         return NO;
     }
-    return gum_memory_write((gpointer) address,
-                            static_cast<const guint8*>(src),
-                            static_cast<gsize>(length))
-               ? YES
-               : NO;
+    if (!writable(address, length))
+    {
+        return NO;
+    }
+    __builtin_memcpy(reinterpret_cast<void*>(address), src, length);
+    return YES;
 }
 BOOL read_ptr(uintptr_t address, uintptr_t* out)
 {

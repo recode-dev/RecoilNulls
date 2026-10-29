@@ -27,6 +27,10 @@ BOOL                 query_region(uintptr_t       address,
                                   uintptr_t*      regionStart);
 BOOL                 addr_writable(uintptr_t address, size_t length);
 BOOL                 read_bytes(uintptr_t address, void* out, size_t length);
+BOOL                 memory_readable(uintptr_t address, size_t length);
+BOOL                 memory_writable(uintptr_t address, size_t length);
+BOOL                 memory_protection_flags(uintptr_t address,
+                                             vm_prot_t*      flags);
 void                 read_cache_reset();
 BOOL                 pointer_plausible(uintptr_t value);
 BOOL                 read_int(uintptr_t address, int32_t* out);
@@ -48,7 +52,7 @@ static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
     {
         *flags = 0;
     }
-    if (!query_region(address, &protection, nullptr, nullptr, nullptr))
+    if (!memory_protection_flags(address, &protection))
     {
         return NO;
     }
@@ -64,18 +68,7 @@ extern uint64_t    workload_us_sum;
 extern uint32_t    workload_us_max, workload_us_n;
 static inline BOOL addr_readable(uintptr_t address, size_t length)
 {
-    if (!address || !length)
-    {
-        return NO;
-    }
-    if (!gum_live)
-    {
-        return NO;
-    }
-    return gum_memory_is_readable((gconstpointer) address,
-                                  static_cast<gsize>(length))
-               ? YES
-               : NO;
+    return memory_readable(address, length);
 }
 static inline BOOL addr_executable(uintptr_t address)
 {
