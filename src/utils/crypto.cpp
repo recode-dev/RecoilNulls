@@ -32,15 +32,15 @@ uint32_t ClientInputMessageComputeChecksum(const uint8_t*  key16,
                                            const uint8_t*  outerMask)
 {
     constexpr size_t signedSpan =
-        static_cast<size_t>(ClientInputMessageSignedDataSize);
+        static_cast<size_t>(CLIENTINPUTMESSAGE__SIGNEDDATASIZE);
     constexpr size_t typeSpan = sizeof(uint32_t);
     uint32_t         rawType  = 0;
     memcpy(&rawType,
-           signedData + (ClientInputMessageTypeOffset -
-                         ClientInputMessageSignedDataOffset),
+           signedData + (CLIENTINPUTMESSAGE__TYPE -
+                         CLIENTINPUTMESSAGE__SIGNEDDATA),
            sizeof(rawType));
     uint32_t mappedType =
-        rawType < ClientInputTypeCount ? typeTable[rawType] : typeFallback;
+        rawType < CLIENTINPUT__TYPECOUNT ? typeTable[rawType] : typeFallback;
     uint8_t message[signedSpan + typeSpan];
     memcpy(message, signedData, signedSpan);
     memcpy(message + signedSpan, &mappedType, typeSpan);

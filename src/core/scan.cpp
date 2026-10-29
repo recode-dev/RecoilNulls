@@ -368,7 +368,7 @@ int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
     if (!fn)
     {
         fn = reinterpret_cast<pass_t>(
-            callable(LogicTileMapIsPassablePathFinderRva));
+            callable(LOGICTILEMAP__ISPASSABLEPATHFINDER));
     }
     if (!fn || !tileMap)
     {
@@ -383,7 +383,7 @@ int game_tile_to_logic(int tile)
     static conv_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<conv_t>(callable(LogicTileMapTileToLogicRva));
+        fn = reinterpret_cast<conv_t>(callable(LOGICTILEMAP__TILETOLOGIC));
     }
     if (!fn)
     {
@@ -398,7 +398,7 @@ int game_logic_to_tile(int unit)
     static conv_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<conv_t>(callable(LogicTileMapLogicToTileRva));
+        fn = reinterpret_cast<conv_t>(callable(LOGICTILEMAP__LOGICTOTILE));
     }
     if (!fn)
     {
@@ -416,7 +416,7 @@ int game_projectile_travel_ticks(uintptr_t projectileData,
     if (!fn)
     {
         fn = reinterpret_cast<travel_t>(
-            callable(LogicProjectileClientGetTravelTicksRva));
+            callable(LOGICPROJECTILECLIENT__GETTRAVELTICKS));
     }
     if (!fn || !projectileData || distance < 1 || speed < 1)
     {
@@ -539,13 +539,13 @@ int32_t    own_index_v = -1;
 int        own_ok_hp   = 0;
 static int battle_state()
 {
-    uintptr_t slot  = (uintptr_t) read_global_ptr(GameStateManagerRva);
+    uintptr_t slot  = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
     int32_t   state = -1;
     if (!slot)
     {
         return -1;
     }
-    if (!read_int(slot + static_cast<uintptr_t>(GameStateManagerStateOffset),
+    if (!read_int(slot + static_cast<uintptr_t>(GAMESTATEMANAGER__STATE),
                   &state))
     {
         return -1;
@@ -621,7 +621,7 @@ static void tilemap_tick(uintptr_t clientPtr)
         return;
     }
     last_us   = now_us;
-    tileMapFn = callable(LogicBattleModeClientGetTileMapRva);
+    tileMapFn = callable(LOGICBATTLEMODECLIENT__GETTILEMAP);
     tileMap   = tileMapFn ? call(tileMapFn, clientPtr) : 0;
     if (pointer_plausible(tileMap))
     {
@@ -644,11 +644,11 @@ void scan_world()
     void*     sceneValue = nullptr;
     if (!base) return;
     state        = battle_state();
-    slot         = (uintptr_t) read_global_ptr(GameStateManagerRva);
+    slot         = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
     scene_object = 0;
     if (slot &&
         read_ptr(slot +
-                     static_cast<uintptr_t>(GameStateManagerCurrentStateOffset),
+                     static_cast<uintptr_t>(GAMESTATEMANAGER__CURRENTSTATE),
                  &sceneValue) &&
         sceneValue)
     {
@@ -667,7 +667,7 @@ void scan_world()
         return;
     }
     if (!read_ptr(clientPtr + static_cast<uintptr_t>(
-                                  LogicBattleModeClientGameObjectManagerOffset),
+                                  LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER),
                   &value) ||
         !value)
     {
@@ -678,7 +678,7 @@ void scan_world()
     manager_ptr = mgrPtr;
     if (!read_int(mgrPtr +
                       static_cast<uintptr_t>(
-                          LogicGameObjectManagerServerGameObjectCountOffset),
+                          LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTCOUNT),
                   &count) ||
         count <= 0 || count > OBJECT_COUNT_MAX)
     {
@@ -686,7 +686,7 @@ void scan_world()
         return;
     }
     if (!read_ptr(mgrPtr + static_cast<uintptr_t>(
-                               LogicGameObjectManagerServerGameObjectsOffset),
+                               LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTS),
                   &value) ||
         !value)
     {
@@ -714,7 +714,7 @@ void scan_world()
                                : 0;
     }
     {
-        uintptr_t ownFn   = callable(LogicBattleModeClientGetOwnCharacterRva);
+        uintptr_t ownFn   = callable(LOGICBATTLEMODECLIENT__GETOWNCHARACTER);
         uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
         own = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
     }
@@ -728,14 +728,14 @@ void scan_world()
         return;
     }
     own_elem = own;
-    if (read_int(own + static_cast<uintptr_t>(LogicCharacterXOffset), &x) &&
-        read_int(own + static_cast<uintptr_t>(LogicCharacterYOffset), &y))
+    if (read_int(own + static_cast<uintptr_t>(LOGICCHARACTER__X), &x) &&
+        read_int(own + static_cast<uintptr_t>(LOGICCHARACTER__Y), &y))
     {
         own_x    = x;
         own_y    = y;
         coord_ok = 1;
     }
-    if (read_int(own + static_cast<uintptr_t>(LogicCharacterHitpointsOffset),
+    if (read_int(own + static_cast<uintptr_t>(LOGICCHARACTER__HITPOINTS),
                  &hp) &&
         hp >= 0 && hp < 1000000)
     {
@@ -749,9 +749,9 @@ void scan_world()
     }
     dead        = (own_ok_hp && own_hp == 0) ? 1 : 0;
     own_index_v = static_cast<int32_t>(
-        call(callable(LogicBattleModeClientGetOwnPlayerIndexRva), clientPtr));
+        call(callable(LOGICBATTLEMODECLIENT__GETOWNPLAYERINDEX), clientPtr));
     own_team_b = static_cast<int32_t>(
-        call(callable(LogicBattleModeClientGetOwnPlayerTeamRva), clientPtr));
+        call(callable(LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM), clientPtr));
     track_own_speed();
     tilemap_tick(clientPtr);
     wall_cache_refresh_if_stale(
@@ -833,24 +833,24 @@ void resolve_addresses()
     {
         return;
     }
-    addr_dataname = callable(LogicDataGetNameRva);
+    addr_dataname = callable(LOGICDATA__GETNAME);
 }
 int coord_ok = 0;
 int dead     = 0;
 int scene_live()
 {
-    uintptr_t slot  = (uintptr_t) read_global_ptr(GameStateManagerRva);
+    uintptr_t slot  = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
     void*     value = nullptr;
     int32_t   state = -1;
     if (!scene_object || !slot)
     {
         return 0;
     }
-    if (!read_int(slot + GameStateManagerStateOffset, &state) || state != 5)
+    if (!read_int(slot + GAMESTATEMANAGER__STATE, &state) || state != 5)
     {
         return 0;
     }
-    if (!read_ptr(slot + GameStateManagerCurrentStateOffset, &value) || !value)
+    if (!read_ptr(slot + GAMESTATEMANAGER__CURRENTSTATE, &value) || !value)
     {
         return 0;
     }
@@ -863,7 +863,7 @@ uintptr_t client()
     {
         return 0;
     }
-    if (!read_ptr(scene_object + GameStateClientOffset, &clientPtr))
+    if (!read_ptr(scene_object + GAMESTATEMANAGER__CLIENT, &clientPtr))
     {
         return 0;
     }

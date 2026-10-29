@@ -12,7 +12,7 @@ static constexpr size_t    ClientInputTypeTableScanChunk     = 0x4000;
 static const uint8_t       client_input_type_table_anchor[8] = {
           0xd2, 0xc7, 0xb1, 0xa3, 0xb8, 0xa6, 0xf5, 0xe4};
 
-static uint32_t client_input_type_table[ClientInputTypeCount];
+static uint32_t client_input_type_table[CLIENTINPUT__TYPECOUNT];
 static uint32_t client_input_type_fallback = 0;
 static uint8_t  client_input_hash_inner_mask[0x10];
 static uint8_t  client_input_hash_outer_mask[0x10];
@@ -67,7 +67,7 @@ static uintptr_t client_input_resolve(uintptr_t* slot, uintptr_t rva)
 
 static int client_input_type_table_is_plausible(const uint32_t* table)
 {
-    int count   = static_cast<int>(ClientInputTypeCount);
+    int count   = static_cast<int>(CLIENTINPUT__TYPECOUNT);
     int nonzero = 0;
     int unique  = 0;
     for (int i = 0; i < count; i++)
@@ -100,7 +100,7 @@ static int client_input_type_table_is_plausible(const uint32_t* table)
 
 static int client_input_constants_at(uintptr_t tableRva)
 {
-    uint32_t table[ClientInputTypeCount];
+    uint32_t table[CLIENTINPUT__TYPECOUNT];
     uint32_t fallback = 0;
     uint8_t  inner[0x10];
     uint8_t  outer[0x10];
@@ -108,7 +108,7 @@ static int client_input_constants_at(uintptr_t tableRva)
     {
         return 0;
     }
-    if (tableRva <= ClientInputTypeTableToInnerMaskDistance)
+    if (tableRva <= CLIENTINPUTMESSAGE__TYPETABLEINNERMASKDISTANCE)
     {
         return 0;
     }
@@ -120,19 +120,19 @@ static int client_input_constants_at(uintptr_t tableRva)
     {
         return 0;
     }
-    if (!read_bytes(base + tableRva - ClientInputTypeTableToFallbackDistance,
+    if (!read_bytes(base + tableRva - CLIENTINPUT__TYPETABLEFALLBACKDISTANCE,
                     &fallback,
                     sizeof(fallback)))
     {
         return 0;
     }
-    if (!read_bytes(base + tableRva - ClientInputTypeTableToInnerMaskDistance,
+    if (!read_bytes(base + tableRva - CLIENTINPUTMESSAGE__TYPETABLEINNERMASKDISTANCE,
                     inner,
                     sizeof(inner)))
     {
         return 0;
     }
-    if (!read_bytes(base + tableRva - ClientInputTypeTableToOuterMaskDistance,
+    if (!read_bytes(base + tableRva - CLIENTINPUTMESSAGE__TYPETABLEOUTERMASKDISTANCE,
                     outer,
                     sizeof(outer)))
     {
@@ -149,8 +149,8 @@ static int client_input_constants_relocate(uintptr_t* outRva)
 {
     uint8_t   buffer[ClientInputTypeTableScanChunk +
                    sizeof(client_input_type_table_anchor)];
-    uintptr_t start = ClientInputTypeTableRva - ClientInputTypeTableScanSpan;
-    uintptr_t end   = ClientInputTypeTableRva + ClientInputTypeTableScanSpan +
+    uintptr_t start = CLIENTINPUT__TYPETABLE - ClientInputTypeTableScanSpan;
+    uintptr_t end   = CLIENTINPUT__TYPETABLE + ClientInputTypeTableScanSpan +
                     sizeof(client_input_type_table_anchor);
     uintptr_t found = 0;
     int       hits  = 0;
@@ -214,7 +214,7 @@ int load_client_input_constants()
     {
         return 0;
     }
-    if (client_input_constants_at(ClientInputTypeTableRva))
+    if (client_input_constants_at(CLIENTINPUT__TYPETABLE))
     {
         client_input_constants_ready = 1;
         return 1;
@@ -223,7 +223,7 @@ int load_client_input_constants()
     {
         return 0;
     }
-    if (relocated == ClientInputTypeTableRva)
+    if (relocated == CLIENTINPUT__TYPETABLE)
     {
         return 0;
     }
@@ -251,7 +251,7 @@ uint32_t sign_client_input_message(void* ci, void* battle)
     {
         return 0;
     }
-    if (!read_bytes(mode + LogicBattleModeClientHashEnabledOffset, &enabled, 1))
+    if (!read_bytes(mode + LOGICBATTLEMODECLIENT__HASHENABLED, &enabled, 1))
     {
         return 0;
     }
@@ -264,19 +264,19 @@ uint32_t sign_client_input_message(void* ci, void* battle)
         return 0;
     }
     if (!read_bytes(
-            mode + LogicBattleModeClientHashKeyOffset, key, sizeof(key)))
+            mode + LOGICBATTLEMODECLIENT__HASHKEY, key, sizeof(key)))
     {
         return 0;
     }
     checksum = ClientInputMessageComputeChecksum(
         key,
         reinterpret_cast<const uint8_t*>(message +
-                                         ClientInputMessageSignedDataOffset),
+                                         CLIENTINPUTMESSAGE__SIGNEDDATA),
         client_input_type_table,
         client_input_type_fallback,
         client_input_hash_inner_mask,
         client_input_hash_outer_mask);
-    if (!write_bytes(message + ClientInputMessageChecksumOffset,
+    if (!write_bytes(message + CLIENTINPUTMESSAGE__CHECKSUM,
                      &checksum,
                      sizeof(checksum)))
     {
@@ -309,19 +309,19 @@ static int client_input_message_is_valid(void* memory, size_t size)
 
 void* allocate_client_input_message()
 {
-    void* memory = malloc(ClientInputMessageSize);
-    if (!client_input_message_is_valid(memory, ClientInputMessageSize))
+    void* memory = malloc(CLIENTINPUTMESSAGE__SIZE);
+    if (!client_input_message_is_valid(memory, CLIENTINPUTMESSAGE__SIZE))
     {
         free(memory);
         return nullptr;
     }
-    memset(memory, 0, ClientInputMessageSize);
+    memset(memory, 0, CLIENTINPUTMESSAGE__SIZE);
     return memory;
 }
 
 static int client_input_layout_probe(uintptr_t constructor)
 {
-    void*   probe        = malloc(ClientInputMessageProbeSize);
+    void*   probe        = malloc(CLIENTINPUTMESSAGE__PROBESIZE);
     int32_t type         = 0;
     int32_t coordinate_x = 0;
     int32_t coordinate_y = 0;
@@ -330,17 +330,17 @@ static int client_input_layout_probe(uintptr_t constructor)
     {
         return 0;
     }
-    memset(probe, 0, ClientInputMessageProbeSize);
+    memset(probe, 0, CLIENTINPUTMESSAGE__PROBESIZE);
     reinterpret_cast<void (*)(void*, int)>(constructor)(
         probe, ClientInputMessageTypeMove);
     memcpy(&type,
-           static_cast<const uint8_t*>(probe) + ClientInputMessageTypeOffset,
+           static_cast<const uint8_t*>(probe) + CLIENTINPUTMESSAGE__TYPE,
            sizeof(type));
     memcpy(&coordinate_x,
-           static_cast<const uint8_t*>(probe) + ClientInputMessageXOffset,
+           static_cast<const uint8_t*>(probe) + CLIENTINPUTMESSAGE__X,
            sizeof(coordinate_x));
     memcpy(&coordinate_y,
-           static_cast<const uint8_t*>(probe) + ClientInputMessageYOffset,
+           static_cast<const uint8_t*>(probe) + CLIENTINPUTMESSAGE__Y,
            sizeof(coordinate_y));
     matches = type == ClientInputMessageTypeMove && coordinate_x == 0 &&
               coordinate_y == 0;
@@ -351,7 +351,7 @@ static int client_input_layout_probe(uintptr_t constructor)
 static void* client_input_battle_instance()
 {
     static uintptr_t slot = 0;
-    uintptr_t function = client_input_resolve(&slot, BattleModeGetInstanceRva);
+    uintptr_t function = client_input_resolve(&slot, BATTLEMODE__GETINSTANCE);
     if (!function)
     {
         return nullptr;
@@ -367,7 +367,7 @@ static void* client_input_manager_of_battle(void* battle)
         return nullptr;
     }
     if (!read_ptr(reinterpret_cast<uintptr_t>(battle) +
-                      LogicBattleModeClientInputManagerOffset,
+                      LOGICBATTLEMODECLIENT__INPUTMANAGER,
                   &manager))
     {
         return nullptr;
@@ -396,7 +396,7 @@ static int client_input_manager_queue_is_ready(void* manager)
         return 0;
     }
     if (!read_ptr(reinterpret_cast<uintptr_t>(manager) +
-                      ClientInputManagerInputQueueOffset,
+                      CLIENTINPUTMANAGER__INPUTQUEUE,
                   &queue) ||
         !queue)
     {
@@ -421,7 +421,7 @@ int enqueue_client_input_message(int type, int x, int y)
     {
         return 0;
     }
-    if (type < 0 || type >= static_cast<int>(ClientInputTypeCount))
+    if (type < 0 || type >= static_cast<int>(CLIENTINPUT__TYPECOUNT))
     {
         return 0;
     }
@@ -440,9 +440,9 @@ int enqueue_client_input_message(int type, int x, int y)
         return 0;
     }
     constructor = client_input_resolve(&constructor_slot,
-                                       ClientInputMessageConstructorRva);
+                                       CLIENTINPUTMESSAGE__CONSTRUCTOR);
     add_input =
-        client_input_resolve(&add_input_slot, ClientInputManagerAddInputRva);
+        client_input_resolve(&add_input_slot, CLIENTINPUTMANAGER__ADDINPUT);
     if (!constructor || !add_input)
     {
         client_input_pipeline_state_value = ClientInputPipelineCallablesMissing;
@@ -469,15 +469,15 @@ int enqueue_client_input_message(int type, int x, int y)
     }
     reinterpret_cast<void (*)(void*, int)>(constructor)(message, input_type);
     if (!write_bytes(reinterpret_cast<uintptr_t>(message) +
-                         ClientInputMessageTypeOffset,
+                         CLIENTINPUTMESSAGE__TYPE,
                      &input_type,
                      sizeof(input_type)) ||
         !write_bytes(reinterpret_cast<uintptr_t>(message) +
-                         ClientInputMessageXOffset,
+                         CLIENTINPUTMESSAGE__X,
                      &coordinate_x,
                      sizeof(coordinate_x)) ||
         !write_bytes(reinterpret_cast<uintptr_t>(message) +
-                         ClientInputMessageYOffset,
+                         CLIENTINPUTMESSAGE__Y,
                      &coordinate_y,
                      sizeof(coordinate_y)))
     {
@@ -518,7 +518,7 @@ int set_client_prediction_move_to(int x, int y)
         return 0;
     }
     function = client_input_resolve(
-        &slot, LogicBattleModeClientSetClientPredictionMoveToRva);
+        &slot, LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO);
     if (!function)
     {
         return 0;

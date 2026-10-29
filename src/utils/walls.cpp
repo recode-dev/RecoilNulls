@@ -17,7 +17,7 @@ static constexpr uint64_t WALL_SUBTILE_BITS =
 static constexpr int       WALL_SAMPLE_TILES      = 24;
 static constexpr int       WALL_MASK_OFFSET_COUNT = 3;
 static constexpr uintptr_t WALL_TILE_WINDOW_SIZE =
-    LogicTilePathFinderMaskReadWindowSize;
+    LOGICTILE__PATHFINDERMASKREADWINDOWSIZE;
 static constexpr float WALL_FAR_T = 1.0e30f;
 
 struct wall_tile_window
@@ -28,13 +28,13 @@ struct wall_tile_window
 static uint32_t        wall_movement_bits[WALL_SUBTILE_WORDS];
 static uint32_t        wall_projectile_bits[WALL_TILE_WORDS];
 static const uintptr_t wall_mask_offsets[WALL_MASK_OFFSET_COUNT] = {
-    LogicTilePathFinderMaskOffsetCandidates[0],
-    LogicTilePathFinderMaskOffsetCandidates[1],
-    LogicTilePathFinderMaskOffsetCandidates[2]};
+    LOGICTILE__PATHFINDERMASKCANDIDATES[0],
+    LOGICTILE__PATHFINDERMASKCANDIDATES[1],
+    LOGICTILE__PATHFINDERMASKCANDIDATES[2]};
 static uintptr_t wall_map                  = 0;
 static uintptr_t wall_tiles                = 0;
 static uintptr_t wall_flag_source          = 0;
-static uintptr_t wall_mask_offset          = LogicTilePathFinderMaskOffset;
+static uintptr_t wall_mask_offset          = LOGICTILE__PATHFINDERMASK;
 static uint16_t  wall_flag_value           = 0;
 static int       wall_tiles_w              = 0;
 static int       wall_tiles_h              = 0;
@@ -83,7 +83,7 @@ static int wall_measure_tile_span()
 static uintptr_t wall_window_data(const wall_tile_window* window)
 {
     uintptr_t data = 0;
-    memcpy(&data, window->raw + LogicTileDataOffset, sizeof(data));
+    memcpy(&data, window->raw + LOGICTILE__DATA, sizeof(data));
     return data;
 }
 
@@ -92,9 +92,9 @@ static uint16_t wall_tile_data_flags(uintptr_t tileData)
     uint16_t flags = 0;
     if (!tileData || !pointer_plausible(tileData)) return 0;
     if (tileData == wall_flag_source) return wall_flag_value;
-    if (!read_bytes(tileData + LogicTileDataBlocksMovementOffset,
+    if (!read_bytes(tileData + LOGICTILEDATA__BLOCKSMOVEMENT,
                     &flags,
-                    LogicTileDataBlockFlagsSize))
+                    LOGICTILEDATA__BLOCKFLAGSSIZE))
         return 0;
     wall_flag_source = tileData;
     wall_flag_value  = flags;
@@ -103,7 +103,7 @@ static uint16_t wall_tile_data_flags(uintptr_t tileData)
 
 static int wall_read_tile(uintptr_t tile, wall_tile_window* window)
 {
-    static const uintptr_t* windowSizes = LogicTilePathFinderMaskReadWindows;
+    static const uintptr_t* windowSizes = LOGICTILE__PATHFINDERMASKREADWINDOWS;
     if (!tile || !window) return 0;
     if (read_bytes(tile, window->raw, windowSizes[0])) return 1;
     for (int i = 1; i < 5; i++)
@@ -124,7 +124,7 @@ static uint64_t wall_window_planes(const wall_tile_window* window,
         uint64_t plane = 0;
         memcpy(&plane,
                window->raw + maskOffset +
-                   static_cast<uintptr_t>(i) * LogicTilePathFinderMaskSize,
+                   static_cast<uintptr_t>(i) * LOGICTILE__PATHFINDERMASKSIZE,
                sizeof(plane));
         combined |= plane;
     }
@@ -166,7 +166,7 @@ static int wall_collect(int maskOffset, int planes, int* enginePassable)
             if (!wall_read_tile(tile, &window)) continue;
             flags = wall_tile_data_flags(wall_window_data(&window));
             if (flags & 0xffu) wall_script_blocked_tiles++;
-            if (flags >> LogicTileDataProjectileFlagShift)
+            if (flags >> LOGICTILEDATA__PROJECTILEFLAGSHIFT)
                 wall_bit_raise(wall_projectile_bits, tileIndex);
             if (planes > 0)
             {
@@ -396,7 +396,7 @@ void wall_cache_drop()
     wall_dirty       = 1;
     wall_calibrated  = 0;
     wall_planes      = WALL_MAX_MASK_PLANES;
-    wall_mask_offset = LogicTilePathFinderMaskOffset;
+    wall_mask_offset = LOGICTILE__PATHFINDERMASK;
     wall_fail_ms     = 0;
     wall_next_ms     = 0;
 }
@@ -419,23 +419,23 @@ void wall_cache_bind(uintptr_t tileMap)
         wall_dirty       = 1;
         wall_calibrated  = 0;
         wall_planes      = WALL_MAX_MASK_PLANES;
-        wall_mask_offset = LogicTilePathFinderMaskOffset;
+        wall_mask_offset = LOGICTILE__PATHFINDERMASK;
         wall_fail_ms     = 0;
         wall_next_ms     = 0;
     }
-    if (!read_int(tileMap + static_cast<uintptr_t>(LogicTileMapWidthOffset),
+    if (!read_int(tileMap + static_cast<uintptr_t>(LOGICTILEMAP__WIDTH),
                   &mapW) ||
         mapW <= 0 || mapW > WALL_MAX_MAP_TILES)
     {
         return;
     }
-    if (!read_int(tileMap + static_cast<uintptr_t>(LogicTileMapHeightOffset),
+    if (!read_int(tileMap + static_cast<uintptr_t>(LOGICTILEMAP__HEIGHT),
                   &mapH) ||
         mapH <= 0 || mapH > WALL_MAX_MAP_TILES)
     {
         return;
     }
-    if (!read_ptr(tileMap + static_cast<uintptr_t>(LogicTileMapTileArrayOffset),
+    if (!read_ptr(tileMap + static_cast<uintptr_t>(LOGICTILEMAP__TILEARRAY),
                   &tileArray) ||
         !tileArray)
     {
@@ -451,7 +451,7 @@ void wall_cache_bind(uintptr_t tileMap)
         wall_dirty       = 1;
         wall_calibrated  = 0;
         wall_planes      = WALL_MAX_MASK_PLANES;
-        wall_mask_offset = LogicTilePathFinderMaskOffset;
+        wall_mask_offset = LOGICTILE__PATHFINDERMASK;
     }
 }
 
