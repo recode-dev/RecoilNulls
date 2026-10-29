@@ -203,6 +203,7 @@ static void add_proj(const uint8_t* obj,
         init_proj(st, pid, dataPtr, px, py, now);
         if (st->pid != pid) return;
     }
+    uint64_t prev = st->seen;
     st->seen = now;
     float step_x = px - st->x, step_y = py - st->y;
     float step = sqrtf(step_x * step_x + step_y * step_y);
@@ -215,19 +216,41 @@ static void add_proj(const uint8_t* obj,
     memcpy(&sy, obj + PROJSERVER_STARTY_OFF, sizeof(sy));
     memcpy(&ex, obj + PROJSERVER_ENDX_OFF, sizeof(ex));
     memcpy(&ey, obj + PROJSERVER_ENDY_OFF, sizeof(ey));
+    float vps = 0.0f, vux = 0.0f, vuy = 0.0f;
+    bool have = false;
     int32_t ticks = tk1 - tk0;
     if (ticks > 0 && ticks <= 400)
     {
         float ddx = (float)(ex - sx), ddy = (float)(ey - sy);
         float len = sqrtf(ddx * ddx + ddy * ddy);
-        float vps = len / ((float)ticks * TICK_MS_SEC);
-        if (len > 0.5f && vps > 50.0f && vps < 20000.0f)
+        float cand = len / ((float)ticks * TICK_MS_SEC);
+        if (len > 0.5f && cand > 50.0f && cand < 20000.0f)
         {
-            st->ux = ddx / len;
-            st->uy = ddy / len;
-            st->speed = vps;
-            st->vel = true;
+            vps = cand;
+            vux = ddx / len;
+            vuy = ddy / len;
+            have = true;
         }
+    }
+    if (step > 1.0f)
+    {
+        uint64_t dt = now - prev;
+        float meas = (dt >= 20 && dt <= 400) ? step * 1000.0f / (float)dt : 0.0f;
+        if (meas > 50.0f && meas < 20000.0f &&
+            (!have || fabsf(meas - vps) > vps * 0.3f))
+        {
+            vps = meas;
+            vux = step_x / step;
+            vuy = step_y / step;
+            have = true;
+        }
+    }
+    if (have)
+    {
+        st->ux = vux;
+        st->uy = vuy;
+        st->speed = vps;
+        st->vel = true;
     }
     st->x = px, st->y = py;
     float dx = px - mx, dy = py - my;
