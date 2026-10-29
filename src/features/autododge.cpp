@@ -2,7 +2,6 @@
 #include "../core/commands.h"
 #include "../core/scan.h"
 #include "../core/scstring.h"
-#define PROJ_DATA_BLOCK_SIZE 0x1E8
 #include "../utils/walls.h"
 #include <cmath>
 #include <cstdint>
@@ -44,10 +43,6 @@ constexpr uint64_t CALM_MS = 0;
 constexpr uint64_t SEND_MS = ad::TICK_MS;
 constexpr int MOVE_DELAY_TICKS = 2;
 constexpr uint64_t TURN_HOLD_MS = 0;
-constexpr size_t PROJDATA_TTYPE_OFF = 0x170;
-constexpr size_t PROJDATA_HOMING_OFF = 0x97;
-constexpr size_t PROJDATA_CFG_OFF = 0x10;
-constexpr size_t PROJDATA_RADIUS_OFF = 0xa4;
 constexpr int HOLD_DANGER_STEPS = (int)(TURN_HOLD_MS * 2 / ad::TICK_MS);
 constexpr float AD_SAFETY = 40.0f;
 constexpr uint64_t HUMAN_MS = 200;
@@ -113,20 +108,17 @@ Proj* find_proj(int32_t pid)
 void init_proj(
     Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
 {
-    uint8_t data[PROJ_DATA_BLOCK_SIZE];
+    uint8_t data[PROJDATA_BLOCK_SIZE];
     int32_t radius = 0;
     if (!read_bytes(dataPtr, data, sizeof(data))) return;
     st->homing = false;
     st->ttype = 0;
     memcpy(&radius, data + PROJECTILEDATA_RADIUS_OFF, sizeof(radius));
-    // The object we scan is the client projectile; the config lives behind it
-    // (v36: LogicProjectileClient +0x10 -> LogicProjectileData, speed +0x9c,
-    // radius +0xa4). The client's own +0x6c is a bitstream counter, not speed.
     uintptr_t cfg = 0;
     memcpy(&cfg, data + PROJDATA_CFG_OFF, sizeof(cfg));
     if (cfg && pointer_plausible(cfg))
     {
-        uint8_t cb[0xc0];
+        uint8_t cb[PROJDATA_CFG_BLOCK_SIZE];
         if (read_bytes(cfg, cb, sizeof(cb)))
         {
             int32_t cr = 0, ct = 0;
@@ -144,9 +136,9 @@ void init_proj(
     st->seen = now;
     st->x = px;
     st->y = py;
-    st->speed = 0.0f; /* set from the tick path on the first sample */
+    st->speed = 0.0f;
     st->rad = (float)radius;
-    if (st->homing) st->rad += 80.0f; // curved path: keep extra distance
+    if (st->homing) st->rad += 80.0f;
     st->vel = false;
     st->ux = 0.0f;
     st->uy = 0.0f;
@@ -216,9 +208,6 @@ static void add_proj(const uint8_t* obj,
     float step = sqrtf(step_x * step_x + step_y * step_y);
     ad_proj_sample++;
     if (step > 1.0f) ad_proj_move++;
-    // LogicProjectileServer::getPosAtTick (v69 FUN_100a383ac) walks the shot
-    // from (start_x, start_y) to (end_x, end_y) over (endTick - startTick)
-    // ticks, so one tick of travel IS the velocity - no measurement needed.
     int32_t tk0 = 0, tk1 = 0, sx = 0, sy = 0, ex = 0, ey = 0;
     memcpy(&tk0, obj + PROJSERVER_STARTTICK_OFF, sizeof(tk0));
     memcpy(&tk1, obj + PROJSERVER_ENDTICK_OFF, sizeof(tk1));
@@ -239,14 +228,6 @@ static void add_proj(const uint8_t* obj,
             st->speed = vps;
             st->vel = true;
         }
-    }
-    if (!st->vel && step > 1.0f)
-    {
-        // tick fields did not resolve (unknown subclass): use the observed step
-        st->ux = step_x / step;
-        st->uy = step_y / step;
-        if (st->speed <= 0.0f) st->speed = 1000.0f;
-        st->vel = true;
     }
     st->x = px, st->y = py;
     float dx = px - mx, dy = py - my;
@@ -435,7 +416,6 @@ static float enemy_approach(float mx, float my, float dx, float dy)
         float dot = (dx * ex + dy * ey) / d;
         if (dot <= 0.0f) continue;
         float p = dot * (1.0f - d / APPROACH_R);
-        // close enemy: closing in is a hard veto, it outranks one survival step
         if (d < CLOSE_R && dot > 0.5f) p = 3.0f;
         if (p > worst) worst = p;
     }
