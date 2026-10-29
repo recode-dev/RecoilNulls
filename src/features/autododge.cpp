@@ -12,6 +12,11 @@ int ad_human = 0;
 float ad_dir_x = 1.0f, ad_dir_y = 0.0f;
 int ad_hold_ms = 0, ad_urgent = 0;
 int ad_beam_n = 0, ad_ind_n = 0;
+uintptr_t ad_q_obj = 0;
+uint64_t ad_q_w[8] = {0};
+uint32_t ad_q_ver = 0;
+uint32_t ad_q_i = 0;
+uint32_t ad_proj_sample = 0, ad_proj_move = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int ad_best_dir = -1;
 int ad_char_n = 0, ad_proj_n = 0, ad_enemy_n = 0, ad_threat_n = 0;
@@ -204,6 +209,8 @@ static void add_proj(const uint8_t* obj,
     st->seen = now;
     float step_x = px - st->x, step_y = py - st->y;
     float step = sqrtf(step_x * step_x + step_y * step_y);
+    ad_proj_sample++;
+    if (step > 1.0f) ad_proj_move++;
     if (step > 1.0f)
     {
         st->ux = step_x / step;
@@ -588,6 +595,40 @@ void autododge()
     read_int(own_elem + OBJ_GLOBALID_OFF, &own_gid);
     self_speed = own_speed > 1.0f ? own_speed : 1.0f;
     uint64_t now = us() / 1000;
+    if (ad_q_ver < 2000)
+    {
+        void* mgr = manager();
+        uintptr_t q = 0;
+        if (mgr && read_ptr((uintptr_t)mgr + CI_MGR_QUEUE_OFF, &q) && q)
+        {
+            uint64_t w[8] = {0};
+            if (read_bytes(q, w, sizeof(w)))
+            {
+                bool ch = ad_q_obj != q;
+                uint32_t first = 0;
+                bool have = false;
+                for (int i = 0; i < 8; i++)
+                {
+                    if (ad_q_w[i] != w[i])
+                    {
+                        ch = true;
+                        if (!have)
+                        {
+                            first = (uint32_t)i;
+                            have = true;
+                        }
+                    }
+                }
+                if (ch)
+                {
+                    ad_q_obj = q;
+                    ad_q_i = first;
+                    memcpy(ad_q_w, w, sizeof(w));
+                    ad_q_ver++;
+                }
+            }
+        }
+    }
     float mx = (float)own_x, my = (float)own_y;
     evict_stale(now);
     collect_world(now, own_gid, mx, my);

@@ -238,7 +238,7 @@ void diag_tick()
     }
     line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
          "dir=%s map=%dx%d dodge=%d hit=%d beam=%d ind=%d fd=%d tgt=(%d,%d) "
-         "hu=%d\n",
+         "hu=%d pm=%u/%u\n",
          static_cast<unsigned long>(hz),
          static_cast<unsigned long>(wl_avg),
          static_cast<unsigned long>(wl_max),
@@ -260,7 +260,33 @@ void diag_tick()
          own_aim,
          ad_target_x,
          ad_target_y,
-         ad_human);
+         ad_human,
+         ad_proj_move,
+         ad_proj_sample);
+    ad_proj_move = 0;
+    ad_proj_sample = 0;
+    {
+        static uint32_t q_seen = 0;
+        static uint64_t q_us = 0;
+        static uint32_t q_lines = 0;
+        if (ad_q_ver != q_seen && q_lines < 600 && now_us - q_us > 1000)
+        {
+            q_seen = ad_q_ver;
+            q_us = now_us;
+            q_lines++;
+            line("[q] v=%u i=%u %llx %llx %llx %llx %llx %llx %llx %llx\n",
+                 (unsigned)ad_q_ver,
+                 (unsigned)ad_q_i,
+                 (unsigned long long)ad_q_w[0],
+                 (unsigned long long)ad_q_w[1],
+                 (unsigned long long)ad_q_w[2],
+                 (unsigned long long)ad_q_w[3],
+                 (unsigned long long)ad_q_w[4],
+                 (unsigned long long)ad_q_w[5],
+                 (unsigned long long)ad_q_w[6],
+                 (unsigned long long)ad_q_w[7]);
+        }
+    }
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) r=%.0f d=%.0f "
