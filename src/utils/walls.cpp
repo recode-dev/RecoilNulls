@@ -24,9 +24,8 @@ int wall_passable_at(float x, float y)
     {
         return 0;
     }
-    return game_tile_passable(wall_map,
-                              static_cast<int>(x) / cell,
-                              static_cast<int>(y) / cell);
+    return game_tile_passable(
+        wall_map, static_cast<int>(x) / cell, static_cast<int>(y) / cell);
 }
 
 int wall_blocked_count()
