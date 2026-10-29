@@ -37,6 +37,7 @@ BOOL read_ptr(uintptr_t address, uintptr_t* out);
 void* read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY);
+int game_tile_is_passable_layer(uintptr_t tileMap, int layer, int cellX, int cellY);
 int game_tile_to_logic(int tile);
 int game_logic_to_tile(int unit);
 BOOL find_game_image(uintptr_t* out_base);

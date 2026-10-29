@@ -254,7 +254,7 @@ void* read_global_ptr(uintptr_t rva)
     }
     return value;
 }
-int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
+int game_tile_is_passable_layer(uintptr_t tileMap, int layer, int cellX, int cellY)
 {
     typedef uint8_t (*pass_t)(void*, int, int, int, int, int);
     static pass_t fn = nullptr;
@@ -267,7 +267,11 @@ int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
     {
         return 0;
     }
-    return fn(reinterpret_cast<void*>(tileMap), 1, cellX, cellY, 0, 0);
+    return fn(reinterpret_cast<void*>(tileMap), layer, cellX, cellY, 0, 0);
+}
+int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
+{
+    return game_tile_is_passable_layer(tileMap, 1, cellX, cellY);
 }
 
 int game_tile_to_logic(int tile)
