@@ -242,6 +242,52 @@ void* read_global_ptr(uintptr_t rva)
     }
     return value;
 }
+int game_los(uintptr_t tileMap, int ax, int ay, int bx, int by)
+{
+    typedef int (*los_t)(void*, int, int, int, int);
+    static los_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<los_t>(
+            callable(RVA_LOGIC_TILEMAP_ISPLAYERLINEOFSIGHTCLEAR));
+    }
+    if (!fn || !tileMap)
+    {
+        return 1;
+    }
+    return fn(reinterpret_cast<void*>(tileMap), ax, ay, bx, by);
+}
+
+int game_tile_to_logic(int tile)
+{
+    typedef int (*conv_t)(int);
+    static conv_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<conv_t>(callable(RVA_LOGIC_TILE_TO_LOGIC));
+    }
+    if (!fn)
+    {
+        return 0;
+    }
+    return fn(tile);
+}
+
+int game_logic_to_tile(int unit)
+{
+    typedef int (*conv_t)(int);
+    static conv_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<conv_t>(callable(RVA_LOGIC_LOGIC_TO_TILE));
+    }
+    if (!fn)
+    {
+        return 0;
+    }
+    return fn(unit);
+}
+
 uintptr_t callable(uintptr_t rva)
 {
     if (!base || !rva)

@@ -245,8 +245,8 @@ int wall_is_blocked_at(float x, float y, int mask)
     {
         return 0;
     }
-    tx = static_cast<int>(x / WALL_TILE_SIZE);
-    ty = static_cast<int>(y / WALL_TILE_SIZE);
+    tx = game_logic_to_tile(static_cast<int>(x));
+    ty = game_logic_to_tile(static_cast<int>(y));
     if (tx < 0 || tx >= wall_w || ty < 0 || ty >= wall_h)
     {
         return 0;
@@ -283,73 +283,19 @@ int wall_is_blocked_wide(float x, float y, float r, int mask)
     return 0;
 }
 
-int wall_los(float ax, float ay, float bx, float by, int mask)
+int wall_los(float ax, float ay, float bx, float by)
 {
-    int cx = 0;
-    int cy = 0;
-    int tx = 0;
-    int ty = 0;
-    int dx = 0;
-    int dy = 0;
-    int sx = 0;
-    int sy = 0;
-    int err = 0;
-    int steps = 0;
-    int n = 0;
-    if (!wall_have)
+    if (!wall_map)
     {
         return 1;
     }
-    cx = static_cast<int>(ax / WALL_TILE_SIZE);
-    cy = static_cast<int>(ay / WALL_TILE_SIZE);
-    tx = static_cast<int>(bx / WALL_TILE_SIZE);
-    ty = static_cast<int>(by / WALL_TILE_SIZE);
-    if (cx == tx && cy == ty)
-    {
-        return 1;
-    }
-    dx = tx - cx;
-    if (dx < 0)
-    {
-        dx = -dx;
-    }
-    dy = ty - cy;
-    if (dy < 0)
-    {
-        dy = -dy;
-    }
-    dy = -dy;
-    sx = cx < tx ? 1 : -1;
-    sy = cy < ty ? 1 : -1;
-    err = dx + dy;
-    steps = dx - dy + 2;
-    for (n = 0; n < steps; n++)
-    {
-        int e2 = 2 * err;
-        if (e2 >= dy)
-        {
-            err += dy;
-            cx += sx;
-        }
-        if (e2 <= dx)
-        {
-            err += dx;
-            cy += sy;
-        }
-        if (cx == tx && cy == ty)
-        {
-            return 1;
-        }
-        if (cx < 0 || cx >= wall_w || cy < 0 || cy >= wall_h)
-        {
-            continue;
-        }
-        if (wall_grid[cy * wall_w + cx] & mask)
-        {
-            return 0;
-        }
-    }
-    return 1;
+    return game_los(wall_map,
+                    static_cast<int>(ax),
+                    static_cast<int>(ay),
+                    static_cast<int>(bx),
+                    static_cast<int>(by))
+               ? 1
+               : 0;
 }
 
 int32_t axis(float v, int tiles)

@@ -36,6 +36,9 @@ BOOL read_ptr(uintptr_t address, void** out);
 BOOL read_ptr(uintptr_t address, uintptr_t* out);
 void* read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
+int game_los(uintptr_t tileMap, int ax, int ay, int bx, int by);
+int game_tile_to_logic(int tile);
+int game_logic_to_tile(int unit);
 BOOL find_game_image(uintptr_t* out_base);
 void poll_for_game(int tick);
 static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)

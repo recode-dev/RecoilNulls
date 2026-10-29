@@ -16,7 +16,7 @@ void wall_bind(uintptr_t tileMap);
 int wall_maybe_refresh(uint64_t now_ms);
 int wall_is_blocked_at(float x, float y, int mask);
 int wall_is_blocked_wide(float x, float y, float r, int mask);
-int wall_los(float ax, float ay, float bx, float by, int mask);
+int wall_los(float ax, float ay, float bx, float by);
 int32_t axis(float v, int tiles);
 float wall_pull(float mx, float my, float dx, float dy, float radius);
 #endif
