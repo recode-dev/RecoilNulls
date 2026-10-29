@@ -6,8 +6,6 @@
 #include "../core/offsets.h"
 #include "../core/scan.h"
 
-static constexpr int WALL_MASK_PLANES = 4;
-static constexpr int WALL_SAMPLE_TILES = 24;
 static constexpr int WALL_BITS_PER_TILE =
     WALL_SUBTILES_PER_TILE * WALL_SUBTILES_PER_TILE;
 static constexpr int WALL_SUBTILE_TOTAL =
@@ -15,20 +13,24 @@ static constexpr int WALL_SUBTILE_TOTAL =
 static constexpr int WALL_SUBTILE_WORDS = (WALL_SUBTILE_TOTAL + 31) / 32;
 static constexpr int WALL_TILE_WORDS = (WALL_MAX_TOTAL_TILES + 31) / 32;
 static constexpr uint64_t WALL_SUBTILE_BITS = 0x1ffULL;
+static constexpr int WALL_SAMPLE_TILES = 24;
+static constexpr int WALL_MASK_OFFSET_COUNT = 3;
+static constexpr uintptr_t WALL_TILE_WINDOW_SIZE = 0x40;
 static constexpr float WALL_FAR_T = 1.0e30f;
 
 struct wall_tile_window
 {
-    uintptr_t data;
-    uint64_t planes[WALL_MASK_PLANES];
+    uint8_t raw[WALL_TILE_WINDOW_SIZE];
 };
 
 static uint32_t wall_movement_bits[WALL_SUBTILE_WORDS];
 static uint32_t wall_projectile_bits[WALL_TILE_WORDS];
-static uintptr_t wall_pointers[WALL_MAX_TOTAL_TILES];
+static const uintptr_t wall_mask_offsets[WALL_MASK_OFFSET_COUNT] = {
+    static_cast<uintptr_t>(LOGIC_TILE_MASK_ARRAY_OFF), 0x08ULL, 0x18ULL};
 static uintptr_t wall_map = 0;
 static uintptr_t wall_tiles = 0;
 static uintptr_t wall_flag_source = 0;
+static uintptr_t wall_mask_offset = LOGIC_TILE_MASK_ARRAY_OFF;
 static uint16_t wall_flag_value = 0;
 static int wall_tiles_w = 0;
 static int wall_tiles_h = 0;
@@ -38,7 +40,8 @@ static int wall_tile_span = 0;
 static int wall_subtile_span = 0;
 static int wall_have = 0;
 static int wall_dirty = 1;
-static int wall_planes = WALL_MASK_PLANES;
+static int wall_planes = WALL_MAX_MASK_PLANES;
+static int wall_calibrated = 0;
 static int wall_blocked_tiles = 0;
 static int wall_script_blocked_tiles = 0;
 static uint64_t wall_fail_ms = 0;
@@ -66,10 +69,18 @@ static inline int wall_subtile_index(int subX, int subY)
 static int wall_measure_tile_span()
 {
     int span = game_tile_to_logic(1) - game_tile_to_logic(0);
-    if (span <= 0 || span % WALL_SUBTILES_PER_TILE) return 0;
+    if (span <= 0) return 0;
+    if (span % WALL_SUBTILES_PER_TILE) return 0;
     wall_tile_span = span;
     wall_subtile_span = span / WALL_SUBTILES_PER_TILE;
     return 1;
+}
+
+static uintptr_t wall_window_data(const wall_tile_window* window)
+{
+    uintptr_t data = 0;
+    memcpy(&data, window->raw + LOGIC_TILE_DATA_POINTER_OFF, sizeof(data));
+    return data;
 }
 
 static uint16_t wall_tile_data_flags(uintptr_t tileData)
@@ -86,37 +97,39 @@ static uint16_t wall_tile_data_flags(uintptr_t tileData)
 
 static int wall_read_tile(uintptr_t tile, wall_tile_window* window)
 {
-    uint8_t raw[LOGIC_TILE_MASK_ARRAY_OFF +
-                WALL_MASK_PLANES * LOGIC_TILE_MASK_PLANE_SIZE];
-    int length = static_cast<int>(sizeof(raw));
+    static const uintptr_t windowSizes[5] = {0x40ULL, 0x38ULL, 0x30ULL, 0x28ULL,
+                                             0x20ULL};
     if (!tile || !window) return 0;
-    if (!read_bytes(tile, raw, sizeof(raw)))
+    for (int i = 0; i < 5; i++)
     {
-        memset(raw, 0, sizeof(raw));
-        length -= static_cast<int>(LOGIC_TILE_MASK_PLANE_SIZE);
-        if (!read_bytes(tile, raw, static_cast<size_t>(length))) return 0;
+        memset(window->raw, 0, WALL_TILE_WINDOW_SIZE);
+        if (read_bytes(tile, window->raw, windowSizes[i])) return 1;
     }
-    memcpy(
-        &window->data, raw + LOGIC_TILE_DATA_POINTER_OFF, sizeof(window->data));
-    memcpy(window->planes,
-           raw + LOGIC_TILE_MASK_ARRAY_OFF,
-           sizeof(window->planes));
-    return 1;
+    return 0;
 }
 
-static uint64_t wall_plane_union(const wall_tile_window* window, int planes)
+static uint64_t wall_window_planes(const wall_tile_window* window,
+                                   uintptr_t maskOffset,
+                                   int planes)
 {
     uint64_t combined = 0;
     for (int i = 0; i < planes; i++)
     {
-        combined |= window->planes[i];
+        uint64_t plane = 0;
+        memcpy(&plane,
+               window->raw + maskOffset +
+                   static_cast<uintptr_t>(i) * LOGIC_TILE_MASK_PLANE_SIZE,
+               sizeof(plane));
+        combined |= plane;
     }
     return combined;
 }
 
-static void wall_build_planes(int planes)
+static int wall_collect(int maskOffset, int planes, int* enginePassable)
 {
-    int total = wall_tiles_w * wall_tiles_h;
+    int width = wall_tiles_w;
+    int height = wall_tiles_h;
+    int total = width * height;
     int layerShift = WALL_PATHFINDER_LAYER * WALL_BITS_PER_TILE;
     memset(wall_movement_bits, 0, sizeof(wall_movement_bits));
     memset(wall_projectile_bits, 0, sizeof(wall_projectile_bits));
@@ -124,58 +137,65 @@ static void wall_build_planes(int planes)
     wall_flag_value = 0;
     wall_blocked_tiles = 0;
     wall_script_blocked_tiles = 0;
-    for (int i = 0; i < total; i++)
+    for (int base = 0; base < total; base += WALL_POINTER_CHUNK)
     {
-        uintptr_t tile = 0;
-        wall_tile_window window;
-        uint16_t flags = 0;
-        uint32_t subtiles = 0;
-        memcpy(&tile,
-               reinterpret_cast<const uint8_t*>(wall_pointers) +
-                   static_cast<size_t>(i) * sizeof(uintptr_t),
-               sizeof(tile));
-        if (!tile || !pointer_plausible(tile) || !wall_read_tile(tile, &window))
-            continue;
-        flags = wall_tile_data_flags(window.data);
-        if (flags & 0xffu) wall_script_blocked_tiles++;
-        if (flags >> 8) wall_bit_raise(wall_projectile_bits, i);
-        if (planes > 0)
+        uintptr_t pointers[WALL_POINTER_CHUNK];
+        int count = total - base;
+        if (count > WALL_POINTER_CHUNK) count = WALL_POINTER_CHUNK;
+        if (!read_bytes(wall_tiles + static_cast<uintptr_t>(base) *
+                                        sizeof(uintptr_t),
+                        pointers,
+                        static_cast<size_t>(count) * sizeof(uintptr_t)))
         {
-            subtiles = static_cast<uint32_t>(
-                (wall_plane_union(&window, planes) >> layerShift) &
-                WALL_SUBTILE_BITS);
+            return -1;
         }
-        else if (flags & 0xffu)
+        for (int index = 0; index < count; index++)
         {
-            subtiles = static_cast<uint32_t>(WALL_SUBTILE_BITS);
-        }
-        if (!subtiles) continue;
-        wall_blocked_tiles++;
-        for (int bit = 0; bit < WALL_BITS_PER_TILE; bit++)
-        {
-            if ((subtiles >> bit) & 1u)
+            int tileIndex = base + index;
+            uintptr_t tile = pointers[index];
+            wall_tile_window window;
+            uint16_t flags = 0;
+            uint32_t subtiles = 0;
+            if (!tile || !pointer_plausible(tile)) continue;
+            if (!wall_read_tile(tile, &window)) continue;
+            flags = wall_tile_data_flags(wall_window_data(&window));
+            if (flags & 0xffu) wall_script_blocked_tiles++;
+            if (flags >> 8) wall_bit_raise(wall_projectile_bits, tileIndex);
+            if (planes > 0)
             {
-                wall_bit_raise(wall_movement_bits,
-                               i * WALL_BITS_PER_TILE + bit);
+                subtiles = static_cast<uint32_t>(
+                    (wall_window_planes(&window, maskOffset, planes) >>
+                     layerShift) &
+                    WALL_SUBTILE_BITS);
+            }
+            else if (flags & 0xffu)
+            {
+                subtiles = static_cast<uint32_t>(WALL_SUBTILE_BITS);
+            }
+            if (!subtiles) continue;
+            wall_blocked_tiles++;
+            for (int bit = 0; bit < WALL_BITS_PER_TILE; bit++)
+            {
+                if ((subtiles >> bit) & 1u)
+                {
+                    wall_bit_raise(wall_movement_bits,
+                                   tileIndex * WALL_BITS_PER_TILE + bit);
+                }
             }
         }
     }
-}
-
-static int wall_count_mismatches(int* enginePassable)
-{
-    int width = wall_tiles_w;
-    int total = width * wall_tiles_h;
-    int stride = total / WALL_SAMPLE_TILES;
+    int width2 = wall_tiles_w;
+    int total2 = width2 * height;
+    int stride = total2 / WALL_SAMPLE_TILES;
     int mismatches = 0;
     int sampled = 0;
     int passable = 0;
     if (stride < 1) stride = 1;
-    for (int i = 0; i < total && sampled < WALL_SAMPLE_TILES;
+    for (int i = 0; i < total2 && sampled < WALL_SAMPLE_TILES;
          i += stride, sampled++)
     {
-        int baseX = (i % width) * WALL_SUBTILES_PER_TILE;
-        int baseY = (i / width) * WALL_SUBTILES_PER_TILE;
+        int baseX = (i % width2) * WALL_SUBTILES_PER_TILE;
+        int baseY = (i / width2) * WALL_SUBTILES_PER_TILE;
         for (int sy = 0; sy < WALL_SUBTILES_PER_TILE; sy++)
         {
             for (int sx = 0; sx < WALL_SUBTILES_PER_TILE; sx++)
@@ -194,12 +214,36 @@ static int wall_count_mismatches(int* enginePassable)
     return mismatches;
 }
 
-static int wall_planes_match_engine(int planes)
+static int wall_calibrate()
 {
     int passable = 0;
-    wall_build_planes(planes);
-    if (wall_count_mismatches(&passable) == 0) return 1;
-    return !passable;
+    int mismatches = wall_collect(wall_mask_offset, wall_planes, &passable);
+    if (mismatches < 0) return 0;
+    if (mismatches == 0 && passable > 0) return 1;
+    for (int offsetIndex = 0; offsetIndex < WALL_MASK_OFFSET_COUNT; offsetIndex++)
+    {
+        for (int planes = WALL_MAX_MASK_PLANES; planes >= 1; planes--)
+        {
+            if (wall_mask_offsets[offsetIndex] == wall_mask_offset &&
+                planes == wall_planes)
+            {
+                continue;
+            }
+            mismatches = wall_collect(wall_mask_offsets[offsetIndex],
+                                      planes,
+                                      &passable);
+            if (mismatches < 0) return 0;
+            if (mismatches == 0 && passable > 0)
+            {
+                wall_mask_offset = wall_mask_offsets[offsetIndex];
+                wall_planes = planes;
+                return 1;
+            }
+        }
+    }
+    wall_planes = 0;
+    mismatches = wall_collect(wall_mask_offset, wall_planes, &passable);
+    return mismatches >= 0 ? 1 : 0;
 }
 
 static int wall_subtile_of(float x, float y, int* outX, int* outY)
@@ -320,6 +364,16 @@ int wall_cache_height()
     return wall_h;
 }
 
+int wall_cache_mask_offset()
+{
+    return static_cast<int>(wall_mask_offset);
+}
+
+int wall_cache_mask_planes()
+{
+    return wall_planes;
+}
+
 void wall_cache_drop()
 {
     wall_tiles = 0;
@@ -330,6 +384,9 @@ void wall_cache_drop()
     wall_h = 0;
     wall_have = 0;
     wall_dirty = 1;
+    wall_calibrated = 0;
+    wall_planes = WALL_MAX_MASK_PLANES;
+    wall_mask_offset = LOGIC_TILE_MASK_ARRAY_OFF;
     wall_fail_ms = 0;
     wall_next_ms = 0;
 }
@@ -350,6 +407,9 @@ void wall_cache_bind(uintptr_t tileMap)
         wall_h = 0;
         wall_have = 0;
         wall_dirty = 1;
+        wall_calibrated = 0;
+        wall_planes = WALL_MAX_MASK_PLANES;
+        wall_mask_offset = LOGIC_TILE_MASK_ARRAY_OFF;
         wall_fail_ms = 0;
         wall_next_ms = 0;
     }
@@ -379,39 +439,34 @@ void wall_cache_bind(uintptr_t tileMap)
         wall_tiles_h = mapH;
         wall_have = 0;
         wall_dirty = 1;
+        wall_calibrated = 0;
+        wall_planes = WALL_MAX_MASK_PLANES;
+        wall_mask_offset = LOGIC_TILE_MASK_ARRAY_OFF;
     }
 }
 
 int wall_cache_build()
 {
-    int width = wall_tiles_w;
-    int height = wall_tiles_h;
-    int chosen = -1;
+    int built = 0;
     if (!wall_tiles || !wall_measure_tile_span()) return 0;
-    if (width <= 0 || width > WALL_MAX_MAP_TILES) return 0;
-    if (height <= 0 || height > WALL_MAX_MAP_TILES) return 0;
-    if (!read_bytes(wall_tiles,
-                    wall_pointers,
-                    static_cast<size_t>(width * height) * sizeof(uintptr_t)))
+    if (wall_tiles_w <= 0 || wall_tiles_w > WALL_MAX_MAP_TILES) return 0;
+    if (wall_tiles_h <= 0 || wall_tiles_h > WALL_MAX_MAP_TILES) return 0;
+    wall_have = 0;
+    wall_w = wall_tiles_w;
+    wall_h = wall_tiles_h;
+    if (!wall_calibrated)
+    {
+        built = wall_calibrate();
+        wall_calibrated = built;
+    }
+    else
+    {
+        built = wall_collect(wall_mask_offset, wall_planes, nullptr) >= 0;
+    }
+    if (!built)
     {
         return 0;
     }
-    wall_have = 0;
-    wall_w = width;
-    wall_h = height;
-    if (wall_planes > 0 && wall_planes_match_engine(wall_planes))
-        chosen = wall_planes;
-    for (int planes = WALL_MASK_PLANES; chosen < 0 && planes > 0; planes--)
-    {
-        if (planes != wall_planes && wall_planes_match_engine(planes))
-            chosen = planes;
-    }
-    if (chosen < 0)
-    {
-        wall_build_planes(0);
-        chosen = 0;
-    }
-    wall_planes = chosen;
     wall_have = 1;
     wall_dirty = 0;
     return 1;
@@ -420,9 +475,7 @@ int wall_cache_build()
 int wall_cache_refresh_if_stale(uint64_t now_ms)
 {
     if (!wall_dirty && now_ms < wall_next_ms) return 0;
-    if (wall_fail_ms &&
-        now_ms - wall_fail_ms < static_cast<uint64_t>(WALL_RETRY_MS))
-        return 0;
+    if (wall_fail_ms && now_ms - wall_fail_ms < WALL_RETRY_MS) return 0;
     if (!wall_cache_build())
     {
         wall_dirty = 1;
@@ -430,7 +483,7 @@ int wall_cache_refresh_if_stale(uint64_t now_ms)
         wall_next_ms = 0;
         return 0;
     }
-    wall_next_ms = now_ms + static_cast<uint64_t>(WALL_REFRESH_MS);
+    wall_next_ms = now_ms + WALL_REFRESH_MS;
     return 1;
 }
 
