@@ -423,7 +423,8 @@ int val_client_input(uintptr_t clientPtr)
         vf("CLIENTINPUTMESSAGE_X/Y_OFF", false, "read failed");
     }
     vf("CLIENT_INPUT_MESSAGE_CHECKSUM_OFF",
-       read_bytes(message + CLIENT_INPUT_MESSAGE_CHECKSUM_OFF, token, sizeof(token)),
+       read_bytes(
+           message + CLIENT_INPUT_MESSAGE_CHECKSUM_OFF, token, sizeof(token)),
        "hash=%02x%02x%02x%02x",
        token[0],
        token[1],
@@ -433,8 +434,9 @@ int val_client_input(uintptr_t clientPtr)
        addr_readable(message + CLIENT_INPUT_SKILL_DATA_OFF, 8),
        "readable");
     vf("CLIENT_INPUT_MESSAGE_SIGNED_OFF",
-       addr_readable(
-           message + CLIENT_INPUT_MESSAGE_CHECKSUM_OFF + CLIENT_INPUT_MESSAGE_SIGNED_OFF, 4),
+       addr_readable(message + CLIENT_INPUT_MESSAGE_CHECKSUM_OFF +
+                         CLIENT_INPUT_MESSAGE_SIGNED_OFF,
+                     4),
        "readable");
     return 1;
 }

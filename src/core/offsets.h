@@ -106,7 +106,8 @@ inline constexpr uint64_t CLIENT_INPUT_TABLE_TO_OUTER_MASK_DISTANCE =
 static_assert(CLIENT_INPUT_MESSAGE_CHECKSUM_OFF + sizeof(uint32_t) <=
                   CLIENT_INPUT_MESSAGE_SIZE,
               "checksum leaves the allocated message");
-static_assert(CLIENT_INPUT_MESSAGE_SIGNED_OFF + CLIENT_INPUT_MESSAGE_SIGNED_SIZE <=
+static_assert(CLIENT_INPUT_MESSAGE_SIGNED_OFF +
+                      CLIENT_INPUT_MESSAGE_SIGNED_SIZE <=
                   CLIENT_INPUT_MESSAGE_SIZE,
               "signed span leaves the allocated message");
 static_assert(CLIENT_INPUT_MESSAGE_PROBE_SIZE >= CLIENT_INPUT_MESSAGE_SIZE,

@@ -309,8 +309,7 @@ static int client_input_message_is_valid(void* memory, size_t size)
 void* allocate_client_input_message()
 {
     void* memory = malloc(CLIENT_INPUT_MESSAGE_SIZE);
-    if (!client_input_message_is_valid(memory,
-                                       CLIENT_INPUT_MESSAGE_SIZE))
+    if (!client_input_message_is_valid(memory, CLIENT_INPUT_MESSAGE_SIZE))
     {
         free(memory);
         return nullptr;
