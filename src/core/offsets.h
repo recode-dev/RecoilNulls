@@ -88,6 +88,11 @@ inline constexpr uint64_t LOGICMATH__SQRT                        = 0xbd000cULL;
 inline constexpr uint64_t LOGICMATH__SIN                         = 0xbcfec0ULL;
 inline constexpr uint64_t LOGICMATH__GETANGLE                    = 0xbd021cULL;
 inline constexpr uint64_t LOGICMATH__GETDISTANCESQUARETOLINE     = 0xbd0424ULL;
+inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN  = 0xaf6838ULL;
+inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN =
+    0xaf7198ULL;
+inline constexpr uint64_t LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE =
+    0xaf53c4ULL;
 inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTRAVELTICKS  = 0xa3192cULL;
 
 inline constexpr uint64_t CLIENTINPUT__TYPETABLE            = 0xe1bd30ULL;

@@ -90,23 +90,54 @@ float math_distance_to_line(
     return static_cast<float>(math_sqrt(sq));
 }
 
-float math_hypot(float x, float y)
+int game_distance(int x1, int y1, int x2, int y2)
 {
-    float sq = x * x + y * y;
-    if (sq < 1.0f)
+    static uintptr_t slot = 0;
+    if (!slot)
     {
-        sq = 1.0f;
+        slot = callable_at_rva(LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN);
     }
-    return static_cast<float>(math_sqrt(static_cast<int>(sq + 0.5f)));
+    if (!slot)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int (*)(int, int, int, int)>(slot)(x1, y1, x2, y2);
 }
 
-float math_sqrt_of(float value)
+int game_distance_sq(int x1, int y1, int x2, int y2)
 {
-    if (value < 1.0f)
+    static uintptr_t slot = 0;
+    if (!slot)
     {
-        value = 1.0f;
+        slot = callable_at_rva(LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN);
     }
-    return static_cast<float>(math_sqrt(static_cast<int>(value + 0.5f)));
+    if (!slot)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int (*)(int, int, int, int)>(slot)(x1, y1, x2, y2);
+}
+
+int game_segment_hits_circle(int         x1,
+                             int         y1,
+                             int         x2,
+                             int         y2,
+                             int         cx,
+                             int         cy,
+                             int         radius,
+                             int*        out)
+{
+    static uintptr_t slot = 0;
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE);
+    }
+    if (!slot)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int (*)(int, int, int, int, int, int, int, int*)>(
+        slot)(x1, y1, x2, y2, cx, cy, radius, out);
 }
 
 float math_sin_f(float radians)
@@ -281,7 +312,7 @@ static void add_character_entry(
     ad_enemy_x[k]      = (float) xi;
     ad_enemy_y[k]      = (float) yi;
     ad_enemy_hp[k]     = hp;
-    ad_enemy_d[k]      = math_hypot(ex, ey);
+    ad_enemy_d[k]      = (float) game_distance(0, 0, (int) ex, (int) ey);
     ad_enemy_aim[k]    = aim;
     int32_t charge     = 0;
     int32_t chargeMode = 0;
@@ -367,7 +398,8 @@ static void add_projectile_threat(const uint8_t* obj,
     }
     st->seen     = now;
     float step_x = px - st->x, step_y = py - st->y;
-    float step = math_hypot(step_x, step_y);
+    float step =
+        (float) game_distance((int) st->x, (int) st->y, (int) px, (int) py);
     ad_proj_sample++;
     if (step > 1.0f) ad_proj_move++;
     int32_t dataSpeed = 0;
@@ -406,7 +438,7 @@ static void add_projectile_threat(const uint8_t* obj,
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
-    if (dx * dx + dy * dy > zone2) return;
+    if ((float) game_distance_sq(0, 0, (int) dx, (int) dy) > zone2) return;
     if (st->flags & B_IND) ad_ind_n++;
     if (!(st->flags & (B_IND | B_PIERCE)) &&
         !wall_line_of_sight_clear(px, py, mx, my))
@@ -415,20 +447,24 @@ static void add_projectile_threat(const uint8_t* obj,
     if (vv <= 0.0f) return;
     float rad = st->rad + own_hitbox + AD_SAFETY;
     if (st->flags & B_BOUNCE) rad += own_hitbox * 0.5f;
-    float   dist    = math_hypot(dx, dy);
+    float   dist    = (float) game_distance(0, 0, (int) dx, (int) dy);
     int32_t arrival = game_projectile_travel_ticks(
         st->data, (int) (dist + 0.5f), (int) (st->speed + 0.5f));
     if (arrival < 1) return;
     float tt = (float) arrival * TICK_MS_SEC;
     if (tt > THREAT_HORIZON) return;
-    float ttc = -(dx * vx + dy * vy) / vv;
-    if (ttc < 0.0f)
     {
-        if (dist > rad) return;
-        ttc = 0.0f;
+        int32_t hit[2] = {0, 0};
+        if (!game_segment_hits_circle((int) px,
+                                      (int) py,
+                                      (int) (px + vx * tt),
+                                      (int) (py + vy * tt),
+                                      (int) mx,
+                                      (int) my,
+                                      (int) (rad + 0.5f),
+                                      hit))
+            return;
     }
-    float miss_x = dx + vx * ttc, miss_y = dy + vy * ttc;
-    if (miss_x * miss_x + miss_y * miss_y > rad * rad) return;
     for (int k = 0; k < threat_n; k++)
     {
         if (fabsf(threats[k].x - px) < 1.0f &&
@@ -611,7 +647,7 @@ static void prepare_direction_costs(float mx, float my)
         float ex = ad_enemy_x[i] - mx, ey = ad_enemy_y[i] - my;
         cost_enemy_dx[i]   = ex;
         cost_enemy_dy[i]   = ey;
-        cost_enemy_dist[i] = math_hypot(ex, ey);
+        cost_enemy_dist[i] = (float) game_distance(0, 0, (int) ex, (int) ey);
     }
     cost_threat_count = threat_n < THREAT_MAX ? threat_n : THREAT_MAX;
     for (int i = 0; i < cost_threat_count; i++)
@@ -622,7 +658,7 @@ static void prepare_direction_costs(float mx, float my)
         cost_threat_ry[i] = my - t.y;
         if (vv >= 1e-6f)
         {
-            float iv              = 1.0f / math_sqrt_of(vv);
+            float iv = 1.0f / (float) game_distance(0, 0, (int) t.vx, (int) t.vy);
             cost_threat_ux[i]     = t.vx * iv;
             cost_threat_uy[i]     = t.vy * iv;
             cost_threat_moving[i] = 1;
@@ -714,7 +750,8 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
             float tk = step_time[k];
             float ex = t.x + t.vx * tk - step_x[k];
             float ey = t.y + t.vy * tk - step_y[k];
-            if (ex * ex + ey * ey < r2) hit = k;
+            if ((float) game_distance_sq(0, 0, (int) ex, (int) ey) < r2)
+                hit = k;
         }
         if (hit)
         {
@@ -928,7 +965,7 @@ void update_autododge()
     if (pend_dmg) report_incoming_hit(mx, my, commit_x, commit_y);
     {
         float mvx = (float) (own_x - prev_x), mvy = (float) (own_y - prev_y);
-        float mv = math_hypot(mvx, mvy);
+        float mv = (float) game_distance(0, 0, (int) mvx, (int) mvy);
         prev_x = own_x, prev_y = own_y;
         if (mv > 1.0f)
         {
@@ -1060,7 +1097,8 @@ void fill_autododge_report(float mx, float my, float dx, float dy)
         ad_threat_r[s]   = t.rad;
         ad_threat_ca[s]  = bc;
         ad_threat_ttc[s] = t.tt;
-        ad_threat_d[s]   = math_hypot(t.x - mx, t.y - my);
+        ad_threat_d[s]   = (float) game_distance(
+            (int) t.x, (int) t.y, (int) mx, (int) my);
         memcpy(ad_threat_name[s], t.name, sizeof(ad_threat_name[s]));
         ad_threat_name[s][sizeof(ad_threat_name[s]) - 1] = '\0';
     }
