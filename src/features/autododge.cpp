@@ -56,6 +56,8 @@ constexpr float AXIS_INTO = 0.35f;
 constexpr float WEIGHT_APPROACH = 2000.0f;
 constexpr float APPROACH_R = 2400.0f;
 constexpr float HOT_CLEAR = 420.0f;
+constexpr float CLOSE_R = 1200.0f;
+constexpr float COMMIT_BONUS = 3.0f;
 constexpr float BORDER_PAD = 60.0f;
 constexpr float EDGE_ZONE = 300.0f;
 constexpr float WEIGHT_EDGE = 1600.0f;
@@ -403,6 +405,8 @@ static float enemy_approach(float mx, float my, float dx, float dy)
         float dot = (dx * ex + dy * ey) / d;
         if (dot <= 0.0f) continue;
         float p = dot * (1.0f - d / APPROACH_R);
+        // close enemy: closing in is a hard veto, it outranks one survival step
+        if (d < CLOSE_R && dot > 0.5f) p = 3.0f;
         if (p > worst) worst = p;
     }
     return worst;
@@ -493,7 +497,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         float dx = cosf(a), dy = sinf(a);
         int steps = 0;
         float v = dir_value(mx, my, dx, dy, steps);
-        if (has) v += own_hitbox * 8.0f * (dx * commit_x + dy * commit_y);
+        if (has) v += own_hitbox * COMMIT_BONUS * (dx * commit_x + dy * commit_y);
         val[i] = v;
         if (v > best)
         {
@@ -514,7 +518,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         float rdx = cosf(ra), rdy = sinf(ra);
         int steps = 0;
         float v = dir_value(mx, my, rdx, rdy, steps);
-        if (has) v += own_hitbox * 8.0f * (rdx * commit_x + rdy * commit_y);
+        if (has) v += own_hitbox * COMMIT_BONUS * (rdx * commit_x + rdy * commit_y);
         if (v > best)
         {
             best = v, a = ra, best_steps = steps;
@@ -527,14 +531,14 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     {
         int cur = 0;
         float cur_val =
-            dir_value(mx, my, commit_x, commit_y, cur) + own_hitbox * 8.0f;
+            dir_value(mx, my, commit_x, commit_y, cur) + own_hitbox * COMMIT_BONUS;
         bool better = best_steps > cur;
         bool die_fast = better && cur > 0 && cur <= HOLD_DANGER_STEPS;
         bool walled =
             better && free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
                           own_hitbox * 2.0f;
         bool held = now - turn_ms < TURN_HOLD_MS;
-        bool gain = best > cur_val + own_hitbox * 2.0f;
+        bool gain = best > cur_val + own_hitbox * 0.5f;
         if (die_fast || walled)
         {
             ad_urgent = 1;
