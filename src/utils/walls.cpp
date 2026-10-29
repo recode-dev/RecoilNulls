@@ -1,6 +1,9 @@
 #include "walls.h"
-#include "../core/scan.h"
+
 #include <cmath>
+#include <cstring>
+
+#include "../core/scan.h"
 
 static uint8_t wall_grid[WALL_MAX_TOTAL_TILES];
 static uintptr_t wall_tiles = 0;
@@ -12,6 +15,8 @@ static int wall_have = 0;
 static uintptr_t wall_map = 0;
 static int wall_dirty = 1;
 static uint64_t wall_fail_ms = 0;
+static uintptr_t wall_raw[WALL_MAX_TOTAL_TILES];
+static int wall_engine_blocked = 0;
 
 int wall_passable_at(float x, float y)
 {
@@ -126,6 +131,7 @@ int wall_build()
     int total = 0;
     int i = 0;
     wall_have = 0;
+    wall_engine_blocked = 0;
     if (!wall_tiles)
     {
         return 0;
@@ -143,13 +149,43 @@ int wall_build()
     {
         return 0;
     }
+    if (!read_bytes(wall_tiles, wall_raw,
+                    static_cast<size_t>(total) * sizeof(uintptr_t)))
+    {
+        return 0;
+    }
     for (i = 0; i < total; i++)
     {
-        int tx = i % width;
-        int ty = i / width;
-        wall_grid[i] = game_tile_passable(wall_map, tx * 3 + 1, ty * 3 + 1)
-                           ? 0
-                           : WALL_BLOCKS_MOVEMENT;
+        uintptr_t tile = 0;
+        uintptr_t type = 0;
+        uint32_t flags = 0;
+        wall_grid[i] = 0;
+        memcpy(&tile,
+               wall_raw + static_cast<size_t>(i) * sizeof(uintptr_t),
+               sizeof(uintptr_t));
+        if (!tile || !pointer_plausible(tile) || !read_ptr(tile, &type))
+        {
+            continue;
+        }
+        if (!type || !pointer_plausible(type))
+        {
+            continue;
+        }
+        if (!read_bytes(type + LOGICTILEDATA_FLAGS_OFF,
+                        &flags,
+                        sizeof(flags)))
+        {
+            continue;
+        }
+        if (flags & 0x01010000u)
+        {
+            wall_grid[i] = WALL_BLOCKS_MOVEMENT;
+        }
+        if (!game_tile_passable(wall_map, (i % width) * 3 + 1,
+                                (i / width) * 3 + 1))
+        {
+            wall_engine_blocked++;
+        }
     }
     wall_w = width;
     wall_h = height;
@@ -228,17 +264,75 @@ int wall_is_blocked_wide(float x, float y, float r)
 
 int wall_los(float ax, float ay, float bx, float by)
 {
-    if (!wall_map)
+    int cx = 0;
+    int cy = 0;
+    int tx = 0;
+    int ty = 0;
+    int dx = 0;
+    int dy = 0;
+    int sx = 0;
+    int sy = 0;
+    int err = 0;
+    int steps = 0;
+    if (!wall_have)
     {
         return 1;
     }
-    return game_los(wall_map,
-                    static_cast<int>(ax),
-                    static_cast<int>(ay),
-                    static_cast<int>(bx),
-                    static_cast<int>(by))
-               ? 1
-               : 0;
+    cx = game_logic_to_tile(static_cast<int>(ax));
+    cy = game_logic_to_tile(static_cast<int>(ay));
+    tx = game_logic_to_tile(static_cast<int>(bx));
+    ty = game_logic_to_tile(static_cast<int>(by));
+    if (cx == tx && cy == ty)
+    {
+        return 1;
+    }
+    dx = tx - cx;
+    if (dx < 0)
+    {
+        dx = -dx;
+    }
+    dy = ty - cy;
+    if (dy < 0)
+    {
+        dy = -dy;
+    }
+    dy = -dy;
+    sx = cx < tx ? 1 : -1;
+    sy = cy < ty ? 1 : -1;
+    err = dx + dy;
+    steps = dx - dy + 2;
+    for (int n = 0; n < steps; n++)
+    {
+        int e2 = 2 * err;
+        if (e2 >= dy)
+        {
+            err += dy;
+            cx += sx;
+        }
+        if (e2 <= dx)
+        {
+            err += dx;
+            cy += sy;
+        }
+        if (cx == tx && cy == ty)
+        {
+            return 1;
+        }
+        if (cx < 0 || cx >= wall_w || cy < 0 || cy >= wall_h)
+        {
+            continue;
+        }
+        if (wall_grid[cy * wall_w + cx])
+        {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int wall_engine_blocked()
+{
+    return wall_engine_blocked;
 }
 
 int32_t axis(float v, int tiles)

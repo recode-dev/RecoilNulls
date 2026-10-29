@@ -9,6 +9,7 @@ inline constexpr int WALL_RETRY_MS = 2000;
 float wall_units(int tiles);
 int wall_passable_at(float x, float y);
 int wall_blocked_count();
+int wall_engine_blocked();
 int wall_cache_w();
 int wall_cache_h();
 int wall_build();
