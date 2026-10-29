@@ -69,6 +69,7 @@ struct Proj
     float x, y, ux, uy, speed, rad;
     uint8_t flags;
     bool vel;
+    bool meas;
     char name[40];
 };
 extern Threat threats[THREAT_MAX];

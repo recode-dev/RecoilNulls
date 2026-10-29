@@ -44,7 +44,6 @@ constexpr uint64_t CALM_MS = 0;
 constexpr uint64_t SEND_MS = ad::TICK_MS;
 constexpr int MOVE_DELAY_TICKS = 2;
 constexpr uint64_t TURN_HOLD_MS = 0;
-constexpr float MAX_TURN = 1.0471976f;
 constexpr int HOLD_DANGER_STEPS = (int)(TURN_HOLD_MS * 2 / ad::TICK_MS);
 constexpr float AD_SAFETY = 40.0f;
 constexpr uint64_t HUMAN_MS = 200;
@@ -125,6 +124,7 @@ void init_proj(
     st->speed = (float)speed;
     st->rad = (float)radius;
     st->vel = false;
+    st->meas = false;
     st->ux = 0.0f;
     st->uy = 0.0f;
     st->flags = 0;
@@ -207,6 +207,7 @@ static void add_proj(const uint8_t* obj,
         init_proj(st, pid, dataPtr, px, py, now);
         if (st->pid != pid) return;
     }
+    uint64_t prev = st->seen;
     st->seen = now;
     float step_x = px - st->x, step_y = py - st->y;
     float step = sqrtf(step_x * step_x + step_y * step_y);
@@ -217,6 +218,16 @@ static void add_proj(const uint8_t* obj,
         st->ux = step_x / step;
         st->uy = step_y / step;
         st->vel = true;
+        uint64_t dt = now - prev;
+        if (dt >= 20 && dt <= 400)
+        {
+            float meas = step * 1000.0f / (float)dt;
+            if (meas > 50.0f && meas < 20000.0f)
+            {
+                st->speed = st->meas ? st->speed * 0.4f + meas * 0.6f : meas;
+                st->meas = true;
+            }
+        }
     }
     st->x = px, st->y = py;
     float dx = px - mx, dy = py - my;
@@ -553,15 +564,6 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         else
         {
             turn_ms = now;
-            if (bx * commit_x + by * commit_y < 0.5f)
-            {
-                float sgn =
-                    (bx * commit_y - by * commit_x) >= 0.0f ? 1.0f : -1.0f;
-                float a = sgn * MAX_TURN;
-                float nx = commit_x * cosf(a) - commit_y * sinf(a);
-                float ny = commit_x * sinf(a) + commit_y * cosf(a);
-                bx = nx, by = ny;
-            }
         }
     }
     else
