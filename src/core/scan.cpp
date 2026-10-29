@@ -523,8 +523,7 @@ uint64_t  us()
 using fn_self_t = uintptr_t (*)(uintptr_t);
 static uintptr_t call(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !base || fn < base || fn >= base + 0x2000000 || !self)
-        return 0;
+    if (!fn || !base || fn < base || fn >= base + 0x2000000 || !self) return 0;
     return ((fn_self_t) fn)(self);
 }
 uintptr_t  manager_array_ptr = 0;
