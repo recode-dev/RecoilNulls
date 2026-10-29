@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "../utils/crypto.h"
+#include "offsets.h"
 #include "scan.h"
 
 static constexpr uintptr_t CLIENT_INPUT_TABLE_SCAN_SPAN = 0x20000ULL;
@@ -307,14 +308,14 @@ static int client_input_message_is_valid(void* memory, size_t size)
 
 void* allocate_client_input_message()
 {
-    void* memory = malloc(CLIENT_INPUT_MESSAGE_ALLOCATION_SIZE);
+    void* memory = malloc(CLIENT_INPUT_MESSAGE_SIZE);
     if (!client_input_message_is_valid(memory,
-                                       CLIENT_INPUT_MESSAGE_ALLOCATION_SIZE))
+                                       CLIENT_INPUT_MESSAGE_SIZE))
     {
         free(memory);
         return nullptr;
     }
-    memset(memory, 0, CLIENT_INPUT_MESSAGE_ALLOCATION_SIZE);
+    memset(memory, 0, CLIENT_INPUT_MESSAGE_SIZE);
     return memory;
 }
 
@@ -421,7 +422,7 @@ int enqueue_client_input_message(int type, int x, int y)
     {
         return 0;
     }
-    if (type < 0 || type >= CLIENT_INPUT_MESSAGE_TYPE_LIMIT)
+    if (type < 0 || type >= static_cast<int>(CLIENT_INPUT_TYPE_COUNT))
     {
         return 0;
     }

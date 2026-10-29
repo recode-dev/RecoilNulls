@@ -85,12 +85,31 @@ inline constexpr uint64_t SC_STRING_LENGTH_OFF = 0x4ULL;
 inline constexpr uint64_t SC_STRING_DATA_OFF = 0x8ULL;
 
 inline constexpr uint64_t CLIENT_INPUT_MANAGER_QUEUE_OFF = 0x20ULL;
+inline constexpr uint64_t CLIENT_INPUT_MESSAGE_SEQUENCE_OFF = 0x00ULL;
+inline constexpr uint64_t CLIENT_INPUT_MESSAGE_SIGNED_OFF = 0x04ULL;
+inline constexpr uint64_t CLIENT_INPUT_MESSAGE_SIGNED_SIZE = 0x10ULL;
 inline constexpr uint64_t CLIENT_INPUT_MESSAGE_TYPE_OFF = 0x08ULL;
 inline constexpr uint64_t CLIENT_INPUT_MESSAGE_X_OFF = 0x0cULL;
 inline constexpr uint64_t CLIENT_INPUT_MESSAGE_Y_OFF = 0x10ULL;
+inline constexpr uint64_t CLIENT_INPUT_MESSAGE_CHECKSUM_OFF = 0x34ULL;
+inline constexpr uint64_t CLIENT_INPUT_MESSAGE_SIZE = 0x48ULL;
+inline constexpr uint64_t CLIENT_INPUT_MESSAGE_PROBE_SIZE = 0x80ULL;
 inline constexpr uint64_t CLIENT_INPUT_SKILL_DATA_OFF = 0x40ULL;
-inline constexpr uint64_t CLIENT_INPUT_TOKEN_OFF = 0x34ULL;
-inline constexpr uint64_t CLIENT_INPUT_TOKEN_INPUT_OFF = 0x4ULL;
 inline constexpr uint64_t CLIENT_INPUT_TYPE_COUNT = 0x17ULL;
+inline constexpr uint64_t CLIENT_INPUT_TABLE_TO_FALLBACK_DISTANCE =
+    CLIENT_INPUT_TYPE_TABLE_RVA - CLIENT_INPUT_TYPE_FALLBACK_RVA;
+inline constexpr uint64_t CLIENT_INPUT_TABLE_TO_INNER_MASK_DISTANCE =
+    CLIENT_INPUT_TYPE_TABLE_RVA - CLIENT_INPUT_HASH_INNER_MASK_RVA;
+inline constexpr uint64_t CLIENT_INPUT_TABLE_TO_OUTER_MASK_DISTANCE =
+    CLIENT_INPUT_TYPE_TABLE_RVA - CLIENT_INPUT_HASH_OUTER_MASK_RVA;
+
+static_assert(CLIENT_INPUT_MESSAGE_CHECKSUM_OFF + sizeof(uint32_t) <=
+                  CLIENT_INPUT_MESSAGE_SIZE,
+              "checksum leaves the allocated message");
+static_assert(CLIENT_INPUT_MESSAGE_SIGNED_OFF + CLIENT_INPUT_MESSAGE_SIGNED_SIZE <=
+                  CLIENT_INPUT_MESSAGE_SIZE,
+              "signed span leaves the allocated message");
+static_assert(CLIENT_INPUT_MESSAGE_PROBE_SIZE >= CLIENT_INPUT_MESSAGE_SIZE,
+              "probe buffer is smaller than the message");
 
 #endif
