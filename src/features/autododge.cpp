@@ -189,7 +189,8 @@ static void add_char(const uint8_t* obj, int32_t own_gid, float mx, float my)
     ad_enemy_aim[k] = aim;
 }
 
-static float seg_dist(float px, float py, float ax, float ay, float bx, float by)
+static float
+seg_dist(float px, float py, float ax, float ay, float bx, float by)
 {
     float vx = bx - ax, vy = by - ay;
     float wx = px - ax, wy = py - ay;
@@ -247,10 +248,13 @@ static bool proj_shaped(const uint8_t* obj,
     memcpy(&ay, obj + PROJSERVER_STARTY_OFF, sizeof(ay));
     memcpy(&bx, obj + PROJSERVER_ENDX_OFF, sizeof(bx));
     memcpy(&by, obj + PROJSERVER_ENDY_OFF, sizeof(by));
-    if (ax < -100000 || ay < -100000 || ax > 100000 || ay > 100000) return false;
-    if (bx < -100000 || by < -100000 || bx > 100000 || by > 100000) return false;
+    if (ax < -100000 || ay < -100000 || ax > 100000 || ay > 100000)
+        return false;
+    if (bx < -100000 || by < -100000 || bx > 100000 || by > 100000)
+        return false;
     if (ax == bx && ay == by) return false;
-    if (seg_dist((float)xi, (float)yi, (float)ax, (float)ay, (float)bx, (float)by) >
+    if (seg_dist(
+            (float)xi, (float)yi, (float)ax, (float)ay, (float)bx, (float)by) >
         600.0f)
         return false;
     *tick0 = t0;
@@ -292,8 +296,8 @@ static void add_proj(const uint8_t* obj,
         uintptr_t odata = 0, ovt = 0;
         int32_t oteam = 0;
         if (read_ptr(owner + LOGICGAMEOBJECT_DATA_OFF, &odata) && odata &&
-            pointer_plausible(odata) && read_ptr(odata, &ovt) &&
-            ovt >= base && ovt - base == char_vt &&
+            pointer_plausible(odata) && read_ptr(odata, &ovt) && ovt >= base &&
+            ovt - base == char_vt &&
             read_int(owner + LOGICCHARACTER_TEAM_OFF, &oteam) &&
             oteam == own_team_b)
             return;
@@ -443,8 +447,7 @@ int ad_find_shot(uintptr_t* objOut,
         if (!obj_valid[i] || !obj_snapshot[i]) continue;
         int32_t t0 = 0, t1 = 0;
         float x = 0.0f, y = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
-        if (!proj_shaped(
-                obj_block[i], &t0, &t1, &x, &y, &sx, &sy, &ex, &ey))
+        if (!proj_shaped(obj_block[i], &t0, &t1, &x, &y, &sx, &sy, &ex, &ey))
             continue;
         *objOut = obj_snapshot[i];
         *dataOut = proj_data(obj_snapshot[i]);
