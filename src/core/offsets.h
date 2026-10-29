@@ -54,11 +54,19 @@ inline constexpr uint64_t LOGICCHARACTER_HP_OFF = 0xc4ULL;
 inline constexpr uint64_t LOGICGAMEOBJECT_DATA_OFF = 0x10ULL;
 inline constexpr uint64_t LOGICCHARACTERDATA_COLLISION_OFF = 0x2acULL;
 
+// LogicProjectileServer, proven three ways in v69: LogicProjectileServer::init
+// (0xa32130, 14 args, same signature as the v36 symbol) stores them, getPosAtTick
+// (0xa383ac) reads them, and tickMovement (0xa33108) advances them.
+//   init(arg 10) -> +0x28 startTick, +0x2c = startTick + travelTicks
+//   init clamps the spawn to the tile map -> +0xd0/+0xd4 start, +0xd8/+0xdc end,
+//   +0xe0/+0xe4 a copy of the end, +0xf0 z, then setPosition (0xa2d670) stores
+//   the live position at +0x38/+0x3c/+0x40
+//   init(arg 4, the shooter) -> +0x100 owner
+//   travelTicks = max(1, distance * 20 / speed), so speed = distance * 20 / ticks
 inline constexpr uint64_t RVA_PROJSERVER_GETPOSATTICK = 0xa383acULL;
 inline constexpr uint64_t PROJSERVER_X_OFF = 0x38ULL;
 inline constexpr uint64_t PROJSERVER_Y_OFF = 0x3cULL;
 inline constexpr uint64_t PROJSERVER_Z_OFF = 0x40ULL;
-inline constexpr uint64_t PROJSERVER_TICKBASE_OFF = 0x10ULL;
 inline constexpr uint64_t PROJSERVER_TICKORIGIN_OFF = 0x448ULL;
 inline constexpr uint64_t PROJSERVER_OWNER_OFF = 0x100ULL;
 inline constexpr uint64_t PROJSERVER_STARTTICK_OFF = 0x28ULL;
