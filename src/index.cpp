@@ -19,11 +19,12 @@ void supervise(double waited_seconds)
         poll_for_game(0);
         waited_seconds = 0.0;
     }
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                                 static_cast<int64_t>(kSupervisorIntervalSeconds *
-                                                      NSEC_PER_SEC)),
-                   dispatch_get_main_queue(),
-                   ^{ supervise(waited_seconds + kSupervisorIntervalSeconds); });
+    dispatch_after(
+        dispatch_time(
+            DISPATCH_TIME_NOW,
+            static_cast<int64_t>(kSupervisorIntervalSeconds * NSEC_PER_SEC)),
+        dispatch_get_main_queue(),
+        ^{ supervise(waited_seconds + kSupervisorIntervalSeconds); });
 }
 
 void kick()
@@ -36,11 +37,12 @@ void kick()
     {
         poll_for_game(0);
     }
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                                 static_cast<int64_t>(kSupervisorIntervalSeconds *
-                                                      NSEC_PER_SEC)),
-                   dispatch_get_main_queue(),
-                   ^{ supervise(kSupervisorIntervalSeconds); });
+    dispatch_after(
+        dispatch_time(
+            DISPATCH_TIME_NOW,
+            static_cast<int64_t>(kSupervisorIntervalSeconds * NSEC_PER_SEC)),
+        dispatch_get_main_queue(),
+        ^{ supervise(kSupervisorIntervalSeconds); });
 }
 
 }
@@ -48,14 +50,12 @@ void kick()
 __attribute__((constructor)) static void start()
 {
     static dispatch_once_t once;
-    dispatch_once(&once,
-                  ^{
-                      dispatch_after(
-                          dispatch_time(DISPATCH_TIME_NOW,
-                                        static_cast<int64_t>(
-                                            kFirstAttemptDelaySeconds *
-                                            NSEC_PER_SEC)),
-                          dispatch_get_main_queue(),
-                          ^{ kick(); });
-                  });
+    dispatch_once(&once, ^{
+      dispatch_after(
+          dispatch_time(
+              DISPATCH_TIME_NOW,
+              static_cast<int64_t>(kFirstAttemptDelaySeconds * NSEC_PER_SEC)),
+          dispatch_get_main_queue(),
+          ^{ kick(); });
+    });
 }
