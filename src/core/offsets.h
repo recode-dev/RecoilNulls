@@ -28,7 +28,7 @@ inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS =
     0x30cULL;
 inline constexpr uint64_t LOGICCHARACTER__CHARGEUPMODE = 0x310ULL;
 
-inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED             = 0x124ULL;
+inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED = 0x124ULL;
 
 inline constexpr uint64_t LOGICTILE__DATA               = 0x0ULL;
 inline constexpr uint64_t LOGICTILE__PATHFINDERMASK     = 0x10ULL;

@@ -307,9 +307,7 @@ void val_globals(uintptr_t slot)
             }
             else
             {
-                vf("LOGICGAMEOBJECTMANAGER__GAMEOBJECTS",
-                   false,
-                   "read failed");
+                vf("LOGICGAMEOBJECTMANAGER__GAMEOBJECTS", false, "read failed");
             }
             val_input_state = val_client_input(slot);
         }

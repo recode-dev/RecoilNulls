@@ -356,8 +356,7 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         if (obj_rva[i] != LOGICPROJECTILEDATA__VTABLE) continue;
         float px = 0.0f, py = 0.0f;
         if (!read_projectile_position(obj, &px, &py)) continue;
-        add_projectile_threat(
-            obj, obj_snapshot[i], now, mx, my, zone2, px, py);
+        add_projectile_threat(obj, obj_snapshot[i], now, mx, my, zone2, px, py);
     }
 }
 
