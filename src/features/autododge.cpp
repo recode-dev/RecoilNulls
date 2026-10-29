@@ -90,6 +90,25 @@ float math_distance_to_line(
     return static_cast<float>(math_sqrt(sq));
 }
 
+void vector_normalize(int* x, int* y, int scale)
+{
+    static uintptr_t slot = 0;
+    int              v[2] = {0, 0};
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICVECTOR2__NORMALIZE);
+    }
+    if (!slot || !x || !y)
+    {
+        return;
+    }
+    v[0] = *x;
+    v[1] = *y;
+    reinterpret_cast<void (*)(int*, int)>(slot)(v, scale);
+    *x = v[0];
+    *y = v[1];
+}
+
 int game_distance(int x1, int y1, int x2, int y2)
 {
     static uintptr_t slot = 0;
@@ -639,9 +658,11 @@ static void prepare_direction_costs(float mx, float my)
     for (int i = 0; i < cost_enemy_count; i++)
     {
         float ex = ad_enemy_x[i] - mx, ey = ad_enemy_y[i] - my;
-        cost_enemy_dx[i]   = ex;
-        cost_enemy_dy[i]   = ey;
+        int ux = (int) ex, uy = (int) ey;
         cost_enemy_dist[i] = (float) game_distance(0, 0, (int) ex, (int) ey);
+        vector_normalize(&ux, &uy, 1000);
+        cost_enemy_dx[i] = ux / 1000.0f;
+        cost_enemy_dy[i] = uy / 1000.0f;
     }
     cost_threat_count = threat_n < THREAT_MAX ? threat_n : THREAT_MAX;
     for (int i = 0; i < cost_threat_count; i++)
@@ -677,7 +698,7 @@ static float compute_nearest_away(float mx, float my, float dx, float dy)
         float d = cost_enemy_dist[i];
         if (d < 1.0f || d >= best) continue;
         best = d;
-        dot  = (dx * cost_enemy_dx[i] + dy * cost_enemy_dy[i]) / d;
+        dot  = dx * cost_enemy_dx[i] + dy * cost_enemy_dy[i];
     }
     return best < 1e29f ? -dot : 0.0f;
 }
@@ -690,7 +711,7 @@ static float compute_enemy_approach(float mx, float my, float dx, float dy)
     {
         float d = cost_enemy_dist[i];
         if (d < 1.0f || d > APPROACH_R) continue;
-        float dot = (dx * cost_enemy_dx[i] + dy * cost_enemy_dy[i]) / d;
+        float dot = dx * cost_enemy_dx[i] + dy * cost_enemy_dy[i];
         if (dot <= 0.0f) continue;
         float p = dot * (1.0f - d / APPROACH_R);
         if (d < CLOSE_R && dot > 0.5f) p = 3.0f;
@@ -964,8 +985,10 @@ void update_autododge()
         prev_x = own_x, prev_y = own_y;
         if (mv > 1.0f)
         {
-            move_dx = mvx / mv;
-            move_dy = mvy / mv;
+            int nx = (int) mvx, ny = (int) mvy;
+            vector_normalize(&nx, &ny, 1000);
+            move_dx = nx / 1000.0f;
+            move_dy = ny / 1000.0f;
         }
         else
         {
