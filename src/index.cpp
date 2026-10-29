@@ -1,4 +1,5 @@
 #include "./core/scan.h"
+#include <dispatch/dispatch.h>
 #include <mach-o/dyld.h>
 static bool started;
 static void poll_for_image(const mach_header*, intptr_t)
