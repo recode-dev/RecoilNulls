@@ -184,7 +184,7 @@ void init_proj(
     st->y = py;
     st->speed = 1000.0f;
     st->rad = (float)radius;
-    if (st->homing) st->rad += 80.0f;  // curved path: keep extra distance
+    if (st->homing) st->rad += 80.0f; // curved path: keep extra distance
     st->vel = false;
     st->meas = false;
     st->ux = 0.0f;
