@@ -3,7 +3,6 @@
 #include <cmath>
 #include <cstring>
 
-#include "../core/gamemath.h"
 #include "../core/offsets.h"
 #include "../core/scan.h"
 
@@ -582,7 +581,7 @@ float wall_pull(float mx, float my, float dx, float dy, float radius)
         static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
     float pin_y =
         static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
-    float room = lm_hypot(pin_x, pin_y) / reach;
+    float room = sqrtf(pin_x * pin_x + pin_y * pin_y) / reach;
     return static_cast<float>(blocked) / static_cast<float>(WALL_PROBES) +
            (1.0f - room);
 }

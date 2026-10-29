@@ -1,12 +1,134 @@
 #include "autododge.h"
 #include "../core/commands.h"
-#include "../core/gamemath.h"
 #include "../core/scan.h"
 #include "../core/scstring.h"
 #include "../utils/walls.h"
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+
+// LogicMath bridges. The dodge geometry is done in integer logic units, so the
+// engine takes and returns integers; only the call sites convert. sin/cos are
+// fixed point (1024) and degrees, hence the scaling here.
+namespace
+{
+int math_sqrt(int value)
+{
+    static uintptr_t slot = 0;
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICMATH__SQRT);
+    }
+    if (!slot)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int (*)(int)>(slot)(value);
+}
+
+int math_sin(int degrees)
+{
+    static uintptr_t slot = 0;
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICMATH__SIN);
+    }
+    if (!slot)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int (*)(int)>(slot)(degrees);
+}
+
+// No standalone cos() in v69: the engine defines it as sin(a + 90), which is
+// what the v36 body does before its table lookup.
+int math_cos(int degrees)
+{
+    return math_sin(degrees + 90);
+}
+
+int math_get_angle(int x, int y)
+{
+    static uintptr_t slot = 0;
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICMATH__GETANGLE);
+    }
+    if (!slot)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int (*)(int, int)>(slot)(x, y);
+}
+
+int math_distance_square_to_line(
+    int ax, int ay, int bx, int by, int px, int py)
+{
+    static uintptr_t slot = 0;
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICMATH__GETDISTANCESQUARETOLINE);
+    }
+    if (!slot)
+    {
+        return 0;
+    }
+    int a[2] = {ax, ay};
+    int b[2] = {bx, by};
+    int p[2] = {px, py};
+    return reinterpret_cast<int (*)(const int*, const int*, const int*)>(slot)(
+        a, b, p);
+}
+
+float math_distance_to_line(
+    float ax, float ay, float bx, float by, float px, float py)
+{
+    int sq = math_distance_square_to_line(static_cast<int>(ax + 0.5f),
+                                          static_cast<int>(ay + 0.5f),
+                                          static_cast<int>(bx + 0.5f),
+                                          static_cast<int>(by + 0.5f),
+                                          static_cast<int>(px + 0.5f),
+                                          static_cast<int>(py + 0.5f));
+    if (sq < 1)
+    {
+        sq = 1;
+    }
+    return static_cast<float>(math_sqrt(sq));
+}
+
+float math_hypot(float x, float y)
+{
+    float sq = x * x + y * y;
+    if (sq < 1.0f)
+    {
+        sq = 1.0f;
+    }
+    return static_cast<float>(math_sqrt(static_cast<int>(sq + 0.5f)));
+}
+
+float math_sqrt_of(float value)
+{
+    if (value < 1.0f)
+    {
+        value = 1.0f;
+    }
+    return static_cast<float>(math_sqrt(static_cast<int>(value + 0.5f)));
+}
+
+float math_sin_f(float radians)
+{
+    int deg = static_cast<int>(radians * 57.29577951f +
+                               (radians < 0.0f ? -0.5f : 0.5f));
+    return static_cast<float>(math_sin(deg)) * (1.0f / 1024.0f);
+}
+
+float math_cos_f(float radians)
+{
+    int deg = static_cast<int>(radians * 57.29577951f +
+                               (radians < 0.0f ? -0.5f : 0.5f));
+    return static_cast<float>(math_cos(deg)) * (1.0f / 1024.0f);
+}
+}
 int      active = 0, in_move = 0;
 int      ad_human = 0;
 float    ad_dir_x = 1.0f, ad_dir_y = 0.0f;
@@ -84,7 +206,7 @@ float     compute_threat_clearance(
 {
     float sx = t.vx - dx * self_speed, sy = t.vy - dy * self_speed;
     float far = SIM_T * 1.5f;
-    return lm_distance_to_line(
+    return math_distance_to_line(
                t.x, t.y, t.x + sx * far, t.y + sy * far, mx, my) -
            t.rad;
 }
@@ -155,7 +277,7 @@ static void add_character_entry(
     ad_enemy_x[k]      = (float) xi;
     ad_enemy_y[k]      = (float) yi;
     ad_enemy_hp[k]     = hp;
-    ad_enemy_d[k]      = lm_hypot(ex, ey);
+    ad_enemy_d[k]      = math_hypot(ex, ey);
     ad_enemy_aim[k]    = aim;
     int32_t charge     = 0;
     int32_t chargeMode = 0;
@@ -241,7 +363,7 @@ static void add_projectile_threat(const uint8_t* obj,
     }
     st->seen     = now;
     float step_x = px - st->x, step_y = py - st->y;
-    float step = lm_hypot(step_x, step_y);
+    float step = math_hypot(step_x, step_y);
     ad_proj_sample++;
     if (step > 1.0f) ad_proj_move++;
     int32_t dataSpeed = 0;
@@ -286,7 +408,7 @@ static void add_projectile_threat(const uint8_t* obj,
     if (vv <= 0.0f) return;
     float rad = st->rad + own_hitbox + AD_SAFETY;
     if (st->flags & B_BOUNCE) rad += own_hitbox * 0.5f;
-    float   dist    = lm_hypot(dx, dy);
+    float   dist    = math_hypot(dx, dy);
     int32_t arrival = game_projectile_travel_ticks(
         st->data, (int) (dist + 0.5f), (int) (st->speed + 0.5f));
     if (arrival < 1) return;
@@ -482,7 +604,7 @@ static void prepare_direction_costs(float mx, float my)
         float ex = ad_enemy_x[i] - mx, ey = ad_enemy_y[i] - my;
         cost_enemy_dx[i]   = ex;
         cost_enemy_dy[i]   = ey;
-        cost_enemy_dist[i] = lm_hypot(ex, ey);
+        cost_enemy_dist[i] = math_hypot(ex, ey);
     }
     cost_threat_count = threat_n < THREAT_MAX ? threat_n : THREAT_MAX;
     for (int i = 0; i < cost_threat_count; i++)
@@ -493,7 +615,7 @@ static void prepare_direction_costs(float mx, float my)
         cost_threat_ry[i] = my - t.y;
         if (vv >= 1e-6f)
         {
-            float iv              = 1.0f / lm_sqrtf(vv);
+            float iv              = 1.0f / math_sqrt_of(vv);
             cost_threat_ux[i]     = t.vx * iv;
             cost_threat_uy[i]     = t.vy * iv;
             cost_threat_moving[i] = 1;
@@ -593,7 +715,7 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
             continue;
         }
         float sx = t.vx - mx_step, sy = t.vy - my_step;
-        float c = lm_distance_to_line(
+        float c = math_distance_to_line(
                       t.x, t.y, t.x + sx * SIM_T, t.y + sy * SIM_T, mx, my) -
                   t.rad;
         if (c < margin) margin = c;
@@ -619,7 +741,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     for (int i = 0; i < DIRS; i++)
     {
         float a  = 6.2831853f * (float) i / (float) DIRS;
-        float dx = lm_cosf(a), dy = lm_sinf(a);
+        float dx = math_cos_f(a), dy = math_sin_f(a);
         int   steps = 0;
         float v     = evaluate_dodge_direction(mx, my, dx, dy, steps);
         if (has)
@@ -641,7 +763,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     for (int k = -6; k <= 6; k++)
     {
         float ra  = a + (float) k * 0.0174533f;
-        float rdx = lm_cosf(ra), rdy = lm_sinf(ra);
+        float rdx = math_cos_f(ra), rdy = math_sin_f(ra);
         int   steps = 0;
         float v     = evaluate_dodge_direction(mx, my, rdx, rdy, steps);
         if (has)
@@ -651,7 +773,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             best = v, a = ra, best_steps = steps;
         }
     }
-    float    bx = lm_cosf(a), by = lm_sinf(a);
+    float    bx = math_cos_f(a), by = math_sin_f(a);
     uint64_t now = us() / 1000;
     ad_urgent    = 0;
     if (has)
@@ -693,7 +815,8 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     }
     ad_dir_x = bx, ad_dir_y = by;
     ad_best_dir =
-        (lm_get_angle((int) (bx * 1000.0f), (int) (by * 1000.0f)) / 45 + 8) & 7;
+        (math_get_angle((int) (bx * 1000.0f), (int) (by * 1000.0f)) / 45 + 8) &
+        7;
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
 }
@@ -798,7 +921,7 @@ void update_autododge()
     if (pend_dmg) report_incoming_hit(mx, my, commit_x, commit_y);
     {
         float mvx = (float) (own_x - prev_x), mvy = (float) (own_y - prev_y);
-        float mv = lm_hypot(mvx, mvy);
+        float mv = math_hypot(mvx, mvy);
         prev_x = own_x, prev_y = own_y;
         if (mv > 1.0f)
         {
@@ -930,7 +1053,7 @@ void fill_autododge_report(float mx, float my, float dx, float dy)
         ad_threat_r[s]   = t.rad;
         ad_threat_ca[s]  = bc;
         ad_threat_ttc[s] = t.tt;
-        ad_threat_d[s]   = lm_hypot(t.x - mx, t.y - my);
+        ad_threat_d[s]   = math_hypot(t.x - mx, t.y - my);
         memcpy(ad_threat_name[s], t.name, sizeof(ad_threat_name[s]));
         ad_threat_name[s][sizeof(ad_threat_name[s]) - 1] = '\0';
     }
