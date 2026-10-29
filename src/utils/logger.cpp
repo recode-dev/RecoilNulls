@@ -237,9 +237,9 @@ void val_globals(uintptr_t slot)
         {
             vf("SCENE_CLIENT_OFF", false, "read failed");
         }
-        if (read_bytes(scene + BATTLEMODE_HASH_ENABLED_OFF, &hashOn, 1))
+        if (read_bytes(slot + BATTLEMODE_HASH_ENABLED_OFF, &hashOn, 1))
         {
-            BOOL keyOk = read_bytes(scene + BATTLEMODE_HASH_KEY_OFF, key, 16);
+            BOOL keyOk = read_bytes(slot + BATTLEMODE_HASH_KEY_OFF, key, 16);
             BOOL used = NO;
             for (int i = 0; i < 16 && keyOk; i++)
                 used = used || key[i];
@@ -296,7 +296,7 @@ void val_globals(uintptr_t slot)
             {
                 vf("OBJECTMANAGER_ARRAY_OFF", false, "read failed");
             }
-            val_input_state = val_client_input(clientPtr);
+            val_input_state = val_client_input(slot);
         }
     }
     if (read_ptr(base + VTABLE_PROJECTILEDATA_RVA, &vtable))
@@ -867,9 +867,9 @@ void maybe_validate()
     val_skip = 0;
     if (val_input_state == 0)
     {
-        uintptr_t clientPtr = client();
-        val_input_state = (clientPtr && pointer_plausible(clientPtr))
-                              ? val_client_input(clientPtr)
+        uintptr_t battle = (uintptr_t)read_global_ptr(GAMESTATE_RVA);
+        val_input_state = (battle && pointer_plausible(battle))
+                              ? val_client_input(battle)
                               : 0;
         if (val_input_state == 0 && ++val_input_tries >= 120)
         {
