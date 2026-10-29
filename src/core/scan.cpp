@@ -8,6 +8,7 @@
 #include <cstdio>
 #include "../features/autododge.h"
 #include "../utils/walls.h"
+#include "gamemath.h"
 #include "offsets.h"
 #include "scan.h"
 #include "scstring.h"
@@ -580,7 +581,7 @@ static void track_own_speed()
     {
         float dx = (float) (own_x - last_pos_x);
         float dy = (float) (own_y - last_pos_y);
-        float sp = sqrtf(dx * dx + dy * dy) / dt;
+        float sp = lm_hypot(dx, dy) / dt;
         if (sp >= 300.0f && sp <= 6000.0f)
         {
             if (sp > own_speed)

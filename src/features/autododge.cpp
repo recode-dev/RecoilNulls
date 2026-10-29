@@ -1,5 +1,6 @@
 #include "autododge.h"
 #include "../core/commands.h"
+#include "../core/gamemath.h"
 #include "../core/scan.h"
 #include "../core/scstring.h"
 #include "../utils/walls.h"
@@ -81,17 +82,11 @@ int       pend_dmg   = 0;
 float     compute_threat_clearance(
         float mx, float my, float dx, float dy, const Threat& t)
 {
-    float sx = t.vx - dx * self_speed, sy = t.vy - dy * self_speed;
-    float rx = t.x - mx, ry = t.y - my;
-    float vv = sx * sx + sy * sy;
-    float tt = 0.0f;
-    if (vv > 1e-6f)
-    {
-        tt = -(rx * sx + ry * sy) / vv;
-        if (tt < 0.0f) tt = 0.0f;
-    }
-    float cx = rx + sx * tt, cy = ry + sy * tt;
-    return sqrtf(cx * cx + cy * cy) - t.rad;
+    float sx  = t.vx - dx * self_speed, sy = t.vy - dy * self_speed;
+    float far = SIM_T * 1.5f;
+    return lm_distance_to_line(
+               t.x, t.y, t.x + sx * far, t.y + sy * far, mx, my) -
+           t.rad;
 }
 }
 namespace ad
@@ -160,7 +155,7 @@ static void add_character_entry(
     ad_enemy_x[k]      = (float) xi;
     ad_enemy_y[k]      = (float) yi;
     ad_enemy_hp[k]     = hp;
-    ad_enemy_d[k]      = sqrtf(ex * ex + ey * ey);
+    ad_enemy_d[k]      = lm_hypot(ex, ey);
     ad_enemy_aim[k]    = aim;
     int32_t charge     = 0;
     int32_t chargeMode = 0;
@@ -246,7 +241,7 @@ static void add_projectile_threat(const uint8_t* obj,
     }
     st->seen     = now;
     float step_x = px - st->x, step_y = py - st->y;
-    float step = sqrtf(step_x * step_x + step_y * step_y);
+    float step = lm_hypot(step_x, step_y);
     ad_proj_sample++;
     if (step > 1.0f) ad_proj_move++;
     int32_t dataSpeed = 0;
@@ -291,7 +286,7 @@ static void add_projectile_threat(const uint8_t* obj,
     if (vv <= 0.0f) return;
     float rad = st->rad + own_hitbox + AD_SAFETY;
     if (st->flags & B_BOUNCE) rad += own_hitbox * 0.5f;
-    float   dist    = sqrtf(dx * dx + dy * dy);
+    float   dist    = lm_hypot(dx, dy);
     int32_t arrival = game_projectile_travel_ticks(
         st->data, (int) (dist + 0.5f), (int) (st->speed + 0.5f));
     if (arrival < 1) return;
@@ -487,7 +482,7 @@ static void prepare_direction_costs(float mx, float my)
         float ex = ad_enemy_x[i] - mx, ey = ad_enemy_y[i] - my;
         cost_enemy_dx[i]   = ex;
         cost_enemy_dy[i]   = ey;
-        cost_enemy_dist[i] = sqrtf(ex * ex + ey * ey);
+        cost_enemy_dist[i] = lm_hypot(ex, ey);
     }
     cost_threat_count = threat_n < THREAT_MAX ? threat_n : THREAT_MAX;
     for (int i = 0; i < cost_threat_count; i++)
@@ -498,7 +493,7 @@ static void prepare_direction_costs(float mx, float my)
         cost_threat_ry[i] = my - t.y;
         if (vv >= 1e-6f)
         {
-            float iv              = 1.0f / sqrtf(vv);
+            float iv              = 1.0f / lm_sqrtf(vv);
             cost_threat_ux[i]     = t.vx * iv;
             cost_threat_uy[i]     = t.vy * iv;
             cost_threat_moving[i] = 1;
@@ -597,21 +592,10 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
             if (hit < survive) survive = hit;
             continue;
         }
-        float rx = t.x - mx, ry = t.y - my;
         float sx = t.vx - mx_step, sy = t.vy - my_step;
-        float vv = sx * sx + sy * sy;
-        float tt = 0.0f;
-        if (vv > 1e-6f)
-        {
-            tt = -(rx * sx + ry * sy) / vv;
-            if (tt < 0.0f) tt = 0.0f;
-            if (tt > SIM_T) tt = SIM_T;
-        }
-        float ax = 0.0f, ay = 0.0f;
-        simulate_position(mx, my, dx, dy, tt, w, h, ax, ay);
-        float ex = t.x + t.vx * tt - ax;
-        float ey = t.y + t.vy * tt - ay;
-        float c  = sqrtf(ex * ex + ey * ey) - t.rad;
+        float c  = lm_distance_to_line(
+                      t.x, t.y, t.x + sx * SIM_T, t.y + sy * SIM_T, mx, my) -
+                  t.rad;
         if (c < margin) margin = c;
     }
     if (margin > 1e29f) margin = 0.0f;
@@ -635,7 +619,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     for (int i = 0; i < DIRS; i++)
     {
         float a  = 6.2831853f * (float) i / (float) DIRS;
-        float dx = cosf(a), dy = sinf(a);
+        float dx = lm_cosf(a), dy = lm_sinf(a);
         int   steps = 0;
         float v     = evaluate_dodge_direction(mx, my, dx, dy, steps);
         if (has)
@@ -657,7 +641,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     for (int k = -6; k <= 6; k++)
     {
         float ra  = a + (float) k * 0.0174533f;
-        float rdx = cosf(ra), rdy = sinf(ra);
+        float rdx = lm_cosf(ra), rdy = lm_sinf(ra);
         int   steps = 0;
         float v     = evaluate_dodge_direction(mx, my, rdx, rdy, steps);
         if (has)
@@ -667,7 +651,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             best = v, a = ra, best_steps = steps;
         }
     }
-    float    bx = cosf(a), by = sinf(a);
+    float    bx = lm_cosf(a), by = lm_sinf(a);
     uint64_t now = us() / 1000;
     ad_urgent    = 0;
     if (has)
@@ -708,7 +692,9 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
         ad_hold_ms = since >= TURN_HOLD_MS ? 0 : (int) (TURN_HOLD_MS - since);
     }
     ad_dir_x = bx, ad_dir_y = by;
-    ad_best_dir = ((int) lroundf(atan2f(by, bx) * 1.2732395f) + 8) & 7;
+    ad_best_dir =
+        (lm_get_angle((int) (bx * 1000.0f), (int) (by * 1000.0f)) / 45 + 8) &
+        7;
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
 }
@@ -813,7 +799,7 @@ void update_autododge()
     if (pend_dmg) report_incoming_hit(mx, my, commit_x, commit_y);
     {
         float mvx = (float) (own_x - prev_x), mvy = (float) (own_y - prev_y);
-        float mv = sqrtf(mvx * mvx + mvy * mvy);
+        float mv = lm_hypot(mvx, mvy);
         prev_x = own_x, prev_y = own_y;
         if (mv > 1.0f)
         {
@@ -945,8 +931,7 @@ void fill_autododge_report(float mx, float my, float dx, float dy)
         ad_threat_r[s]   = t.rad;
         ad_threat_ca[s]  = bc;
         ad_threat_ttc[s] = t.tt;
-        ad_threat_d[s] =
-            sqrtf((t.x - mx) * (t.x - mx) + (t.y - my) * (t.y - my));
+        ad_threat_d[s]   = lm_hypot(t.x - mx, t.y - my);
         memcpy(ad_threat_name[s], t.name, sizeof(ad_threat_name[s]));
         ad_threat_name[s][sizeof(ad_threat_name[s]) - 1] = '\0';
     }

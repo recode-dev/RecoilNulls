@@ -84,6 +84,10 @@ inline constexpr uint64_t LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR = 0x943b08ULL;
 inline constexpr uint64_t LOGICTILEMAP__TILETOLOGIC              = 0x943040ULL;
 inline constexpr uint64_t LOGICTILEMAP__LOGICTOTILE              = 0x943028ULL;
 inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE            = 0xff3b18ULL;
+inline constexpr uint64_t LOGICMATH__SQRT                        = 0xbd000cULL;
+inline constexpr uint64_t LOGICMATH__SIN                         = 0xbcfec0ULL;
+inline constexpr uint64_t LOGICMATH__GETANGLE                    = 0xbd021cULL;
+inline constexpr uint64_t LOGICMATH__GETDISTANCESQUARETOLINE     = 0xbd0424ULL;
 inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTRAVELTICKS  = 0xa3192cULL;
 
 inline constexpr uint64_t CLIENTINPUT__TYPETABLE            = 0xe1bd30ULL;
