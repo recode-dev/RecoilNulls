@@ -149,7 +149,8 @@ int32_t projectile_chain_travel(uintptr_t data)
 
 int32_t projectile_distance_add(uintptr_t data)
 {
-    return call_getter(g_db, LOGICPROJECTILEDATA__GETDISTANCEADDFROMBOUNCE, data);
+    return call_getter(
+        g_db, LOGICPROJECTILEDATA__GETDISTANCEADDFROMBOUNCE, data);
 }
 
 int32_t projectile_target_x(uintptr_t object)
@@ -536,15 +537,15 @@ static void add_projectile_threat(const uint8_t* obj,
     st->x = px, st->y = py;
     if (ad_proj_n <= AD_REPORT_MAX)
     {
-        int k        = ad_proj_n - 1;
-        ad_pj_pid[k] = key;
-        ad_pj_x[k]   = px;
-        ad_pj_y[k]   = py;
-        ad_pj_vx[k]  = st->vel ? st->ux * st->speed : 0.0f;
-        ad_pj_vy[k]  = st->vel ? st->uy * st->speed : 0.0f;
-        ad_pj_sp[k]  = st->vel ? st->speed : 0.0f;
-        ad_pj_r[k]   = st->rad;
-        ad_pj_vel[k] = st->vel ? 1 : 0;
+        int k            = ad_proj_n - 1;
+        ad_pj_pid[k]     = key;
+        ad_pj_x[k]       = px;
+        ad_pj_y[k]       = py;
+        ad_pj_vx[k]      = st->vel ? st->ux * st->speed : 0.0f;
+        ad_pj_vy[k]      = st->vel ? st->uy * st->speed : 0.0f;
+        ad_pj_sp[k]      = st->vel ? st->speed : 0.0f;
+        ad_pj_r[k]       = st->rad;
+        ad_pj_vel[k]     = st->vel ? 1 : 0;
         ad_pj_info[k][0] = projectile_speed(st->data);
         ad_pj_info[k][1] = projectile_damages_constantly(st->data);
         ad_pj_info[k][2] = projectile_chain_spread(st->data);
