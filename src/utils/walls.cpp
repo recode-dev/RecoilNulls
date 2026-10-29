@@ -1,15 +1,8 @@
 #include "walls.h"
 #include "../core/scan.h"
-#include <array>
 #include <cmath>
-#include <cstring>
-
-inline constexpr int WALL_TYPE_CACHE_MAX = 128;
 
 static uint8_t wall_grid[WALL_MAX_TOTAL_TILES];
-static std::array<uint8_t,
-                  static_cast<size_t>(WALL_MAX_TOTAL_TILES) * sizeof(uintptr_t)>
-    wall_raw{};
 static uintptr_t wall_tiles = 0;
 static int wall_tiles_w = 0;
 static int wall_tiles_h = 0;
@@ -19,60 +12,6 @@ static int wall_have = 0;
 static uintptr_t wall_map = 0;
 static int wall_dirty = 1;
 static uint64_t wall_fail_ms = 0;
-static uintptr_t wall_type_key[WALL_TYPE_CACHE_MAX];
-static uint8_t wall_type_bits[WALL_TYPE_CACHE_MAX];
-static int wall_type_n = 0;
-static int wall_type_next = 0;
-
-static void wall_types_clear()
-{
-    wall_type_n = 0;
-    wall_type_next = 0;
-}
-
-static int wall_type_bits_for(uintptr_t type, uint8_t* out)
-{
-    uint16_t packed = 0;
-    uint8_t bits = 0;
-    int i = 0;
-    for (i = 0; i < wall_type_n; i++)
-    {
-        if (wall_type_key[i] == type)
-        {
-            *out = wall_type_bits[i];
-            return 1;
-        }
-    }
-    if (!read_bytes(type + static_cast<uintptr_t>(TILETYPEDATA_BLOCKFLAGS_OFF),
-                    &packed,
-                    2))
-    {
-        return 0;
-    }
-    if (packed & 0xff)
-    {
-        bits |= WALL_BLOCKS_MOVEMENT;
-    }
-    if (packed >> 8)
-    {
-        bits |= WALL_BLOCKS_PROJECTILES;
-    }
-    if (wall_type_n < WALL_TYPE_CACHE_MAX)
-    {
-        wall_type_key[wall_type_n] = type;
-        wall_type_bits[wall_type_n] = bits;
-        wall_type_n++;
-    }
-    else
-    {
-        wall_type_key[wall_type_next] = type;
-        wall_type_bits[wall_type_next] = bits;
-        wall_type_next = (wall_type_next + 1) % WALL_TYPE_CACHE_MAX;
-    }
-    *out = bits;
-    return 1;
-}
-
 int wall_cache_w()
 {
     return wall_w;
@@ -94,7 +33,6 @@ void wall_drop()
     wall_have = 0;
     wall_dirty = 1;
     wall_fail_ms = 0;
-    wall_types_clear();
 }
 
 void wall_bind(uintptr_t tileMap)
@@ -151,7 +89,6 @@ int wall_build()
     int width = wall_tiles_w;
     int height = wall_tiles_h;
     int total = 0;
-    int holes = 0;
     int i = 0;
     wall_have = 0;
     if (!wall_tiles)
@@ -171,43 +108,15 @@ int wall_build()
     {
         return 0;
     }
-    if (!read_bytes(wall_tiles,
-                    wall_raw.data(),
-                    static_cast<size_t>(total) * sizeof(uintptr_t)))
-    {
-        return 0;
-    }
-    wall_types_clear();
     for (i = 0; i < total; i++)
     {
-        uintptr_t tile = 0;
-        uintptr_t type = 0;
-        uint8_t bits = 0;
-        wall_grid[i] = 0;
-        memcpy(&tile,
-               wall_raw.data() + static_cast<size_t>(i) * sizeof(uintptr_t),
-               sizeof(uintptr_t));
-        if (!tile)
-        {
-            continue;
-        }
-        if (!pointer_plausible(tile) || !read_ptr(tile, &type))
-        {
-            holes++;
-            continue;
-        }
-        if (!type)
-        {
-            continue;
-        }
-        if (!pointer_plausible(type) || !wall_type_bits_for(type, &bits))
-        {
-            holes++;
-            continue;
-        }
-        wall_grid[i] = bits;
+        int tx = i % width;
+        int ty = i / width;
+        wall_grid[i] = game_tile_passable(
+                           wall_map, tx * 3 + 1, ty * 3 + 1)
+                           ? 0
+                           : WALL_BLOCKS_MOVEMENT;
     }
-    if (holes) return 0;
     wall_w = width;
     wall_h = height;
     wall_have = 1;
@@ -233,7 +142,7 @@ int wall_maybe_refresh(uint64_t now_ms)
     return 0;
 }
 
-int wall_is_blocked_at(float x, float y, int mask)
+int wall_is_blocked_at(float x, float y)
 {
     int tx = 0;
     int ty = 0;
@@ -251,12 +160,12 @@ int wall_is_blocked_at(float x, float y, int mask)
     {
         return 0;
     }
-    return (wall_grid[ty * wall_w + tx] & mask) ? 1 : 0;
+    return wall_grid[ty * wall_w + tx] ? 1 : 0;
 }
 
-int wall_is_blocked_wide(float x, float y, float r, int mask)
+int wall_is_blocked_wide(float x, float y, float r)
 {
-    if (wall_is_blocked_at(x, y, mask))
+    if (wall_is_blocked_at(x, y))
     {
         return 1;
     }
@@ -264,19 +173,19 @@ int wall_is_blocked_wide(float x, float y, float r, int mask)
     {
         return 0;
     }
-    if (wall_is_blocked_at(x + r, y, mask))
+    if (wall_is_blocked_at(x + r, y))
     {
         return 1;
     }
-    if (wall_is_blocked_at(x - r, y, mask))
+    if (wall_is_blocked_at(x - r, y))
     {
         return 1;
     }
-    if (wall_is_blocked_at(x, y + r, mask))
+    if (wall_is_blocked_at(x, y + r))
     {
         return 1;
     }
-    if (wall_is_blocked_at(x, y - r, mask))
+    if (wall_is_blocked_at(x, y - r))
     {
         return 1;
     }
@@ -314,8 +223,7 @@ float wall_pull(float mx, float my, float dx, float dy, float radius)
     for (int i = 1; i <= PROBES; i++)
     {
         float d = reach * 0.5f * (float)i / (float)PROBES;
-        blocked += wall_is_blocked_wide(
-                       mx + dx * d, my + dy * d, radius, WALL_BLOCKS_MOVEMENT)
+        blocked += wall_is_blocked_wide(mx + dx * d, my + dy * d, radius)
                        ? 1
                        : 0;
     }

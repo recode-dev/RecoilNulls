@@ -242,6 +242,21 @@ void* read_global_ptr(uintptr_t rva)
     }
     return value;
 }
+int game_tile_passable(uintptr_t tileMap, int cellX, int cellY)
+{
+    typedef uint8_t (*pass_t)(void*, int, int, int, int, int);
+    static pass_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<pass_t>(callable(RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER));
+    }
+    if (!fn || !tileMap)
+    {
+        return 0;
+    }
+    return fn(reinterpret_cast<void*>(tileMap), 1, cellX, cellY, 0, 0);
+}
+
 int game_los(uintptr_t tileMap, int ax, int ay, int bx, int by)
 {
     typedef int (*los_t)(void*, int, int, int, int);

@@ -182,13 +182,12 @@ static void add_proj(const uint8_t* obj,
                      float my,
                      float zone2)
 {
-    int32_t pid, team, xi, yi, dead;
+    int32_t pid, team, xi, yi;
     memcpy(&pid, obj + LOGICCHARACTER_GLOBALID_OFF, sizeof(pid));
     memcpy(&team, obj + LOGICCHARACTER_TEAM_OFF, sizeof(team));
     memcpy(&xi, obj + LOGICCHARACTER_X_OFF, sizeof(xi));
     memcpy(&yi, obj + LOGICCHARACTER_Y_OFF, sizeof(yi));
-    memcpy(&dead, obj + LOGICCHARACTER_DEADFLAG_OFF, sizeof(dead));
-    if (!pid || team == own_team_b || dead) return;
+    if (!pid || team == own_team_b) return;
     ad_proj_n++;
     float px = (float)xi, py = (float)yi;
     Proj* st = find_proj(pid);
@@ -322,7 +321,7 @@ static float free_run(float mx, float my, float dx, float dy, float far)
     for (float d = WALL_TILE_SIZE; d < run; d += WALL_TILE_SIZE)
     {
         if (wall_is_blocked_wide(
-                mx + dx * d, my + dy * d, OWN_HITBOX, WALL_BLOCKS_MOVEMENT))
+                mx + dx * d, my + dy * d, OWN_HITBOX))
         {
             run = d;
             break;
