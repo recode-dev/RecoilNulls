@@ -121,7 +121,7 @@ void init_proj(
     st->seen = now;
     st->x = px;
     st->y = py;
-    st->speed = (float)speed;
+    st->speed = 1000.0f;
     st->rad = (float)radius;
     st->vel = false;
     st->meas = false;
