@@ -3,22 +3,8 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "../utils/crypto.h"
 #include "offsets.h"
 #include "scan.h"
-
-static constexpr uintptr_t ClientInputTypeTableScanSpan      = 0x20000;
-static constexpr size_t    ClientInputTypeTableScanChunk     = 0x4000;
-static const uint8_t       client_input_type_table_anchor[8] = {
-          0xd2, 0xc7, 0xb1, 0xa3, 0xb8, 0xa6, 0xf5, 0xe4};
-
-static uint32_t client_input_type_table[CLIENTINPUT__TYPECOUNT];
-static uint32_t client_input_type_fallback = 0;
-static uint8_t  client_input_hash_inner_mask[0x10];
-static uint8_t  client_input_hash_outer_mask[0x10];
-static int      client_input_constants_ready      = 0;
-static int      client_input_layout_confirmed     = 0;
-static int      client_input_pipeline_state_value = ClientInputPipelineUnknown;
 
 static int   client_input_message_is_valid(void* memory, size_t size);
 static void* client_input_battle_instance();
@@ -63,183 +49,6 @@ static uintptr_t client_input_resolve(uintptr_t* slot, uintptr_t rva)
         }
     }
     return *slot;
-}
-
-static int client_input_type_table_is_plausible(const uint32_t* table)
-{
-    int count   = static_cast<int>(CLIENTINPUT__TYPECOUNT);
-    int nonzero = 0;
-    int unique  = 0;
-    for (int i = 0; i < count; i++)
-    {
-        int repeated = 0;
-        if (!table[i])
-        {
-            continue;
-        }
-        nonzero++;
-        for (int j = 0; j < i; j++)
-        {
-            if (table[j] == table[i])
-            {
-                repeated = 1;
-                break;
-            }
-        }
-        if (!repeated)
-        {
-            unique++;
-        }
-    }
-    if (nonzero * 4 < count * 3)
-    {
-        return 0;
-    }
-    return unique + 1 >= nonzero;
-}
-
-static int client_input_constants_at(uintptr_t tableRva)
-{
-    uint32_t table[CLIENTINPUT__TYPECOUNT];
-    uint32_t fallback = 0;
-    uint8_t  inner[0x10];
-    uint8_t  outer[0x10];
-    if (!base || !tableRva)
-    {
-        return 0;
-    }
-    if (tableRva <= CLIENTINPUTMESSAGE__TYPETABLEINNERMASKDISTANCE)
-    {
-        return 0;
-    }
-    if (!read_bytes(base + tableRva, table, sizeof(table)))
-    {
-        return 0;
-    }
-    if (!client_input_type_table_is_plausible(table))
-    {
-        return 0;
-    }
-    if (!read_bytes(base + tableRva - CLIENTINPUT__TYPETABLEFALLBACKDISTANCE,
-                    &fallback,
-                    sizeof(fallback)))
-    {
-        return 0;
-    }
-    if (!read_bytes(base + tableRva -
-                        CLIENTINPUTMESSAGE__TYPETABLEINNERMASKDISTANCE,
-                    inner,
-                    sizeof(inner)))
-    {
-        return 0;
-    }
-    if (!read_bytes(base + tableRva -
-                        CLIENTINPUTMESSAGE__TYPETABLEOUTERMASKDISTANCE,
-                    outer,
-                    sizeof(outer)))
-    {
-        return 0;
-    }
-    memcpy(client_input_type_table, table, sizeof(table));
-    client_input_type_fallback = fallback;
-    memcpy(client_input_hash_inner_mask, inner, sizeof(inner));
-    memcpy(client_input_hash_outer_mask, outer, sizeof(outer));
-    return 1;
-}
-
-static int client_input_constants_relocate(uintptr_t* outRva)
-{
-    uint8_t   buffer[ClientInputTypeTableScanChunk +
-                   sizeof(client_input_type_table_anchor)];
-    uintptr_t start = CLIENTINPUT__TYPETABLE - ClientInputTypeTableScanSpan;
-    uintptr_t end   = CLIENTINPUT__TYPETABLE + ClientInputTypeTableScanSpan +
-                    sizeof(client_input_type_table_anchor);
-    uintptr_t found = 0;
-    int       hits  = 0;
-    if (!base || !outRva)
-    {
-        return 0;
-    }
-    for (uintptr_t at = start; at < end; at += ClientInputTypeTableScanChunk)
-    {
-        size_t span = ClientInputTypeTableScanChunk +
-                      sizeof(client_input_type_table_anchor);
-        size_t limit = ClientInputTypeTableScanChunk;
-        if (at + span > end)
-        {
-            span = static_cast<size_t>(end - at);
-        }
-        if (span < sizeof(client_input_type_table_anchor))
-        {
-            break;
-        }
-        if (limit + sizeof(client_input_type_table_anchor) > span)
-        {
-            limit = span - sizeof(client_input_type_table_anchor) + 1;
-        }
-        if (!read_bytes(base + at, buffer, span))
-        {
-            continue;
-        }
-        for (size_t i = 0; i < limit; i++)
-        {
-            if (memcmp(buffer + i,
-                       client_input_type_table_anchor,
-                       sizeof(client_input_type_table_anchor)) != 0)
-            {
-                continue;
-            }
-            hits++;
-            if (hits > 1)
-            {
-                return 0;
-            }
-            found = at + i;
-        }
-    }
-    if (hits != 1)
-    {
-        return 0;
-    }
-    *outRva = found;
-    return 1;
-}
-
-int load_client_input_constants()
-{
-    uintptr_t relocated = 0;
-    if (client_input_constants_ready)
-    {
-        return 1;
-    }
-    if (!base)
-    {
-        return 0;
-    }
-    if (client_input_constants_at(CLIENTINPUT__TYPETABLE))
-    {
-        client_input_constants_ready = 1;
-        return 1;
-    }
-    if (!client_input_constants_relocate(&relocated))
-    {
-        return 0;
-    }
-    if (relocated == CLIENTINPUT__TYPETABLE)
-    {
-        return 0;
-    }
-    if (!client_input_constants_at(relocated))
-    {
-        return 0;
-    }
-    client_input_constants_ready = 1;
-    return 1;
-}
-
-int client_input_pipeline_state()
-{
-    return client_input_pipeline_state_value;
 }
 
 static int client_input_message_is_valid(void* memory, size_t size)
@@ -336,15 +145,6 @@ static void* client_input_manager_of_battle(void* battle)
     return manager;
 }
 
-void* get_client_input_manager()
-{
-    if (!scene_object || !scene_live())
-    {
-        return nullptr;
-    }
-    return client_input_manager_of_battle(client_input_battle_instance());
-}
-
 static int client_input_manager_queue_is_ready(void* manager)
 {
     void* queue = nullptr;
@@ -402,15 +202,12 @@ int enqueue_client_input_message(int type, int x, int y)
         client_input_resolve(&add_input_slot, CLIENTINPUTMANAGER__ADDINPUT);
     if (!constructor || !add_input)
     {
-        client_input_pipeline_state_value = ClientInputPipelineCallablesMissing;
         return 0;
     }
     if (!client_input_layout_confirmed)
     {
         if (!client_input_layout_probe(constructor))
         {
-            client_input_pipeline_state_value =
-                ClientInputPipelineLayoutMismatch;
             return 0;
         }
         client_input_layout_confirmed = 1;
@@ -442,7 +239,6 @@ int enqueue_client_input_message(int type, int x, int y)
         return 0;
     }
     reinterpret_cast<void (*)(void*, void*)>(add_input)(manager, message);
-    client_input_pipeline_state_value = ClientInputPipelineReady;
     return 1;
 }
 

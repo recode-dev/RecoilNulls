@@ -6,20 +6,12 @@
 inline constexpr int ClientInputMessageTypeMove       = 0x2;
 inline constexpr int ClientInputMessagePredictionFlag = 1;
 
-inline constexpr int ClientInputPipelineUnknown          = 0;
-inline constexpr int ClientInputPipelineReady            = 1;
-inline constexpr int ClientInputPipelineCallablesMissing = -1;
-inline constexpr int ClientInputPipelineLayoutMismatch   = -2;
-
 uintptr_t           callable_at_rva(uintptr_t rva);
 [[nodiscard]] void* allocate_client_input_message();
-void*               get_client_input_manager();
 int                 engine_own_path_length();
 int                 engine_own_tick_window(int32_t* start, int32_t* end);
 int                 engine_own_pos_at_tick(int32_t tick, float* x, float* y);
 int                 set_client_prediction_move_to(int x, int y);
-int                 load_client_input_constants();
-int                 client_input_pipeline_state();
 int                 enqueue_client_input_message(int type, int x, int y);
 int                 enqueue_move_input(int x, int y);
 int                 enqueue_move_input_with_type(int x, int y, int type);

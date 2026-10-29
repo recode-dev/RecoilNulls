@@ -12,8 +12,6 @@ float    ad_dir_x = 1.0f, ad_dir_y = 0.0f;
 int      ad_hold_ms = 0, ad_urgent = 0;
 int      ad_ind_n       = 0;
 int      ad_pass_own    = 0;
-uint64_t ad_qv[16]      = {0};
-uint16_t ad_qc[16]      = {0};
 uint32_t ad_proj_sample = 0, ad_proj_move = 0;
 int32_t  ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int      ad_best_dir = -1;
@@ -809,19 +807,6 @@ void update_autododge()
     read_int(own_elem + LOGICCHARACTER__GLOBALID, &own_gid);
     self_speed   = own_speed > 1.0f ? own_speed : 1.0f;
     uint64_t now = us() / 1000;
-    {
-        void*    mgr   = get_client_input_manager();
-        uint64_t w[16] = {0};
-        if (mgr && read_bytes((uintptr_t) mgr, w, sizeof(w)))
-        {
-            for (int i = 0; i < 16; i++)
-            {
-                if (ad_qv[i] == w[i]) continue;
-                ad_qv[i] = w[i];
-                if (ad_qc[i] < 60000) ad_qc[i]++;
-            }
-        }
-    }
     float mx = (float) own_x, my = (float) own_y;
     evict_stale_projectiles(now);
     collect_logic_objects(now, own_gid, mx, my);

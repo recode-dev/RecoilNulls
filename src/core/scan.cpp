@@ -510,12 +510,9 @@ void poll_for_game(int tick)
                    dispatch_get_main_queue(),
                    ^{ poll_for_game(tick + 1); });
 }
-uintptr_t base        = 0;
-uintptr_t manager_ptr = 0;
-float     own_speed   = 720.0f;
-float     own_vel_x   = 0.0f;
-float     own_vel_y   = 0.0f;
-uint32_t  own_hp      = 0;
+uintptr_t base      = 0;
+float     own_speed = 720.0f;
+uint32_t  own_hp    = 0;
 uint64_t  us()
 {
     return static_cast<uint64_t>(g_get_monotonic_time());
@@ -526,16 +523,13 @@ static uintptr_t call(uintptr_t fn, uintptr_t self)
     if (!fn || !base || fn < base || fn >= base + 0x2000000 || !self) return 0;
     return ((fn_self_t) fn)(self);
 }
-uintptr_t  manager_array_ptr = 0;
-int32_t    manager_count_v   = 0;
 uintptr_t  obj_snapshot[COUNT_MAX];
 uint8_t    obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
 uint8_t    obj_valid[COUNT_MAX];
-int        obj_count   = 0;
-int32_t    own_x       = 0;
-int32_t    own_y       = 0;
-int32_t    own_index_v = -1;
-int        own_ok_hp   = 0;
+int        obj_count = 0;
+int32_t    own_x     = 0;
+int32_t    own_y     = 0;
+int        own_ok_hp = 0;
 static int battle_state()
 {
     uintptr_t slot  = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
@@ -551,30 +545,22 @@ static int battle_state()
     }
     return state;
 }
-static int      battle_ticks = 0;
-static int32_t  last_pos_x   = 0;
-static int32_t  last_pos_y   = 0;
-static uint64_t last_pos_us  = 0;
+static int32_t  last_pos_x  = 0;
+static int32_t  last_pos_y  = 0;
+static uint64_t last_pos_us = 0;
 static void     world_reset()
 {
-    own_elem          = 0;
-    own_x             = 0;
-    own_y             = 0;
-    own_hp            = 0;
-    own_ok_hp         = 0;
-    dead              = 1;
-    coord_ok          = 0;
-    manager_ptr       = 0;
-    manager_array_ptr = 0;
-    manager_count_v   = 0;
-    obj_count         = 0;
-    scene_object      = 0;
-    battle_ticks      = 0;
-    own_index_v       = -1;
-    own_team_b        = -1;
-    own_vel_x         = 0.0f;
-    own_vel_y         = 0.0f;
-    last_pos_us       = 0;
+    own_elem     = 0;
+    own_x        = 0;
+    own_y        = 0;
+    own_hp       = 0;
+    own_ok_hp    = 0;
+    dead         = 1;
+    coord_ok     = 0;
+    obj_count    = 0;
+    scene_object = 0;
+    own_team_b   = -1;
+    last_pos_us  = 0;
     wall_cache_drop();
     reset_autododge_state();
 }
@@ -601,8 +587,6 @@ static void track_own_speed()
                 own_speed = sp;
             else
                 own_speed = own_speed * 0.99f + sp * 0.01f;
-            own_vel_x = own_vel_x * 0.5f + (dx / dt) * 0.5f;
-            own_vel_y = own_vel_y * 0.5f + (dy / dt) * 0.5f;
         }
     }
     last_pos_x  = own_x;
@@ -657,7 +641,6 @@ void scan_world()
         world_reset();
         return;
     }
-    battle_ticks++;
     clientPtr = controller();
     if (!clientPtr)
     {
@@ -673,7 +656,6 @@ void scan_world()
         return;
     }
     mgrPtr      = (uintptr_t) value;
-    manager_ptr = mgrPtr;
     if (!read_int(mgrPtr + static_cast<uintptr_t>(
                                LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT),
                   &count) ||
@@ -699,9 +681,7 @@ void scan_world()
         world_reset();
         return;
     }
-    manager_array_ptr = array;
-    manager_count_v   = count;
-    obj_count         = count;
+    obj_count = count;
     for (int i = 0; i < count; i++)
     {
         uintptr_t objPtr = obj_snapshot[i];
@@ -745,8 +725,6 @@ void scan_world()
         own_hp    = 0;
     }
     dead        = (own_ok_hp && own_hp == 0) ? 1 : 0;
-    own_index_v = static_cast<int32_t>(
-        call(callable(LOGICBATTLEMODECLIENT__GETOWNPLAYERINDEX), clientPtr));
     own_team_b = static_cast<int32_t>(
         call(callable(LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM), clientPtr));
     track_own_speed();

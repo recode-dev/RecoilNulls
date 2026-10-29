@@ -376,16 +376,6 @@ int wall_cache_height()
     return wall_h;
 }
 
-int wall_cache_mask_offset()
-{
-    return static_cast<int>(wall_mask_offset);
-}
-
-int wall_cache_mask_planes()
-{
-    return wall_planes;
-}
-
 void wall_cache_drop()
 {
     wall_tiles       = 0;

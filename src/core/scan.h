@@ -126,20 +126,14 @@ static inline BOOL object_plausible(void* object)
 }
 inline constexpr int COUNT_MAX        = 512;
 inline constexpr int OBJECT_COUNT_MAX = 512;
-extern uintptr_t     manager_ptr;
-extern uintptr_t     manager_array_ptr;
-extern int32_t       manager_count_v;
 extern uintptr_t     obj_snapshot[COUNT_MAX];
 extern uint8_t       obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
 extern uint8_t       obj_valid[COUNT_MAX];
 extern int           obj_count;
 extern uint32_t      own_hp;
 extern float         own_speed;
-extern float         own_vel_x;
-extern float         own_vel_y;
 extern int32_t       own_x;
 extern int32_t       own_y;
-extern int32_t       own_index_v;
 extern int           own_ok_hp;
 uint64_t             us();
 void                 scan_world();

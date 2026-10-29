@@ -22,8 +22,6 @@ int     wall_cached_blocked_count();
 int     wall_engine_blocked_total();
 int     wall_cache_width();
 int     wall_cache_height();
-int     wall_cache_mask_offset();
-int     wall_cache_mask_planes();
 int     wall_cache_build();
 void    wall_cache_drop();
 void    wall_cache_bind(uintptr_t tileMap);
