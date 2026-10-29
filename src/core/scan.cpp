@@ -122,8 +122,19 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    return gum_memory_read((gconstpointer)address, out, (gsize)length) ? YES
-                                                                       : NO;
+    {
+        mach_vm_size_t got = 0;
+        kern_return_t kr = mach_vm_read_overwrite(mach_task_self(),
+                                                  (mach_vm_address_t)address,
+                                                  (mach_vm_size_t)length,
+                                                  (mach_vm_address_t)(uintptr_t)out,
+                                                  &got);
+        if (kr != KERN_SUCCESS || got != (mach_vm_size_t)length)
+        {
+            return NO;
+        }
+    }
+    return YES;
 }
 BOOL pointer_plausible(uintptr_t value)
 {
