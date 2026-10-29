@@ -39,6 +39,7 @@ constexpr int SIM_STEPS = 32;
 constexpr uint64_t CALM_MS = 200;
 constexpr uint64_t SEND_MS = 100;
 constexpr uint64_t TURN_HOLD_MS = 200;
+constexpr float MAX_TURN = 1.0471976f;
 // The hold is broken early only when the held heading dies inside twice the
 // hold budget, i.e. inside 400 ms. Releasing on "dies somewhere in the 1.6 s
 // horizon" released on every single frame, which is what made the character
@@ -476,6 +477,14 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         else
         {
             turn_ms = now;
+            if (bx * commit_x + by * commit_y < 0.5f)
+            {
+                float sgn = (bx * commit_y - by * commit_x) >= 0.0f ? 1.0f : -1.0f;
+                float a = sgn * MAX_TURN;
+                float nx = commit_x * cosf(a) - commit_y * sinf(a);
+                float ny = commit_x * sinf(a) + commit_y * cosf(a);
+                bx = nx, by = ny;
+            }
         }
     }
     else
