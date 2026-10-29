@@ -156,6 +156,7 @@ void run_workload();
 void setup();
 void run_autododge();
 void diag_tick();
+void logger_prepare();
 extern uintptr_t scene_object;
 int scene_live();
 extern int coord_ok;

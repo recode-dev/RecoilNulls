@@ -13,7 +13,6 @@
 #include "scstring.h"
 #include <frida-gum.h>
 const char* image_name = "Nulls Brawl";
-extern bool open_log();
 BOOL setup_done = NO;
 __thread BOOL inside_hook = NO;
 uintptr_t addr_dataname = 0;
@@ -378,7 +377,7 @@ void poll_for_game(int tick)
     {
         return;
     }
-    open_log();
+    logger_prepare();
     if (tick > 1200)
     {
         return;
