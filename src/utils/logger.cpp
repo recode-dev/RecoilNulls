@@ -255,7 +255,10 @@ void diag_tick()
         int qn = snprintf(qbuf, sizeof(qbuf), "qc=");
         for (int i = 0; i < 16 && qn > 0 && qn < (int)sizeof(qbuf) - 8; i++)
         {
-            qn += snprintf(qbuf + qn, sizeof(qbuf) - (size_t)qn, i ? ",%u" : "%u", (unsigned)ad_qc[i]);
+            qn += snprintf(qbuf + qn,
+                           sizeof(qbuf) - (size_t)qn,
+                           i ? ",%u" : "%u",
+                           (unsigned)ad_qc[i]);
             ad_qc[i] = 0;
         }
         if (qn > 0 && qn < (int)sizeof(qbuf) - 2)
