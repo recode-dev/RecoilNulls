@@ -655,7 +655,7 @@ void scan_world()
         world_reset();
         return;
     }
-    mgrPtr      = (uintptr_t) value;
+    mgrPtr = (uintptr_t) value;
     if (!read_int(mgrPtr + static_cast<uintptr_t>(
                                LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT),
                   &count) ||
@@ -724,7 +724,7 @@ void scan_world()
         own_ok_hp = 0;
         own_hp    = 0;
     }
-    dead        = (own_ok_hp && own_hp == 0) ? 1 : 0;
+    dead       = (own_ok_hp && own_hp == 0) ? 1 : 0;
     own_team_b = static_cast<int32_t>(
         call(callable(LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM), clientPtr));
     track_own_speed();

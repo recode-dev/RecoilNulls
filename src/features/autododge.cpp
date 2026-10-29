@@ -807,7 +807,7 @@ void update_autododge()
     read_int(own_elem + LOGICCHARACTER__GLOBALID, &own_gid);
     self_speed   = own_speed > 1.0f ? own_speed : 1.0f;
     uint64_t now = us() / 1000;
-    float mx = (float) own_x, my = (float) own_y;
+    float    mx = (float) own_x, my = (float) own_y;
     evict_stale_projectiles(now);
     collect_logic_objects(now, own_gid, mx, my);
     if (pend_dmg) report_incoming_hit(mx, my, commit_x, commit_y);
