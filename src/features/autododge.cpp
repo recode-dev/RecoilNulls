@@ -313,14 +313,14 @@ Proj* find_projectile_entry(int32_t pid)
 void init_projectile_state(
     Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
 {
-    st->pid       = pid;
-    st->seen      = now;
-    st->data      = dataPtr;
-    st->x         = px;
-    st->y         = py;
-    st->speed     = 0.0f;
+    st->pid            = pid;
+    st->seen           = now;
+    st->data           = dataPtr;
+    st->x              = px;
+    st->y              = py;
+    st->speed          = 0.0f;
     int32_t dataRadius = projectile_radius(dataPtr);
-    st->rad            = dataRadius > 0 ? (float) dataRadius : PROJECTILE_RADIUS;
+    st->rad       = dataRadius > 0 ? (float) dataRadius : PROJECTILE_RADIUS;
     st->homing    = false;
     st->ttype     = 0;
     st->vel       = false;
