@@ -676,7 +676,7 @@ void scan_world()
     mgrPtr      = (uintptr_t) value;
     manager_ptr = mgrPtr;
     if (!read_int(mgrPtr + static_cast<uintptr_t>(
-                               LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTCOUNT),
+                               LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT),
                   &count) ||
         count <= 0 || count > OBJECT_COUNT_MAX)
     {
@@ -684,7 +684,7 @@ void scan_world()
         return;
     }
     if (!read_ptr(mgrPtr + static_cast<uintptr_t>(
-                               LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTS),
+                               LOGICGAMEOBJECTMANAGER__GAMEOBJECTS),
                   &value) ||
         !value)
     {

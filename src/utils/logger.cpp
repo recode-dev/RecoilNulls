@@ -206,8 +206,6 @@ void val_globals(uintptr_t slot)
     uintptr_t vtable                   = 0;
     int32_t   state                    = -1;
     int32_t   count                    = 0;
-    uint8_t   hashOn                   = 0;
-    uint8_t   key[16]                  = {0};
     vf("GAMESTATEMANAGER__INSTANCE",
        slot && pointer_plausible(slot),
        "0x%llx",
@@ -259,23 +257,6 @@ void val_globals(uintptr_t slot)
         {
             vf("GAMESTATEMANAGER__CLIENT", false, "read failed");
         }
-        if (read_bytes(slot + LOGICBATTLEMODECLIENT__HASHENABLED, &hashOn, 1))
-        {
-            BOOL keyOk =
-                read_bytes(slot + LOGICBATTLEMODECLIENT__HASHKEY, key, 16);
-            BOOL used = NO;
-            for (int i = 0; i < 16 && keyOk; i++)
-                used = used || key[i];
-            vf("LOGICBATTLEMODECLIENT__HASHENABLED",
-               hashOn <= 1 && (!hashOn || used),
-               "on=%u key16=%d",
-               (unsigned) hashOn,
-               keyOk ? 1 : 0);
-        }
-        else
-        {
-            vf("LOGICBATTLEMODECLIENT__HASHENABLED", false, "read failed");
-        }
         if (!clientPtr)
         {
             vs("LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER", "no client");
@@ -300,33 +281,33 @@ void val_globals(uintptr_t slot)
             }
             if (get_client_input_manager &&
                 read_int(get_client_input_manager +
-                             LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTCOUNT,
+                             LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT,
                          &count))
             {
-                vf("LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTCOUNT",
+                vf("LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT",
                    count > 0 && count <= OBJECT_COUNT_MAX,
                    "count=%d",
                    count);
             }
             else
             {
-                vf("LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTCOUNT",
+                vf("LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT",
                    false,
                    "read failed");
             }
             if (get_client_input_manager &&
                 read_ptr(get_client_input_manager +
-                             LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTS,
+                             LOGICGAMEOBJECTMANAGER__GAMEOBJECTS,
                          &array))
             {
-                vf("LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTS",
+                vf("LOGICGAMEOBJECTMANAGER__GAMEOBJECTS",
                    array && pointer_plausible(array),
                    "0x%llx",
                    (unsigned long long) array);
             }
             else
             {
-                vf("LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTS",
+                vf("LOGICGAMEOBJECTMANAGER__GAMEOBJECTS",
                    false,
                    "read failed");
             }
@@ -364,13 +345,6 @@ int val_client_input(uintptr_t clientPtr)
 {
     uintptr_t get_client_input_manager = 0;
     uintptr_t queue                    = 0;
-    uintptr_t array                    = 0;
-    uintptr_t message                  = 0;
-    int32_t   count                    = 0;
-    int32_t   type                     = -1;
-    int32_t   mx                       = 0;
-    int32_t   my                       = 0;
-    uint8_t   token[8]                 = {0};
     if (!read_ptr(clientPtr + LOGICBATTLEMODECLIENT__INPUTMANAGER,
                   &get_client_input_manager) ||
         !get_client_input_manager ||
@@ -386,13 +360,6 @@ int val_client_input(uintptr_t clientPtr)
         return 0;
     }
     val_ci_queue = queue;
-    if (!read_int(queue + LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTCOUNT,
-                  &count) ||
-        count <= 0 || count > 4096)
-    {
-        return 0;
-    }
-    val_ci_count = count;
     vf("LOGICBATTLEMODECLIENT__INPUTMANAGER",
        true,
        "0x%llx",
@@ -401,54 +368,6 @@ int val_client_input(uintptr_t clientPtr)
        true,
        "0x%llx",
        (unsigned long long) queue);
-    vf("CLIENTINPUT_QUEUE_COUNT", true, "count=%d", count);
-    if (!read_ptr(queue + LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTS, &array) ||
-        !array || !read_ptr(array, &message) || !message ||
-        !pointer_plausible(message))
-    {
-        vf("CLIENTINPUT_QUEUE_ARRAY", false, "array/message unreadable");
-        return 1;
-    }
-    if (read_int(message + CLIENTINPUTMESSAGE__TYPE, &type))
-    {
-        vf("CLIENTINPUTMESSAGE__TYPE",
-           type >= 0 && type <= (int32_t) CLIENTINPUT__TYPECOUNT,
-           "type=%d max=%llu",
-           type,
-           (unsigned long long) CLIENTINPUT__TYPECOUNT);
-    }
-    else
-    {
-        vf("CLIENTINPUTMESSAGE__TYPE", false, "read failed");
-    }
-    if (read_int(message + CLIENTINPUTMESSAGE__X, &mx) &&
-        read_int(message + CLIENTINPUTMESSAGE__Y, &my))
-    {
-        vf("CLIENTINPUTMESSAGE_X/Y_OFF",
-           span(mx) && span(my),
-           "x=%d y=%d",
-           mx,
-           my);
-    }
-    else
-    {
-        vf("CLIENTINPUTMESSAGE_X/Y_OFF", false, "read failed");
-    }
-    vf("CLIENTINPUTMESSAGE__CHECKSUM",
-       read_bytes(message + CLIENTINPUTMESSAGE__CHECKSUM, token, sizeof(token)),
-       "hash=%02x%02x%02x%02x",
-       token[0],
-       token[1],
-       token[2],
-       token[3]);
-    vf("CLIENTINPUTMESSAGE__SKILLDATA",
-       addr_readable(message + CLIENTINPUTMESSAGE__SKILLDATA, 8),
-       "readable");
-    vf("CLIENTINPUTMESSAGE__SIGNEDDATA",
-       addr_readable(message + CLIENTINPUTMESSAGE__CHECKSUM +
-                         CLIENTINPUTMESSAGE__SIGNEDDATA,
-                     4),
-       "readable");
     return 1;
 }
 
@@ -666,28 +585,19 @@ void val_tilemap(uintptr_t clientPtr)
 
 void val_projectile()
 {
-    uintptr_t found     = 0;
-    uintptr_t objPtr    = 0;
-    int32_t   startTick = 0;
-    int32_t   endTick   = 0;
-    int32_t   sx        = 0;
-    int32_t   sy        = 0;
-    int32_t   ex        = 0;
-    int32_t   ey        = 0;
+    uintptr_t found  = 0;
+    uintptr_t objPtr = 0;
     {
-        float   px = 0.0f, py = 0.0f;
-        int32_t t0 = 0, t1 = 0;
-        if (!ad::find_live_projectile(&objPtr, &found, &t0, &t1, &px, &py))
+        float px = 0.0f, py = 0.0f;
+        if (!ad::find_live_projectile(&objPtr, &found, &px, &py))
         {
             objPtr = 0;
         }
         else if (val_proj_tries == 5)
         {
-            line("[VAL] proj probe objs=%d shot=%d t=%d..%d p=(%.0f,%.0f)\n",
+            line("[VAL] proj probe objs=%d shot=%d p=(%.0f,%.0f)\n",
                  obj_count,
                  (int) ad_proj_n,
-                 t0,
-                 t1,
                  px,
                  py);
         }
@@ -702,101 +612,23 @@ void val_projectile()
         }
         return;
     }
-    {
-        bool ticks_ok =
-            read_int(objPtr + LOGICPROJECTILE__SERVERTICKSTART, &startTick) &&
-            read_int(objPtr + LOGICPROJECTILE__SERVERTICKEND, &endTick);
-        if (!ticks_ok || startTick < 0 || endTick < startTick)
-        {
-            if (val_proj_tries < 119)
-            {
-                val_proj_tries++;
-                return;
-            }
-            val_proj_done = 1;
-            vf("PROJSERVER_START/ENDTICK",
-               false,
-               "%d..%d after 120s",
-               startTick,
-               endTick);
-            char dump[420];
-            int  at = 0;
-            at += snprintf(
-                dump, sizeof(dump), " obj=%llx", (unsigned long long) objPtr);
-            for (int i = 0x00; i <= 0x60 && at < (int) sizeof(dump) - 12;
-                 i += 4)
-            {
-                int32_t v = 0;
-                read_int(objPtr + i, &v);
-                at += snprintf(dump + at, sizeof(dump) - at, " %x=%d", i, v);
-            }
-            line("[VAL] proj obj dump%s\n", dump);
-            return;
-        }
-        vf("PROJSERVER_START/ENDTICK", true, "%d..%d", startTick, endTick);
-    }
     val_proj_done = 1;
-    vf("PROJSERVER_TICK_SPAN",
-       endTick - startTick >= 0 && endTick - startTick <= 3000,
-       "%d..%d span=%d",
-       startTick,
-       endTick,
-       endTick - startTick);
-    {
-        int32_t xi = 0, yi = 0;
-        if (read_int(objPtr + LOGICPROJECTILE__SERVERX, &xi) &&
-            read_int(objPtr + LOGICPROJECTILE__SERVERY, &yi))
-        {
-            int   mapW = wall_cache_width(), mapH = wall_cache_height();
-            float unit   = wall_logic_units(1);
-            bool  in_map = mapW > 0 && mapH > 0 && xi >= 0 && yi >= 0 &&
-                          (float) xi <= (float) mapW * unit &&
-                          (float) yi <= (float) mapH * unit;
-            vf("PROJSERVER_X/Y_OFF",
-               in_map,
-               "p=(%d,%d) map=%dx%d",
-               xi,
-               yi,
-               mapW,
-               mapH);
-        }
-        else
-        {
-            vf("PROJSERVER_X/Y_OFF", false, "read failed");
-        }
-    }
     if (!found)
     {
         vs("PROJECTILEDATA_*", "shot exposes no data-asset pointer");
         return;
     }
-    vf("LOGICPROJECTILEDATA__SIZE",
-       addr_readable(found, LOGICPROJECTILEDATA__SIZE),
-       "0x%llx readable 0x%llx",
-       (unsigned long long) found,
-       (unsigned long long) LOGICPROJECTILEDATA__SIZE);
-    vf("PROJSERVER_IN_OBJECT",
-       LOGICPROJECTILE__SERVERTARGETY + 4 <= OBJ_BLOCK_SIZE,
-       "endY=0x%llx block=0x%x",
-       (unsigned long long) (LOGICPROJECTILE__SERVERTARGETY + 4),
-       (unsigned) OBJ_BLOCK_SIZE);
-    if (read_int(objPtr + LOGICPROJECTILE__SERVERSTARTX, &sx) &&
-        read_int(objPtr + LOGICPROJECTILE__SERVERSTARTY, &sy) &&
-        read_int(objPtr + LOGICPROJECTILE__SERVERTARGETX, &ex) &&
-        read_int(objPtr + LOGICPROJECTILE__SERVERTARGETY, &ey))
+    int32_t speed = 0;
+    if (read_int(found + LOGICPROJECTILEDATA__SPEED, &speed))
     {
-        vf("PROJSERVER_COORDS",
-           sx > 0 && sy > 0 && ex > 0 && ey > 0 && span(sx) && span(sy) &&
-               span(ex) && span(ey),
-           "(%d,%d)->(%d,%d)",
-           sx,
-           sy,
-           ex,
-           ey);
+        vf("LOGICPROJECTILEDATA__SPEED",
+           speed > 50 && speed < 20000,
+           "speed=%d",
+           speed);
     }
     else
     {
-        vf("PROJSERVER_COORDS", false, "read failed");
+        vf("LOGICPROJECTILEDATA__SPEED", false, "read failed");
     }
 }
 
@@ -1136,12 +968,10 @@ void diag_tick()
     }
     for (int i = 0; i < ad_proj_n && i < AD_REPORT_MAX; i++)
     {
-        line("[p%d] pid=%d t=%d..%d p=(%.0f,%.0f) v=(%.0f,%.0f) sp=%.0f "
+        line("[p%d] pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) sp=%.0f "
              "r=%.0f vel=%d\n",
              i,
              ad_pj_pid[i],
-             ad_pj_t0[i],
-             ad_pj_t1[i],
              ad_pj_x[i],
              ad_pj_y[i],
              ad_pj_vx[i],

@@ -11,12 +11,10 @@ inline constexpr uint64_t GAMESTATEMANAGER__CLIENT       = 0x28ULL;
 
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__INPUTMANAGER      = 0x58ULL;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28ULL;
-inline constexpr uint64_t LOGICBATTLEMODECLIENT__HASHKEY           = 0x60ULL;
-inline constexpr uint64_t LOGICBATTLEMODECLIENT__HASHENABLED       = 0x70ULL;
 
-inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTS = 0x0ULL;
-inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__SERVERGAMEOBJECTCOUNT =
-    0xcULL;
+inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTS     = 0x0ULL;
+inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT = 0xcULL;
+
 inline constexpr uint64_t LOGICGAMEOBJECT__DATA               = 0x10ULL;
 inline constexpr uint64_t LOGICGAMEOBJECT__DATASCANSPAN       = 0x200ULL;
 inline constexpr uint64_t LOGICCHARACTER__GLOBALID            = 0x8ULL;
@@ -30,17 +28,7 @@ inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS =
     0x30cULL;
 inline constexpr uint64_t LOGICCHARACTER__CHARGEUPMODE = 0x310ULL;
 
-inline constexpr uint64_t LOGICPROJECTILE__SERVERX               = 0x38ULL;
-inline constexpr uint64_t LOGICPROJECTILE__SERVERY               = 0x3cULL;
-inline constexpr uint64_t LOGICPROJECTILE__SERVERTICKSTART       = 0x28ULL;
-inline constexpr uint64_t LOGICPROJECTILE__SERVERTICKEND         = 0x2cULL;
-inline constexpr uint64_t LOGICPROJECTILE__SERVERSTARTX          = 0xd0ULL;
-inline constexpr uint64_t LOGICPROJECTILE__SERVERSTARTY          = 0xd4ULL;
-inline constexpr uint64_t LOGICPROJECTILE__SERVERTARGETX         = 0xd8ULL;
-inline constexpr uint64_t LOGICPROJECTILE__SERVERTARGETY         = 0xdcULL;
-inline constexpr uint64_t LOGICPROJECTILE__SERVEROWNERGAMEOBJECT = 0x100ULL;
 inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED             = 0x124ULL;
-inline constexpr size_t   LOGICPROJECTILEDATA__SIZE              = 0x1e8ULL;
 
 inline constexpr uint64_t LOGICTILE__DATA               = 0x0ULL;
 inline constexpr uint64_t LOGICTILE__PATHFINDERMASK     = 0x10ULL;
@@ -78,8 +66,6 @@ inline constexpr uint64_t CLIENTINPUTMESSAGE__SIGNEDDATASIZE = 0x10ULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__TYPE           = 0x8ULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__X              = 0xcULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__Y              = 0x10ULL;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__CHECKSUM       = 0x34ULL;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__SKILLDATA      = 0x40ULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__SIZE           = 0x48ULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__PROBESIZE      = 0x80ULL;
 inline constexpr uint64_t CLIENTINPUT__TYPECOUNT             = 0x17ULL;

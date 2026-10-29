@@ -242,50 +242,6 @@ int client_input_pipeline_state()
     return client_input_pipeline_state_value;
 }
 
-uint32_t sign_client_input_message(void* ci, void* battle)
-{
-    uint8_t   key[0x10];
-    uint8_t   enabled  = 0;
-    uint32_t  checksum = 0;
-    uintptr_t message  = reinterpret_cast<uintptr_t>(ci);
-    uintptr_t mode     = reinterpret_cast<uintptr_t>(battle);
-    if (!ci || !battle)
-    {
-        return 0;
-    }
-    if (!read_bytes(mode + LOGICBATTLEMODECLIENT__HASHENABLED, &enabled, 1))
-    {
-        return 0;
-    }
-    if (enabled != 1)
-    {
-        return 0;
-    }
-    if (!load_client_input_constants())
-    {
-        return 0;
-    }
-    if (!read_bytes(mode + LOGICBATTLEMODECLIENT__HASHKEY, key, sizeof(key)))
-    {
-        return 0;
-    }
-    checksum = ClientInputMessageComputeChecksum(
-        key,
-        reinterpret_cast<const uint8_t*>(message +
-                                         CLIENTINPUTMESSAGE__SIGNEDDATA),
-        client_input_type_table,
-        client_input_type_fallback,
-        client_input_hash_inner_mask,
-        client_input_hash_outer_mask);
-    if (!write_bytes(message + CLIENTINPUTMESSAGE__CHECKSUM,
-                     &checksum,
-                     sizeof(checksum)))
-    {
-        return 0;
-    }
-    return checksum;
-}
-
 static int client_input_message_is_valid(void* memory, size_t size)
 {
     uintptr_t address = reinterpret_cast<uintptr_t>(memory);
@@ -485,7 +441,6 @@ int enqueue_client_input_message(int type, int x, int y)
         free(message);
         return 0;
     }
-    sign_client_input_message(message, battle);
     reinterpret_cast<void (*)(void*, void*)>(add_input)(manager, message);
     client_input_pipeline_state_value = ClientInputPipelineReady;
     return 1;

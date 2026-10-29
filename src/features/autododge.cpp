@@ -28,7 +28,6 @@ int32_t  ad_pj_pid[AD_REPORT_MAX]          = {0};
 float    ad_pj_x[AD_REPORT_MAX] = {0}, ad_pj_y[AD_REPORT_MAX] = {0};
 float    ad_pj_vx[AD_REPORT_MAX] = {0}, ad_pj_vy[AD_REPORT_MAX] = {0};
 float    ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
-int      ad_pj_t0[AD_REPORT_MAX] = {0}, ad_pj_t1[AD_REPORT_MAX] = {0};
 int      ad_pj_vel[AD_REPORT_MAX]           = {0};
 int      ad_windup_n                        = 0;
 int      ad_enemy_charge_ms[AD_ENEMY_MAX]   = {0};
@@ -180,25 +179,6 @@ static void add_character_entry(
     }
 }
 
-static float
-seg_dist(float px, float py, float ax, float ay, float bx, float by)
-{
-    float vx = bx - ax, vy = by - ay;
-    float wx = px - ax, wy = py - ay;
-    float vv = vx * vx + vy * vy;
-    float t  = 0.0f;
-    if (vv > 1e-6f)
-    {
-        t = (wx * vx + wy * vy) / vv;
-        if (t < 0.0f)
-            t = 0.0f;
-        else if (t > 1.0f)
-            t = 1.0f;
-    }
-    float dx = wx - vx * t, dy = wy - vy * t;
-    return sqrtf(dx * dx + dy * dy);
-}
-
 static uintptr_t find_projectile_data_asset(uintptr_t objPtr)
 {
     if (!objPtr) return 0;
@@ -225,55 +205,6 @@ static void refresh_world_extents()
     world_extent_y = static_cast<float>(wall_cache_height()) * unit;
 }
 
-static bool is_live_projectile(const uint8_t* obj,
-                               int32_t*       tick0,
-                               int32_t*       tick1,
-                               float*         px,
-                               float*         py,
-                               float*         sx,
-                               float*         sy,
-                               float*         ex,
-                               float*         ey)
-{
-    int32_t t0 = 0, t1 = 0, xi = 0, yi = 0;
-    int32_t ax = 0, ay = 0, bx = 0, by = 0;
-    memcpy(&t0, obj + LOGICPROJECTILE__SERVERTICKSTART, sizeof(t0));
-    memcpy(&t1, obj + LOGICPROJECTILE__SERVERTICKEND, sizeof(t1));
-    if (t0 <= 0 || t1 < t0 || t1 - t0 > 3000) return false;
-    float w = world_extent_x;
-    float h = world_extent_y;
-    if (w <= 0.0f || h <= 0.0f) return false;
-    memcpy(&xi, obj + LOGICPROJECTILE__SERVERX, sizeof(xi));
-    memcpy(&yi, obj + LOGICPROJECTILE__SERVERY, sizeof(yi));
-    if ((float) xi < -300.0f || (float) yi < -300.0f) return false;
-    if ((float) xi > w + 300.0f || (float) yi > h + 300.0f) return false;
-    memcpy(&ax, obj + LOGICPROJECTILE__SERVERSTARTX, sizeof(ax));
-    memcpy(&ay, obj + LOGICPROJECTILE__SERVERSTARTY, sizeof(ay));
-    memcpy(&bx, obj + LOGICPROJECTILE__SERVERTARGETX, sizeof(bx));
-    memcpy(&by, obj + LOGICPROJECTILE__SERVERTARGETY, sizeof(by));
-    if (ax < -100000 || ay < -100000 || ax > 100000 || ay > 100000)
-        return false;
-    if (bx < -100000 || by < -100000 || bx > 100000 || by > 100000)
-        return false;
-    if (ax == bx && ay == by) return false;
-    if (seg_dist((float) xi,
-                 (float) yi,
-                 (float) ax,
-                 (float) ay,
-                 (float) bx,
-                 (float) by) > 600.0f)
-        return false;
-    *tick0 = t0;
-    *tick1 = t1;
-    *px    = (float) xi;
-    *py    = (float) yi;
-    *sx    = (float) ax;
-    *sy    = (float) ay;
-    *ex    = (float) bx;
-    *ey    = (float) by;
-    return true;
-}
-
 static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
 {
     float w = world_extent_x;
@@ -282,15 +213,6 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     int32_t xi = 0, yi = 0;
     memcpy(&xi, obj + LOGICCHARACTER__X, sizeof(xi));
     memcpy(&yi, obj + LOGICCHARACTER__Y, sizeof(yi));
-    if ((float) xi >= -300.0f && (float) yi >= -300.0f &&
-        (float) xi <= w + 300.0f && (float) yi <= h + 300.0f)
-    {
-        *px = (float) xi;
-        *py = (float) yi;
-        return true;
-    }
-    memcpy(&xi, obj + LOGICPROJECTILE__SERVERX, sizeof(xi));
-    memcpy(&yi, obj + LOGICPROJECTILE__SERVERY, sizeof(yi));
     if ((float) xi >= -300.0f && (float) yi >= -300.0f &&
         (float) xi <= w + 300.0f && (float) yi <= h + 300.0f)
     {
@@ -307,14 +229,8 @@ static void add_projectile_threat(const uint8_t* obj,
                                   float          mx,
                                   float          my,
                                   float          zone2,
-                                  int32_t        tk0,
-                                  int32_t        tk1,
                                   float          px,
-                                  float          py,
-                                  float          sx,
-                                  float          sy,
-                                  float          ex,
-                                  float          ey)
+                                  float          py)
 {
     int32_t pid = 0;
     memcpy(&pid, obj + LOGICCHARACTER__GLOBALID, sizeof(pid));
@@ -322,20 +238,6 @@ static void add_projectile_threat(const uint8_t* obj,
     if (key <= 0)
         key = (int32_t) (((objPtr >> 4) ^ (objPtr >> 20)) & 0x7fffffff);
     if (key <= 0) return;
-    uintptr_t owner = 0;
-    if (char_vt &&
-        read_ptr(objPtr + LOGICPROJECTILE__SERVEROWNERGAMEOBJECT, &owner) &&
-        owner && pointer_plausible(owner))
-    {
-        uintptr_t odata = 0, ovt = 0;
-        int32_t   oteam = 0;
-        if (read_ptr(owner + LOGICGAMEOBJECT__DATA, &odata) && odata &&
-            pointer_plausible(odata) && read_ptr(odata, &ovt) && ovt >= base &&
-            ovt - base == char_vt &&
-            read_int(owner + LOGICCHARACTER__TEAM, &oteam) &&
-            oteam == own_team_b)
-            return;
-    }
     ad_proj_n++;
     Proj* st = find_projectile_entry(key);
     if (st->pid != key)
@@ -354,24 +256,10 @@ static void add_projectile_threat(const uint8_t* obj,
         read_int(st->data + LOGICPROJECTILEDATA__SPEED, &dataSpeed) &&
         dataSpeed > 50 && dataSpeed < 20000)
     {
-        float ddx = ex - sx, ddy = ey - sy;
-        float len = sqrtf(ddx * ddx + ddy * ddy);
-        if (len < 0.5f)
+        if (step > 0.5f)
         {
-            ddx = ex - px;
-            ddy = ey - py;
-            len = sqrtf(ddx * ddx + ddy * ddy);
-        }
-        if (len < 0.5f)
-        {
-            ddx = -step_x;
-            ddy = -step_y;
-            len = step;
-        }
-        if (len > 0.5f)
-        {
-            st->ux    = ddx / len;
-            st->uy    = ddy / len;
+            st->ux    = step_x / step;
+            st->uy    = step_y / step;
             st->speed = (float) dataSpeed;
             st->vel   = true;
         }
@@ -391,8 +279,6 @@ static void add_projectile_threat(const uint8_t* obj,
         ad_pj_vy[k]  = st->vel ? st->uy * st->speed : 0.0f;
         ad_pj_sp[k]  = st->vel ? st->speed : 0.0f;
         ad_pj_r[k]   = st->rad;
-        ad_pj_t0[k]  = tk0;
-        ad_pj_t1[k]  = tk1;
         ad_pj_vel[k] = st->vel ? 1 : 0;
     }
     float dx = px - mx, dy = py - my;
@@ -467,36 +353,16 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
             add_character_entry(obj, obj_snapshot[i], own_gid, mx, my);
             continue;
         }
-        int32_t t0 = 0, t1 = 0;
-        float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
-        if (!is_live_projectile(obj, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
-        {
-            if (obj_rva[i] != LOGICPROJECTILEDATA__VTABLE) continue;
-            if (!read_projectile_position(obj, &px, &py)) continue;
-            t0 = 0;
-            t1 = 0;
-        }
-        add_projectile_threat(obj,
-                              obj_snapshot[i],
-                              now,
-                              mx,
-                              my,
-                              zone2,
-                              t0,
-                              t1,
-                              px,
-                              py,
-                              sx,
-                              sy,
-                              ex,
-                              ey);
+        if (obj_rva[i] != LOGICPROJECTILEDATA__VTABLE) continue;
+        float px = 0.0f, py = 0.0f;
+        if (!read_projectile_position(obj, &px, &py)) continue;
+        add_projectile_threat(
+            obj, obj_snapshot[i], now, mx, my, zone2, px, py);
     }
 }
 
 int find_live_projectile(uintptr_t* objOut,
                          uintptr_t* dataOut,
-                         int32_t*   tick0,
-                         int32_t*   tick1,
                          float*     px,
                          float*     py)
 {
@@ -504,15 +370,11 @@ int find_live_projectile(uintptr_t* objOut,
     for (int i = 0; i < obj_count; i++)
     {
         if (!obj_valid[i] || !obj_snapshot[i]) continue;
-        int32_t t0 = 0, t1 = 0;
-        float   x = 0.0f, y = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
-        if (!is_live_projectile(
-                obj_block[i], &t0, &t1, &x, &y, &sx, &sy, &ex, &ey))
-            continue;
+        if (obj_rva[i] != LOGICPROJECTILEDATA__VTABLE) continue;
+        float x = 0.0f, y = 0.0f;
+        if (!read_projectile_position(obj_block[i], &x, &y)) continue;
         *objOut  = obj_snapshot[i];
-        *dataOut = find_projectile_data_asset(obj_snapshot[i]);
-        *tick0   = t0;
-        *tick1   = t1;
+        *dataOut = obj_data[i];
         *px      = x;
         *py      = y;
         return 1;

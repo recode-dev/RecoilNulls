@@ -40,8 +40,6 @@ extern float         ad_pj_vx[AD_REPORT_MAX];
 extern float         ad_pj_vy[AD_REPORT_MAX];
 extern float         ad_pj_sp[AD_REPORT_MAX];
 extern float         ad_pj_r[AD_REPORT_MAX];
-extern int           ad_pj_t0[AD_REPORT_MAX];
-extern int           ad_pj_t1[AD_REPORT_MAX];
 extern int           ad_pj_vel[AD_REPORT_MAX];
 extern uint64_t      ad_qv[16];
 extern uint16_t      ad_qc[16];
@@ -92,8 +90,6 @@ extern int       pend_dmg;
 void             evict_stale_projectiles(uint64_t now);
 int              find_live_projectile(uintptr_t* objOut,
                                       uintptr_t* dataOut,
-                                      int32_t*   tick0,
-                                      int32_t*   tick1,
                                       float*     px,
                                       float*     py);
 void  collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my);

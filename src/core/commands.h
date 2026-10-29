@@ -17,7 +17,6 @@ void*               get_client_input_manager();
 int                 set_client_prediction_move_to(int x, int y);
 int                 load_client_input_constants();
 int                 client_input_pipeline_state();
-uint32_t            sign_client_input_message(void* ci, void* battle);
 int                 enqueue_client_input_message(int type, int x, int y);
 int                 enqueue_move_input(int x, int y);
 int                 enqueue_move_input_with_type(int x, int y, int type);
