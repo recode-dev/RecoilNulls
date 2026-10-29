@@ -970,7 +970,7 @@ void diag_tick()
     for (int i = 0; i < ad_proj_n && i < AD_REPORT_MAX; i++)
     {
         line("[p%d] pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) sp=%.0f "
-             "r=%.0f vel=%d" "\n",
+             "r=%.0f vel=%d\n",
              i,
              ad_pj_pid[i],
              ad_pj_x[i],
