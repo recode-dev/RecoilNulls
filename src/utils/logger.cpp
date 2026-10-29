@@ -654,14 +654,32 @@ void val_projectile()
     uint8_t butter = 0;
     uint8_t passes = 0;
     uintptr_t cfg = 0;
-    for (int i = 0; i < obj_count; i++)
     {
-        uintptr_t vtable = 0;
-        if (!obj_snapshot[i] || !read_ptr(obj_snapshot[i], &vtable)) continue;
-        if (vtable == target)
+        int scanned = 0;
+        uintptr_t sampleA = 0;
+        uintptr_t sampleB = 0;
+        for (int i = 0; i < obj_count; i++)
         {
-            found = obj_snapshot[i];
-            break;
+            uintptr_t vtable = 0;
+            if (!obj_snapshot[i] || !read_ptr(obj_snapshot[i], &vtable)) continue;
+            scanned++;
+            if (vtable == target)
+            {
+                found = obj_snapshot[i];
+                break;
+            }
+            if (!sampleA)
+                sampleA = vtable;
+            else if (!sampleB && vtable != sampleA)
+                sampleB = vtable;
+        }
+        if (!found && val_proj_tries == 5)
+        {
+            line("[VAL] proj probe objs=%d vt=0x%llx,0x%llx want=0x%llx\n",
+                 scanned,
+                 (unsigned long long)sampleA,
+                 (unsigned long long)sampleB,
+                 (unsigned long long)target);
         }
     }
     if (!found)
