@@ -20,7 +20,8 @@ inline constexpr uint64_t RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER = 0x942ebcULL;
 // LogicTile keeps three 64-bit passability bitmaps. Bit index is
 // (x % 3) + (y % 3) * 3 + layer * 9; a set bit means the sub-cell is blocked.
 // Verified in v69: LogicTileMap::isPassablePathFinder (0x942ebc) calls
-// LogicTile::isPassablePathFinder (0x9402ec), which reads +0x10/+0x18/+0x20/+0x28.
+// LogicTile::isPassablePathFinder (0x9402ec), which reads
+// +0x10/+0x18/+0x20/+0x28.
 inline constexpr uint64_t LOGICTILE_BLOCKMASK_OFF = 0x10ULL;
 inline constexpr uint64_t LOGICTILE_WATERMASK_OFF = 0x18ULL;
 inline constexpr uint64_t LOGICTILE_THIRDMASK_OFF = 0x20ULL;

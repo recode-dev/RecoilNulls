@@ -599,7 +599,8 @@ void val_tilemap(uintptr_t clientPtr)
             uintptr_t item = 0;
             uint64_t mask = 0;
             if (!read_ptr(tiles + (uintptr_t)i * 8, &item) || !item) continue;
-            if (!read_bytes(item + LOGICTILE_BLOCKMASK_OFF, &mask, sizeof(mask)))
+            if (!read_bytes(
+                    item + LOGICTILE_BLOCKMASK_OFF, &mask, sizeof(mask)))
                 continue;
             seen++;
             if (mask && !sample) sample = mask;

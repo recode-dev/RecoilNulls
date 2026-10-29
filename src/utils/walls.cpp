@@ -167,9 +167,8 @@ int wall_build()
         {
             continue;
         }
-        if (!read_bytes(tile + LOGICTILE_BLOCKMASK_OFF,
-                        &blockMask,
-                        sizeof(blockMask)))
+        if (!read_bytes(
+                tile + LOGICTILE_BLOCKMASK_OFF, &blockMask, sizeof(blockMask)))
         {
             continue;
         }
