@@ -444,8 +444,7 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
             int32_t nt0 = 0, nt1 = 0;
             memcpy(
                 &nt0, obj + LogicProjectileServerTickStartOffset, sizeof(nt0));
-            memcpy(
-                &nt1, obj + LogicProjectileServerTickEndOffset, sizeof(nt1));
+            memcpy(&nt1, obj + LogicProjectileServerTickEndOffset, sizeof(nt1));
             if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 3000) ad_shot_tick++;
         }
         if (!is_live_projectile(obj, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))

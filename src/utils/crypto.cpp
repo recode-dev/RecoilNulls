@@ -3,13 +3,13 @@
 #include <CommonCrypto/CommonDigest.h>
 #include <cstring>
 
-static void ClientInputMessageHashKeyedParts(
-    const uint8_t* key16,
-    const uint8_t* mask16,
-    uint8_t pad,
-    const uint8_t* message,
-    size_t messageLength,
-    uint8_t out[CC_SHA256_DIGEST_LENGTH])
+static void
+ClientInputMessageHashKeyedParts(const uint8_t* key16,
+                                 const uint8_t* mask16,
+                                 uint8_t pad,
+                                 const uint8_t* message,
+                                 size_t messageLength,
+                                 uint8_t out[CC_SHA256_DIGEST_LENGTH])
 {
     uint8_t keyedBlock[64];
     for (int i = 0; i < 16; ++i)

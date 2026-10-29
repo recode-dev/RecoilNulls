@@ -275,8 +275,7 @@ int game_tile_to_logic(int tile)
     static conv_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<conv_t>(
-            callable(LogicTileMapTileToLogicRva));
+        fn = reinterpret_cast<conv_t>(callable(LogicTileMapTileToLogicRva));
     }
     if (!fn)
     {
@@ -291,8 +290,7 @@ int game_logic_to_tile(int unit)
     static conv_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<conv_t>(
-            callable(LogicTileMapLogicToTileRva));
+        fn = reinterpret_cast<conv_t>(callable(LogicTileMapLogicToTileRva));
     }
     if (!fn)
     {
@@ -542,9 +540,8 @@ void scan_world()
         world_reset();
         return;
     }
-    if (!read_ptr(clientPtr +
-                      static_cast<uintptr_t>(
-                          LogicBattleModeClientGameObjectManagerOffset),
+    if (!read_ptr(clientPtr + static_cast<uintptr_t>(
+                                  LogicBattleModeClientGameObjectManagerOffset),
                   &value) ||
         !value)
     {
@@ -553,10 +550,10 @@ void scan_world()
     }
     mgrPtr = (uintptr_t)value;
     manager_ptr = mgrPtr;
-    if (!read_int(
-            mgrPtr + static_cast<uintptr_t>(
-                         LogicGameObjectManagerServerGameObjectCountOffset),
-            &count) ||
+    if (!read_int(mgrPtr +
+                      static_cast<uintptr_t>(
+                          LogicGameObjectManagerServerGameObjectCountOffset),
+                  &count) ||
         count <= 0 || count > OBJECT_COUNT_MAX)
     {
         world_reset();
@@ -591,8 +588,7 @@ void scan_world()
                            : 0;
     }
     {
-        uintptr_t ownFn =
-            callable(LogicBattleModeClientGetOwnCharacterRva);
+        uintptr_t ownFn = callable(LogicBattleModeClientGetOwnCharacterRva);
         uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
         own = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
     }
@@ -627,10 +623,9 @@ void scan_world()
     }
     dead = (own_ok_hp && own_hp == 0) ? 1 : 0;
     own_index_v = static_cast<int32_t>(
-        call(callable(LogicBattleModeClientGetOwnPlayerIndexRva),
-             clientPtr));
-    own_team_b = static_cast<int32_t>(call(
-        callable(LogicBattleModeClientGetOwnPlayerTeamRva), clientPtr));
+        call(callable(LogicBattleModeClientGetOwnPlayerIndexRva), clientPtr));
+    own_team_b = static_cast<int32_t>(
+        call(callable(LogicBattleModeClientGetOwnPlayerTeamRva), clientPtr));
     track_own_speed();
     tilemap_tick(clientPtr);
     wall_cache_refresh_if_stale(

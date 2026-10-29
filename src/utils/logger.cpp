@@ -156,8 +156,7 @@ void val_rva_table()
         {"LogicBattleModeClientSetClientPredictionMoveToRva",
          LogicBattleModeClientSetClientPredictionMoveToRva},
         {"ClientInputMessageConstructorRva", ClientInputMessageConstructorRva},
-        {"ClientInputManagerAddInputRva",
-         ClientInputManagerAddInputRva},
+        {"ClientInputManagerAddInputRva", ClientInputManagerAddInputRva},
         {"LogicTileMapIsPassablePathFinderRva",
          LogicTileMapIsPassablePathFinderRva},
         {"LogicTileMapIsPlayerLineOfSightClearRva",
@@ -349,8 +348,7 @@ void val_globals(uintptr_t slot)
     }
     vf("DATACONST_RVA",
        addr_readable(base + DataConstRvaLow, 16) &&
-           addr_readable(base + DataConstRvaLow + DataConstRvaSize - 16,
-                         16),
+           addr_readable(base + DataConstRvaLow + DataConstRvaSize - 16, 16),
        "lo=0x%llx size=0x%llx",
        (unsigned long long)DataConstRvaLow,
        (unsigned long long)DataConstRvaSize);
@@ -396,9 +394,8 @@ int val_client_input(uintptr_t clientPtr)
         return 0;
     }
     val_ci_queue = queue;
-    if (!read_int(
-            queue + LogicGameObjectManagerServerGameObjectCountOffset,
-            &count) ||
+    if (!read_int(queue + LogicGameObjectManagerServerGameObjectCountOffset,
+                  &count) ||
         count <= 0 || count > 4096)
     {
         return 0;
@@ -586,8 +583,8 @@ void val_character(uintptr_t own)
 void val_tilemap(uintptr_t clientPtr)
 {
     typedef uintptr_t (*map_t)(uintptr_t);
-    map_t fn = reinterpret_cast<map_t>(
-        callable(LogicBattleModeClientGetTileMapRva));
+    map_t fn =
+        reinterpret_cast<map_t>(callable(LogicBattleModeClientGetTileMapRva));
     uintptr_t map = fn ? fn(clientPtr) : 0;
     uintptr_t tiles = 0;
     int32_t width = 0;
@@ -607,10 +604,7 @@ void val_tilemap(uintptr_t clientPtr)
     }
     if (read_int(map + LogicTileMapWidthOffset, &width))
     {
-        vf("LogicTileMapWidthOffset",
-           width > 0 && width <= 120,
-           "w=%d",
-           width);
+        vf("LogicTileMapWidthOffset", width > 0 && width <= 120, "w=%d", width);
     }
     else
     {
@@ -932,7 +926,8 @@ void diag_tick()
     {
         static uint64_t last_fast = 0;
         uint64_t prev = __atomic_load_n(&last_fast, __ATOMIC_RELAXED);
-        bool busy = ad::threat_n || active || ad_hold_ms || ad_urgent || ad_human;
+        bool busy =
+            ad::threat_n || active || ad_hold_ms || ad_urgent || ad_human;
         uint64_t period = busy ? FAST_TRACE_US : IDLE_TRACE_US;
         bool slot = !prev || now_us - prev >= period;
         if (slot && !__atomic_compare_exchange_n(&last_fast,
@@ -945,22 +940,21 @@ void diag_tick()
         if (slot)
         {
             char buf[2048];
-            int n =
-                snprintf(buf,
-                         sizeof(buf),
-                         "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%s n=%d "
-                         "h=%d u=%d hm=%d",
-                         (unsigned long long)(now_us / 1000),
-                         own_x,
-                         own_y,
-                         (int)(own_speed + 0.5f),
-                         ad_dir_x,
-                         ad_dir_y,
-                         target_text(target_buf, sizeof(target_buf)),
-                         ad::threat_n,
-                         ad_hold_ms,
-                         ad_urgent,
-                         ad_human);
+            int n = snprintf(buf,
+                             sizeof(buf),
+                             "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%s n=%d "
+                             "h=%d u=%d hm=%d",
+                             (unsigned long long)(now_us / 1000),
+                             own_x,
+                             own_y,
+                             (int)(own_speed + 0.5f),
+                             ad_dir_x,
+                             ad_dir_y,
+                             target_text(target_buf, sizeof(target_buf)),
+                             ad::threat_n,
+                             ad_hold_ms,
+                             ad_urgent,
+                             ad_human);
             for (int i = 0;
                  i < ad::threat_n && n > 0 && n < (int)sizeof(buf) - 48;
                  i++)

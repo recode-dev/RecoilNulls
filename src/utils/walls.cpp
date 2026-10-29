@@ -93,8 +93,8 @@ static uint16_t wall_tile_data_flags(uintptr_t tileData)
     if (!tileData || !pointer_plausible(tileData)) return 0;
     if (tileData == wall_flag_source) return wall_flag_value;
     if (!read_bytes(tileData + LogicTileDataBlocksMovementOffset,
-               &flags,
-               LogicTileDataBlockFlagsSize))
+                    &flags,
+                    LogicTileDataBlockFlagsSize))
         return 0;
     wall_flag_source = tileData;
     wall_flag_value = flags;

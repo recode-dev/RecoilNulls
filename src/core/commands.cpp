@@ -149,8 +149,7 @@ static int client_input_constants_relocate(uintptr_t* outRva)
 {
     uint8_t buffer[ClientInputTypeTableScanChunk +
                    sizeof(client_input_type_table_anchor)];
-    uintptr_t start =
-        ClientInputTypeTableRva - ClientInputTypeTableScanSpan;
+    uintptr_t start = ClientInputTypeTableRva - ClientInputTypeTableScanSpan;
     uintptr_t end = ClientInputTypeTableRva + ClientInputTypeTableScanSpan +
                     sizeof(client_input_type_table_anchor);
     uintptr_t found = 0;
@@ -272,7 +271,7 @@ uint32_t sign_client_input_message(void* ci, void* battle)
     checksum = ClientInputMessageComputeChecksum(
         key,
         reinterpret_cast<const uint8_t*>(message +
-                                          ClientInputMessageSignedDataOffset),
+                                         ClientInputMessageSignedDataOffset),
         client_input_type_table,
         client_input_type_fallback,
         client_input_hash_inner_mask,
@@ -352,8 +351,7 @@ static int client_input_layout_probe(uintptr_t constructor)
 static void* client_input_battle_instance()
 {
     static uintptr_t slot = 0;
-    uintptr_t function =
-        client_input_resolve(&slot, BattleModeGetInstanceRva);
+    uintptr_t function = client_input_resolve(&slot, BattleModeGetInstanceRva);
     if (!function)
     {
         return nullptr;
@@ -443,12 +441,11 @@ int enqueue_client_input_message(int type, int x, int y)
     }
     constructor = client_input_resolve(&constructor_slot,
                                        ClientInputMessageConstructorRva);
-    add_input = client_input_resolve(&add_input_slot,
-                                     ClientInputManagerAddInputRva);
+    add_input =
+        client_input_resolve(&add_input_slot, ClientInputManagerAddInputRva);
     if (!constructor || !add_input)
     {
-        client_input_pipeline_state_value =
-            ClientInputPipelineCallablesMissing;
+        client_input_pipeline_state_value = ClientInputPipelineCallablesMissing;
         return 0;
     }
     if (!client_input_layout_confirmed)
