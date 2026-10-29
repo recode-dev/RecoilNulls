@@ -9,7 +9,6 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdint>
-#include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -20,19 +19,7 @@ constexpr uint64_t  REPORT_US     = 1000000;
 constexpr uint64_t  FAST_TRACE_US = 50000;
 constexpr uint64_t  IDLE_TRACE_US = 500000;
 
-constexpr uint64_t LOGICTILE__WATERPATHFINDERMASK =
-    LOGICTILE__PATHFINDERMASK + LOGICTILE__PATHFINDERMASKSIZE;
-constexpr uint64_t LOGICTILE__HARDBLOCKMASK =
-    LOGICTILE__WATERPATHFINDERMASK + LOGICTILE__PATHFINDERMASKSIZE;
-
-constexpr uint64_t LOGICBATTLEMODECLIENT__GETOWNPLAYERINDEX = 0x9cda04ULL;
-constexpr uint64_t LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR   = 0x943b08ULL;
-constexpr uint64_t CLIENTINPUT__TYPETABLE                   = 0xe1bd30ULL;
-constexpr uint64_t CLIENTINPUT__TYPEFALLBACK                = 0xe1bc28ULL;
-constexpr uint64_t CLIENTINPUTMESSAGE__HASHINNERMASK        = 0xe1bbd0ULL;
-constexpr uint64_t CLIENTINPUTMESSAGE__HASHOUTERMASK        = 0xe1bbf0ULL;
-
-static const char* target_text(char* out, size_t cap)
+const char* target_text(char* out, size_t cap)
 {
     if (ad_target_x == INT32_MAX || ad_target_y == INT32_MAX)
     {
@@ -96,623 +83,233 @@ bool open_log()
     fseek(log_file, 0, SEEK_END);
     if (ftell(log_file) == 0)
     {
-        fprintf(log_file, "=== autododge log ===\n");
+        fprintf(log_file, "=== recoil log ===\n");
         fprintf(log_file, "documents: %s\n", dir);
         fflush(log_file);
     }
     return true;
 }
 
-int       val_ok          = 0;
-int       val_fail        = 0;
-int       val_skip        = 0;
-int       val_stage       = 0;
-int       val_proj_done   = 0;
-int       val_proj_tries  = 0;
-int       val_input_state = 0;
-int       val_input_tries = 0;
-uintptr_t val_ci_manager  = 0;
-uintptr_t val_ci_queue    = 0;
-int32_t   val_ci_count    = 0;
-uint64_t  val_probe_next  = 0;
-
-void vf(const char* name, bool pass, const char* format, ...)
+struct code_entry
 {
-    char    buf[192];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buf, sizeof(buf), format, args);
-    va_end(args);
+    const char* name;
+    uintptr_t   rva;
+};
+
+constexpr code_entry kCodeOffsetTable[] = {
+    {"BATTLEMODE__GETINSTANCE", BATTLEMODE__GETINSTANCE},
+    {"LOGICDATA__GETNAME", LOGICDATA__GETNAME},
+    {"LOGICBATTLEMODECLIENT__GETTILEMAP", LOGICBATTLEMODECLIENT__GETTILEMAP},
+    {"LOGICBATTLEMODECLIENT__GETOWNCHARACTER",
+     LOGICBATTLEMODECLIENT__GETOWNCHARACTER},
+    {"LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM",
+     LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM},
+    {"LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO",
+     LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO},
+    {"CLIENTINPUTMESSAGE__CONSTRUCTOR", CLIENTINPUTMESSAGE__CONSTRUCTOR},
+    {"CLIENTINPUTMANAGER__ADDINPUT", CLIENTINPUTMANAGER__ADDINPUT},
+    {"LOGICTILEMAP__ISPASSABLEPATHFINDER",
+     LOGICTILEMAP__ISPASSABLEPATHFINDER},
+    {"LOGICTILEMAP__TILETOLOGIC", LOGICTILEMAP__TILETOLOGIC},
+    {"LOGICTILEMAP__LOGICTOTILE", LOGICTILEMAP__LOGICTOTILE},
+    {"LOGICMATH__SQRT", LOGICMATH__SQRT},
+    {"LOGICMATH__SIN", LOGICMATH__SIN},
+    {"LOGICMATH__GETDISTANCESQUARETOLINE",
+     LOGICMATH__GETDISTANCESQUARETOLINE},
+    {"LOGICPROJECTILEDATA__GETRADIUS", LOGICPROJECTILEDATA__GETRADIUS},
+    {"LOGICGAMEOBJECTCLIENT__GETX", LOGICGAMEOBJECTCLIENT__GETX},
+    {"LOGICGAMEOBJECTCLIENT__GETY", LOGICGAMEOBJECTCLIENT__GETY},
+    {"LOGICVECTOR2__GETANGLE", LOGICVECTOR2__GETANGLE},
+    {"LOGICVECTOR2__NORMALIZE", LOGICVECTOR2__NORMALIZE},
+    {"LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN",
+     LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN},
+    {"LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN",
+     LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN},
+    {"LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE",
+     LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE},
+    {"LOGICPROJECTILECLIENT__GETTRAVELTICKS",
+     LOGICPROJECTILECLIENT__GETTRAVELTICKS},
+};
+
+struct field_entry
+{
+    const char* name;
+    uintptr_t   offset;
+    size_t      width;
+};
+
+constexpr field_entry kCharacterFieldTable[] = {
+    {"LOGICGAMEOBJECT__DATA", LOGICGAMEOBJECT__DATA, sizeof(uintptr_t)},
+    {"LOGICCHARACTER__GLOBALID", LOGICCHARACTER__GLOBALID, sizeof(int32_t)},
+    {"LOGICCHARACTER__X", LOGICCHARACTER__X, sizeof(int32_t)},
+    {"LOGICCHARACTER__Y", LOGICCHARACTER__Y, sizeof(int32_t)},
+    {"LOGICCHARACTER__TEAM", LOGICCHARACTER__TEAM, sizeof(int32_t)},
+    {"LOGICCHARACTER__ATTACKANGLE", LOGICCHARACTER__ATTACKANGLE,
+     sizeof(int32_t)},
+    {"LOGICCHARACTER__HITPOINTS", LOGICCHARACTER__HITPOINTS, sizeof(int32_t)},
+};
+
+int val_ok   = 0;
+int val_fail = 0;
+int val_done = 0;
+
+void check(bool pass, const char* name, const char* detail)
+{
     if (pass)
     {
         val_ok++;
-        line("[VAL] %-32s ok    %s\n", name, buf);
+        line("[VAL] %-48s ok    %s\n", name, detail);
     }
     else
     {
         val_fail++;
-        line("[VAL] %-32s FAIL  %s\n", name, buf);
+        line("[VAL] %-48s FAIL  %s\n", name, detail);
     }
 }
 
-void vs(const char* name, const char* why)
+void validate_code_offsets()
 {
-    val_skip++;
-    line("[VAL] %-32s skip  %s\n", name, why);
+    char detail[96];
+    for (const code_entry& entry : kCodeOffsetTable)
+    {
+        uintptr_t address = callable_at_rva(entry.rva);
+        bool      ok      = address != 0 && addr_executable(address) &&
+                       addr_readable(address, sizeof(uint32_t));
+        snprintf(detail,
+                 sizeof(detail),
+                 "rva=0x%llx addr=0x%llx",
+                 (unsigned long long) entry.rva,
+                 (unsigned long long) address);
+        check(ok, entry.name, detail);
+    }
 }
 
-int val_client_input(uintptr_t clientPtr);
-
-BOOL span(long long value)
+void validate_character_fields(uintptr_t own)
 {
-    return (value >= -3000 && value <= 40000) ? YES : NO;
+    char detail[128];
+    for (const field_entry& entry : kCharacterFieldTable)
+    {
+        uintptr_t value = 0;
+        bool      ok    = read_bytes(own + entry.offset, &value, entry.width);
+        snprintf(detail,
+                 sizeof(detail),
+                 "off=0x%llx value=0x%llx",
+                 (unsigned long long) entry.offset,
+                 (unsigned long long) value);
+        check(ok, entry.name, detail);
+    }
+    int32_t x  = 0;
+    int32_t y  = 0;
+    int32_t hp = 0;
+    int32_t team = 0;
+    bool    span_ok =
+        read_int(own + LOGICCHARACTER__X, &x) && read_int(own + LOGICCHARACTER__Y, &y) &&
+        x >= -3000 && x <= 40000 && y >= -3000 && y <= 40000;
+    snprintf(detail, sizeof(detail), "x=%d y=%d", x, y);
+    check(span_ok, "LOGICCHARACTER__X/Y span", detail);
+    bool hp_ok = read_int(own + LOGICCHARACTER__HITPOINTS, &hp) && hp >= 0 &&
+                 hp <= 1000000;
+    snprintf(detail, sizeof(detail), "hp=%d", hp);
+    check(hp_ok, "LOGICCHARACTER__HITPOINTS range", detail);
+    bool team_ok = read_int(own + LOGICCHARACTER__TEAM, &team) && team >= 0 &&
+                   team <= 64;
+    snprintf(detail, sizeof(detail), "team=%d", team);
+    check(team_ok, "LOGICCHARACTER__TEAM range", detail);
 }
 
-void val_rva_table()
+void validate_tilemap_fields(uintptr_t clientPtr)
 {
-    static const struct
-    {
-        const char* name;
-        uint64_t    rva;
-    } table[] = {
-        {"BATTLEMODE__GETINSTANCE", BATTLEMODE__GETINSTANCE},
-        {"LOGICBATTLEMODECLIENT__GETTILEMAP",
-         LOGICBATTLEMODECLIENT__GETTILEMAP},
-        {"LOGICBATTLEMODECLIENT__GETOWNCHARACTER",
-         LOGICBATTLEMODECLIENT__GETOWNCHARACTER},
-        {"LOGICBATTLEMODECLIENT__GETOWNPLAYERINDEX",
-         LOGICBATTLEMODECLIENT__GETOWNPLAYERINDEX},
-        {"LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM",
-         LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM},
-        {"LOGICDATA__GETNAME", LOGICDATA__GETNAME},
-        {"LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO",
-         LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO},
-        {"CLIENTINPUTMESSAGE__CONSTRUCTOR", CLIENTINPUTMESSAGE__CONSTRUCTOR},
-        {"CLIENTINPUTMANAGER__ADDINPUT", CLIENTINPUTMANAGER__ADDINPUT},
-        {"LOGICTILEMAP__ISPASSABLEPATHFINDER",
-         LOGICTILEMAP__ISPASSABLEPATHFINDER},
-        {"LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR",
-         LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR},
-        {"LOGICTILEMAP__TILETOLOGIC", LOGICTILEMAP__TILETOLOGIC},
-        {"LOGICTILEMAP__LOGICTOTILE", LOGICTILEMAP__LOGICTOTILE},
-    };
-    for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++)
-    {
-        uintptr_t address = callable(table[i].rva);
-        uint32_t  head    = 0;
-        BOOL      exec    = NO;
-        BOOL      read    = NO;
-        if (address)
-        {
-            exec = addr_executable(address);
-            read = read_bytes(address, &head, sizeof(head));
-        }
-        vf(table[i].name,
-           address && exec && read && head != 0,
-           "rva=0x%llx addr=0x%llx exec=%d head=%08x",
-           (unsigned long long) table[i].rva,
-           (unsigned long long) address,
-           exec ? 1 : 0,
-           head);
-    }
-    {
-        int center = game_tile_to_logic(3);
-        vf("LOGICTILEMAP__TILETOLOGIC",
-           center == 3 * 300 + 150 && game_logic_to_tile(center) == 3,
-           "3 -> %d (want 1050) back=%d",
-           center,
-           game_logic_to_tile(center));
-    }
-    vf("LOGICTILEMAP__LOGICTOTILE",
-       game_logic_to_tile(900) == 3,
-       "900 -> %d (want 3)",
-       game_logic_to_tile(900));
+    char      detail[128];
+    uintptr_t tileMap = 0;
+    uintptr_t tileFn  = callable(LOGICBATTLEMODECLIENT__GETTILEMAP);
+    if (!tileFn) return;
+    tileMap = reinterpret_cast<uintptr_t (*)(uintptr_t)>(tileFn)(clientPtr);
+    bool map_ok = pointer_plausible(tileMap);
+    snprintf(detail, sizeof(detail), "map=0x%llx", (unsigned long long) tileMap);
+    check(map_ok, "LOGICBATTLEMODECLIENT__GETTILEMAP", detail);
+    if (!map_ok) return;
+    int32_t width  = 0;
+    int32_t height = 0;
+    read_int(tileMap + LOGICTILEMAP__WIDTH, &width);
+    read_int(tileMap + LOGICTILEMAP__HEIGHT, &height);
+    snprintf(detail, sizeof(detail), "w=%d h=%d", width, height);
+    check(width > 0 && width <= 200 && height > 0 && height <= 200,
+          "LOGICTILEMAP__WIDTH/HEIGHT",
+          detail);
+    uintptr_t tiles = 0;
+    read_ptr(tileMap + LOGICTILEMAP__TILEARRAY, &tiles);
+    snprintf(detail, sizeof(detail), "tiles=0x%llx", (unsigned long long) tiles);
+    check(pointer_plausible(tiles), "LOGICTILEMAP__TILEARRAY", detail);
 }
 
-void val_globals(uintptr_t slot)
+void validate_globals()
 {
-    uintptr_t scene                    = 0;
-    uintptr_t clientPtr                = 0;
-    uintptr_t get_client_input_manager = 0;
-    uintptr_t array                    = 0;
-    uintptr_t vtable                   = 0;
-    int32_t   state                    = -1;
-    int32_t   count                    = 0;
-    vf("GAMESTATEMANAGER__INSTANCE",
-       slot && pointer_plausible(slot),
-       "0x%llx",
-       (unsigned long long) slot);
-    if (!slot)
-    {
-        vs("GAMESTATEMANAGER__STATE", "no game state");
-        vs("GAMESTATEMANAGER__CURRENTSTATE", "no game state");
-        return;
-    }
-    if (read_int(slot + GAMESTATEMANAGER__STATE, &state))
-    {
-        vf("GAMESTATEMANAGER__STATE",
-           state >= 0 && state <= 8,
-           "state=%d",
-           state);
-    }
-    else
-    {
-        vf("GAMESTATEMANAGER__STATE", false, "read failed");
-    }
-    if (read_ptr(slot + GAMESTATEMANAGER__CURRENTSTATE, &scene))
-    {
-        vf("GAMESTATEMANAGER__CURRENTSTATE",
-           scene && pointer_plausible(scene),
-           "0x%llx",
-           (unsigned long long) scene);
-    }
-    else
-    {
-        vf("GAMESTATEMANAGER__CURRENTSTATE", false, "read failed");
-    }
-    if (!scene)
-    {
-        vs("GAMESTATEMANAGER__CLIENT", "no scene");
-        vs("LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER", "no scene");
-        vs("LOGICBATTLEMODECLIENT__INPUTMANAGER", "no scene");
-    }
-    else
-    {
-        if (read_ptr(scene + GAMESTATEMANAGER__CLIENT, &clientPtr))
-        {
-            vf("GAMESTATEMANAGER__CLIENT",
-               clientPtr && pointer_plausible(clientPtr),
-               "0x%llx",
-               (unsigned long long) clientPtr);
-        }
-        else
-        {
-            vf("GAMESTATEMANAGER__CLIENT", false, "read failed");
-        }
-        if (!clientPtr)
-        {
-            vs("LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER", "no client");
-            vs("LOGICBATTLEMODECLIENT__INPUTMANAGER", "no client");
-        }
-        else
-        {
-            if (read_ptr(clientPtr + LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER,
-                         &get_client_input_manager))
-            {
-                vf("LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER",
-                   get_client_input_manager &&
-                       pointer_plausible(get_client_input_manager),
-                   "0x%llx",
-                   (unsigned long long) get_client_input_manager);
-            }
-            else
-            {
-                vf("LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER",
-                   false,
-                   "read failed");
-            }
-            if (get_client_input_manager &&
-                read_int(get_client_input_manager +
-                             LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT,
-                         &count))
-            {
-                vf("LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT",
-                   count > 0 && count <= OBJECT_COUNT_MAX,
-                   "count=%d",
-                   count);
-            }
-            else
-            {
-                vf("LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT",
-                   false,
-                   "read failed");
-            }
-            if (get_client_input_manager &&
-                read_ptr(get_client_input_manager +
-                             LOGICGAMEOBJECTMANAGER__GAMEOBJECTS,
-                         &array))
-            {
-                vf("LOGICGAMEOBJECTMANAGER__GAMEOBJECTS",
-                   array && pointer_plausible(array),
-                   "0x%llx",
-                   (unsigned long long) array);
-            }
-            else
-            {
-                vf("LOGICGAMEOBJECTMANAGER__GAMEOBJECTS", false, "read failed");
-            }
-            val_input_state = val_client_input(slot);
-        }
-    }
-    if (read_ptr(base + LOGICPROJECTILEDATA__VTABLE, &vtable))
-    {
-        vf("LOGICPROJECTILEDATA__VTABLE",
-           vtable && addr_executable(vtable),
-           "asset anchor slot0=0x%llx",
-           (unsigned long long) vtable);
-    }
-    else
-    {
-        vf("LOGICPROJECTILEDATA__VTABLE", false, "read failed");
-    }
-    vf("CLIENTINPUT__TYPETABLE",
-       addr_readable(base + CLIENTINPUT__TYPETABLE, 8),
-       "0x%llx",
-       (unsigned long long) CLIENTINPUT__TYPETABLE);
-    vf("CLIENTINPUT__TYPEFALLBACK",
-       addr_readable(base + CLIENTINPUT__TYPEFALLBACK, 8),
-       "0x%llx",
-       (unsigned long long) CLIENTINPUT__TYPEFALLBACK);
-    vf("CLIENTINPUT_HASH_MASK_RVA",
-       addr_readable(base + CLIENTINPUTMESSAGE__HASHINNERMASK, 8) &&
-           addr_readable(base + CLIENTINPUTMESSAGE__HASHOUTERMASK, 8),
-       "inner=0x%llx outer=0x%llx",
-       (unsigned long long) CLIENTINPUTMESSAGE__HASHINNERMASK,
-       (unsigned long long) CLIENTINPUTMESSAGE__HASHOUTERMASK);
+    char      detail[128];
+    uintptr_t slot = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
+    snprintf(detail, sizeof(detail), "slot=0x%llx", (unsigned long long) slot);
+    check(pointer_plausible(slot), "GAMESTATEMANAGER__INSTANCE", detail);
+    if (!pointer_plausible(slot)) return;
+    int32_t   state    = -1;
+    uintptr_t current  = 0;
+    read_int(slot + GAMESTATEMANAGER__STATE, &state);
+    read_ptr(slot + GAMESTATEMANAGER__CURRENTSTATE, &current);
+    snprintf(detail,
+             sizeof(detail),
+             "state=%d current=0x%llx",
+             state,
+             (unsigned long long) current);
+    check(state >= 0 && state < 32 && pointer_plausible(current),
+          "GAMESTATEMANAGER__STATE/CURRENTSTATE",
+          detail);
 }
 
-int val_client_input(uintptr_t clientPtr)
+void validate_projectile_speed()
 {
-    uintptr_t get_client_input_manager = 0;
-    uintptr_t queue                    = 0;
-    if (!read_ptr(clientPtr + LOGICBATTLEMODECLIENT__INPUTMANAGER,
-                  &get_client_input_manager) ||
-        !get_client_input_manager ||
-        !pointer_plausible(get_client_input_manager))
-    {
-        return 0;
-    }
-    val_ci_manager = get_client_input_manager;
-    if (!read_ptr(get_client_input_manager + CLIENTINPUTMANAGER__INPUTQUEUE,
-                  &queue) ||
-        !queue || !pointer_plausible(queue))
-    {
-        return 0;
-    }
-    val_ci_queue = queue;
-    vf("LOGICBATTLEMODECLIENT__INPUTMANAGER",
-       true,
-       "0x%llx",
-       (unsigned long long) get_client_input_manager);
-    vf("CLIENTINPUTMANAGER__INPUTQUEUE",
-       true,
-       "0x%llx",
-       (unsigned long long) queue);
-    return 1;
+    uintptr_t objOut   = 0;
+    uintptr_t dataOut  = 0;
+    float     px       = 0.0f;
+    float     py       = 0.0f;
+    int32_t   speed    = 0;
+    char      detail[128];
+    if (!ad::find_live_projectile(&objOut, &dataOut, &px, &py)) return;
+    if (!dataOut) return;
+    bool read_ok = read_int(dataOut + LOGICPROJECTILEDATA__SPEED, &speed);
+    snprintf(detail, sizeof(detail), "speed=%d", speed);
+    check(read_ok && speed > 0 && speed < 20000,
+          "LOGICPROJECTILEDATA__SPEED",
+          detail);
 }
-
-void val_character(uintptr_t own)
-{
-    int32_t   pid       = 0;
-    int32_t   x         = 0;
-    int32_t   y         = 0;
-    int32_t   team      = 0;
-    int32_t   angle     = 0;
-    int32_t   hp        = 0;
-    int32_t   collision = 0;
-    uintptr_t data      = 0;
-    char      name[48]  = {0};
-    vf("LOGICCHARACTER__GLOBALID",
-       read_int(own + LOGICCHARACTER__GLOBALID, &pid) && pid > 0,
-       "pid=%d",
-       pid);
-    if (read_int(own + LOGICCHARACTER__X, &x) &&
-        read_int(own + LOGICCHARACTER__Y, &y))
-    {
-        vf("LOGICCHARACTER_X/Y_OFF", span(x) && span(y), "x=%d y=%d", x, y);
-    }
-    else
-    {
-        vf("LOGICCHARACTER_X/Y_OFF", false, "read failed");
-    }
-    if (read_int(own + LOGICCHARACTER__TEAM, &team))
-    {
-        vf("LOGICCHARACTER__TEAM", team >= 0 && team <= 3, "team=%d", team);
-    }
-    else
-    {
-        vf("LOGICCHARACTER__TEAM", false, "read failed");
-    }
-    if (read_int(own + LOGICCHARACTER__ATTACKANGLE, &angle))
-    {
-        vf("LOGICCHARACTER__ATTACKANGLE",
-           angle >= -720 && angle <= 720,
-           "angle=%d",
-           angle);
-    }
-    else
-    {
-        vf("LOGICCHARACTER__ATTACKANGLE", false, "read failed");
-    }
-    if (read_int(own + LOGICCHARACTER__HITPOINTS, &hp))
-    {
-        vf("LOGICCHARACTER__HITPOINTS",
-           hp >= 0 && hp <= 20000 && (uint32_t) hp == own_hp,
-           "hp=%d scan=%u",
-           hp,
-           own_hp);
-    }
-    else
-    {
-        vf("LOGICCHARACTER__HITPOINTS", false, "read failed");
-    }
-    if (read_ptr(own + LOGICGAMEOBJECT__DATA, &data))
-    {
-        vf("LOGICGAMEOBJECT__DATA",
-           data && pointer_plausible(data),
-           "0x%llx",
-           (unsigned long long) data);
-    }
-    else
-    {
-        vf("LOGICGAMEOBJECT__DATA", false, "read failed");
-    }
-    if (data && pointer_plausible(data) &&
-        read_int(data + LOGICCHARACTER__DATACOLLISIONRADIUS, &collision))
-    {
-        vf("LOGICCHARACTER__DATACOLLISIONRADIUS",
-           collision >= 0 && collision <= 100000,
-           "v=%d",
-           collision);
-    }
-    else
-    {
-        vf("LOGICCHARACTER__DATACOLLISIONRADIUS", false, "read failed");
-    }
-    if (data && pointer_plausible(data))
-    {
-        typedef uintptr_t (*name_t)(uintptr_t);
-        name_t    fn   = reinterpret_cast<name_t>(callable(LOGICDATA__GETNAME));
-        uintptr_t text = fn ? fn(data) : 0;
-        BOOL      ok   = NO;
-        if (text && pointer_plausible(text))
-        {
-            ok = read_scstring(text, sizeof(name) - 1, name, sizeof(name)) ? YES
-                                                                           : NO;
-        }
-        for (size_t i = 0; ok && i < sizeof(name) - 1 && name[i]; i++)
-        {
-            if (name[i] < 0x20 || name[i] > 0x7e) ok = NO;
-        }
-        vf("LOGICDATA__GETNAME(x)", ok, "name=%s", ok ? name : "-");
-        if (text && pointer_plausible(text))
-        {
-            int32_t   strLen  = -1;
-            uintptr_t strData = 0;
-            BOOL      lenOk   = read_int(text + SCSTRING__BYTELENGTH, &strLen);
-            BOOL      dataOk  = read_ptr(text + SCSTRING__CHARACTERS, &strData);
-            vf("SCSTRING_LENGTH/DATA_OFF",
-               lenOk && dataOk && strLen >= 0 && strLen <= 64 &&
-                   strLen == (int32_t) strlen(ok ? name : ""),
-               "len=%d data=0x%llx",
-               strLen,
-               (unsigned long long) strData);
-        }
-        else
-        {
-            vs("SCSTRING_LENGTH/DATA_OFF", "no name object");
-        }
-    }
-    else
-    {
-        vs("LOGICDATA__GETNAME(x)", "no data pointer");
-    }
-}
-
-void val_tilemap(uintptr_t clientPtr)
-{
-    typedef uintptr_t (*map_t)(uintptr_t);
-    map_t fn =
-        reinterpret_cast<map_t>(callable(LOGICBATTLEMODECLIENT__GETTILEMAP));
-    uintptr_t map    = fn ? fn(clientPtr) : 0;
-    uintptr_t tiles  = 0;
-    int32_t   width  = 0;
-    int32_t   height = 0;
-    vf("LOGICBATTLEMODECLIENT__GETTILEMAP",
-       map && pointer_plausible(map),
-       "0x%llx",
-       (unsigned long long) map);
-    if (!map || !pointer_plausible(map))
-    {
-        vs("LOGICTILEMAP__WIDTH", "no tilemap");
-        vs("LOGICTILEMAP__HEIGHT", "no tilemap");
-        vs("LOGICTILEMAP__TILEARRAY", "no tilemap");
-        vs("LOGICTILE__PATHFINDERMASK", "no tilemap");
-        vs("LOGICTILE__WATERPATHFINDERMASK", "no tilemap");
-        return;
-    }
-    if (read_int(map + LOGICTILEMAP__WIDTH, &width))
-    {
-        vf("LOGICTILEMAP__WIDTH", width > 0 && width <= 120, "w=%d", width);
-    }
-    else
-    {
-        vf("LOGICTILEMAP__WIDTH", false, "read failed");
-    }
-    if (read_int(map + LOGICTILEMAP__HEIGHT, &height))
-    {
-        vf("LOGICTILEMAP__HEIGHT", height > 0 && height <= 120, "h=%d", height);
-    }
-    else
-    {
-        vf("LOGICTILEMAP__HEIGHT", false, "read failed");
-    }
-    if (!read_ptr(map + LOGICTILEMAP__TILEARRAY, &tiles) || !tiles)
-    {
-        vf("LOGICTILEMAP__TILEARRAY", false, "read failed");
-        vs("LOGICTILE__PATHFINDERMASK", "no tile array");
-        vs("LOGICTILE__WATERPATHFINDERMASK", "no tile array");
-        return;
-    }
-    vf("LOGICTILEMAP__TILEARRAY",
-       pointer_plausible(tiles),
-       "0x%llx",
-       (unsigned long long) tiles);
-    {
-        int      total   = (width > 0 && height > 0 && width * height < 4096)
-                               ? width * height
-                               : 256;
-        int      stride  = total / 96 + 1;
-        int      seen    = 0;
-        int      blocked = 0;
-        uint64_t sample  = 0;
-        for (int i = 0; i < total; i += stride)
-        {
-            uintptr_t item  = 0;
-            uint64_t  mask  = 0;
-            uint64_t  water = 0;
-            uint64_t  hard  = 0;
-            if (!read_ptr(tiles + (uintptr_t) i * 8, &item) || !item) continue;
-            if (!read_bytes(
-                    item + LOGICTILE__PATHFINDERMASK, &mask, sizeof(mask)) ||
-                !read_bytes(item + LOGICTILE__WATERPATHFINDERMASK,
-                            &water,
-                            sizeof(water)) ||
-                !read_bytes(
-                    item + LOGICTILE__HARDBLOCKMASK, &hard, sizeof(hard)))
-                continue;
-            seen++;
-            if (mask && !sample) sample = mask;
-            if ((mask | water | hard) & 0x1ff) blocked++;
-        }
-        vf("LOGICTILE__PATHFINDERMASK",
-           seen > 0,
-           "blocked=%d/%d sample=0x%llx",
-           blocked,
-           seen,
-           (unsigned long long) sample);
-    }
-
-    vf("TILEMAP_GEOMETRY",
-       width > 0 && height > 0 && width == wall_cache_width() &&
-           height == wall_cache_height(),
-       "%dx%d cache=%dx%d",
-       width,
-       height,
-       wall_cache_width(),
-       wall_cache_height());
-}
-
-void val_projectile()
-{
-    uintptr_t found  = 0;
-    uintptr_t objPtr = 0;
-    {
-        float px = 0.0f, py = 0.0f;
-        if (!ad::find_live_projectile(&objPtr, &found, &px, &py))
-        {
-            objPtr = 0;
-        }
-        else if (val_proj_tries == 5)
-        {
-            line("[VAL] proj probe objs=%d shot=%d p=(%.0f,%.0f)\n",
-                 obj_count,
-                 (int) ad_proj_n,
-                 px,
-                 py);
-        }
-    }
-    if (!objPtr)
-    {
-        val_proj_tries++;
-        if (val_proj_tries >= 120)
-        {
-            vs("PROJECTILEDATA_*", "no projectile seen in 120s");
-            val_proj_done = 1;
-        }
-        return;
-    }
-    val_proj_done = 1;
-    if (!found)
-    {
-        vs("PROJECTILEDATA_*", "shot exposes no data-asset pointer");
-        return;
-    }
-    int32_t speed = 0;
-    if (read_int(found + LOGICPROJECTILEDATA__SPEED, &speed))
-    {
-        vf("LOGICPROJECTILEDATA__SPEED",
-           speed > 50 && speed < 20000,
-           "speed=%d",
-           speed);
-    }
-    else
-    {
-        vf("LOGICPROJECTILEDATA__SPEED", false, "read failed");
-    }
-}
+} // namespace
 
 void validate_offsets()
 {
-    uintptr_t slot = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
-    val_ok         = 0;
-    val_fail       = 0;
-    val_skip       = 0;
+    val_ok   = 0;
+    val_fail = 0;
     line("\n=== validate ===\n");
-    val_rva_table();
-    val_globals(slot);
-    if (own_elem && pointer_plausible(own_elem)) val_character(own_elem);
+    validate_code_offsets();
+    validate_globals();
+    if (own_elem && pointer_plausible(own_elem))
+    {
+        validate_character_fields(own_elem);
+    }
     {
         uintptr_t clientPtr = client();
         if (clientPtr && pointer_plausible(clientPtr))
         {
-            val_tilemap(clientPtr);
-        }
-        else
-        {
-            vs("LOGICBATTLEMODECLIENT__GETTILEMAP", "no client");
+            validate_tilemap_fields(clientPtr);
         }
     }
-    val_projectile();
-    line("[VAL] summary ok=%d fail=%d skip=%d\n", val_ok, val_fail, val_skip);
+    validate_projectile_speed();
+    line("[VAL] summary ok=%d fail=%d\n", val_ok, val_fail);
 }
 
 void maybe_validate()
 {
-    uint64_t now_us = us();
-    if (val_stage == 0)
-    {
-        if (!base || !own_elem || dead) return;
-        val_stage = 1;
-        validate_offsets();
-        val_probe_next = now_us + 500000;
-        return;
-    }
-    if (val_input_state && val_proj_done) return;
-    if (val_probe_next && now_us < val_probe_next) return;
-    val_probe_next = now_us + 1000000;
+    if (val_done) return;
     if (!base || !own_elem || dead) return;
-    val_ok   = 0;
-    val_fail = 0;
-    val_skip = 0;
-    if (val_input_state == 0)
-    {
-        uintptr_t battle =
-            (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
-        val_input_state = (battle && pointer_plausible(battle))
-                              ? val_client_input(battle)
-                              : 0;
-        if (val_input_state == 0 && ++val_input_tries >= 120)
-        {
-            char why[128];
-            snprintf(why,
-                     sizeof(why),
-                     "queue not populated in 120s mgr=0x%llx q=0x%llx n=%d",
-                     (unsigned long long) val_ci_manager,
-                     (unsigned long long) val_ci_queue,
-                     val_ci_count);
-            vs("CLIENTINPUT_*", why);
-            val_input_state = 2;
-        }
-    }
-    if (!val_proj_done) val_projectile();
-    if (val_ok + val_fail + val_skip > 0)
-    {
-        line("[VAL] late summary ok=%d fail=%d skip=%d\n",
-             val_ok,
-             val_fail,
-             val_skip);
-    }
+    if (!ad_proj_n) return;
+    validate_offsets();
+    val_done = 1;
 }
 
 const char* dir_name(int dir)
@@ -738,7 +335,6 @@ const char* dir_name(int dir)
     default:
         return "none";
     }
-}
 }
 
 void diag_tick()
@@ -770,20 +366,20 @@ void diag_tick()
         {
             char buf[2048];
             int  n = snprintf(buf,
-                             sizeof(buf),
-                             "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%s n=%d "
+                              sizeof(buf),
+                              "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%s n=%d "
                               "h=%d u=%d hm=%d",
-                             (unsigned long long) (now_us / 1000),
-                             own_x,
-                             own_y,
-                             (int) (own_speed + 0.5f),
-                             ad_dir_x,
-                             ad_dir_y,
-                             target_text(target_buf, sizeof(target_buf)),
-                             ad::threat_n,
-                             ad_hold_ms,
-                             ad_urgent,
-                             ad_human);
+                              (unsigned long long) (now_us / 1000),
+                              own_x,
+                              own_y,
+                              (int) (own_speed + 0.5f),
+                              ad_dir_x,
+                              ad_dir_y,
+                              target_text(target_buf, sizeof(target_buf)),
+                              ad::threat_n,
+                              ad_hold_ms,
+                              ad_urgent,
+                              ad_human);
             for (int i = 0;
                  i < ad::threat_n && n > 0 && n < (int) sizeof(buf) - 48;
                  i++)
@@ -906,7 +502,7 @@ void diag_tick()
          ad_windup_n);
     ad_proj_move   = 0;
     ad_proj_sample = 0;
-    for (int i = 0; i < ad_threat_n && i < 3; i++)
+    for (int i = 0; i < ad_threat_n && i < AD_REPORT_MAX; i++)
     {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) r=%.0f d=%.0f "
              "ca=%.0f ttc=%.3f\n",
@@ -950,8 +546,7 @@ void diag_tick()
                            ad_hit_y);
         if (ad_hit_picked < 1 && len > 0)
         {
-            const char* why = " | unresolved";
-            snprintf(buf + len, sizeof(buf) - (size_t) len, "%s", why);
+            snprintf(buf + len, sizeof(buf) - (size_t) len, " | unresolved");
         }
         for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++)
         {
@@ -969,8 +564,7 @@ void diag_tick()
     }
     for (int i = 0; i < ad_proj_n && i < AD_REPORT_MAX; i++)
     {
-        line("[p%d] pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) sp=%.0f "
-             "r=%.0f vel=%d\n",
+        line("[p%d] pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) sp=%.0f r=%.0f vel=%d\n",
              i,
              ad_pj_pid[i],
              ad_pj_x[i],
@@ -979,10 +573,9 @@ void diag_tick()
              ad_pj_vy[i],
              ad_pj_sp[i],
              ad_pj_r[i],
-             ad_pj_vel[i],
-             ad_pj_r[i]);
+             ad_pj_vel[i]);
     }
-    for (int i = 0; i < ad_enemy_n && i < 4; i++)
+    for (int i = 0; i < ad_enemy_n && i < AD_ENEMY_MAX; i++)
     {
         line("[e%d] pid=%d p=(%.0f,%.0f) hp=%d d=%.0f a=%d\n",
              i,

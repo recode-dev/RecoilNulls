@@ -16,61 +16,10 @@ const char*   image_name    = "Nulls Brawl";
 BOOL          setup_done    = NO;
 __thread BOOL inside_hook   = NO;
 uintptr_t     addr_dataname = 0;
-BOOL          query_region(uintptr_t       address,
-                           vm_prot_t*      protection,
-                           vm_prot_t*      maxProtection,
-                           mach_vm_size_t* regionSize,
-                           uintptr_t*      regionStart)
-{
-    GumPageProtection pageProtection = GUM_PAGE_NO_ACCESS;
-    guint             pageSize       = 0;
-    if (!address || !gum_live)
-    {
-        return NO;
-    }
-    pageSize = gum_query_page_size();
-    if (!pageSize)
-    {
-        return NO;
-    }
-    if (!gum_memory_query_protection((gconstpointer) address, &pageProtection))
-    {
-        return NO;
-    }
-    if (protection)
-    {
-        *protection = static_cast<vm_prot_t>(pageProtection);
-    }
-    if (maxProtection)
-    {
-        *maxProtection = static_cast<vm_prot_t>(pageProtection);
-    }
-    if (regionSize)
-    {
-        *regionSize = static_cast<mach_vm_size_t>(pageSize);
-    }
-    if (regionStart)
-    {
-        *regionStart = address & ~(static_cast<uintptr_t>(pageSize) - 1);
-    }
-    return YES;
-}
-BOOL addr_writable(uintptr_t address, size_t length)
-{
-    return memory_writable(address, length);
-}
-inline constexpr int PAGE_CACHE_SLOTS   = 256;
-inline constexpr int REGION_CACHE_SLOTS = 64;
-struct memory_region_entry
-{
-    uintptr_t         start;
-    uintptr_t         end;
-    GumPageProtection protection;
-};
-static __thread uintptr_t           page_cache_key[PAGE_CACHE_SLOTS];
-static __thread uint8_t             page_cache_ok[PAGE_CACHE_SLOTS];
-static __thread memory_region_entry region_cache[REGION_CACHE_SLOTS];
-static guint                        memory_page_size()
+inline constexpr int PAGE_CACHE_SLOTS = 256;
+static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
+static __thread uint8_t   page_cache_prot[PAGE_CACHE_SLOTS];
+static guint memory_page_size()
 {
     static guint cached = 0;
     if (!cached)
@@ -79,91 +28,28 @@ static guint                        memory_page_size()
     }
     return cached;
 }
-static __thread int               region_cache_next = 0;
-static const memory_region_entry* region_cache_lookup(
-    uintptr_t address, size_t length, GumPageProtection required)
+static GumPageProtection page_protection(uintptr_t page)
 {
-    uintptr_t end = address + length;
-    if (end < address)
+    int                slot = static_cast<int>((page >> 12) & (PAGE_CACHE_SLOTS - 1));
+    GumPageProtection  prot = GUM_PAGE_NO_ACCESS;
+    if (page_cache_key[slot] == page)
     {
-        return nullptr;
+        return static_cast<GumPageProtection>(page_cache_prot[slot]);
     }
-    for (int i = 0; i < REGION_CACHE_SLOTS; i++)
+    if (!gum_memory_query_protection((gconstpointer) page, &prot))
     {
-        const memory_region_entry* entry = &region_cache[i];
-        if (entry->end <= entry->start)
-        {
-            continue;
-        }
-        if (address < entry->start || end > entry->end)
-        {
-            continue;
-        }
-        if ((entry->protection & required) != required)
-        {
-            continue;
-        }
-        return entry;
+        prot = GUM_PAGE_NO_ACCESS;
     }
-    return nullptr;
+    page_cache_key[slot]  = page;
+    page_cache_prot[slot] = static_cast<uint8_t>(prot);
+    return prot;
 }
-static const memory_region_entry* region_cache_acquire(
-    uintptr_t address, size_t length, GumPageProtection required)
-{
-    const memory_region_entry* entry = nullptr;
-    GumMemoryRange             range;
-    GumPageProtection          protection = GUM_PAGE_NO_ACCESS;
-    memory_region_entry*       slot       = nullptr;
-    uintptr_t                  start      = 0;
-    uintptr_t                  end        = 0;
-    entry = region_cache_lookup(address, length, required);
-    if (entry)
-    {
-        return entry;
-    }
-    if (!gum_memory_query_region((gconstpointer) address, &range, &protection))
-    {
-        return nullptr;
-    }
-    start = static_cast<uintptr_t>(range.base_address);
-    end   = start + static_cast<uintptr_t>(range.size);
-    if (end <= start)
-    {
-        return nullptr;
-    }
-    slot              = &region_cache[region_cache_next];
-    region_cache_next = (region_cache_next + 1) & (REGION_CACHE_SLOTS - 1);
-    slot->start       = start;
-    slot->end         = end;
-    slot->protection  = protection;
-    return region_cache_lookup(address, length, required);
-}
-void read_cache_reset()
-{
-    for (int i = 0; i < PAGE_CACHE_SLOTS; i++)
-        page_cache_key[i] = 0;
-    for (int i = 0; i < REGION_CACHE_SLOTS; i++)
-    {
-        region_cache[i].start      = 0;
-        region_cache[i].end        = 0;
-        region_cache[i].protection = GUM_PAGE_NO_ACCESS;
-    }
-    region_cache_next = 0;
-}
-BOOL read_bytes(uintptr_t address, void* out, size_t length)
+static BOOL range_allows(uintptr_t address, size_t length, GumPageProtection required)
 {
     uintptr_t end      = 0;
     uintptr_t cursor   = 0;
     uintptr_t pageSize = 0;
-    if (!out || !length)
-    {
-        return NO;
-    }
-    if (!address)
-    {
-        return NO;
-    }
-    if (!gum_live)
+    if (!address || !length || !gum_live)
     {
         return NO;
     }
@@ -177,28 +63,34 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    cursor = address & ~(pageSize - 1);
-    for (int guard = 0; cursor < end && guard < 64; guard++)
+    for (cursor = address & ~(pageSize - 1); cursor < end; cursor += pageSize)
     {
-        int slot   = static_cast<int>((cursor >> 12) & (PAGE_CACHE_SLOTS - 1));
-        uint8_t ok = 0;
-        if (page_cache_key[slot] == cursor)
-        {
-            ok = page_cache_ok[slot];
-        }
-        else
-        {
-            ok = region_cache_acquire(cursor, 1, GUM_PAGE_READ) ? 1 : 0;
-            page_cache_key[slot] = cursor;
-            page_cache_ok[slot]  = ok;
-        }
-        if (!ok)
+        if ((page_protection(cursor) & required) != required)
         {
             return NO;
         }
-        cursor += pageSize;
     }
-    if (cursor < end)
+    return YES;
+}
+BOOL addr_writable(uintptr_t address, size_t length)
+{
+    return range_allows(address, length, GUM_PAGE_WRITE);
+}
+void read_cache_reset()
+{
+    for (int i = 0; i < PAGE_CACHE_SLOTS; i++)
+    {
+        page_cache_key[i]  = 0;
+        page_cache_prot[i] = 0;
+    }
+}
+BOOL read_bytes(uintptr_t address, void* out, size_t length)
+{
+    if (!out || !length || !address || length > 0x10000)
+    {
+        return NO;
+    }
+    if (!range_allows(address, length, GUM_PAGE_READ))
     {
         return NO;
     }
@@ -231,81 +123,24 @@ BOOL read_int(uintptr_t address, int32_t* out)
 }
 BOOL writable(uintptr_t address, size_t length)
 {
-    uintptr_t end      = address + length;
-    uintptr_t cursor   = address;
-    guint     pageSize = 0;
-    if (!address || !length || !gum_live)
-    {
-        return NO;
-    }
-    if (end < address)
-    {
-        return NO;
-    }
-    if (region_cache_acquire(address, length, GUM_PAGE_WRITE))
-    {
-        return YES;
-    }
-    pageSize = memory_page_size();
-    if (!pageSize)
-    {
-        return NO;
-    }
-    for (int guard = 0; cursor < end && guard < 64; guard++)
-    {
-        uintptr_t next = 0;
-        if (!region_cache_acquire(cursor, 1, GUM_PAGE_WRITE))
-        {
-            return NO;
-        }
-        next = (cursor & ~(static_cast<uintptr_t>(pageSize) - 1)) +
-               static_cast<uintptr_t>(pageSize);
-        if (next <= cursor)
-        {
-            return NO;
-        }
-        cursor = next;
-    }
-    return cursor >= end;
+    return range_allows(address, length, GUM_PAGE_WRITE);
 }
 BOOL memory_readable(uintptr_t address, size_t length)
 {
-    if (!address || !length || !gum_live)
-    {
-        return NO;
-    }
-    if (region_cache_acquire(address, length, GUM_PAGE_READ))
-    {
-        return YES;
-    }
-    return gum_memory_is_readable((gconstpointer) address,
-                                  static_cast<gsize>(length))
-               ? YES
-               : NO;
+    return range_allows(address, length, GUM_PAGE_READ);
 }
 BOOL memory_writable(uintptr_t address, size_t length)
 {
-    return writable(address, length);
+    return range_allows(address, length, GUM_PAGE_WRITE);
 }
 BOOL memory_protection_flags(uintptr_t address, vm_prot_t* flags)
 {
-    const memory_region_entry* entry = nullptr;
-    if (!address || !flags)
+    if (!address || !flags || !gum_live)
     {
         return NO;
     }
-    *flags = 0;
-    if (!gum_live)
-    {
-        return NO;
-    }
-    entry = region_cache_acquire(address, 1, GUM_PAGE_NO_ACCESS);
-    if (entry)
-    {
-        *flags = static_cast<vm_prot_t>(entry->protection);
-        return YES;
-    }
-    return query_region(address, flags, nullptr, nullptr, nullptr);
+    *flags = static_cast<vm_prot_t>(page_protection(address));
+    return *flags ? YES : NO;
 }
 BOOL write_bytes(uintptr_t address, const void* src, size_t length)
 {

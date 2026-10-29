@@ -20,11 +20,6 @@ extern const char*   image_name;
 extern BOOL          setup_done;
 extern __thread BOOL inside_hook;
 extern uintptr_t     addr_dataname;
-BOOL                 query_region(uintptr_t       address,
-                                  vm_prot_t*      protection,
-                                  vm_prot_t*      maxProtection,
-                                  mach_vm_size_t* regionSize,
-                                  uintptr_t*      regionStart);
 BOOL                 addr_writable(uintptr_t address, size_t length);
 BOOL                 read_bytes(uintptr_t address, void* out, size_t length);
 BOOL                 memory_readable(uintptr_t address, size_t length);
