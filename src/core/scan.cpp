@@ -12,14 +12,14 @@
 #include "scan.h"
 #include "scstring.h"
 #include <frida-gum.h>
-const char*   image_name    = "Nulls Brawl";
-BOOL          setup_done    = NO;
-__thread BOOL inside_hook   = NO;
-uintptr_t     addr_dataname = 0;
-inline constexpr int PAGE_CACHE_SLOTS = 256;
+const char*               image_name       = "Nulls Brawl";
+BOOL                      setup_done       = NO;
+__thread BOOL             inside_hook      = NO;
+uintptr_t                 addr_dataname    = 0;
+inline constexpr int      PAGE_CACHE_SLOTS = 256;
 static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
 static __thread uint8_t   page_cache_prot[PAGE_CACHE_SLOTS];
-static guint memory_page_size()
+static guint              memory_page_size()
 {
     static guint cached = 0;
     if (!cached)
@@ -30,8 +30,8 @@ static guint memory_page_size()
 }
 static GumPageProtection page_protection(uintptr_t page)
 {
-    int                slot = static_cast<int>((page >> 12) & (PAGE_CACHE_SLOTS - 1));
-    GumPageProtection  prot = GUM_PAGE_NO_ACCESS;
+    int slot = static_cast<int>((page >> 12) & (PAGE_CACHE_SLOTS - 1));
+    GumPageProtection prot = GUM_PAGE_NO_ACCESS;
     if (page_cache_key[slot] == page)
     {
         return static_cast<GumPageProtection>(page_cache_prot[slot]);
@@ -44,7 +44,8 @@ static GumPageProtection page_protection(uintptr_t page)
     page_cache_prot[slot] = static_cast<uint8_t>(prot);
     return prot;
 }
-static BOOL range_allows(uintptr_t address, size_t length, GumPageProtection required)
+static BOOL
+range_allows(uintptr_t address, size_t length, GumPageProtection required)
 {
     uintptr_t end      = 0;
     uintptr_t cursor   = 0;

@@ -108,14 +108,12 @@ constexpr code_entry kCodeOffsetTable[] = {
      LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO},
     {"CLIENTINPUTMESSAGE__CONSTRUCTOR", CLIENTINPUTMESSAGE__CONSTRUCTOR},
     {"CLIENTINPUTMANAGER__ADDINPUT", CLIENTINPUTMANAGER__ADDINPUT},
-    {"LOGICTILEMAP__ISPASSABLEPATHFINDER",
-     LOGICTILEMAP__ISPASSABLEPATHFINDER},
+    {"LOGICTILEMAP__ISPASSABLEPATHFINDER", LOGICTILEMAP__ISPASSABLEPATHFINDER},
     {"LOGICTILEMAP__TILETOLOGIC", LOGICTILEMAP__TILETOLOGIC},
     {"LOGICTILEMAP__LOGICTOTILE", LOGICTILEMAP__LOGICTOTILE},
     {"LOGICMATH__SQRT", LOGICMATH__SQRT},
     {"LOGICMATH__SIN", LOGICMATH__SIN},
-    {"LOGICMATH__GETDISTANCESQUARETOLINE",
-     LOGICMATH__GETDISTANCESQUARETOLINE},
+    {"LOGICMATH__GETDISTANCESQUARETOLINE", LOGICMATH__GETDISTANCESQUARETOLINE},
     {"LOGICPROJECTILEDATA__GETRADIUS", LOGICPROJECTILEDATA__GETRADIUS},
     {"LOGICGAMEOBJECTCLIENT__GETX", LOGICGAMEOBJECTCLIENT__GETX},
     {"LOGICGAMEOBJECTCLIENT__GETY", LOGICGAMEOBJECTCLIENT__GETY},
@@ -144,7 +142,8 @@ constexpr field_entry kCharacterFieldTable[] = {
     {"LOGICCHARACTER__X", LOGICCHARACTER__X, sizeof(int32_t)},
     {"LOGICCHARACTER__Y", LOGICCHARACTER__Y, sizeof(int32_t)},
     {"LOGICCHARACTER__TEAM", LOGICCHARACTER__TEAM, sizeof(int32_t)},
-    {"LOGICCHARACTER__ATTACKANGLE", LOGICCHARACTER__ATTACKANGLE,
+    {"LOGICCHARACTER__ATTACKANGLE",
+     LOGICCHARACTER__ATTACKANGLE,
      sizeof(int32_t)},
     {"LOGICCHARACTER__HITPOINTS", LOGICCHARACTER__HITPOINTS, sizeof(int32_t)},
 };
@@ -174,7 +173,7 @@ void validate_code_offsets()
     {
         uintptr_t address = callable_at_rva(entry.rva);
         bool      ok      = address != 0 && addr_executable(address) &&
-                       addr_readable(address, sizeof(uint32_t));
+                  addr_readable(address, sizeof(uint32_t));
         snprintf(detail,
                  sizeof(detail),
                  "rva=0x%llx addr=0x%llx",
@@ -198,21 +197,21 @@ void validate_character_fields(uintptr_t own)
                  (unsigned long long) value);
         check(ok, entry.name, detail);
     }
-    int32_t x  = 0;
-    int32_t y  = 0;
-    int32_t hp = 0;
-    int32_t team = 0;
-    bool    span_ok =
-        read_int(own + LOGICCHARACTER__X, &x) && read_int(own + LOGICCHARACTER__Y, &y) &&
-        x >= -3000 && x <= 40000 && y >= -3000 && y <= 40000;
+    int32_t x       = 0;
+    int32_t y       = 0;
+    int32_t hp      = 0;
+    int32_t team    = 0;
+    bool    span_ok = read_int(own + LOGICCHARACTER__X, &x) &&
+                   read_int(own + LOGICCHARACTER__Y, &y) && x >= -3000 &&
+                   x <= 40000 && y >= -3000 && y <= 40000;
     snprintf(detail, sizeof(detail), "x=%d y=%d", x, y);
     check(span_ok, "LOGICCHARACTER__X/Y span", detail);
     bool hp_ok = read_int(own + LOGICCHARACTER__HITPOINTS, &hp) && hp >= 0 &&
                  hp <= 1000000;
     snprintf(detail, sizeof(detail), "hp=%d", hp);
     check(hp_ok, "LOGICCHARACTER__HITPOINTS range", detail);
-    bool team_ok = read_int(own + LOGICCHARACTER__TEAM, &team) && team >= 0 &&
-                   team <= 64;
+    bool team_ok =
+        read_int(own + LOGICCHARACTER__TEAM, &team) && team >= 0 && team <= 64;
     snprintf(detail, sizeof(detail), "team=%d", team);
     check(team_ok, "LOGICCHARACTER__TEAM range", detail);
 }
@@ -223,9 +222,10 @@ void validate_tilemap_fields(uintptr_t clientPtr)
     uintptr_t tileMap = 0;
     uintptr_t tileFn  = callable(LOGICBATTLEMODECLIENT__GETTILEMAP);
     if (!tileFn) return;
-    tileMap = reinterpret_cast<uintptr_t (*)(uintptr_t)>(tileFn)(clientPtr);
+    tileMap     = reinterpret_cast<uintptr_t (*)(uintptr_t)>(tileFn)(clientPtr);
     bool map_ok = pointer_plausible(tileMap);
-    snprintf(detail, sizeof(detail), "map=0x%llx", (unsigned long long) tileMap);
+    snprintf(
+        detail, sizeof(detail), "map=0x%llx", (unsigned long long) tileMap);
     check(map_ok, "LOGICBATTLEMODECLIENT__GETTILEMAP", detail);
     if (!map_ok) return;
     int32_t width  = 0;
@@ -238,7 +238,8 @@ void validate_tilemap_fields(uintptr_t clientPtr)
           detail);
     uintptr_t tiles = 0;
     read_ptr(tileMap + LOGICTILEMAP__TILEARRAY, &tiles);
-    snprintf(detail, sizeof(detail), "tiles=0x%llx", (unsigned long long) tiles);
+    snprintf(
+        detail, sizeof(detail), "tiles=0x%llx", (unsigned long long) tiles);
     check(pointer_plausible(tiles), "LOGICTILEMAP__TILEARRAY", detail);
 }
 
@@ -249,8 +250,8 @@ void validate_globals()
     snprintf(detail, sizeof(detail), "slot=0x%llx", (unsigned long long) slot);
     check(pointer_plausible(slot), "GAMESTATEMANAGER__INSTANCE", detail);
     if (!pointer_plausible(slot)) return;
-    int32_t   state    = -1;
-    uintptr_t current  = 0;
+    int32_t   state   = -1;
+    uintptr_t current = 0;
     read_int(slot + GAMESTATEMANAGER__STATE, &state);
     read_ptr(slot + GAMESTATEMANAGER__CURRENTSTATE, &current);
     snprintf(detail,
@@ -265,11 +266,11 @@ void validate_globals()
 
 void validate_projectile_speed()
 {
-    uintptr_t objOut   = 0;
-    uintptr_t dataOut  = 0;
-    float     px       = 0.0f;
-    float     py       = 0.0f;
-    int32_t   speed    = 0;
+    uintptr_t objOut  = 0;
+    uintptr_t dataOut = 0;
+    float     px      = 0.0f;
+    float     py      = 0.0f;
+    int32_t   speed   = 0;
     char      detail[128];
     if (!ad::find_live_projectile(&objOut, &dataOut, &px, &py)) return;
     if (!dataOut) return;
@@ -279,7 +280,7 @@ void validate_projectile_speed()
           "LOGICPROJECTILEDATA__SPEED",
           detail);
 }
-} // namespace
+}  // namespace
 
 void validate_offsets()
 {
@@ -366,20 +367,20 @@ void diag_tick()
         {
             char buf[2048];
             int  n = snprintf(buf,
-                              sizeof(buf),
-                              "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%s n=%d "
+                             sizeof(buf),
+                             "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%s n=%d "
                               "h=%d u=%d hm=%d",
-                              (unsigned long long) (now_us / 1000),
-                              own_x,
-                              own_y,
-                              (int) (own_speed + 0.5f),
-                              ad_dir_x,
-                              ad_dir_y,
-                              target_text(target_buf, sizeof(target_buf)),
-                              ad::threat_n,
-                              ad_hold_ms,
-                              ad_urgent,
-                              ad_human);
+                             (unsigned long long) (now_us / 1000),
+                             own_x,
+                             own_y,
+                             (int) (own_speed + 0.5f),
+                             ad_dir_x,
+                             ad_dir_y,
+                             target_text(target_buf, sizeof(target_buf)),
+                             ad::threat_n,
+                             ad_hold_ms,
+                             ad_urgent,
+                             ad_human);
             for (int i = 0;
                  i < ad::threat_n && n > 0 && n < (int) sizeof(buf) - 48;
                  i++)
