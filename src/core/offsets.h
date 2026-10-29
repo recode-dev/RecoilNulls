@@ -4,7 +4,8 @@
 #include <cstdint>
 
 inline constexpr uint64_t RVA_BATTLE_MODE_GET_INSTANCE = 0x8c5130ULL;
-inline constexpr uint64_t RVA_LOGIC_BATTLE_MODE_CLIENT_GET_TILE_MAP = 0x991440ULL;
+inline constexpr uint64_t RVA_LOGIC_BATTLE_MODE_CLIENT_GET_TILE_MAP =
+    0x991440ULL;
 inline constexpr uint64_t RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_CHARACTER =
     0xac3934ULL;
 inline constexpr uint64_t RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_INDEX =
@@ -12,11 +13,12 @@ inline constexpr uint64_t RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_INDEX =
 inline constexpr uint64_t RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_TEAM =
     0xa7f47cULL;
 inline constexpr uint64_t RVA_LOGIC_DATA_GET_NAME = 0x9a4f1cULL;
-inline constexpr uint64_t RVA_LOGIC_BATTLE_MODE_CLIENT_SET_CLIENT_PREDICTION_MOVE_TO =
-    0xac3a58ULL;
+inline constexpr uint64_t
+    RVA_LOGIC_BATTLE_MODE_CLIENT_SET_CLIENT_PREDICTION_MOVE_TO = 0xac3a58ULL;
 inline constexpr uint64_t RVA_CLIENT_INPUT_MESSAGE_CONSTRUCTOR = 0x00a95798ULL;
 inline constexpr uint64_t RVA_CLIENT_INPUT_MANAGER_ADD_INPUT = 0x74675cULL;
-inline constexpr uint64_t RVA_LOGIC_TILE_MAP_IS_PASSABLE_PATH_FINDER = 0x942ebcULL;
+inline constexpr uint64_t RVA_LOGIC_TILE_MAP_IS_PASSABLE_PATH_FINDER =
+    0x942ebcULL;
 inline constexpr uint64_t LOGIC_TILE_BLOCK_MASK_OFF = 0x10ULL;
 inline constexpr uint64_t LOGIC_TILE_WATER_MASK_OFF = 0x18ULL;
 inline constexpr uint64_t LOGIC_TILE_FOURTH_MASK_OFF = 0x28ULL;
@@ -38,7 +40,8 @@ inline constexpr uint64_t GAME_STATE_STATE_OFF = 0x50ULL;
 inline constexpr uint64_t GAME_STATE_SCENE_OFF = 0x48ULL;
 inline constexpr uint64_t SCENE_CLIENT_OFF = 0x28ULL;
 inline constexpr uint64_t LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF = 0x58ULL;
-inline constexpr uint64_t LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF = 0x28ULL;
+inline constexpr uint64_t LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF =
+    0x28ULL;
 inline constexpr uint64_t BATTLE_MODE_HASH_ENABLED_OFF = 0x70ULL;
 inline constexpr uint64_t BATTLE_MODE_HASH_KEY_OFF = 0x60ULL;
 inline constexpr uint64_t LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF = 0x0ULL;
@@ -73,7 +76,8 @@ inline constexpr uint64_t LOGIC_PROJECTILE_DATA_RADIUS_OFF = 0x74ULL;
 inline constexpr uint64_t LOGIC_PROJECTILE_DATA_PASSES_ENV_OFF = 0x148ULL;
 inline constexpr uint64_t LOGIC_PROJECTILE_DATA_IS_BOUNCING_OFF = 0xe9ULL;
 inline constexpr uint64_t LOGIC_PROJECTILE_DATA_PIERCES_ENV_OFF = 0xf5ULL;
-inline constexpr uint64_t LOGIC_PROJECTILE_DATA_PIERCES_ENV_BUTTER_OFF = 0xf6ULL;
+inline constexpr uint64_t LOGIC_PROJECTILE_DATA_PIERCES_ENV_BUTTER_OFF =
+    0xf6ULL;
 
 inline constexpr uint64_t LOGIC_TILE_MAP_WIDTH_OFF = 0xc4ULL;
 inline constexpr uint64_t LOGIC_TILE_MAP_HEIGHT_OFF = 0xc8ULL;
