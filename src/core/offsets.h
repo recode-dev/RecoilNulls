@@ -49,10 +49,10 @@ inline constexpr uint64_t LOGICCHARACTER_TEAM_OFF = 0x40ULL;
 inline constexpr uint64_t LOGICCHARACTER_ATTACK_ANGLE_OFF = 0xb4ULL;
 inline constexpr uint64_t LOGICCHARACTER_HP_OFF = 0xc4ULL;
 inline constexpr uint64_t LOGICGAMEOBJECT_DATA_OFF = 0x10ULL;
-inline constexpr uint64_t LOGICCHARACTERDATA_COLLISION_OFF = 0x164ULL;
+inline constexpr uint64_t LOGICCHARACTERDATA_COLLISION_OFF = 0x2acULL;
 
-inline constexpr uint64_t PROJECTILEDATA_SPEED_OFF = 0x9cULL;
-inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0xa4ULL;
+inline constexpr uint64_t PROJECTILEDATA_SPEED_OFF = 0x6cULL;
+inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0x74ULL;
 inline constexpr uint64_t PROJECTILEDATA_PASSES_ENV_OFF = 0x148ULL;
 inline constexpr uint64_t PROJECTILEDATA_ISBOUNCING_OFF = 0xe9ULL;
 inline constexpr uint64_t PROJECTILEDATA_PIERCES_ENV_OFF = 0xf5ULL;
