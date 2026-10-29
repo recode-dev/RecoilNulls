@@ -212,7 +212,8 @@ seg_dist(float px, float py, float ax, float ay, float bx, float by)
 static uintptr_t proj_data(uintptr_t objPtr)
 {
     if (!objPtr) return 0;
-    for (uintptr_t off = 0x8; off < 0x200; off += sizeof(uintptr_t))
+    for (uintptr_t off = LOGICGAMEOBJECT_DATA_OFF; off < 0x200;
+         off += sizeof(uintptr_t))
     {
         uintptr_t v = 0, vt = 0;
         if (!read_ptr(objPtr + off, &v)) break;
