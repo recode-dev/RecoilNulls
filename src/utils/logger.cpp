@@ -765,7 +765,8 @@ void val_projectile()
     {
         char dump[200];
         int at = 0;
-        at += snprintf(dump, sizeof(dump), " obj=%llx", (unsigned long long)objPtr);
+        at += snprintf(
+            dump, sizeof(dump), " obj=%llx", (unsigned long long)objPtr);
         for (int i = 0x20; i <= 0x40 && at < (int)sizeof(dump) - 12; i += 4)
         {
             int32_t v = 0;
