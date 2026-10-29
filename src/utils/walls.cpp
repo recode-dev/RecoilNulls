@@ -10,7 +10,8 @@ static constexpr int WALL_MASK_PLANES = 4;
 static constexpr int WALL_SAMPLE_TILES = 24;
 static constexpr int WALL_BITS_PER_TILE =
     WALL_SUBTILES_PER_TILE * WALL_SUBTILES_PER_TILE;
-static constexpr int WALL_SUBTILE_TOTAL = WALL_MAX_TOTAL_TILES * WALL_BITS_PER_TILE;
+static constexpr int WALL_SUBTILE_TOTAL =
+    WALL_MAX_TOTAL_TILES * WALL_BITS_PER_TILE;
 static constexpr int WALL_SUBTILE_WORDS = (WALL_SUBTILE_TOTAL + 31) / 32;
 static constexpr int WALL_TILE_WORDS = (WALL_MAX_TOTAL_TILES + 31) / 32;
 static constexpr uint64_t WALL_SUBTILE_BITS = 0x1ffULL;
@@ -76,7 +77,8 @@ static uint16_t wall_tile_data_flags(uintptr_t tileData)
     uint16_t flags = 0;
     if (!tileData || !pointer_plausible(tileData)) return 0;
     if (tileData == wall_flag_source) return wall_flag_value;
-    if (!read_bytes(tileData + LOGIC_TILE_DATA_BLOCKS_MOVEMENT_OFF, &flags, 2)) return 0;
+    if (!read_bytes(tileData + LOGIC_TILE_DATA_BLOCKS_MOVEMENT_OFF, &flags, 2))
+        return 0;
     wall_flag_source = tileData;
     wall_flag_value = flags;
     return flags;
@@ -94,8 +96,11 @@ static int wall_read_tile(uintptr_t tile, wall_tile_window* window)
         length -= static_cast<int>(LOGIC_TILE_MASK_PLANE_SIZE);
         if (!read_bytes(tile, raw, static_cast<size_t>(length))) return 0;
     }
-    memcpy(&window->data, raw + LOGIC_TILE_DATA_POINTER_OFF, sizeof(window->data));
-    memcpy(window->planes, raw + LOGIC_TILE_MASK_ARRAY_OFF, sizeof(window->planes));
+    memcpy(
+        &window->data, raw + LOGIC_TILE_DATA_POINTER_OFF, sizeof(window->data));
+    memcpy(window->planes,
+           raw + LOGIC_TILE_MASK_ARRAY_OFF,
+           sizeof(window->planes));
     return 1;
 }
 
@@ -129,14 +134,16 @@ static void wall_build_planes(int planes)
                reinterpret_cast<const uint8_t*>(wall_pointers) +
                    static_cast<size_t>(i) * sizeof(uintptr_t),
                sizeof(tile));
-        if (!tile || !pointer_plausible(tile) || !wall_read_tile(tile, &window)) continue;
+        if (!tile || !pointer_plausible(tile) || !wall_read_tile(tile, &window))
+            continue;
         flags = wall_tile_data_flags(window.data);
         if (flags & 0xffu) wall_script_blocked_tiles++;
         if (flags >> 8) wall_bit_raise(wall_projectile_bits, i);
         if (planes > 0)
         {
             subtiles = static_cast<uint32_t>(
-                (wall_plane_union(&window, planes) >> layerShift) & WALL_SUBTILE_BITS);
+                (wall_plane_union(&window, planes) >> layerShift) &
+                WALL_SUBTILE_BITS);
         }
         else if (flags & 0xffu)
         {
@@ -148,7 +155,8 @@ static void wall_build_planes(int planes)
         {
             if ((subtiles >> bit) & 1u)
             {
-                wall_bit_raise(wall_movement_bits, i * WALL_BITS_PER_TILE + bit);
+                wall_bit_raise(wall_movement_bits,
+                               i * WALL_BITS_PER_TILE + bit);
             }
         }
     }
@@ -163,7 +171,8 @@ static int wall_count_mismatches(int* enginePassable)
     int sampled = 0;
     int passable = 0;
     if (stride < 1) stride = 1;
-    for (int i = 0; i < total && sampled < WALL_SAMPLE_TILES; i += stride, sampled++)
+    for (int i = 0; i < total && sampled < WALL_SAMPLE_TILES;
+         i += stride, sampled++)
     {
         int baseX = (i % width) * WALL_SUBTILES_PER_TILE;
         int baseY = (i / width) * WALL_SUBTILES_PER_TILE;
@@ -171,9 +180,11 @@ static int wall_count_mismatches(int* enginePassable)
         {
             for (int sx = 0; sx < WALL_SUBTILES_PER_TILE; sx++)
             {
-                int engine = game_tile_is_passable(wall_map, baseX + sx, baseY + sy);
-                int ours = 1 - wall_bit_test(wall_movement_bits,
-                                             wall_subtile_index(baseX + sx, baseY + sy));
+                int engine =
+                    game_tile_is_passable(wall_map, baseX + sx, baseY + sy);
+                int ours = 1 - wall_bit_test(
+                                   wall_movement_bits,
+                                   wall_subtile_index(baseX + sx, baseY + sy));
                 if (engine) passable++;
                 if ((engine != 0) != (ours != 0)) mismatches++;
             }
@@ -259,10 +270,12 @@ static int wall_trace_clear(int ax, int ay, int bx, int by, int projectile)
             tMaxY += tDeltaY;
         }
         if (cellX == lastX && cellY == lastY) return 1;
-        if (cellX < 0 || cellY < 0 || cellX >= gridW || cellY >= gridH) return 1;
-        if (projectile ? wall_bit_test(wall_projectile_bits, cellY * gridW + cellX)
-                       : wall_bit_test(wall_movement_bits,
-                                       wall_subtile_index(cellX, cellY)))
+        if (cellX < 0 || cellY < 0 || cellX >= gridW || cellY >= gridH)
+            return 1;
+        if (projectile
+                ? wall_bit_test(wall_projectile_bits, cellY * gridW + cellX)
+                : wall_bit_test(wall_movement_bits,
+                                wall_subtile_index(cellX, cellY)))
         {
             return 0;
         }
@@ -273,7 +286,8 @@ static int wall_trace_clear(int ax, int ay, int bx, int by, int projectile)
 float wall_logic_units(int tiles)
 {
     if (wall_tile_span > 0) return static_cast<float>(tiles * wall_tile_span);
-    return static_cast<float>(game_tile_to_logic(tiles) - game_tile_to_logic(0));
+    return static_cast<float>(game_tile_to_logic(tiles) -
+                              game_tile_to_logic(0));
 }
 
 int wall_cell_is_passable(float x, float y)
@@ -281,7 +295,9 @@ int wall_cell_is_passable(float x, float y)
     int subX = 0;
     int subY = 0;
     if (!wall_subtile_of(x, y, &subX, &subY)) return 0;
-    return wall_bit_test(wall_movement_bits, wall_subtile_index(subX, subY)) ? 0 : 1;
+    return wall_bit_test(wall_movement_bits, wall_subtile_index(subX, subY))
+               ? 0
+               : 1;
 }
 
 int wall_cached_blocked_count()
@@ -383,10 +399,12 @@ int wall_cache_build()
     wall_have = 0;
     wall_w = width;
     wall_h = height;
-    if (wall_planes > 0 && wall_planes_match_engine(wall_planes)) chosen = wall_planes;
+    if (wall_planes > 0 && wall_planes_match_engine(wall_planes))
+        chosen = wall_planes;
     for (int planes = WALL_MASK_PLANES; chosen < 0 && planes > 0; planes--)
     {
-        if (planes != wall_planes && wall_planes_match_engine(planes)) chosen = planes;
+        if (planes != wall_planes && wall_planes_match_engine(planes))
+            chosen = planes;
     }
     if (chosen < 0)
     {
@@ -402,7 +420,9 @@ int wall_cache_build()
 int wall_cache_refresh_if_stale(uint64_t now_ms)
 {
     if (!wall_dirty && now_ms < wall_next_ms) return 0;
-    if (wall_fail_ms && now_ms - wall_fail_ms < static_cast<uint64_t>(WALL_RETRY_MS)) return 0;
+    if (wall_fail_ms &&
+        now_ms - wall_fail_ms < static_cast<uint64_t>(WALL_RETRY_MS))
+        return 0;
     if (!wall_cache_build())
     {
         wall_dirty = 1;
@@ -436,13 +456,16 @@ int wall_cell_blocked_wide(float x, float y, float r)
     highY = static_cast<int>(y + r) / wall_subtile_span;
     if (lowX < 0) lowX = 0;
     if (lowY < 0) lowY = 0;
-    if (highX >= wall_w * WALL_SUBTILES_PER_TILE) highX = wall_w * WALL_SUBTILES_PER_TILE - 1;
-    if (highY >= wall_h * WALL_SUBTILES_PER_TILE) highY = wall_h * WALL_SUBTILES_PER_TILE - 1;
+    if (highX >= wall_w * WALL_SUBTILES_PER_TILE)
+        highX = wall_w * WALL_SUBTILES_PER_TILE - 1;
+    if (highY >= wall_h * WALL_SUBTILES_PER_TILE)
+        highY = wall_h * WALL_SUBTILES_PER_TILE - 1;
     for (int sy = lowY; sy <= highY; sy++)
     {
         for (int sx = lowX; sx <= highX; sx++)
         {
-            if (wall_bit_test(wall_movement_bits, wall_subtile_index(sx, sy))) return 1;
+            if (wall_bit_test(wall_movement_bits, wall_subtile_index(sx, sy)))
+                return 1;
         }
     }
     return 0;
@@ -485,10 +508,13 @@ float wall_pull(float mx, float my, float dx, float dy, float radius)
     {
         float d = reach * 0.5f * static_cast<float>(i) /
                   static_cast<float>(WALL_PROBES);
-        blocked += wall_cell_blocked_wide(mx + dx * d, my + dy * d, radius) ? 1 : 0;
+        blocked +=
+            wall_cell_blocked_wide(mx + dx * d, my + dy * d, radius) ? 1 : 0;
     }
-    float pin_x = static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
-    float pin_y = static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
+    float pin_x =
+        static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
+    float pin_y =
+        static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
     float room = sqrtf(pin_x * pin_x + pin_y * pin_y) / reach;
     return static_cast<float>(blocked) / static_cast<float>(WALL_PROBES) +
            (1.0f - room);

@@ -25,10 +25,10 @@ inline constexpr uint64_t LOGIC_TILE_MASK_PLANE_SIZE = 0x8ULL;
 inline constexpr uint64_t LOGIC_TILE_BLOCK_MASK_OFF = LOGIC_TILE_MASK_ARRAY_OFF;
 inline constexpr uint64_t LOGIC_TILE_WATER_MASK_OFF =
     LOGIC_TILE_MASK_ARRAY_OFF + LOGIC_TILE_MASK_PLANE_SIZE;
-inline constexpr uint64_t LOGIC_TILE_THIRD_MASK_OFF = LOGIC_TILE_WATER_MASK_OFF +
-                                                     LOGIC_TILE_MASK_PLANE_SIZE;
-inline constexpr uint64_t LOGIC_TILE_FOURTH_MASK_OFF = LOGIC_TILE_THIRD_MASK_OFF +
-                                                      LOGIC_TILE_MASK_PLANE_SIZE;
+inline constexpr uint64_t LOGIC_TILE_THIRD_MASK_OFF =
+    LOGIC_TILE_WATER_MASK_OFF + LOGIC_TILE_MASK_PLANE_SIZE;
+inline constexpr uint64_t LOGIC_TILE_FOURTH_MASK_OFF =
+    LOGIC_TILE_THIRD_MASK_OFF + LOGIC_TILE_MASK_PLANE_SIZE;
 inline constexpr uint64_t LOGIC_TILE_DATA_BLOCKS_MOVEMENT_OFF = 0x56ULL;
 inline constexpr uint64_t LOGIC_TILE_DATA_BLOCKS_PROJECTILES_OFF = 0x57ULL;
 inline constexpr uint64_t RVA_LOGIC_TILE_MAP_IS_PLAYER_LINE_OF_SIGHT_CLEAR =
