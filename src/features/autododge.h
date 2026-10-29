@@ -48,7 +48,12 @@ namespace ad
 extern float own_hitbox;
 constexpr int THREAT_MAX = 32;
 constexpr int PROJ_SLOTS = 48;
+// server logic tick = 20 Hz / 50 ms.
+// v36 proof: TimeUtil::getTicksAsSecondsString(0x28db78) converts ticks with
+// (ticks % 20 == 0 ? ticks / 20 : ticks * 0.05); LogicCharacterServer::
+// MAX_HOLD_TICKS * 0.05 used as seconds. 1 tick = 0.05 s.
 constexpr uint64_t TICK_MS = 50;
+static_assert(TICK_MS == 50, "logic tick is 20 Hz (50 ms) - see v36 0x28db78");
 constexpr uint64_t PROJ_TTL_MS = TICK_MS * 20;
 constexpr uint8_t B_IND = 2, B_PIERCE = 4, B_BOUNCE = 8;
 struct Threat

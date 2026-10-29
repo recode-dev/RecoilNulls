@@ -53,6 +53,9 @@ constexpr float WEIGHT_POS = 900.0f;
 constexpr float WEIGHT_AWAY = 0.06f;
 constexpr float WEIGHT_AXIS = 2600.0f;
 constexpr float AXIS_INTO = 0.35f;
+constexpr float WEIGHT_APPROACH = 2000.0f;
+constexpr float APPROACH_R = 2400.0f;
+constexpr float HOT_CLEAR = 420.0f;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 constexpr float SIM_T = (float)SIM_STEPS * TICK_MS_SEC;
 }
@@ -368,6 +371,21 @@ static float nearest_away(float mx, float my, float dx, float dy)
     }
     return best < 1e29f ? -dot : 0.0f;
 }
+static float enemy_approach(float mx, float my, float dx, float dy)
+{
+    float worst = 0.0f;
+    for (int i = 0; i < ad_enemy_n; i++)
+    {
+        float ex = ad_enemy_x[i] - mx, ey = ad_enemy_y[i] - my;
+        float d = sqrtf(ex * ex + ey * ey);
+        if (d < 1.0f || d > APPROACH_R) continue;
+        float dot = (dx * ex + dy * ey) / d;
+        if (dot <= 0.0f) continue;
+        float p = dot * (1.0f - d / APPROACH_R);
+        if (p > worst) worst = p;
+    }
+    return worst;
+}
 static float thrust_penalty(float mx, float my, float dx, float dy)
 {
     float worst = 0.0f;
@@ -438,6 +456,7 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
     return (float)survive * WEIGHT_STEP + margin + WEIGHT_POS * room +
            WEIGHT_POS * WEIGHT_AWAY * nearest_away(mx, my, dx, dy) -
            WEIGHT_AXIS * thrust_penalty(mx, my, dx, dy) -
+           WEIGHT_APPROACH * enemy_approach(mx, my, dx, dy) -
            own_hitbox * wall_pull(mx, my, dx, dy, own_hitbox);
 }
 static void choose(float mx, float my, float& out_x, float& out_y)
@@ -661,7 +680,7 @@ void autododge()
     bool hot = false;
     for (int i = 0; i < threat_n; i++)
     {
-        if (ad::static_clear(threats[i], mx, my) < ad::own_hitbox * 2.0f)
+        if (ad::static_clear(threats[i], mx, my) < HOT_CLEAR)
         {
             hot = true;
             break;
