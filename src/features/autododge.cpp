@@ -157,12 +157,12 @@ static void add_char(const uint8_t* obj, int32_t own_gid, float mx, float my)
 {
     ad_char_n++;
     int32_t team, hp, gid, xi, yi, aim;
-    memcpy(&team, obj + OBJ_TEAM_OFF, sizeof(team));
-    memcpy(&hp, obj + OBJ_HP_OFF, sizeof(hp));
-    memcpy(&gid, obj + OBJ_GLOBALID_OFF, sizeof(gid));
-    memcpy(&xi, obj + OBJ_X_OFF, sizeof(xi));
-    memcpy(&yi, obj + OBJ_Y_OFF, sizeof(yi));
-    memcpy(&aim, obj + OBJ_ATTACK_ANGLE_OFF, sizeof(aim));
+    memcpy(&team, obj + LOGICCHARACTER_TEAM_OFF, sizeof(team));
+    memcpy(&hp, obj + LOGICCHARACTER_HP_OFF, sizeof(hp));
+    memcpy(&gid, obj + LOGICCHARACTER_GLOBALID_OFF, sizeof(gid));
+    memcpy(&xi, obj + LOGICCHARACTER_X_OFF, sizeof(xi));
+    memcpy(&yi, obj + LOGICCHARACTER_Y_OFF, sizeof(yi));
+    memcpy(&aim, obj + LOGICCHARACTER_ATTACK_ANGLE_OFF, sizeof(aim));
     if (team == own_team_b || hp <= 0 || gid <= 0 || gid == own_gid) return;
     if (ad_enemy_n >= AD_ENEMY_MAX) return;
     int k = ad_enemy_n++;
@@ -183,11 +183,11 @@ static void add_proj(const uint8_t* obj,
                      float zone2)
 {
     int32_t pid, team, xi, yi, dead;
-    memcpy(&pid, obj + OBJ_GLOBALID_OFF, sizeof(pid));
-    memcpy(&team, obj + OBJ_TEAM_OFF, sizeof(team));
-    memcpy(&xi, obj + OBJ_X_OFF, sizeof(xi));
-    memcpy(&yi, obj + OBJ_Y_OFF, sizeof(yi));
-    memcpy(&dead, obj + OBJ_DEADFLAG_OFF, sizeof(dead));
+    memcpy(&pid, obj + LOGICCHARACTER_GLOBALID_OFF, sizeof(pid));
+    memcpy(&team, obj + LOGICCHARACTER_TEAM_OFF, sizeof(team));
+    memcpy(&xi, obj + LOGICCHARACTER_X_OFF, sizeof(xi));
+    memcpy(&yi, obj + LOGICCHARACTER_Y_OFF, sizeof(yi));
+    memcpy(&dead, obj + LOGICCHARACTER_DEADFLAG_OFF, sizeof(dead));
     if (!pid || team == own_team_b || dead) return;
     ad_proj_n++;
     float px = (float)xi, py = (float)yi;
@@ -260,7 +260,7 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
         if (!obj_valid[i]) continue;
         const uint8_t* obj = obj_block[i];
         uintptr_t dataPtr = 0;
-        memcpy(&dataPtr, obj + ELEM_DEF_OFF, sizeof(dataPtr));
+        memcpy(&dataPtr, obj + LOGICGAMEOBJECT_DATA_OFF, sizeof(dataPtr));
         if (!dataPtr || !pointer_plausible(dataPtr)) continue;
         uintptr_t vt = 0;
         if (!read_ptr(dataPtr, &vt) || vt < base) continue;
@@ -270,7 +270,7 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
     }
     for (int i = 0; i < obj_count; i++)
     {
-        if (obj_rva[i] == VTABLE_PROJ_DATA_RVA)
+        if (obj_rva[i] == VTABLE_PROJECTILEDATA_RVA)
             add_proj(obj_block[i], obj_data[i], now, mx, my, zone2);
     }
 }
@@ -530,13 +530,13 @@ static void learn_vtable()
     void* data = nullptr;
     void* vt = nullptr;
     if (char_vt || !base || !own_elem) return;
-    if (!read_ptr(own_elem + ELEM_DEF_OFF, &data) || !data ||
+    if (!read_ptr(own_elem + LOGICGAMEOBJECT_DATA_OFF, &data) || !data ||
         !pointer_plausible((uintptr_t)data))
         return;
     if (!read_ptr((uintptr_t)data, &vt) || !vt) return;
     uintptr_t rva = (uintptr_t)vt - base;
-    if (rva == VTABLE_PROJ_DATA_RVA || rva < DC_RVA_LO ||
-        rva >= DC_RVA_LO + DC_RVA_SIZE)
+    if (rva == VTABLE_PROJECTILEDATA_RVA || rva < DATACONST_RVA_LO ||
+        rva >= DATACONST_RVA_LO + DATACONST_RVA_SIZE)
         return;
     char_vt = rva;
 }
@@ -586,7 +586,7 @@ void autododge()
         return;
     }
     int32_t own_gid = 0;
-    read_int(own_elem + OBJ_GLOBALID_OFF, &own_gid);
+    read_int(own_elem + LOGICCHARACTER_GLOBALID_OFF, &own_gid);
     self_speed = own_speed > 1.0f ? own_speed : 1.0f;
     uint64_t now = us() / 1000;
     {

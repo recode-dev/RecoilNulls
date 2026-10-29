@@ -43,8 +43,9 @@ static int wall_type_bits_for(uintptr_t type, uint8_t* out)
             return 1;
         }
     }
-    if (!read_bytes(
-            type + static_cast<uintptr_t>(TILE_TYPE_MOVE_OFF), &packed, 2))
+    if (!read_bytes(type + static_cast<uintptr_t>(TILETYPEDATA_BLOCKFLAGS_OFF),
+                    &packed,
+                    2))
     {
         return 0;
     }
@@ -117,17 +118,18 @@ void wall_bind(uintptr_t tileMap)
         wall_dirty = 1;
         wall_fail_ms = 0;
     }
-    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_W_OFF), &mapW) ||
+    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_WIDTH_OFF), &mapW) ||
         mapW <= 0 || mapW > WALL_MAX_MAP_TILES)
     {
         return;
     }
-    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_H_OFF), &mapH) ||
+    if (!read_int(tileMap + static_cast<uintptr_t>(TILEMAP_HEIGHT_OFF),
+                  &mapH) ||
         mapH <= 0 || mapH > WALL_MAX_MAP_TILES)
     {
         return;
     }
-    if (!read_ptr(tileMap + static_cast<uintptr_t>(TILEMAP_ARRAY_OFF),
+    if (!read_ptr(tileMap + static_cast<uintptr_t>(TILEMAP_TILES_OFF),
                   &tileArray) ||
         !tileArray)
     {

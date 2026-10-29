@@ -356,13 +356,13 @@ int32_t own_index_v = -1;
 int own_ok_hp = 0;
 static int battle_state()
 {
-    uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
+    uintptr_t slot = (uintptr_t)read_global_ptr(GAMESTATE_RVA);
     int32_t state = -1;
     if (!slot)
     {
         return -1;
     }
-    if (!read_int(slot + static_cast<uintptr_t>(STATE_ENUM_OFF), &state))
+    if (!read_int(slot + static_cast<uintptr_t>(GAMESTATE_STATE_OFF), &state))
     {
         return -1;
     }
@@ -460,10 +460,11 @@ void scan_world()
     void* sceneValue = nullptr;
     if (!base) return;
     state = battle_state();
-    slot = (uintptr_t)read_global_ptr(STATE_RVA);
+    slot = (uintptr_t)read_global_ptr(GAMESTATE_RVA);
     scene_object = 0;
     if (slot &&
-        read_ptr(slot + static_cast<uintptr_t>(SCENE_OFF), &sceneValue) &&
+        read_ptr(slot + static_cast<uintptr_t>(GAMESTATE_SCENE_OFF),
+                 &sceneValue) &&
         sceneValue)
     {
         scene_object = (uintptr_t)sceneValue;
@@ -480,7 +481,8 @@ void scan_world()
         world_reset();
         return;
     }
-    if (!read_ptr(clientPtr + static_cast<uintptr_t>(MODE_MANAGER_OFF),
+    if (!read_ptr(clientPtr + static_cast<uintptr_t>(
+                                  LOGICBATTLEMODECLIENT_OBJECTMANAGER_OFF),
                   &value) ||
         !value)
     {
@@ -489,13 +491,15 @@ void scan_world()
     }
     mgrPtr = (uintptr_t)value;
     manager_ptr = mgrPtr;
-    if (!read_int(mgrPtr + static_cast<uintptr_t>(MGR_COUNT_OFF), &count) ||
+    if (!read_int(mgrPtr + static_cast<uintptr_t>(OBJECTMANAGER_COUNT_OFF),
+                  &count) ||
         count <= 0 || count > OBJECT_COUNT_MAX)
     {
         world_reset();
         return;
     }
-    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(MGR_ARRAY_OFF), &value) ||
+    if (!read_ptr(mgrPtr + static_cast<uintptr_t>(OBJECTMANAGER_ARRAY_OFF),
+                  &value) ||
         !value)
     {
         world_reset();
@@ -536,15 +540,15 @@ void scan_world()
         return;
     }
     own_elem = own;
-    if (read_int(own + static_cast<uintptr_t>(OBJ_X_OFF), &x) &&
-        read_int(own + static_cast<uintptr_t>(OBJ_Y_OFF), &y))
+    if (read_int(own + static_cast<uintptr_t>(LOGICCHARACTER_X_OFF), &x) &&
+        read_int(own + static_cast<uintptr_t>(LOGICCHARACTER_Y_OFF), &y))
     {
         own_x = x;
         own_y = y;
         coord_ok = 1;
     }
-    if (read_int(own + static_cast<uintptr_t>(OBJ_HP_OFF), &hp) && hp >= 0 &&
-        hp < 1000000)
+    if (read_int(own + static_cast<uintptr_t>(LOGICCHARACTER_HP_OFF), &hp) &&
+        hp >= 0 && hp < 1000000)
     {
         own_ok_hp = 1;
         own_hp = static_cast<uint32_t>(hp);
@@ -645,18 +649,18 @@ int coord_ok = 0;
 int dead = 0;
 int scene_live()
 {
-    uintptr_t slot = (uintptr_t)read_global_ptr(STATE_RVA);
+    uintptr_t slot = (uintptr_t)read_global_ptr(GAMESTATE_RVA);
     void* value = nullptr;
     int32_t state = -1;
     if (!scene_object || !slot)
     {
         return 0;
     }
-    if (!read_int(slot + STATE_ENUM_OFF, &state) || state != 5)
+    if (!read_int(slot + GAMESTATE_STATE_OFF, &state) || state != 5)
     {
         return 0;
     }
-    if (!read_ptr(slot + SCENE_OFF, &value) || !value)
+    if (!read_ptr(slot + GAMESTATE_SCENE_OFF, &value) || !value)
     {
         return 0;
     }
@@ -669,7 +673,7 @@ uintptr_t client()
     {
         return 0;
     }
-    if (!read_ptr(scene_object + CLIENT_OFF, &clientPtr))
+    if (!read_ptr(scene_object + SCENE_CLIENT_OFF, &clientPtr))
     {
         return 0;
     }

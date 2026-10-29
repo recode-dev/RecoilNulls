@@ -2,7 +2,7 @@
 #define SCAN_SCAN_H
 #include "./offsets.h"
 #include <cstdint>
-#define OBJ_BLOCK_SIZE (OBJ_DEADFLAG_OFF + sizeof(uint32_t))
+#define OBJ_BLOCK_SIZE (LOGICCHARACTER_DEADFLAG_OFF + sizeof(uint32_t))
 #ifndef NSEC_PER_SEC
 #define NSEC_PER_SEC 1000000000ull
 #endif
@@ -90,7 +90,7 @@ static inline BOOL object_plausible(void* object)
         return NO;
     }
     uintptr_t address = (uintptr_t)object;
-    if (address < HEAP_REGION_MAX_SIZE)
+    if (address < HEAP_MAX_REGION_SIZE)
     {
         return NO;
     }

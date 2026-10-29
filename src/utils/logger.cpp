@@ -219,7 +219,7 @@ void diag_tick()
     int32_t own_aim = 0;
     if (own_elem)
     {
-        read_int(own_elem + OBJ_ATTACK_ANGLE_OFF, &own_aim);
+        read_int(own_elem + LOGICCHARACTER_ATTACK_ANGLE_OFF, &own_aim);
     }
     line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
          "dir=%s map=%dx%d dodge=%d hit=%d beam=%d ind=%d fd=%d tgt=(%d,%d) "
