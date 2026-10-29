@@ -3,12 +3,13 @@
 #include <CommonCrypto/CommonDigest.h>
 #include <cstring>
 
-static void hash_keyed_parts(const uint8_t* key16,
-                             const uint8_t* mask16,
-                             uint8_t pad,
-                             const uint8_t* message,
-                             size_t messageLength,
-                             uint8_t out[CC_SHA256_DIGEST_LENGTH])
+static void ClientInputMessageHashKeyedParts(
+    const uint8_t* key16,
+    const uint8_t* mask16,
+    uint8_t pad,
+    const uint8_t* message,
+    size_t messageLength,
+    uint8_t out[CC_SHA256_DIGEST_LENGTH])
 {
     uint8_t keyedBlock[64];
     for (int i = 0; i < 16; ++i)
@@ -23,24 +24,32 @@ static void hash_keyed_parts(const uint8_t* key16,
     CC_SHA256_Final(out, &context);
 }
 
-uint32_t ci_compute_token(const uint8_t* key16,
-                          const uint8_t* cmd16,
-                          const uint32_t* table,
-                          uint32_t fallback,
-                          const uint8_t* innerMask,
-                          const uint8_t* outerMask)
+uint32_t ClientInputMessageComputeChecksum(const uint8_t* key16,
+                                           const uint8_t* signedData,
+                                           const uint32_t* typeTable,
+                                           uint32_t typeFallback,
+                                           const uint8_t* innerMask,
+                                           const uint8_t* outerMask)
 {
+    constexpr size_t signedSpan =
+        static_cast<size_t>(ClientInputMessageSignedDataSize);
+    constexpr size_t typeSpan = sizeof(uint32_t);
     uint32_t rawType = 0;
-    memcpy(&rawType, cmd16 + 4, sizeof(rawType));
+    memcpy(&rawType,
+           signedData + (ClientInputMessageTypeOffset -
+                         ClientInputMessageSignedDataOffset),
+           sizeof(rawType));
     uint32_t mappedType =
-        rawType < CLIENT_INPUT_TYPE_COUNT ? table[rawType] : fallback;
-    uint8_t message[20];
-    memcpy(message, cmd16, 16);
-    memcpy(message + 16, &mappedType, sizeof(mappedType));
+        rawType < ClientInputTypeCount ? typeTable[rawType] : typeFallback;
+    uint8_t message[signedSpan + typeSpan];
+    memcpy(message, signedData, signedSpan);
+    memcpy(message + signedSpan, &mappedType, typeSpan);
     uint8_t inner[CC_SHA256_DIGEST_LENGTH];
-    hash_keyed_parts(key16, innerMask, 0x36, message, sizeof(message), inner);
+    ClientInputMessageHashKeyedParts(
+        key16, innerMask, 0x36, message, sizeof(message), inner);
     uint8_t outer[CC_SHA256_DIGEST_LENGTH];
-    hash_keyed_parts(key16, outerMask, 0x5c, inner, sizeof(inner), outer);
+    ClientInputMessageHashKeyedParts(
+        key16, outerMask, 0x5c, inner, sizeof(inner), outer);
     uint32_t token = static_cast<uint32_t>(outer[0]) |
                      (static_cast<uint32_t>(outer[1] & 0x7f) << 8);
     return token > 1 ? token : 1;

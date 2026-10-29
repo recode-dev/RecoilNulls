@@ -146,12 +146,12 @@ add_character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
 {
     ad_char_n++;
     int32_t team, hp, gid, xi, yi, aim;
-    memcpy(&team, obj + LOGIC_CHARACTER_TEAM_OFF, sizeof(team));
-    memcpy(&hp, obj + LOGIC_CHARACTER_HP_OFF, sizeof(hp));
-    memcpy(&gid, obj + LOGIC_CHARACTER_GLOBAL_ID_OFF, sizeof(gid));
-    memcpy(&xi, obj + LOGIC_CHARACTER_X_OFF, sizeof(xi));
-    memcpy(&yi, obj + LOGIC_CHARACTER_Y_OFF, sizeof(yi));
-    memcpy(&aim, obj + LOGIC_CHARACTER_ATTACK_ANGLE_OFF, sizeof(aim));
+    memcpy(&team, obj + LogicCharacterTeamOffset, sizeof(team));
+    memcpy(&hp, obj + LogicCharacterHitpointsOffset, sizeof(hp));
+    memcpy(&gid, obj + LogicCharacterGlobalIdOffset, sizeof(gid));
+    memcpy(&xi, obj + LogicCharacterXOffset, sizeof(xi));
+    memcpy(&yi, obj + LogicCharacterYOffset, sizeof(yi));
+    memcpy(&aim, obj + LogicCharacterAttackAngleOffset, sizeof(aim));
     if (team == own_team_b || hp <= 0 || gid <= 0 || gid == own_gid) return;
     if (ad_enemy_n >= AD_ENEMY_MAX) return;
     int k = ad_enemy_n++;
@@ -186,15 +186,15 @@ seg_dist(float px, float py, float ax, float ay, float bx, float by)
 static uintptr_t find_projectile_data_asset(uintptr_t objPtr)
 {
     if (!objPtr) return 0;
-    for (uintptr_t off = LOGIC_GAME_OBJECT_DATA_OFF;
-         off < LOGIC_GAME_OBJECT_DATA_SCAN_SPAN;
+    for (uintptr_t off = LogicGameObjectDataOffset;
+         off < LogicGameObjectDataScanSpan;
          off += sizeof(uintptr_t))
     {
         uintptr_t v = 0, vt = 0;
         if (!read_ptr(objPtr + off, &v)) break;
         if (!v || !pointer_plausible(v)) continue;
         if (!read_ptr(v, &vt) || vt < base) continue;
-        if (vt - base == VTABLE_LOGIC_PROJECTILE_DATA_RVA) return v;
+        if (vt - base == LogicProjectileDataVtableRva) return v;
     }
     return 0;
 }
@@ -211,20 +211,20 @@ static bool is_live_projectile(const uint8_t* obj,
 {
     int32_t t0 = 0, t1 = 0, xi = 0, yi = 0;
     int32_t ax = 0, ay = 0, bx = 0, by = 0;
-    memcpy(&t0, obj + LOGIC_PROJECTILE_SERVER_STARTTICK_OFF, sizeof(t0));
-    memcpy(&t1, obj + LOGIC_PROJECTILE_SERVER_ENDTICK_OFF, sizeof(t1));
+    memcpy(&t0, obj + LogicProjectileServerTickStartOffset, sizeof(t0));
+    memcpy(&t1, obj + LogicProjectileServerTickEndOffset, sizeof(t1));
     if (t0 <= 0 || t1 < t0 || t1 - t0 > 3000) return false;
     float w = (float)wall_cache_width() * wall_logic_units(1);
     float h = (float)wall_cache_height() * wall_logic_units(1);
     if (w <= 0.0f || h <= 0.0f) return false;
-    memcpy(&xi, obj + LOGIC_PROJECTILE_SERVER_X_OFF, sizeof(xi));
-    memcpy(&yi, obj + LOGIC_PROJECTILE_SERVER_Y_OFF, sizeof(yi));
+    memcpy(&xi, obj + LogicProjectileServerXOffset, sizeof(xi));
+    memcpy(&yi, obj + LogicProjectileServerYOffset, sizeof(yi));
     if ((float)xi < -300.0f || (float)yi < -300.0f) return false;
     if ((float)xi > w + 300.0f || (float)yi > h + 300.0f) return false;
-    memcpy(&ax, obj + LOGIC_PROJECTILE_SERVER_STARTX_OFF, sizeof(ax));
-    memcpy(&ay, obj + LOGIC_PROJECTILE_SERVER_STARTY_OFF, sizeof(ay));
-    memcpy(&bx, obj + LOGIC_PROJECTILE_SERVER_ENDX_OFF, sizeof(bx));
-    memcpy(&by, obj + LOGIC_PROJECTILE_SERVER_ENDY_OFF, sizeof(by));
+    memcpy(&ax, obj + LogicProjectileServerStartXOffset, sizeof(ax));
+    memcpy(&ay, obj + LogicProjectileServerStartYOffset, sizeof(ay));
+    memcpy(&bx, obj + LogicProjectileServerTargetXOffset, sizeof(bx));
+    memcpy(&by, obj + LogicProjectileServerTargetYOffset, sizeof(by));
     if (ax < -100000 || ay < -100000 || ax > 100000 || ay > 100000)
         return false;
     if (bx < -100000 || by < -100000 || bx > 100000 || by > 100000)
@@ -251,8 +251,8 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     float h = (float)wall_cache_height() * wall_logic_units(1);
     if (w <= 0.0f || h <= 0.0f) return false;
     int32_t xi = 0, yi = 0;
-    memcpy(&xi, obj + LOGIC_CHARACTER_X_OFF, sizeof(xi));
-    memcpy(&yi, obj + LOGIC_CHARACTER_Y_OFF, sizeof(yi));
+    memcpy(&xi, obj + LogicCharacterXOffset, sizeof(xi));
+    memcpy(&yi, obj + LogicCharacterYOffset, sizeof(yi));
     if ((float)xi >= -300.0f && (float)yi >= -300.0f &&
         (float)xi <= w + 300.0f && (float)yi <= h + 300.0f)
     {
@@ -260,8 +260,8 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
         *py = (float)yi;
         return true;
     }
-    memcpy(&xi, obj + LOGIC_PROJECTILE_SERVER_X_OFF, sizeof(xi));
-    memcpy(&yi, obj + LOGIC_PROJECTILE_SERVER_Y_OFF, sizeof(yi));
+    memcpy(&xi, obj + LogicProjectileServerXOffset, sizeof(xi));
+    memcpy(&yi, obj + LogicProjectileServerYOffset, sizeof(yi));
     if ((float)xi >= -300.0f && (float)yi >= -300.0f &&
         (float)xi <= w + 300.0f && (float)yi <= h + 300.0f)
     {
@@ -288,22 +288,22 @@ static void add_projectile_threat(const uint8_t* obj,
                                   float ey)
 {
     int32_t pid = 0;
-    memcpy(&pid, obj + LOGIC_CHARACTER_GLOBAL_ID_OFF, sizeof(pid));
+    memcpy(&pid, obj + LogicCharacterGlobalIdOffset, sizeof(pid));
     int32_t key = pid;
     if (key <= 0)
         key = (int32_t)(((objPtr >> 4) ^ (objPtr >> 20)) & 0x7fffffff);
     if (key <= 0) return;
     uintptr_t owner = 0;
     if (char_vt &&
-        read_ptr(objPtr + LOGIC_PROJECTILE_SERVER_OWNER_OFF, &owner) && owner &&
-        pointer_plausible(owner))
+        read_ptr(objPtr + LogicProjectileServerOwnerGameObjectOffset, &owner) &&
+        owner && pointer_plausible(owner))
     {
         uintptr_t odata = 0, ovt = 0;
         int32_t oteam = 0;
-        if (read_ptr(owner + LOGIC_GAME_OBJECT_DATA_OFF, &odata) && odata &&
+        if (read_ptr(owner + LogicGameObjectDataOffset, &odata) && odata &&
             pointer_plausible(odata) && read_ptr(odata, &ovt) && ovt >= base &&
             ovt - base == char_vt &&
-            read_int(owner + LOGIC_CHARACTER_TEAM_OFF, &oteam) &&
+            read_int(owner + LogicCharacterTeamOffset, &oteam) &&
             oteam == own_team_b)
             return;
     }
@@ -425,7 +425,7 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         if (!obj_valid[i]) continue;
         const uint8_t* obj = obj_block[i];
         uintptr_t dataPtr = 0;
-        memcpy(&dataPtr, obj + LOGIC_GAME_OBJECT_DATA_OFF, sizeof(dataPtr));
+        memcpy(&dataPtr, obj + LogicGameObjectDataOffset, sizeof(dataPtr));
         uintptr_t vt = 0;
         if (dataPtr && pointer_plausible(dataPtr) && read_ptr(dataPtr, &vt) &&
             vt >= base)
@@ -443,14 +443,14 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         {
             int32_t nt0 = 0, nt1 = 0;
             memcpy(
-                &nt0, obj + LOGIC_PROJECTILE_SERVER_STARTTICK_OFF, sizeof(nt0));
+                &nt0, obj + LogicProjectileServerTickStartOffset, sizeof(nt0));
             memcpy(
-                &nt1, obj + LOGIC_PROJECTILE_SERVER_ENDTICK_OFF, sizeof(nt1));
+                &nt1, obj + LogicProjectileServerTickEndOffset, sizeof(nt1));
             if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 3000) ad_shot_tick++;
         }
         if (!is_live_projectile(obj, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
         {
-            if (obj_rva[i] != VTABLE_LOGIC_PROJECTILE_DATA_RVA) continue;
+            if (obj_rva[i] != LogicProjectileDataVtableRva) continue;
             if (!read_projectile_position(obj, &px, &py)) continue;
             t0 = 0;
             t1 = 0;
@@ -807,13 +807,13 @@ static void learn_character_data_vtable()
     void* data = nullptr;
     void* vt = nullptr;
     if (char_vt || !base || !own_elem) return;
-    if (!read_ptr(own_elem + LOGIC_GAME_OBJECT_DATA_OFF, &data) || !data ||
+    if (!read_ptr(own_elem + LogicGameObjectDataOffset, &data) || !data ||
         !pointer_plausible((uintptr_t)data))
         return;
     if (!read_ptr((uintptr_t)data, &vt) || !vt) return;
     uintptr_t rva = (uintptr_t)vt - base;
-    if (rva == VTABLE_LOGIC_PROJECTILE_DATA_RVA || rva < DATA_CONST_RVA_LOW ||
-        rva >= DATA_CONST_RVA_LOW + DATA_CONST_RVA_SIZE)
+    if (rva == LogicProjectileDataVtableRva || rva < DataConstRvaLow ||
+        rva >= DataConstRvaLow + DataConstRvaSize)
         return;
     char_vt = rva;
 }
@@ -822,10 +822,10 @@ static void learn_own_hitbox()
     void* data = nullptr;
     int32_t r = 0;
     if (!base || !own_elem) return;
-    if (!read_ptr(own_elem + LOGIC_GAME_OBJECT_DATA_OFF, &data) || !data ||
+    if (!read_ptr(own_elem + LogicGameObjectDataOffset, &data) || !data ||
         !pointer_plausible((uintptr_t)data))
         return;
-    if (!read_bytes((uintptr_t)data + LOGIC_CHARACTER_DATA_COLLISION_OFF,
+    if (!read_bytes((uintptr_t)data + LogicCharacterDataCollisionRadiusOffset,
                     &r,
                     sizeof(r)))
         return;
@@ -883,7 +883,7 @@ void update_autododge()
         return;
     }
     int32_t own_gid = 0;
-    read_int(own_elem + LOGIC_CHARACTER_GLOBAL_ID_OFF, &own_gid);
+    read_int(own_elem + LogicCharacterGlobalIdOffset, &own_gid);
     self_speed = own_speed > 1.0f ? own_speed : 1.0f;
     uint64_t now = us() / 1000;
     {

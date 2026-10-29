@@ -3,13 +3,13 @@
 
 #include <cstdint>
 
-inline constexpr int CLIENT_INPUT_MESSAGE_TYPE_MOVE = 0x2;
-inline constexpr int CLIENT_INPUT_MESSAGE_PREDICTION_FLAG = 1;
+inline constexpr int ClientInputMessageTypeMove = 0x2;
+inline constexpr int ClientInputMessagePredictionFlag = 1;
 
-inline constexpr int CLIENT_INPUT_PIPELINE_UNKNOWN = 0;
-inline constexpr int CLIENT_INPUT_PIPELINE_READY = 1;
-inline constexpr int CLIENT_INPUT_PIPELINE_CALLABLES_MISSING = -1;
-inline constexpr int CLIENT_INPUT_PIPELINE_LAYOUT_MISMATCH = -2;
+inline constexpr int ClientInputPipelineUnknown = 0;
+inline constexpr int ClientInputPipelineReady = 1;
+inline constexpr int ClientInputPipelineCallablesMissing = -1;
+inline constexpr int ClientInputPipelineLayoutMismatch = -2;
 
 uintptr_t callable_at_rva(uintptr_t rva);
 [[nodiscard]] void* allocate_client_input_message();

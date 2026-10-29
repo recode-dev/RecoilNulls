@@ -143,25 +143,27 @@ void val_rva_table()
         const char* name;
         uint64_t rva;
     } table[] = {
-        {"RVA_BATTLE_MODE_GET_INSTANCE", RVA_BATTLE_MODE_GET_INSTANCE},
-        {"RVA_GETTILEMAP", RVA_LOGIC_BATTLE_MODE_CLIENT_GET_TILE_MAP},
-        {"RVA_GETOWNCHARACTER", RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_CHARACTER},
-        {"RVA_GETOWNPLAYERINDEX",
-         RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_INDEX},
-        {"RVA_GETOWNPLAYERTEAM",
-         RVA_LOGIC_BATTLE_MODE_CLIENT_GET_OWN_PLAYER_TEAM},
-        {"RVA_LOGIC_DATA_GET_NAME", RVA_LOGIC_DATA_GET_NAME},
-        {"RVA_SETCLIENTPREDICTIONMOVETO",
-         RVA_LOGIC_BATTLE_MODE_CLIENT_SET_CLIENT_PREDICTION_MOVE_TO},
-        {"RVA_CLIENTINPUTMESSAGE_CTOR", RVA_CLIENT_INPUT_MESSAGE_CONSTRUCTOR},
-        {"RVA_CLIENT_INPUT_MANAGER_ADD_INPUT",
-         RVA_CLIENT_INPUT_MANAGER_ADD_INPUT},
-        {"RVA_ISPASSABLEPATHFINDER",
-         RVA_LOGIC_TILE_MAP_IS_PASSABLE_PATH_FINDER},
-        {"RVA_ISPLAYERLINEOFSIGHTCLEAR",
-         RVA_LOGIC_TILE_MAP_IS_PLAYER_LINE_OF_SIGHT_CLEAR},
-        {"RVA_LOGIC_TILE_MAP_TILE_TO_LOGIC", RVA_LOGIC_TILE_MAP_TILE_TO_LOGIC},
-        {"RVA_LOGIC_TILE_MAP_LOGIC_TO_TILE", RVA_LOGIC_TILE_MAP_LOGIC_TO_TILE},
+        {"BattleModeGetInstanceRva", BattleModeGetInstanceRva},
+        {"LogicBattleModeClientGetTileMapRva",
+         LogicBattleModeClientGetTileMapRva},
+        {"LogicBattleModeClientGetOwnCharacterRva",
+         LogicBattleModeClientGetOwnCharacterRva},
+        {"LogicBattleModeClientGetOwnPlayerIndexRva",
+         LogicBattleModeClientGetOwnPlayerIndexRva},
+        {"LogicBattleModeClientGetOwnPlayerTeamRva",
+         LogicBattleModeClientGetOwnPlayerTeamRva},
+        {"LogicDataGetNameRva", LogicDataGetNameRva},
+        {"LogicBattleModeClientSetClientPredictionMoveToRva",
+         LogicBattleModeClientSetClientPredictionMoveToRva},
+        {"ClientInputMessageConstructorRva", ClientInputMessageConstructorRva},
+        {"ClientInputManagerAddInputRva",
+         ClientInputManagerAddInputRva},
+        {"LogicTileMapIsPassablePathFinderRva",
+         LogicTileMapIsPassablePathFinderRva},
+        {"LogicTileMapIsPlayerLineOfSightClearRva",
+         LogicTileMapIsPlayerLineOfSightClearRva},
+        {"LogicTileMapTileToLogicRva", LogicTileMapTileToLogicRva},
+        {"LogicTileMapLogicToTileRva", LogicTileMapLogicToTileRva},
     };
     for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++)
     {
@@ -184,13 +186,13 @@ void val_rva_table()
     }
     {
         int center = game_tile_to_logic(3);
-        vf("RVA_TILE_TO_LOGIC(x)",
+        vf("LogicTileMapTileToLogicRva",
            center == 3 * 300 + 150 && game_logic_to_tile(center) == 3,
            "3 -> %d (want 1050) back=%d",
            center,
            game_logic_to_tile(center));
     }
-    vf("RVA_LOGIC_TO_TILE(x)",
+    vf("LogicTileMapLogicToTileRva",
        game_logic_to_tile(900) == 3,
        "900 -> %d (want 3)",
        game_logic_to_tile(900));
@@ -207,61 +209,66 @@ void val_globals(uintptr_t slot)
     int32_t count = 0;
     uint8_t hashOn = 0;
     uint8_t key[16] = {0};
-    vf("GAME_STATE_RVA",
+    vf("GameStateManagerRva",
        slot && pointer_plausible(slot),
        "0x%llx",
        (unsigned long long)slot);
     if (!slot)
     {
-        vs("GAME_STATE_STATE_OFF", "no game state");
-        vs("GAME_STATE_SCENE_OFF", "no game state");
+        vs("GameStateManagerStateOffset", "no game state");
+        vs("GameStateManagerCurrentStateOffset", "no game state");
         return;
     }
-    if (read_int(slot + GAME_STATE_STATE_OFF, &state))
+    if (read_int(slot + GameStateManagerStateOffset, &state))
     {
-        vf("GAME_STATE_STATE_OFF", state >= 0 && state <= 8, "state=%d", state);
+        vf("GameStateManagerStateOffset",
+           state >= 0 && state <= 8,
+           "state=%d",
+           state);
     }
     else
     {
-        vf("GAME_STATE_STATE_OFF", false, "read failed");
+        vf("GameStateManagerStateOffset", false, "read failed");
     }
-    if (read_ptr(slot + GAME_STATE_SCENE_OFF, &scene))
+    if (read_ptr(slot + GameStateManagerCurrentStateOffset, &scene))
     {
-        vf("GAME_STATE_SCENE_OFF",
+        vf("GameStateManagerCurrentStateOffset",
            scene && pointer_plausible(scene),
            "0x%llx",
            (unsigned long long)scene);
     }
     else
     {
-        vf("GAME_STATE_SCENE_OFF", false, "read failed");
+        vf("GameStateManagerCurrentStateOffset", false, "read failed");
     }
     if (!scene)
     {
-        vs("SCENE_CLIENT_OFF", "no scene");
-        vs("LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF", "no scene");
-        vs("LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF", "no scene");
+        vs("GameStateClientOffset", "no scene");
+        vs("LogicBattleModeClientGameObjectManagerOffset", "no scene");
+        vs("LogicBattleModeClientInputManagerOffset", "no scene");
     }
     else
     {
-        if (read_ptr(scene + SCENE_CLIENT_OFF, &clientPtr))
+        if (read_ptr(scene + GameStateClientOffset, &clientPtr))
         {
-            vf("SCENE_CLIENT_OFF",
+            vf("GameStateClientOffset",
                clientPtr && pointer_plausible(clientPtr),
                "0x%llx",
                (unsigned long long)clientPtr);
         }
         else
         {
-            vf("SCENE_CLIENT_OFF", false, "read failed");
+            vf("GameStateClientOffset", false, "read failed");
         }
-        if (read_bytes(slot + BATTLE_MODE_HASH_ENABLED_OFF, &hashOn, 1))
+        if (read_bytes(
+                slot + LogicBattleModeClientHashEnabledOffset, &hashOn, 1))
         {
-            BOOL keyOk = read_bytes(slot + BATTLE_MODE_HASH_KEY_OFF, key, 16);
+            BOOL keyOk =
+                read_bytes(slot + LogicBattleModeClientHashKeyOffset, key, 16);
             BOOL used = NO;
             for (int i = 0; i < 16 && keyOk; i++)
                 used = used || key[i];
-            vf("BATTLE_MODE_HASH_ENABLED_OFF",
+            vf("LogicBattleModeClientHashEnabledOffset",
                hashOn <= 1 && (!hashOn || used),
                "on=%u key16=%d",
                (unsigned)hashOn,
@@ -269,20 +276,20 @@ void val_globals(uintptr_t slot)
         }
         else
         {
-            vf("BATTLE_MODE_HASH_ENABLED_OFF", false, "read failed");
+            vf("LogicBattleModeClientHashEnabledOffset", false, "read failed");
         }
         if (!clientPtr)
         {
-            vs("LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF", "no client");
-            vs("LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF", "no client");
+            vs("LogicBattleModeClientGameObjectManagerOffset", "no client");
+            vs("LogicBattleModeClientInputManagerOffset", "no client");
         }
         else
         {
             if (read_ptr(clientPtr +
-                             LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF,
+                             LogicBattleModeClientGameObjectManagerOffset,
                          &get_client_input_manager))
             {
-                vf("LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF",
+                vf("LogicBattleModeClientGameObjectManagerOffset",
                    get_client_input_manager &&
                        pointer_plausible(get_client_input_manager),
                    "0x%llx",
@@ -290,77 +297,77 @@ void val_globals(uintptr_t slot)
             }
             else
             {
-                vf("LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF",
+                vf("LogicBattleModeClientGameObjectManagerOffset",
                    false,
                    "read failed");
             }
             if (get_client_input_manager &&
                 read_int(get_client_input_manager +
-                             LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF,
+                             LogicGameObjectManagerServerGameObjectCountOffset,
                          &count))
             {
-                vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF",
+                vf("LogicGameObjectManagerServerGameObjectCountOffset",
                    count > 0 && count <= OBJECT_COUNT_MAX,
                    "count=%d",
                    count);
             }
             else
             {
-                vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF",
+                vf("LogicGameObjectManagerServerGameObjectCountOffset",
                    false,
                    "read failed");
             }
             if (get_client_input_manager &&
                 read_ptr(get_client_input_manager +
-                             LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF,
+                             LogicGameObjectManagerServerGameObjectsOffset,
                          &array))
             {
-                vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF",
+                vf("LogicGameObjectManagerServerGameObjectsOffset",
                    array && pointer_plausible(array),
                    "0x%llx",
                    (unsigned long long)array);
             }
             else
             {
-                vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF",
+                vf("LogicGameObjectManagerServerGameObjectsOffset",
                    false,
                    "read failed");
             }
             val_input_state = val_client_input(slot);
         }
     }
-    if (read_ptr(base + VTABLE_LOGIC_PROJECTILE_DATA_RVA, &vtable))
+    if (read_ptr(base + LogicProjectileDataVtableRva, &vtable))
     {
-        vf("VTABLE_LOGIC_PROJECTILE_DATA_RVA",
+        vf("LogicProjectileDataVtableRva",
            vtable && addr_executable(vtable),
            "asset anchor slot0=0x%llx",
            (unsigned long long)vtable);
     }
     else
     {
-        vf("VTABLE_LOGIC_PROJECTILE_DATA_RVA", false, "read failed");
+        vf("LogicProjectileDataVtableRva", false, "read failed");
     }
     vf("DATACONST_RVA",
-       addr_readable(base + DATA_CONST_RVA_LOW, 16) &&
-           addr_readable(base + DATA_CONST_RVA_LOW + DATA_CONST_RVA_SIZE - 16,
+       addr_readable(base + DataConstRvaLow, 16) &&
+           addr_readable(base + DataConstRvaLow + DataConstRvaSize - 16,
                          16),
        "lo=0x%llx size=0x%llx",
-       (unsigned long long)DATA_CONST_RVA_LOW,
-       (unsigned long long)DATA_CONST_RVA_SIZE);
-    vf("CLIENT_INPUT_TYPE_TABLE_RVA",
-       addr_readable(base + CLIENT_INPUT_TYPE_TABLE_RVA, 8),
+       (unsigned long long)DataConstRvaLow,
+       (unsigned long long)DataConstRvaSize);
+    vf("ClientInputTypeTableRva",
+       addr_readable(base + ClientInputTypeTableRva, 8),
        "0x%llx",
-       (unsigned long long)CLIENT_INPUT_TYPE_TABLE_RVA);
-    vf("CLIENT_INPUT_TYPE_FALLBACK_RVA",
-       addr_readable(base + CLIENT_INPUT_TYPE_FALLBACK_RVA, 8),
+       (unsigned long long)ClientInputTypeTableRva);
+    vf("ClientInputTypeFallbackRva",
+       addr_readable(base + ClientInputTypeFallbackRva, 8),
        "0x%llx",
-       (unsigned long long)CLIENT_INPUT_TYPE_FALLBACK_RVA);
+       (unsigned long long)ClientInputTypeFallbackRva);
     vf("CLIENTINPUT_HASH_MASK_RVA",
-       addr_readable(base + CLIENT_INPUT_HASH_INNER_MASK_RVA, 8) &&
-           addr_readable(base + CLIENT_INPUT_HASH_OUTER_MASK_RVA, 8),
+       addr_readable(base + ClientInputHashInnerMaskRva, 8) &&
+           addr_readable(base + ClientInputHashOuterMaskRva, 8),
        "inner=0x%llx outer=0x%llx",
-       (unsigned long long)CLIENT_INPUT_HASH_INNER_MASK_RVA,
-       (unsigned long long)CLIENT_INPUT_HASH_OUTER_MASK_RVA);
+       (unsigned long long)ClientInputHashInnerMaskRva,
+       (unsigned long long)ClientInputHashOuterMaskRva);
 }
 
 int val_client_input(uintptr_t clientPtr)
@@ -374,7 +381,7 @@ int val_client_input(uintptr_t clientPtr)
     int32_t mx = 0;
     int32_t my = 0;
     uint8_t token[8] = {0};
-    if (!read_ptr(clientPtr + LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF,
+    if (!read_ptr(clientPtr + LogicBattleModeClientInputManagerOffset,
                   &get_client_input_manager) ||
         !get_client_input_manager ||
         !pointer_plausible(get_client_input_manager))
@@ -382,49 +389,52 @@ int val_client_input(uintptr_t clientPtr)
         return 0;
     }
     val_ci_manager = get_client_input_manager;
-    if (!read_ptr(get_client_input_manager + CLIENT_INPUT_MANAGER_QUEUE_OFF,
+    if (!read_ptr(get_client_input_manager + ClientInputManagerInputQueueOffset,
                   &queue) ||
         !queue || !pointer_plausible(queue))
     {
         return 0;
     }
     val_ci_queue = queue;
-    if (!read_int(queue + LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF, &count) ||
+    if (!read_int(
+            queue + LogicGameObjectManagerServerGameObjectCountOffset,
+            &count) ||
         count <= 0 || count > 4096)
     {
         return 0;
     }
     val_ci_count = count;
-    vf("LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF",
+    vf("LogicBattleModeClientInputManagerOffset",
        true,
        "0x%llx",
        (unsigned long long)get_client_input_manager);
-    vf("CLIENT_INPUT_MANAGER_QUEUE_OFF",
+    vf("ClientInputManagerInputQueueOffset",
        true,
        "0x%llx",
        (unsigned long long)queue);
     vf("CLIENTINPUT_QUEUE_COUNT", true, "count=%d", count);
-    if (!read_ptr(queue + LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF, &array) ||
+    if (!read_ptr(queue + LogicGameObjectManagerServerGameObjectsOffset,
+                  &array) ||
         !array || !read_ptr(array, &message) || !message ||
         !pointer_plausible(message))
     {
         vf("CLIENTINPUT_QUEUE_ARRAY", false, "array/message unreadable");
         return 1;
     }
-    if (read_int(message + CLIENT_INPUT_MESSAGE_TYPE_OFF, &type))
+    if (read_int(message + ClientInputMessageTypeOffset, &type))
     {
-        vf("CLIENT_INPUT_MESSAGE_TYPE_OFF",
-           type >= 0 && type <= (int32_t)CLIENT_INPUT_TYPE_COUNT,
+        vf("ClientInputMessageTypeOffset",
+           type >= 0 && type <= (int32_t)ClientInputTypeCount,
            "type=%d max=%llu",
            type,
-           (unsigned long long)CLIENT_INPUT_TYPE_COUNT);
+           (unsigned long long)ClientInputTypeCount);
     }
     else
     {
-        vf("CLIENT_INPUT_MESSAGE_TYPE_OFF", false, "read failed");
+        vf("ClientInputMessageTypeOffset", false, "read failed");
     }
-    if (read_int(message + CLIENT_INPUT_MESSAGE_X_OFF, &mx) &&
-        read_int(message + CLIENT_INPUT_MESSAGE_Y_OFF, &my))
+    if (read_int(message + ClientInputMessageXOffset, &mx) &&
+        read_int(message + ClientInputMessageYOffset, &my))
     {
         vf("CLIENTINPUTMESSAGE_X/Y_OFF",
            span(mx) && span(my),
@@ -436,20 +446,20 @@ int val_client_input(uintptr_t clientPtr)
     {
         vf("CLIENTINPUTMESSAGE_X/Y_OFF", false, "read failed");
     }
-    vf("CLIENT_INPUT_MESSAGE_CHECKSUM_OFF",
+    vf("ClientInputMessageChecksumOffset",
        read_bytes(
-           message + CLIENT_INPUT_MESSAGE_CHECKSUM_OFF, token, sizeof(token)),
+           message + ClientInputMessageChecksumOffset, token, sizeof(token)),
        "hash=%02x%02x%02x%02x",
        token[0],
        token[1],
        token[2],
        token[3]);
-    vf("CLIENT_INPUT_SKILL_DATA_OFF",
-       addr_readable(message + CLIENT_INPUT_SKILL_DATA_OFF, 8),
+    vf("ClientInputMessageSkillDataOffset",
+       addr_readable(message + ClientInputMessageSkillDataOffset, 8),
        "readable");
-    vf("CLIENT_INPUT_MESSAGE_SIGNED_OFF",
-       addr_readable(message + CLIENT_INPUT_MESSAGE_CHECKSUM_OFF +
-                         CLIENT_INPUT_MESSAGE_SIGNED_OFF,
+    vf("ClientInputMessageSignedDataOffset",
+       addr_readable(message + ClientInputMessageChecksumOffset +
+                         ClientInputMessageSignedDataOffset,
                      4),
        "readable");
     return 1;
@@ -466,12 +476,12 @@ void val_character(uintptr_t own)
     int32_t collision = 0;
     uintptr_t data = 0;
     char name[48] = {0};
-    vf("LOGIC_CHARACTER_GLOBAL_ID_OFF",
-       read_int(own + LOGIC_CHARACTER_GLOBAL_ID_OFF, &pid) && pid > 0,
+    vf("LogicCharacterGlobalIdOffset",
+       read_int(own + LogicCharacterGlobalIdOffset, &pid) && pid > 0,
        "pid=%d",
        pid);
-    if (read_int(own + LOGIC_CHARACTER_X_OFF, &x) &&
-        read_int(own + LOGIC_CHARACTER_Y_OFF, &y))
+    if (read_int(own + LogicCharacterXOffset, &x) &&
+        read_int(own + LogicCharacterYOffset, &y))
     {
         vf("LOGICCHARACTER_X/Y_OFF", span(x) && span(y), "x=%d y=%d", x, y);
     }
@@ -479,28 +489,28 @@ void val_character(uintptr_t own)
     {
         vf("LOGICCHARACTER_X/Y_OFF", false, "read failed");
     }
-    if (read_int(own + LOGIC_CHARACTER_TEAM_OFF, &team))
+    if (read_int(own + LogicCharacterTeamOffset, &team))
     {
-        vf("LOGIC_CHARACTER_TEAM_OFF", team >= 0 && team <= 3, "team=%d", team);
+        vf("LogicCharacterTeamOffset", team >= 0 && team <= 3, "team=%d", team);
     }
     else
     {
-        vf("LOGIC_CHARACTER_TEAM_OFF", false, "read failed");
+        vf("LogicCharacterTeamOffset", false, "read failed");
     }
-    if (read_int(own + LOGIC_CHARACTER_ATTACK_ANGLE_OFF, &angle))
+    if (read_int(own + LogicCharacterAttackAngleOffset, &angle))
     {
-        vf("LOGIC_CHARACTER_ATTACK_ANGLE_OFF",
+        vf("LogicCharacterAttackAngleOffset",
            angle >= -720 && angle <= 720,
            "angle=%d",
            angle);
     }
     else
     {
-        vf("LOGIC_CHARACTER_ATTACK_ANGLE_OFF", false, "read failed");
+        vf("LogicCharacterAttackAngleOffset", false, "read failed");
     }
-    if (read_int(own + LOGIC_CHARACTER_HP_OFF, &hp))
+    if (read_int(own + LogicCharacterHitpointsOffset, &hp))
     {
-        vf("LOGIC_CHARACTER_HP_OFF",
+        vf("LogicCharacterHitpointsOffset",
            hp >= 0 && hp <= 20000 && (uint32_t)hp == own_hp,
            "hp=%d scan=%u",
            hp,
@@ -508,35 +518,35 @@ void val_character(uintptr_t own)
     }
     else
     {
-        vf("LOGIC_CHARACTER_HP_OFF", false, "read failed");
+        vf("LogicCharacterHitpointsOffset", false, "read failed");
     }
-    if (read_ptr(own + LOGIC_GAME_OBJECT_DATA_OFF, &data))
+    if (read_ptr(own + LogicGameObjectDataOffset, &data))
     {
-        vf("LOGIC_GAME_OBJECT_DATA_OFF",
+        vf("LogicGameObjectDataOffset",
            data && pointer_plausible(data),
            "0x%llx",
            (unsigned long long)data);
     }
     else
     {
-        vf("LOGIC_GAME_OBJECT_DATA_OFF", false, "read failed");
+        vf("LogicGameObjectDataOffset", false, "read failed");
     }
     if (data && pointer_plausible(data) &&
-        read_int(data + LOGIC_CHARACTER_DATA_COLLISION_OFF, &collision))
+        read_int(data + LogicCharacterDataCollisionRadiusOffset, &collision))
     {
-        vf("LOGIC_CHARACTER_DATA_COLLISION_OFF",
+        vf("LogicCharacterDataCollisionRadiusOffset",
            collision >= 0 && collision <= 100000,
            "v=%d",
            collision);
     }
     else
     {
-        vf("LOGIC_CHARACTER_DATA_COLLISION_OFF", false, "read failed");
+        vf("LogicCharacterDataCollisionRadiusOffset", false, "read failed");
     }
     if (data && pointer_plausible(data))
     {
         typedef uintptr_t (*name_t)(uintptr_t);
-        name_t fn = reinterpret_cast<name_t>(callable(RVA_LOGIC_DATA_GET_NAME));
+        name_t fn = reinterpret_cast<name_t>(callable(LogicDataGetNameRva));
         uintptr_t text = fn ? fn(data) : 0;
         BOOL ok = NO;
         if (text && pointer_plausible(text))
@@ -548,13 +558,13 @@ void val_character(uintptr_t own)
         {
             if (name[i] < 0x20 || name[i] > 0x7e) ok = NO;
         }
-        vf("RVA_LOGIC_DATA_GET_NAME(x)", ok, "name=%s", ok ? name : "-");
+        vf("LogicDataGetNameRva(x)", ok, "name=%s", ok ? name : "-");
         if (text && pointer_plausible(text))
         {
             int32_t strLen = -1;
             uintptr_t strData = 0;
-            BOOL lenOk = read_int(text + SC_STRING_LENGTH_OFF, &strLen);
-            BOOL dataOk = read_ptr(text + SC_STRING_DATA_OFF, &strData);
+            BOOL lenOk = read_int(text + StringByteLengthOffset, &strLen);
+            BOOL dataOk = read_ptr(text + StringCharactersOffset, &strData);
             vf("SCSTRING_LENGTH/DATA_OFF",
                lenOk && dataOk && strLen >= 0 && strLen <= 64 &&
                    strLen == (int32_t)strlen(ok ? name : ""),
@@ -569,7 +579,7 @@ void val_character(uintptr_t own)
     }
     else
     {
-        vs("RVA_LOGIC_DATA_GET_NAME(x)", "no data pointer");
+        vs("LogicDataGetNameRva(x)", "no data pointer");
     }
 }
 
@@ -577,54 +587,54 @@ void val_tilemap(uintptr_t clientPtr)
 {
     typedef uintptr_t (*map_t)(uintptr_t);
     map_t fn = reinterpret_cast<map_t>(
-        callable(RVA_LOGIC_BATTLE_MODE_CLIENT_GET_TILE_MAP));
+        callable(LogicBattleModeClientGetTileMapRva));
     uintptr_t map = fn ? fn(clientPtr) : 0;
     uintptr_t tiles = 0;
     int32_t width = 0;
     int32_t height = 0;
-    vf("RVA_GETTILEMAP(x)",
+    vf("LogicBattleModeClientGetTileMapRva",
        map && pointer_plausible(map),
        "0x%llx",
        (unsigned long long)map);
     if (!map || !pointer_plausible(map))
     {
-        vs("LOGIC_TILE_MAP_WIDTH_OFF", "no tilemap");
-        vs("LOGIC_TILE_MAP_HEIGHT_OFF", "no tilemap");
-        vs("LOGIC_TILE_MAP_TILES_OFF", "no tilemap");
-        vs("LOGIC_TILE_BLOCK_MASK_OFF", "no tilemap");
-        vs("LOGIC_TILE_WATER_MASK_OFF", "no tilemap");
+        vs("LogicTileMapWidthOffset", "no tilemap");
+        vs("LogicTileMapHeightOffset", "no tilemap");
+        vs("LogicTileMapTileArrayOffset", "no tilemap");
+        vs("LogicTilePathFinderMaskOffset", "no tilemap");
+        vs("LogicTileWaterPathFinderMaskOffset", "no tilemap");
         return;
     }
-    if (read_int(map + LOGIC_TILE_MAP_WIDTH_OFF, &width))
+    if (read_int(map + LogicTileMapWidthOffset, &width))
     {
-        vf("LOGIC_TILE_MAP_WIDTH_OFF",
+        vf("LogicTileMapWidthOffset",
            width > 0 && width <= 120,
            "w=%d",
            width);
     }
     else
     {
-        vf("LOGIC_TILE_MAP_WIDTH_OFF", false, "read failed");
+        vf("LogicTileMapWidthOffset", false, "read failed");
     }
-    if (read_int(map + LOGIC_TILE_MAP_HEIGHT_OFF, &height))
+    if (read_int(map + LogicTileMapHeightOffset, &height))
     {
-        vf("LOGIC_TILE_MAP_HEIGHT_OFF",
+        vf("LogicTileMapHeightOffset",
            height > 0 && height <= 120,
            "h=%d",
            height);
     }
     else
     {
-        vf("LOGIC_TILE_MAP_HEIGHT_OFF", false, "read failed");
+        vf("LogicTileMapHeightOffset", false, "read failed");
     }
-    if (!read_ptr(map + LOGIC_TILE_MAP_TILES_OFF, &tiles) || !tiles)
+    if (!read_ptr(map + LogicTileMapTileArrayOffset, &tiles) || !tiles)
     {
-        vf("LOGIC_TILE_MAP_TILES_OFF", false, "read failed");
-        vs("LOGIC_TILE_BLOCK_MASK_OFF", "no tile array");
-        vs("LOGIC_TILE_WATER_MASK_OFF", "no tile array");
+        vf("LogicTileMapTileArrayOffset", false, "read failed");
+        vs("LogicTilePathFinderMaskOffset", "no tile array");
+        vs("LogicTileWaterPathFinderMaskOffset", "no tile array");
         return;
     }
-    vf("LOGIC_TILE_MAP_TILES_OFF",
+    vf("LogicTileMapTileArrayOffset",
        pointer_plausible(tiles),
        "0x%llx",
        (unsigned long long)tiles);
@@ -641,23 +651,22 @@ void val_tilemap(uintptr_t clientPtr)
             uintptr_t item = 0;
             uint64_t mask = 0;
             uint64_t water = 0;
-            uint64_t third = 0;
             uint64_t hard = 0;
             if (!read_ptr(tiles + (uintptr_t)i * 8, &item) || !item) continue;
-            if (!read_bytes(
-                    item + LOGIC_TILE_BLOCK_MASK_OFF, &mask, sizeof(mask)) ||
+            if (!read_bytes(item + LogicTilePathFinderMaskOffset,
+                            &mask,
+                            sizeof(mask)) ||
+                !read_bytes(item + LogicTileWaterPathFinderMaskOffset,
+                            &water,
+                            sizeof(water)) ||
                 !read_bytes(
-                    item + LOGIC_TILE_WATER_MASK_OFF, &water, sizeof(water)) ||
-                !read_bytes(
-                    item + LOGIC_TILE_THIRD_MASK_OFF, &third, sizeof(third)) ||
-                !read_bytes(
-                    item + LOGIC_TILE_FOURTH_MASK_OFF, &hard, sizeof(hard)))
+                    item + LogicTileHardBlockMaskOffset, &hard, sizeof(hard)))
                 continue;
             seen++;
             if (mask && !sample) sample = mask;
-            if ((mask | water | third | hard) & 0x1ffULL) blocked++;
+            if ((mask | water | hard) & 0x1ffULL) blocked++;
         }
-        vf("LOGIC_TILE_BLOCK_MASK_OFF",
+        vf("LogicTilePathFinderMaskOffset",
            seen > 0,
            "blocked=%d/%d sample=0x%llx",
            blocked,
@@ -715,9 +724,9 @@ void val_projectile()
     }
     {
         bool ticks_ok =
-            read_int(objPtr + LOGIC_PROJECTILE_SERVER_STARTTICK_OFF,
+            read_int(objPtr + LogicProjectileServerTickStartOffset,
                      &startTick) &&
-            read_int(objPtr + LOGIC_PROJECTILE_SERVER_ENDTICK_OFF, &endTick);
+            read_int(objPtr + LogicProjectileServerTickEndOffset, &endTick);
         if (!ticks_ok || startTick < 0 || endTick < startTick)
         {
             if (val_proj_tries < 119)
@@ -755,8 +764,8 @@ void val_projectile()
        endTick - startTick);
     {
         int32_t xi = 0, yi = 0;
-        if (read_int(objPtr + LOGIC_PROJECTILE_SERVER_X_OFF, &xi) &&
-            read_int(objPtr + LOGIC_PROJECTILE_SERVER_Y_OFF, &yi))
+        if (read_int(objPtr + LogicProjectileServerXOffset, &xi) &&
+            read_int(objPtr + LogicProjectileServerYOffset, &yi))
         {
             int mapW = wall_cache_width(), mapH = wall_cache_height();
             float unit = wall_logic_units(1);
@@ -781,20 +790,20 @@ void val_projectile()
         vs("PROJECTILEDATA_*", "shot exposes no data-asset pointer");
         return;
     }
-    vf("LOGIC_PROJECTILE_DATA_BLOCK_SIZE",
-       addr_readable(found, LOGIC_PROJECTILE_DATA_BLOCK_SIZE),
+    vf("LogicProjectileDataSize",
+       addr_readable(found, LogicProjectileDataSize),
        "0x%llx readable 0x%llx",
        (unsigned long long)found,
-       (unsigned long long)LOGIC_PROJECTILE_DATA_BLOCK_SIZE);
+       (unsigned long long)LogicProjectileDataSize);
     vf("PROJSERVER_IN_OBJECT",
-       LOGIC_PROJECTILE_SERVER_ENDY_OFF + 4 <= OBJ_BLOCK_SIZE,
+       LogicProjectileServerTargetYOffset + 4 <= OBJ_BLOCK_SIZE,
        "endY=0x%llx block=0x%x",
-       (unsigned long long)(LOGIC_PROJECTILE_SERVER_ENDY_OFF + 4),
+       (unsigned long long)(LogicProjectileServerTargetYOffset + 4),
        (unsigned)OBJ_BLOCK_SIZE);
-    if (read_int(objPtr + LOGIC_PROJECTILE_SERVER_STARTX_OFF, &sx) &&
-        read_int(objPtr + LOGIC_PROJECTILE_SERVER_STARTY_OFF, &sy) &&
-        read_int(objPtr + LOGIC_PROJECTILE_SERVER_ENDX_OFF, &ex) &&
-        read_int(objPtr + LOGIC_PROJECTILE_SERVER_ENDY_OFF, &ey))
+    if (read_int(objPtr + LogicProjectileServerStartXOffset, &sx) &&
+        read_int(objPtr + LogicProjectileServerStartYOffset, &sy) &&
+        read_int(objPtr + LogicProjectileServerTargetXOffset, &ex) &&
+        read_int(objPtr + LogicProjectileServerTargetYOffset, &ey))
     {
         vf("PROJSERVER_COORDS",
            sx > 0 && sy > 0 && ex > 0 && ey > 0 && span(sx) && span(sy) &&
@@ -813,7 +822,7 @@ void val_projectile()
 
 void validate_offsets()
 {
-    uintptr_t slot = (uintptr_t)read_global_ptr(GAME_STATE_RVA);
+    uintptr_t slot = (uintptr_t)read_global_ptr(GameStateManagerRva);
     val_ok = 0;
     val_fail = 0;
     val_skip = 0;
@@ -829,7 +838,7 @@ void validate_offsets()
         }
         else
         {
-            vs("RVA_GETTILEMAP(x)", "no client");
+            vs("LogicBattleModeClientGetTileMapRva", "no client");
         }
     }
     val_projectile();
@@ -856,7 +865,7 @@ void maybe_validate()
     val_skip = 0;
     if (val_input_state == 0)
     {
-        uintptr_t battle = (uintptr_t)read_global_ptr(GAME_STATE_RVA);
+        uintptr_t battle = (uintptr_t)read_global_ptr(GameStateManagerRva);
         val_input_state = (battle && pointer_plausible(battle))
                               ? val_client_input(battle)
                               : 0;
@@ -1030,7 +1039,7 @@ void diag_tick()
     int32_t own_aim = 0;
     if (own_elem)
     {
-        read_int(own_elem + LOGIC_CHARACTER_ATTACK_ANGLE_OFF, &own_aim);
+        read_int(own_elem + LogicCharacterAttackAngleOffset, &own_aim);
     }
     line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
          "dir=%s map=%dx%d dodge=%d hit=%d hb=%d ind=%d fd=%d tgt=%s "
