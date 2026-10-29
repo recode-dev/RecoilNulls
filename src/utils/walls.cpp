@@ -183,7 +183,7 @@ static int wall_collect(int maskOffset, int planes, int* enginePassable)
             wall_blocked_tiles++;
             {
                 int index = tileIndex * WALL_BITS_PER_TILE;
-                int word = index >> 5;
+                int word  = index >> 5;
                 int shift = index & 31;
                 wall_movement_bits[word] |= subtiles << shift;
                 if (shift > 32 - WALL_BITS_PER_TILE)
@@ -194,9 +194,9 @@ static int wall_collect(int maskOffset, int planes, int* enginePassable)
         }
     }
     if (!enginePassable) return 0;
-    int width2 = wall_tiles_w;
-    int total2 = width2 * height;
-    int stride = total2 / WALL_SAMPLE_TILES;
+    int width2     = wall_tiles_w;
+    int total2     = width2 * height;
+    int stride     = total2 / WALL_SAMPLE_TILES;
     int mismatches = 0;
     int sampled    = 0;
     int passable   = 0;
@@ -529,7 +529,7 @@ int wall_cell_blocked_wide(float x, float y, float r)
             (sy / WALL_SUBTILES_PER_TILE) * wall_w * WALL_BITS_PER_TILE +
             (sy % WALL_SUBTILES_PER_TILE) * WALL_SUBTILES_PER_TILE;
         int tileX = lowX / WALL_SUBTILES_PER_TILE;
-        int subX = lowX % WALL_SUBTILES_PER_TILE;
+        int subX  = lowX % WALL_SUBTILES_PER_TILE;
         for (int sx = lowX; sx <= highX; sx++)
         {
             if (wall_bit_test(wall_movement_bits,

@@ -61,8 +61,8 @@ BOOL addr_writable(uintptr_t address, size_t length)
 }
 inline constexpr int      PAGE_CACHE_SLOTS = 256;
 static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
-static __thread uint8_t page_cache_ok[PAGE_CACHE_SLOTS];
-static guint memory_page_size()
+static __thread uint8_t   page_cache_ok[PAGE_CACHE_SLOTS];
+static guint              memory_page_size()
 {
     static guint cached = 0;
     if (!cached)
@@ -78,8 +78,8 @@ void read_cache_reset()
 }
 BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
-    uintptr_t end = 0;
-    uintptr_t cursor = 0;
+    uintptr_t end      = 0;
+    uintptr_t cursor   = 0;
     uintptr_t pageSize = 0;
     if (!out || !length)
     {
@@ -106,7 +106,7 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     cursor = address & ~(pageSize - 1);
     for (int guard = 0; cursor < end && guard < 64; guard++)
     {
-        int slot = static_cast<int>((cursor >> 12) & (PAGE_CACHE_SLOTS - 1));
+        int slot   = static_cast<int>((cursor >> 12) & (PAGE_CACHE_SLOTS - 1));
         uint8_t ok = 0;
         if (page_cache_key[slot] == cursor)
         {
@@ -115,12 +115,13 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
         else
         {
             GumPageProtection protection = GUM_PAGE_NO_ACCESS;
-            if (gum_memory_query_protection((gconstpointer)cursor, &protection))
+            if (gum_memory_query_protection((gconstpointer) cursor,
+                                            &protection))
             {
                 ok = (protection & GUM_PAGE_READ) ? 1 : 0;
             }
             page_cache_key[slot] = cursor;
-            page_cache_ok[slot] = ok;
+            page_cache_ok[slot]  = ok;
         }
         if (!ok)
         {

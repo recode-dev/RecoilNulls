@@ -204,7 +204,7 @@ static float world_extent_y = 0.0f;
 
 static void refresh_world_extents()
 {
-    float unit = wall_logic_units(1);
+    float unit     = wall_logic_units(1);
     world_extent_x = static_cast<float>(wall_cache_width()) * unit;
     world_extent_y = static_cast<float>(wall_cache_height()) * unit;
 }
@@ -615,16 +615,16 @@ static void simulate_position(float  mx,
     else if (ay > h)
         ay = h;
 }
-static float cost_enemy_dx[AD_ENEMY_MAX];
-static float cost_enemy_dy[AD_ENEMY_MAX];
-static float cost_enemy_dist[AD_ENEMY_MAX];
-static int cost_enemy_count = 0;
-static float cost_threat_rx[THREAT_MAX];
-static float cost_threat_ry[THREAT_MAX];
-static float cost_threat_ux[THREAT_MAX];
-static float cost_threat_uy[THREAT_MAX];
+static float   cost_enemy_dx[AD_ENEMY_MAX];
+static float   cost_enemy_dy[AD_ENEMY_MAX];
+static float   cost_enemy_dist[AD_ENEMY_MAX];
+static int     cost_enemy_count = 0;
+static float   cost_threat_rx[THREAT_MAX];
+static float   cost_threat_ry[THREAT_MAX];
+static float   cost_threat_ux[THREAT_MAX];
+static float   cost_threat_uy[THREAT_MAX];
 static uint8_t cost_threat_moving[THREAT_MAX];
-static int cost_threat_count = 0;
+static int     cost_threat_count = 0;
 
 static void prepare_direction_costs(float mx, float my)
 {
@@ -632,28 +632,28 @@ static void prepare_direction_costs(float mx, float my)
     for (int i = 0; i < cost_enemy_count; i++)
     {
         float ex = ad_enemy_x[i] - mx, ey = ad_enemy_y[i] - my;
-        cost_enemy_dx[i] = ex;
-        cost_enemy_dy[i] = ey;
+        cost_enemy_dx[i]   = ex;
+        cost_enemy_dy[i]   = ey;
         cost_enemy_dist[i] = sqrtf(ex * ex + ey * ey);
     }
     cost_threat_count = threat_n < THREAT_MAX ? threat_n : THREAT_MAX;
     for (int i = 0; i < cost_threat_count; i++)
     {
-        const Threat& t = threats[i];
-        float vv = t.vx * t.vx + t.vy * t.vy;
+        const Threat& t   = threats[i];
+        float         vv  = t.vx * t.vx + t.vy * t.vy;
         cost_threat_rx[i] = mx - t.x;
         cost_threat_ry[i] = my - t.y;
         if (vv >= 1e-6f)
         {
-            float iv = 1.0f / sqrtf(vv);
-            cost_threat_ux[i] = t.vx * iv;
-            cost_threat_uy[i] = t.vy * iv;
+            float iv              = 1.0f / sqrtf(vv);
+            cost_threat_ux[i]     = t.vx * iv;
+            cost_threat_uy[i]     = t.vy * iv;
             cost_threat_moving[i] = 1;
         }
         else
         {
-            cost_threat_ux[i] = 0.0f;
-            cost_threat_uy[i] = 0.0f;
+            cost_threat_ux[i]     = 0.0f;
+            cost_threat_uy[i]     = 0.0f;
             cost_threat_moving[i] = 0;
         }
     }
@@ -661,22 +661,22 @@ static void prepare_direction_costs(float mx, float my)
 
 static float compute_nearest_away(float mx, float my, float dx, float dy)
 {
-    (void)mx;
-    (void)my;
+    (void) mx;
+    (void) my;
     float best = 1e30f, dot = 0.0f;
     for (int i = 0; i < cost_enemy_count; i++)
     {
         float d = cost_enemy_dist[i];
         if (d < 1.0f || d >= best) continue;
         best = d;
-        dot = (dx * cost_enemy_dx[i] + dy * cost_enemy_dy[i]) / d;
+        dot  = (dx * cost_enemy_dx[i] + dy * cost_enemy_dy[i]) / d;
     }
     return best < 1e29f ? -dot : 0.0f;
 }
 static float compute_enemy_approach(float mx, float my, float dx, float dy)
 {
-    (void)mx;
-    (void)my;
+    (void) mx;
+    (void) my;
     float worst = 0.0f;
     for (int i = 0; i < cost_enemy_count; i++)
     {
@@ -692,8 +692,8 @@ static float compute_enemy_approach(float mx, float my, float dx, float dy)
 }
 static float compute_thrust_penalty(float mx, float my, float dx, float dy)
 {
-    (void)mx;
-    (void)my;
+    (void) mx;
+    (void) my;
     float worst = 0.0f;
     for (int i = 0; i < cost_threat_count; i++)
     {
@@ -719,8 +719,8 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
     float step_time[SIM_STEPS + 1];
     float step_x[SIM_STEPS + 1];
     float step_y[SIM_STEPS + 1];
-    int survive = SIM_STEPS + 1;
-    float margin = 1e30f;
+    int   survive = SIM_STEPS + 1;
+    float margin  = 1e30f;
     for (int k = 1; k <= SIM_STEPS; k++)
     {
         step_time[k] = static_cast<float>(k) * TICK_MS_SEC;
@@ -777,7 +777,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     bool  has = commit_x != 0.0f || commit_y != 0.0f;
     float val[DIRS];
     prepare_direction_costs(mx, my);
-    int best_i = 0, best_steps = 0;
+    int   best_i = 0, best_steps = 0;
     float best = -1e30f;
     for (int i = 0; i < DIRS; i++)
     {
