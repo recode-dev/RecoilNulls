@@ -265,10 +265,10 @@ int enqueue_client_input_message(int type, int x, int y)
     {
         return 0;
     }
-    constructor =
-        client_input_resolve(&constructor_slot, RVA_CLIENT_INPUT_MESSAGE_CONSTRUCTOR);
-    add_input =
-        client_input_resolve(&add_input_slot, RVA_CLIENT_INPUT_MANAGER_ADD_INPUT);
+    constructor = client_input_resolve(&constructor_slot,
+                                       RVA_CLIENT_INPUT_MESSAGE_CONSTRUCTOR);
+    add_input = client_input_resolve(&add_input_slot,
+                                     RVA_CLIENT_INPUT_MANAGER_ADD_INPUT);
     if (!constructor || !add_input)
     {
         return 0;
