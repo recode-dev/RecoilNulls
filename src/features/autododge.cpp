@@ -860,7 +860,6 @@ void update_autododge()
     fy         = fminf(fmaxf(fy, lo_y), hi_y);
     int32_t tx = axis(fx, wall_cache_width());
     int32_t ty = axis(fy, wall_cache_height());
-    engine_own_pathfind_to(tx, ty, ClientInputMessagePredictionFlag);
     if (now - sent_ms >= SEND_MS)
     {
         sent_ms = now;

@@ -454,7 +454,7 @@ int enqueue_move_input_with_type(int x, int y, int type)
     }
     if (type == ClientInputMessageTypeMove)
     {
-        (void) engine_own_pathfind_to(x, y, ClientInputMessagePredictionFlag);
+        (void) engine_own_pathfind_to(x, y, 0);
     }
     return 1;
 }
@@ -466,6 +466,7 @@ int enqueue_move_input(int x, int y)
 
 int     engine_pathfind_calls = 0;
 int     engine_pathfind_ok    = 0;
+int     engine_pathfind_skip  = 0;
 int32_t engine_pathfind_x     = 0;
 int32_t engine_pathfind_y     = 0;
 
@@ -521,12 +522,36 @@ int engine_own_pos_at_tick(int32_t tick, float* x, float* y)
 
 int engine_own_pathfind_to(int x, int y, int flag)
 {
-    uintptr_t self     = own_elem;
-    uintptr_t battle   = client();
-    uintptr_t function = callable_at_rva(LOGICCHARACTERCLIENTOWN__PATHFINDTO);
+    static uint64_t last_us = 0;
+    static int32_t  last_x  = 0;
+    static int32_t  last_y  = 0;
+    uintptr_t       self    = own_elem;
+    uintptr_t       battle  = client();
+    uintptr_t       function =
+        callable_at_rva(LOGICCHARACTERCLIENTOWN__PATHFINDTO);
+    uint64_t elapsed = last_us ? (us() - last_us) / 1000 : ~0ULL;
+    int      remaining;
     engine_pathfind_calls++;
     if (!coord_ok || !self || !battle || !function)
     {
+        return 0;
+    }
+    remaining = engine_own_path_length();
+    // Re-planning every tick rebuilds the tick window from the remaining path, so the
+    // character keeps getting a fresh short budget and outruns its real speed. Only
+    // re-plan when the destination changed or the previous path is nearly spent.
+    if (x == last_x && y == last_y)
+    {
+        if (elapsed < PATHFIND_REFRESH_MS &&
+            (remaining < 0 || remaining > PATHFIND_MIN_REMAINING))
+        {
+            engine_pathfind_skip++;
+            return 0;
+        }
+    }
+    else if (elapsed < PATHFIND_MIN_MS && remaining > PATHFIND_MIN_REMAINING)
+    {
+        engine_pathfind_skip++;
         return 0;
     }
     reinterpret_cast<void (*)(uintptr_t, int, int, bool, uintptr_t)>(function)(
@@ -534,5 +559,8 @@ int engine_own_pathfind_to(int x, int y, int flag)
     engine_pathfind_ok++;
     engine_pathfind_x = x;
     engine_pathfind_y = y;
+    last_us           = us();
+    last_x            = x;
+    last_y            = y;
     return 1;
 }
