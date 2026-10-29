@@ -888,11 +888,6 @@ const char* dir_name(int dir)
 }
 }
 
-void logger_prepare()
-{
-    open_log();
-}
-
 void diag_tick()
 {
     uint64_t now_us = 0;
