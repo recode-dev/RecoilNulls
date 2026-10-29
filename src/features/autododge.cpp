@@ -107,92 +107,6 @@ int32_t projectile_radius(uintptr_t data)
     return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
 }
 
-struct GetterSlot
-{
-    uintptr_t slot;
-};
-
-int32_t call_getter(GetterSlot& g, uintptr_t rva, uintptr_t object)
-{
-    if (!g.slot)
-    {
-        g.slot = callable_at_rva(rva);
-    }
-    if (!g.slot || !object)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int32_t (*)(uintptr_t)>(g.slot)(object);
-}
-
-GetterSlot g_speed{0}, g_dc{0}, g_cs{0}, g_ct{0}, g_db{0}, g_tx{0}, g_ty{0};
-
-int32_t projectile_speed(uintptr_t data)
-{
-    return call_getter(g_speed, LOGICPROJECTILEDATA__GETSPEED, data);
-}
-
-int32_t projectile_damages_constantly(uintptr_t data)
-{
-    return call_getter(g_dc, LOGICPROJECTILEDATA__DAMAGESCONSTANTLY, data);
-}
-
-int32_t projectile_chain_spread(uintptr_t data)
-{
-    return call_getter(g_cs, LOGICPROJECTILEDATA__GETCHAINSPREAD, data);
-}
-
-int32_t projectile_chain_travel(uintptr_t data)
-{
-    return call_getter(g_ct, LOGICPROJECTILEDATA__GETCHAINTRAVELDISTANCE, data);
-}
-
-int32_t projectile_distance_add(uintptr_t data)
-{
-    return call_getter(
-        g_db, LOGICPROJECTILEDATA__GETDISTANCEADDFROMBOUNCE, data);
-}
-
-int32_t projectile_target_x(uintptr_t object)
-{
-    return call_getter(g_tx, LOGICPROJECTILECLIENT__GETTARGETX, object);
-}
-
-int32_t projectile_target_y(uintptr_t object)
-{
-    return call_getter(g_ty, LOGICPROJECTILECLIENT__GETTARGETY, object);
-}
-
-int32_t battle_call(uintptr_t rva)
-{
-    static uintptr_t s0 = 0, s1 = 0, s2 = 0;
-    uintptr_t*       slot = nullptr;
-    uintptr_t        self = client();
-    uintptr_t        fn   = 0;
-    if (rva == LOGICBATTLEMODECLIENT__GETTICK)
-    {
-        slot = &s0;
-    }
-    else if (rva == LOGICBATTLEMODECLIENT__GETPREDICTEDTICK)
-    {
-        slot = &s1;
-    }
-    else
-    {
-        slot = &s2;
-    }
-    if (!*slot)
-    {
-        *slot = callable_at_rva(rva);
-    }
-    fn = *slot;
-    if (!fn || !self)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int32_t (*)(uintptr_t)>(fn)(self);
-}
-
 int32_t object_x(uintptr_t object)
 {
     static uintptr_t slot = 0;
@@ -319,10 +233,6 @@ float    ad_pj_x[AD_REPORT_MAX] = {0}, ad_pj_y[AD_REPORT_MAX] = {0};
 float    ad_pj_vx[AD_REPORT_MAX] = {0}, ad_pj_vy[AD_REPORT_MAX] = {0};
 float    ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
 int      ad_pj_vel[AD_REPORT_MAX]           = {0};
-int32_t  ad_pj_info[AD_REPORT_MAX][7]       = {{0}};
-int      ad_tick                            = 0;
-int      ad_pred_tick                       = 0;
-int      ad_tick_lag                        = 0;
 int      ad_windup_n                        = 0;
 int      ad_enemy_charge_ms[AD_ENEMY_MAX]   = {0};
 int      ad_enemy_charge_mode[AD_ENEMY_MAX] = {0};
@@ -579,13 +489,6 @@ static void add_projectile_threat(const uint8_t* obj,
         ad_pj_sp[k]      = st->vel ? st->speed : 0.0f;
         ad_pj_r[k]       = st->rad;
         ad_pj_vel[k]     = st->vel ? 1 : 0;
-        ad_pj_info[k][0] = projectile_speed(st->data);
-        ad_pj_info[k][1] = projectile_damages_constantly(st->data);
-        ad_pj_info[k][2] = projectile_chain_spread(st->data);
-        ad_pj_info[k][3] = projectile_chain_travel(st->data);
-        ad_pj_info[k][4] = projectile_distance_add(st->data);
-        ad_pj_info[k][5] = projectile_target_x((uintptr_t) obj);
-        ad_pj_info[k][6] = projectile_target_y((uintptr_t) obj);
     }
     int32_t team = 0;
     memcpy(&team, obj + LOGICCHARACTER__TEAM, sizeof(team));
@@ -1087,10 +990,7 @@ void reset_autododge_state()
 }
 void update_autododge()
 {
-    ad_best_dir  = -1;
-    ad_tick      = battle_call(LOGICBATTLEMODECLIENT__GETTICK);
-    ad_pred_tick = battle_call(LOGICBATTLEMODECLIENT__GETPREDICTEDTICK);
-    ad_tick_lag  = battle_call(LOGICBATTLEMODECLIENT__GETTIMESINCELASTTICK);
+    ad_best_dir = -1;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_ind_n                                         = 0;
     ad_windup_n                                      = 0;

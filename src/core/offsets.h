@@ -9,10 +9,6 @@ inline constexpr uint64_t GAMESTATEMANAGER__CURRENTSTATE = 0x48ULL;
 inline constexpr uint64_t GAMESTATEMANAGER__STATE        = 0x50ULL;
 inline constexpr uint64_t GAMESTATEMANAGER__CLIENT       = 0x28ULL;
 
-inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETTICK          = 0x9a7bc4ULL;
-inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETPREDICTEDTICK = 0x97d5b8ULL;
-inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETTIMESINCELASTTICK =
-    0xac3f80ULL;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__INPUTMANAGER      = 0x58ULL;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28ULL;
 
@@ -85,15 +81,6 @@ inline constexpr uint64_t LOGICMATH__SQRT                        = 0xbd000cULL;
 inline constexpr uint64_t LOGICMATH__SIN                         = 0xbcfec0ULL;
 inline constexpr uint64_t LOGICMATH__GETDISTANCESQUARETOLINE     = 0xbd0424ULL;
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS         = 0xa2d7f8ULL;
-inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED          = 0xab03d0ULL;
-inline constexpr uint64_t LOGICPROJECTILEDATA__DAMAGESCONSTANTLY = 0x53afb4ULL;
-inline constexpr uint64_t LOGICPROJECTILEDATA__GETCHAINSPREAD    = 0x98d7a0ULL;
-inline constexpr uint64_t LOGICPROJECTILEDATA__GETCHAINTRAVELDISTANCE =
-    0x97db20ULL;
-inline constexpr uint64_t LOGICPROJECTILEDATA__GETDISTANCEADDFROMBOUNCE =
-    0xac3500ULL;
-inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTARGETX     = 0x98f3c4ULL;
-inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTARGETY     = 0x97d5c0ULL;
 inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETX           = 0xa23afcULL;
 inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETY           = 0xa23b04ULL;
 inline constexpr uint64_t LOGICVECTOR2__GETANGLE                = 0xbd0824ULL;
