@@ -485,8 +485,8 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     if (has)
     {
         int cur = 0;
-        float cur_val = dir_value(mx, my, commit_x, commit_y, cur) +
-                        own_hitbox * 8.0f;
+        float cur_val =
+            dir_value(mx, my, commit_x, commit_y, cur) + own_hitbox * 8.0f;
         bool better = best_steps > cur;
         bool die_fast = better && cur > 0 && cur <= HOLD_DANGER_STEPS;
         bool walled =
