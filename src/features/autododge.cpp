@@ -480,15 +480,15 @@ static void add_projectile_threat(const uint8_t* obj,
     st->x = px, st->y = py;
     if (ad_proj_n <= AD_REPORT_MAX)
     {
-        int k            = ad_proj_n - 1;
-        ad_pj_pid[k]     = key;
-        ad_pj_x[k]       = px;
-        ad_pj_y[k]       = py;
-        ad_pj_vx[k]      = st->vel ? st->ux * st->speed : 0.0f;
-        ad_pj_vy[k]      = st->vel ? st->uy * st->speed : 0.0f;
-        ad_pj_sp[k]      = st->vel ? st->speed : 0.0f;
-        ad_pj_r[k]       = st->rad;
-        ad_pj_vel[k]     = st->vel ? 1 : 0;
+        int k        = ad_proj_n - 1;
+        ad_pj_pid[k] = key;
+        ad_pj_x[k]   = px;
+        ad_pj_y[k]   = py;
+        ad_pj_vx[k]  = st->vel ? st->ux * st->speed : 0.0f;
+        ad_pj_vy[k]  = st->vel ? st->uy * st->speed : 0.0f;
+        ad_pj_sp[k]  = st->vel ? st->speed : 0.0f;
+        ad_pj_r[k]   = st->rad;
+        ad_pj_vel[k] = st->vel ? 1 : 0;
     }
     int32_t team = 0;
     memcpy(&team, obj + LOGICCHARACTER__TEAM, sizeof(team));

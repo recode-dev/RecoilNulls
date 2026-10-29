@@ -971,7 +971,7 @@ void diag_tick()
     {
         line("[p%d] pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) sp=%.0f "
              "r=%.0f vel=%d
-",
+             ",
              i,
              ad_pj_pid[i],
              ad_pj_x[i],
