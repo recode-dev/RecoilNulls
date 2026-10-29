@@ -5,7 +5,8 @@ static void poll_for_image(const mach_header*, intptr_t)
 {
     if (started || setup_done) return;
     started = true;
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{ poll_for_game(0); });
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0),
+                   ^{ poll_for_game(0); });
 }
 __attribute__((constructor)) static void start_on_image_load()
 {
