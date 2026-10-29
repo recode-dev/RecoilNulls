@@ -19,8 +19,8 @@ char log_path[1100] = {0};
 FILE* log_file = nullptr;
 uint64_t last_report_us = 0;
 int32_t last_hp = -1;
-int32_t last_tx = INT32_MAX;
-int32_t last_ty = INT32_MAX;
+float last_tx = 1.0f;  // last reported heading, not a target point
+float last_ty = 0.0f;
 int dodge_count = 0;
 int hit_count = 0;
 int match_open = 0;
@@ -187,21 +187,25 @@ void diag_tick()
         dodge_count = 0;
         hit_count = 0;
         last_hp = -1;
-        last_tx = INT32_MAX;
-        last_ty = INT32_MAX;
+        last_tx = 1.0f;
+        last_ty = 0.0f;
     }
     if (last_hp > 0 && static_cast<int32_t>(own_hp) < last_hp) hit_count++;
     last_hp = static_cast<int32_t>(own_hp);
-    if (active && (ad_target_x != last_tx || ad_target_y != last_ty))
+    // The target point is recomputed from the current position on every send,
+    // so with a per-frame send its coordinates change every frame. Count
+    // heading changes instead, otherwise dodge=N turns into a 120 Hz frame
+    // counter and stops meaning "how many dodges".
+    if (active && ad_dir_x * last_tx + ad_dir_y * last_ty < 0.94f)
     {
         dodge_count++;
-        last_tx = ad_target_x;
-        last_ty = ad_target_y;
     }
+    last_tx = ad_dir_x;
+    last_ty = ad_dir_y;
     if (!active)
     {
-        last_tx = INT32_MAX;
-        last_ty = INT32_MAX;
+        last_tx = 1.0f;
+        last_ty = 0.0f;
     }
     {
         // hz used to be the raw tick delta since the previous report. When the
