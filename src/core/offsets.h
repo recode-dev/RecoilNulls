@@ -17,7 +17,14 @@ inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_SETCLIENTPREDICTIONMOVETO =
 inline constexpr uint64_t RVA_CLIENTINPUTMESSAGE_CONSTRUCT = 0x00a95798ULL;
 inline constexpr uint64_t RVA_CLIENTINPUTMANAGER_ADDINPUT = 0x74675cULL;
 inline constexpr uint64_t RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER = 0x942ebcULL;
-inline constexpr uint64_t LOGICTILEDATA_FLAGS_OFF = 0x54ULL;
+// LogicTile keeps three 64-bit passability bitmaps. Bit index is
+// (x % 3) + (y % 3) * 3 + layer * 9; a set bit means the sub-cell is blocked.
+// Verified in v69: LogicTileMap::isPassablePathFinder (0x942ebc) calls
+// LogicTile::isPassablePathFinder (0x9402ec), which reads +0x10/+0x18/+0x20/+0x28.
+inline constexpr uint64_t LOGICTILE_BLOCKMASK_OFF = 0x10ULL;
+inline constexpr uint64_t LOGICTILE_WATERMASK_OFF = 0x18ULL;
+inline constexpr uint64_t LOGICTILE_THIRDMASK_OFF = 0x20ULL;
+inline constexpr uint64_t LOGICTILE_FOURTHMASK_OFF = 0x28ULL;
 inline constexpr uint64_t RVA_LOGIC_TILEMAP_ISPLAYERLINEOFSIGHTCLEAR =
     0x943b08ULL;
 inline constexpr uint64_t RVA_LOGIC_TILE_TO_LOGIC = 0x943040ULL;
@@ -73,7 +80,6 @@ inline constexpr uint64_t PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF = 0xf6ULL;
 inline constexpr uint64_t TILEMAP_WIDTH_OFF = 0xc4ULL;
 inline constexpr uint64_t TILEMAP_HEIGHT_OFF = 0xc8ULL;
 inline constexpr uint64_t TILEMAP_TILES_OFF = 0x20ULL;
-inline constexpr uint64_t TILETYPEDATA_BLOCKFLAGS_OFF = 0x56ULL;
 
 inline constexpr uint64_t SCSTRING_LENGTH_OFF = 0x4ULL;
 inline constexpr uint64_t SCSTRING_DATA_OFF = 0x8ULL;

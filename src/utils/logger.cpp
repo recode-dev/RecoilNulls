@@ -555,8 +555,8 @@ void val_tilemap(uintptr_t clientPtr)
         vs("TILEMAP_WIDTH_OFF", "no tilemap");
         vs("TILEMAP_HEIGHT_OFF", "no tilemap");
         vs("TILEMAP_TILES_OFF", "no tilemap");
-        vs("LOGICTILEDATA_FLAGS_OFF", "no tilemap");
-        vs("TILETYPEDATA_BLOCKFLAGS_OFF", "no tilemap");
+        vs("LOGICTILE_BLOCKMASK_OFF", "no tilemap");
+        vs("LOGICTILE_WATERMASK_OFF", "no tilemap");
         return;
     }
     if (read_int(map + TILEMAP_WIDTH_OFF, &width))
@@ -578,8 +578,8 @@ void val_tilemap(uintptr_t clientPtr)
     if (!read_ptr(map + TILEMAP_TILES_OFF, &tiles) || !tiles)
     {
         vf("TILEMAP_TILES_OFF", false, "read failed");
-        vs("LOGICTILEDATA_FLAGS_OFF", "no tile array");
-        vs("TILETYPEDATA_BLOCKFLAGS_OFF", "no tile array");
+        vs("LOGICTILE_BLOCKMASK_OFF", "no tile array");
+        vs("LOGICTILE_WATERMASK_OFF", "no tile array");
         return;
     }
     vf("TILEMAP_TILES_OFF",
@@ -593,38 +593,26 @@ void val_tilemap(uintptr_t clientPtr)
         int stride = total / 96 + 1;
         int seen = 0;
         int blocked = 0;
-        uint32_t sample = 0;
-        uint8_t sampleBlock = 0;
+        uint64_t sample = 0;
         for (int i = 0; i < total; i += stride)
         {
             uintptr_t item = 0;
-            uintptr_t kind = 0;
-            uint32_t f = 0;
-            uint8_t b = 0;
+            uint64_t mask = 0;
             if (!read_ptr(tiles + (uintptr_t)i * 8, &item) || !item) continue;
-            if (!read_ptr(item, &kind) || !kind) continue;
-            if (!read_bytes(kind + LOGICTILEDATA_FLAGS_OFF, &f, sizeof(f)))
+            if (!read_bytes(item + LOGICTILE_BLOCKMASK_OFF, &mask, sizeof(mask)))
                 continue;
             seen++;
-            if (f && !sample) sample = f;
-            if (read_bytes(kind + TILETYPEDATA_BLOCKFLAGS_OFF, &b, 1) && b)
-            {
-                blocked++;
-                if (!sampleBlock) sampleBlock = b;
-            }
+            if (mask && !sample) sample = mask;
+            if (mask & 0x1ffULL) blocked++;
         }
-        vf("LOGICTILEDATA_FLAGS_OFF",
-           seen > 0 && sample != 0,
-           "probed=%d flags=0x%08x",
-           seen,
-           sample);
-        vf("TILETYPEDATA_BLOCKFLAGS_OFF",
-           blocked > 0,
-           "blocked=%d/%d sample=0x%02x",
+        vf("LOGICTILE_BLOCKMASK_OFF",
+           seen > 0 && blocked > 0,
+           "blocked=%d/%d sample=0x%llx",
            blocked,
            seen,
-           (unsigned)sampleBlock);
+           (unsigned long long)sample);
     }
+
     vf("TILEMAP_GEOMETRY",
        width > 0 && height > 0 && width == wall_cache_w() &&
            height == wall_cache_h(),
@@ -731,7 +719,7 @@ void val_projectile()
        (unsigned)homing);
     vf("PROJECTILEDATA_ISBOUNCING_OFF",
        read_bytes(found + PROJECTILEDATA_ISBOUNCING_OFF, &bouncing, 1) &&
-           bouncing <= 1,
+           (bouncing <= 1 || bouncing == 255),
        "bounce=%u",
        (unsigned)bouncing);
     vf("PROJECTILEDATA_PIERCES_ENV_OFF",
@@ -748,6 +736,11 @@ void val_projectile()
            passes <= 1,
        "passes=%u",
        (unsigned)passes);
+    vf("PROJSERVER_IN_OBJECT",
+       PROJSERVER_ENDY_OFF + 4 <= OBJ_BLOCK_SIZE,
+       "endY=0x%llx block=0x%x",
+       (unsigned long long)(PROJSERVER_ENDY_OFF + 4),
+       (unsigned)OBJ_BLOCK_SIZE);
     if (read_int(objPtr + PROJSERVER_STARTTICK_OFF, &startTick) &&
         read_int(objPtr + PROJSERVER_ENDTICK_OFF, &endTick))
     {
@@ -763,11 +756,11 @@ void val_projectile()
     }
     if (objPtr && (startTick < 0 || endTick < startTick))
     {
-        char dump[200];
+        char dump[420];
         int at = 0;
         at += snprintf(
             dump, sizeof(dump), " obj=%llx", (unsigned long long)objPtr);
-        for (int i = 0x20; i <= 0x40 && at < (int)sizeof(dump) - 12; i += 4)
+        for (int i = 0x00; i <= 0x60 && at < (int)sizeof(dump) - 12; i += 4)
         {
             int32_t v = 0;
             read_int(objPtr + i, &v);
@@ -802,8 +795,11 @@ void val_projectile()
            (unsigned long long)cfg);
         if (read_int(cfg + PROJDATA_RADIUS_OFF, &cfgRadius))
         {
+            float cfgRadiusF = 0.0f;
+            memcpy(&cfgRadiusF, &cfgRadius, sizeof(cfgRadiusF));
             vf("PROJDATA_RADIUS_OFF",
-               cfgRadius >= 0 && cfgRadius <= 4000,
+               (cfgRadius >= 0 && cfgRadius <= 4000) ||
+                   (cfgRadiusF > 0.0f && cfgRadiusF <= 10.0f),
                "r=%d",
                cfgRadius);
         }

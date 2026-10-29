@@ -158,25 +158,22 @@ int wall_build()
     for (i = 0; i < total; i++)
     {
         uintptr_t tile = 0;
-        uintptr_t type = 0;
-        uint32_t flags = 0;
+        uint64_t blockMask = 0;
         wall_grid[i] = 0;
         memcpy(&tile,
                wall_raw + static_cast<size_t>(i) * sizeof(uintptr_t),
                sizeof(uintptr_t));
-        if (!tile || !pointer_plausible(tile) || !read_ptr(tile, &type))
+        if (!tile || !pointer_plausible(tile))
         {
             continue;
         }
-        if (!type || !pointer_plausible(type))
+        if (!read_bytes(tile + LOGICTILE_BLOCKMASK_OFF,
+                        &blockMask,
+                        sizeof(blockMask)))
         {
             continue;
         }
-        if (!read_bytes(type + LOGICTILEDATA_FLAGS_OFF, &flags, sizeof(flags)))
-        {
-            continue;
-        }
-        if (flags & 0x01010000u)
+        if (blockMask & 0x1ffULL)
         {
             wall_grid[i] = WALL_BLOCKS_MOVEMENT;
         }
