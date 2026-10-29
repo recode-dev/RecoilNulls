@@ -180,8 +180,8 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     if (skillData)
     {
         if (!ptr_is_heap(skillData) ||
-            !write_bytes((uintptr_t)msg +
-                             static_cast<uintptr_t>(CLIENT_INPUT_SKILL_DATA_OFF),
+            !write_bytes((uintptr_t)msg + static_cast<uintptr_t>(
+                                              CLIENT_INPUT_SKILL_DATA_OFF),
                          &skillData,
                          sizeof(skillData)))
         {
@@ -249,7 +249,8 @@ void* manager()
         return nullptr;
     }
     static uintptr_t c_battle = 0;
-    uintptr_t battleFn = callable_cached(&c_battle, RVA_BATTLE_MODE_GET_INSTANCE);
+    uintptr_t battleFn =
+        callable_cached(&c_battle, RVA_BATTLE_MODE_GET_INSTANCE);
     void* battle = nullptr;
     void* mgr = nullptr;
     if (!battleFn)
@@ -261,7 +262,8 @@ void* manager()
     {
         return nullptr;
     }
-    if (!read_ptr((uintptr_t)battle + LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF,
+    if (!read_ptr((uintptr_t)battle +
+                      LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF,
                   &mgr) ||
         !mgr)
     {

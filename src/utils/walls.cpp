@@ -96,7 +96,8 @@ void wall_cache_bind(uintptr_t tileMap)
         wall_dirty = 1;
         wall_fail_ms = 0;
     }
-    if (!read_int(tileMap + static_cast<uintptr_t>(LOGIC_TILE_MAP_WIDTH_OFF), &mapW) ||
+    if (!read_int(tileMap + static_cast<uintptr_t>(LOGIC_TILE_MAP_WIDTH_OFF),
+                  &mapW) ||
         mapW <= 0 || mapW > WALL_MAX_MAP_TILES)
     {
         return;
