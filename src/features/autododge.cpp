@@ -658,7 +658,7 @@ static void prepare_direction_costs(float mx, float my)
     for (int i = 0; i < cost_enemy_count; i++)
     {
         float ex = ad_enemy_x[i] - mx, ey = ad_enemy_y[i] - my;
-        int ux = (int) ex, uy = (int) ey;
+        int   ux = (int) ex, uy = (int) ey;
         cost_enemy_dist[i] = (float) game_distance(0, 0, (int) ex, (int) ey);
         vector_normalize(&ux, &uy, 1000);
         cost_enemy_dx[i] = ux / 1000.0f;
