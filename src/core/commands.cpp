@@ -12,6 +12,8 @@ static void* client_input_manager_of_battle(void* battle);
 static int   client_input_manager_queue_is_ready(void* manager);
 static int   client_input_layout_probe(uintptr_t constructor);
 
+static int client_input_layout_confirmed = 0;
+
 uintptr_t callable_at_rva(uintptr_t rva)
 {
     if (!base || !rva)
