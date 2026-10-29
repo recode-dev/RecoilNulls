@@ -160,7 +160,9 @@ int wall_cache_build()
     {
         uintptr_t tile = 0;
         uint64_t blockMask = 0;
-        uint64_t hardMask = 0;
+        uint64_t waterMask = 0;
+        uint64_t thirdMask = 0;
+        uint64_t fourthMask = 0;
         wall_grid[i] = 0;
         memcpy(&tile,
                wall_raw + static_cast<size_t>(i) * sizeof(uintptr_t),
@@ -172,12 +174,19 @@ int wall_cache_build()
         if (!read_bytes(tile + LOGIC_TILE_BLOCK_MASK_OFF,
                         &blockMask,
                         sizeof(blockMask)) ||
-            !read_bytes(
-                tile + LOGIC_TILE_FOURTH_MASK_OFF, &hardMask, sizeof(hardMask)))
+            !read_bytes(tile + LOGIC_TILE_WATER_MASK_OFF,
+                        &waterMask,
+                        sizeof(waterMask)) ||
+            !read_bytes(tile + LOGIC_TILE_THIRD_MASK_OFF,
+                        &thirdMask,
+                        sizeof(thirdMask)) ||
+            !read_bytes(tile + LOGIC_TILE_FOURTH_MASK_OFF,
+                        &fourthMask,
+                        sizeof(fourthMask)))
         {
             continue;
         }
-        if ((blockMask | hardMask) & 0x1ffULL)
+        if ((blockMask | waterMask | thirdMask | fourthMask) & 0x1ffULL)
         {
             wall_grid[i] = WALL_BLOCKS_MOVEMENT;
         }

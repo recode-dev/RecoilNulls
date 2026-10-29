@@ -21,6 +21,7 @@ inline constexpr uint64_t RVA_LOGIC_TILE_MAP_IS_PASSABLE_PATH_FINDER =
     0x942ebcULL;
 inline constexpr uint64_t LOGIC_TILE_BLOCK_MASK_OFF = 0x10ULL;
 inline constexpr uint64_t LOGIC_TILE_WATER_MASK_OFF = 0x18ULL;
+inline constexpr uint64_t LOGIC_TILE_THIRD_MASK_OFF = 0x20ULL;
 inline constexpr uint64_t LOGIC_TILE_FOURTH_MASK_OFF = 0x28ULL;
 inline constexpr uint64_t RVA_LOGIC_TILE_MAP_IS_PLAYER_LINE_OF_SIGHT_CLEAR =
     0x943b08ULL;

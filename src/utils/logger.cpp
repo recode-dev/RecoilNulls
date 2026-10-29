@@ -619,16 +619,22 @@ void val_tilemap(uintptr_t clientPtr)
         {
             uintptr_t item = 0;
             uint64_t mask = 0;
+            uint64_t water = 0;
+            uint64_t third = 0;
             uint64_t hard = 0;
             if (!read_ptr(tiles + (uintptr_t)i * 8, &item) || !item) continue;
             if (!read_bytes(
                     item + LOGIC_TILE_BLOCK_MASK_OFF, &mask, sizeof(mask)) ||
                 !read_bytes(
+                    item + LOGIC_TILE_WATER_MASK_OFF, &water, sizeof(water)) ||
+                !read_bytes(
+                    item + LOGIC_TILE_THIRD_MASK_OFF, &third, sizeof(third)) ||
+                !read_bytes(
                     item + LOGIC_TILE_FOURTH_MASK_OFF, &hard, sizeof(hard)))
                 continue;
             seen++;
             if (mask && !sample) sample = mask;
-            if ((mask | hard) & 0x1ffULL) blocked++;
+            if ((mask | water | third | hard) & 0x1ffULL) blocked++;
         }
         vf("LOGIC_TILE_BLOCK_MASK_OFF",
            seen > 0,
