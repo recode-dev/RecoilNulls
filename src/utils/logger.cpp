@@ -217,9 +217,12 @@ void diag_tick()
         uint64_t now_ms = now_us / 1000;
         uint32_t ticks = workload_ticks - prev_ticks;
         uint64_t dt_ms = (prev_ms && now_ms > prev_ms) ? now_ms - prev_ms : 0;
+        // First report of a session has no baseline: the old fallback printed
+        // the raw tick count, which is what produced hz=1132 / 1277 on the
+        // first line of every match.
         hz = dt_ms ? static_cast<unsigned long>(
                          (static_cast<uint64_t>(ticks) * 1000ULL) / dt_ms)
-                   : static_cast<unsigned long>(ticks);
+                   : 0UL;
         prev_ticks = workload_ticks;
         prev_ms = now_ms;
         wl_avg = workload_us_n ? workload_us_sum / workload_us_n : 0;

@@ -47,7 +47,7 @@ constexpr int THREAT_MAX = 32;
 constexpr int PROJ_SLOTS = 48;
 constexpr uint64_t TICK_MS = 50;
 constexpr uint64_t PROJ_TTL_MS = TICK_MS * 20;
-constexpr uint8_t B_BEAM = 1, B_IND = 2, B_PIERCE = 4;
+constexpr uint8_t B_BEAM = 1, B_IND = 2, B_PIERCE = 4, B_BOUNCE = 8;
 struct Threat
 {
     float x, y, vx, vy, rad, tt;

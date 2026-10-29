@@ -42,13 +42,18 @@ constexpr uint64_t CALM_MS = 200;
 // writes its move command on every pass; the gate only stops a re-entrant
 // second call in the same frame from pushing a duplicate message.
 constexpr uint64_t SEND_FAST_MS = 4;
-constexpr uint64_t TURN_HOLD_MS = 200;
+constexpr uint64_t TURN_HOLD_MS = 130;
 constexpr float MAX_TURN = 1.0471976f;
-// The hold is broken early only when the held heading dies inside twice the
-// hold budget, i.e. inside 400 ms. Releasing on "dies somewhere in the 1.6 s
-// horizon" released on every single frame, which is what made the character
-// flap between headings instead of finishing a dodge.
-constexpr int HOLD_DANGER_STEPS = 8;
+// Broken early only when the held heading dies inside twice the hold budget.
+// Releasing on "dies somewhere in the 1.6 s horizon" released on every single
+// frame, which is what made the character flap instead of finishing a dodge.
+constexpr int HOLD_DANGER_STEPS = (int)(TURN_HOLD_MS * 2 / ad::TICK_MS);
+// The log has a hit at ca=+3 ttc=0.06: the planner believed it cleared by
+// three units and the game disagreed. Position comes back as integers, speed
+// as a rounded float, and the closest approach is extrapolated over ~60 ms, so
+// a plan that ends within tens of units of the surface is a plan to be hit.
+// Plan against a fatter projectile instead.
+constexpr float AD_SAFETY = 40.0f;
 constexpr uint64_t HUMAN_MS = 200;
 constexpr float WEIGHT_STEP = 4096.0f;
 constexpr float WEIGHT_POS = 900.0f;
@@ -123,6 +128,7 @@ void init_proj(
     if (data[PROJECTILEDATA_PIERCES_ENV_OFF] ||
         data[PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF])
         st->flags |= B_PIERCE;
+    if (data[PROJECTILEDATA_ISBOUNCING_OFF]) st->flags |= B_BOUNCE;
     st->name[0] = '\0';
     uintptr_t str = 0;
     if (addr_dataname)
@@ -223,7 +229,10 @@ static void add_proj(const uint8_t* obj,
         return;
     float vv = vx * vx + vy * vy;
     if (vv <= 0.0f) return;
-    float rad = st->rad + OWN_HITBOX;
+    float rad = st->rad + OWN_HITBOX + AD_SAFETY;
+    // A bouncer can leave a wall on a different heading, so the straight-line
+    // extrapolation is a lower bound on how close it can get.
+    if (st->flags & B_BOUNCE) rad += OWN_HITBOX * 0.5f;
     float tt = -(dx * vx + dy * vy) / vv;
     if (tt < 0.0f && dx * dx + dy * dy > rad * rad) return;
     for (int k = 0; k < threat_n; k++)
