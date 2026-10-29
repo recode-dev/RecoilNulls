@@ -787,9 +787,18 @@ void diag_tick()
             }
             if (n > 0 && n < (int) sizeof(buf) - 2)
             {
-                buf[n++] = '\n';
-                buf[n]   = '\0';
-                line("%s", buf);
+                static char last_state[2048];
+                const char* state = strstr(buf, " p=");
+                buf[n++]          = '\n';
+                buf[n]            = '\0';
+                if (!state || strcmp(last_state, state) != 0)
+                {
+                    if (state)
+                    {
+                        snprintf(last_state, sizeof(last_state), "%s", state);
+                    }
+                    line("%s", buf);
+                }
             }
         }
     }
@@ -886,22 +895,30 @@ void diag_tick()
     ad_proj_move   = 0;
     ad_proj_sample = 0;
     {
-        char qbuf[192];
-        int  qn = snprintf(qbuf, sizeof(qbuf), "qc=");
-        for (int i = 0; i < 16 && qn > 0 && qn < (int) sizeof(qbuf) - 8; i++)
+        int32_t tick_start = 0;
+        int32_t tick_end   = 0;
+        float   engine_x   = 0.0f;
+        float   engine_y   = 0.0f;
+        int     path_len   = engine_own_path_length();
+        int     window     = engine_own_tick_window(&tick_start, &tick_end);
+        int     forecast   = 0;
+        if (window && tick_end > tick_start)
         {
-            qn += snprintf(qbuf + qn,
-                           sizeof(qbuf) - (size_t) qn,
-                           i ? ",%u" : "%u",
-                           (unsigned) ad_qc[i]);
-            ad_qc[i] = 0;
+            forecast = engine_own_pos_at_tick(tick_end, &engine_x, &engine_y);
         }
-        if (qn > 0 && qn < (int) sizeof(qbuf) - 2)
-        {
-            qbuf[qn++] = '\n';
-            qbuf[qn]   = '\0';
-            line("%s", qbuf);
-        }
+        line("[eng] plen=%d win=%d..%d fc=%d e=(%.0f,%.0f) pf=%d/%d tgt=%d,%d\n",
+             path_len,
+             window ? (int) tick_start : 0,
+             window ? (int) tick_end : 0,
+             forecast,
+             engine_x,
+             engine_y,
+             engine_pathfind_ok,
+             engine_pathfind_calls,
+             (int) engine_pathfind_x,
+             (int) engine_pathfind_y);
+        engine_pathfind_ok    = 0;
+        engine_pathfind_calls = 0;
     }
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {

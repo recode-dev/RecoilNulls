@@ -23,6 +23,8 @@ inline constexpr uint64_t LOGICCHARACTER__Y                   = 0x34ULL;
 inline constexpr uint64_t LOGICCHARACTER__TEAM                = 0x40ULL;
 inline constexpr uint64_t LOGICCHARACTER__ATTACKANGLE         = 0xb4ULL;
 inline constexpr uint64_t LOGICCHARACTER__HITPOINTS           = 0xc4ULL;
+inline constexpr uint64_t LOGICCHARACTER__TICKSTART           = 0x28ULL;
+inline constexpr uint64_t LOGICCHARACTER__TICKEND             = 0x2cULL;
 inline constexpr uint64_t LOGICCHARACTER__DATACOLLISIONRADIUS = 0x2acULL;
 inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS =
     0x30cULL;

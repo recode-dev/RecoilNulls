@@ -454,7 +454,7 @@ int enqueue_move_input_with_type(int x, int y, int type)
     }
     if (type == ClientInputMessageTypeMove)
     {
-        (void) set_client_prediction_move_to(x, y);
+        (void) engine_own_pathfind_to(x, y, ClientInputMessagePredictionFlag);
     }
     return 1;
 }
@@ -464,27 +464,73 @@ int enqueue_move_input(int x, int y)
     return enqueue_move_input_with_type(x, y, ClientInputMessageTypeMove);
 }
 
-int set_client_prediction_move_to(int x, int y)
+int      engine_pathfind_calls = 0;
+int      engine_pathfind_ok    = 0;
+int32_t  engine_pathfind_x     = 0;
+int32_t  engine_pathfind_y     = 0;
+
+int engine_own_path_length()
 {
-    static uintptr_t slot              = 0;
-    uintptr_t        function          = 0;
-    uintptr_t        controller_object = 0;
-    if (!coord_ok)
+    uintptr_t self     = own_elem;
+    uintptr_t function = callable_at_rva(LOGICCHARACTERCLIENTOWN__GETPATHLENGTH);
+    if (!self || !function)
+    {
+        return -1;
+    }
+    return reinterpret_cast<int (*)(uintptr_t)>(function)(self);
+}
+
+int engine_own_tick_window(int32_t* start, int32_t* end)
+{
+    int32_t first = 0;
+    int32_t last  = 0;
+    if (!own_elem || !start || !end)
     {
         return 0;
     }
-    function = client_input_resolve(
-        &slot, LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO);
-    if (!function)
+    if (!read_int(own_elem + static_cast<uintptr_t>(LOGICCHARACTER__TICKSTART),
+                  &first) ||
+        !read_int(own_elem + static_cast<uintptr_t>(LOGICCHARACTER__TICKEND),
+                  &last))
     {
         return 0;
     }
-    controller_object = controller();
-    if (!controller_object)
+    *start = first;
+    *end   = last;
+    return 1;
+}
+
+int engine_own_pos_at_tick(int32_t tick, float* x, float* y)
+{
+    uintptr_t self     = own_elem;
+    uintptr_t function = callable_at_rva(LOGICCHARACTERCLIENTOWN__GETPOSATTICK);
+    int32_t   position[2] = {0, 0};
+    int32_t   previous[2] = {0, 0};
+    if (!self || !function || !x || !y)
     {
         return 0;
     }
-    reinterpret_cast<void (*)(uintptr_t, int, int, int)>(function)(
-        controller_object, x, y, ClientInputMessagePredictionFlag);
+    reinterpret_cast<void (*)(uintptr_t, int32_t, int32_t*, int32_t*, uint32_t)>(
+        function)(self, tick, position, previous, 0u);
+    *x = static_cast<float>(position[0]);
+    *y = static_cast<float>(position[1]);
+    return 1;
+}
+
+int engine_own_pathfind_to(int x, int y, int flag)
+{
+    uintptr_t self     = own_elem;
+    uintptr_t battle   = client();
+    uintptr_t function = callable_at_rva(LOGICCHARACTERCLIENTOWN__PATHFINDTO);
+    engine_pathfind_calls++;
+    if (!coord_ok || !self || !battle || !function)
+    {
+        return 0;
+    }
+    reinterpret_cast<void (*)(uintptr_t, int, int, bool, uintptr_t)>(function)(
+        self, x, y, flag != 0, battle);
+    engine_pathfind_ok++;
+    engine_pathfind_x = x;
+    engine_pathfind_y = y;
     return 1;
 }
