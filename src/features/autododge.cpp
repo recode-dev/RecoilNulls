@@ -252,6 +252,16 @@ void init_projectile_state(
             str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
 }
 
+static int own_team_matches(int32_t team)
+{
+    if (own_team_b >= 0 && team == own_team_b) return 1;
+    int32_t self_team = 0;
+    if (own_elem && read_int(own_elem + LOGICCHARACTER__TEAM, &self_team) &&
+        team == self_team)
+        return 1;
+    return 0;
+}
+
 static void add_character_entry(
     const uint8_t* obj, uintptr_t objPtr, int32_t own_gid, float mx, float my)
 {
@@ -263,7 +273,7 @@ static void add_character_entry(
     memcpy(&xi, obj + LOGICCHARACTER__X, sizeof(xi));
     memcpy(&yi, obj + LOGICCHARACTER__Y, sizeof(yi));
     memcpy(&aim, obj + LOGICCHARACTER__ATTACKANGLE, sizeof(aim));
-    if (team == own_team_b || hp <= 0 || gid <= 0 || gid == own_gid) return;
+    if (own_team_matches(team) || hp <= 0 || gid <= 0 || gid == own_gid) return;
     if (ad_enemy_n >= AD_ENEMY_MAX) return;
     int   k  = ad_enemy_n++;
     float ex = (float) xi - mx, ey = (float) yi - my;
@@ -390,6 +400,9 @@ static void add_projectile_threat(const uint8_t* obj,
         ad_pj_r[k]   = st->rad;
         ad_pj_vel[k] = st->vel ? 1 : 0;
     }
+    int32_t team = 0;
+    memcpy(&team, obj + LOGICCHARACTER__TEAM, sizeof(team));
+    if (own_team_matches(team)) return;
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
