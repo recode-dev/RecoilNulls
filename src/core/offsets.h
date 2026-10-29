@@ -30,7 +30,7 @@ inline constexpr uint64_t LogicCharacterHitpointsOffset           = 0xc4ULL;
 inline constexpr uint64_t LogicCharacterDataCollisionRadiusOffset = 0x2acULL;
 inline constexpr uint64_t LogicCharacterCurrentChargeUpMillisecondsOffset =
     0x30cULL;
-inline constexpr uint64_t LogicCharacterChargeUpModeOffset        = 0x310ULL;
+inline constexpr uint64_t LogicCharacterChargeUpModeOffset         = 0x310ULL;
 inline constexpr uint64_t LogicCharacterChargeUpMillisecondsOffset = 0x314ULL;
 
 inline constexpr uint64_t LogicProjectileServerXOffset               = 0x38ULL;
@@ -42,8 +42,8 @@ inline constexpr uint64_t LogicProjectileServerStartYOffset          = 0xd4ULL;
 inline constexpr uint64_t LogicProjectileServerTargetXOffset         = 0xd8ULL;
 inline constexpr uint64_t LogicProjectileServerTargetYOffset         = 0xdcULL;
 inline constexpr uint64_t LogicProjectileServerOwnerGameObjectOffset = 0x100ULL;
-inline constexpr uint64_t LogicProjectileDataSpeedOffset         = 0x124ULL;
-inline constexpr size_t   LogicProjectileDataSize                = 0x1e8ULL;
+inline constexpr uint64_t LogicProjectileDataSpeedOffset             = 0x124ULL;
+inline constexpr size_t   LogicProjectileDataSize                    = 0x1e8ULL;
 
 inline constexpr uint64_t LogicTileDataOffset           = 0x0ULL;
 inline constexpr uint64_t LogicTilePathFinderMaskOffset = 0x10ULL;

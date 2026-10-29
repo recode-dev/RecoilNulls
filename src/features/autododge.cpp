@@ -29,7 +29,7 @@ float    ad_pj_x[AD_REPORT_MAX] = {0}, ad_pj_y[AD_REPORT_MAX] = {0};
 float    ad_pj_vx[AD_REPORT_MAX] = {0}, ad_pj_vy[AD_REPORT_MAX] = {0};
 float    ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
 int      ad_pj_t0[AD_REPORT_MAX] = {0}, ad_pj_t1[AD_REPORT_MAX] = {0};
-int      ad_pj_vel[AD_REPORT_MAX] = {0};
+int      ad_pj_vel[AD_REPORT_MAX]           = {0};
 int      ad_windup_n                        = 0;
 int      ad_enemy_charge_ms[AD_ENEMY_MAX]   = {0};
 int      ad_enemy_charge_mode[AD_ENEMY_MAX] = {0};
@@ -144,12 +144,8 @@ void init_projectile_state(
             str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
 }
 
-static void
-add_character_entry(const uint8_t* obj,
-                    uintptr_t      objPtr,
-                    int32_t        own_gid,
-                    float          mx,
-                    float          my)
+static void add_character_entry(
+    const uint8_t* obj, uintptr_t objPtr, int32_t own_gid, float mx, float my)
 {
     ad_char_n++;
     int32_t team, hp, gid, xi, yi, aim;
@@ -163,16 +159,15 @@ add_character_entry(const uint8_t* obj,
     if (ad_enemy_n >= AD_ENEMY_MAX) return;
     int   k  = ad_enemy_n++;
     float ex = (float) xi - mx, ey = (float) yi - my;
-    ad_enemy_pid[k] = gid;
-    ad_enemy_x[k]   = (float) xi;
-    ad_enemy_y[k]   = (float) yi;
-    ad_enemy_hp[k]  = hp;
-    ad_enemy_d[k]   = sqrtf(ex * ex + ey * ey);
-    ad_enemy_aim[k] = aim;
+    ad_enemy_pid[k]    = gid;
+    ad_enemy_x[k]      = (float) xi;
+    ad_enemy_y[k]      = (float) yi;
+    ad_enemy_hp[k]     = hp;
+    ad_enemy_d[k]      = sqrtf(ex * ex + ey * ey);
+    ad_enemy_aim[k]    = aim;
     int32_t charge     = 0;
     int32_t chargeMode = 0;
-    read_int(objPtr + LogicCharacterCurrentChargeUpMillisecondsOffset,
-             &charge);
+    read_int(objPtr + LogicCharacterCurrentChargeUpMillisecondsOffset, &charge);
     read_int(objPtr + LogicCharacterChargeUpModeOffset, &chargeMode);
     ad_enemy_charge_ms[k]   = charge;
     ad_enemy_charge_mode[k] = chargeMode;
@@ -349,7 +344,7 @@ static void add_projectile_threat(const uint8_t* obj,
             st, key, find_projectile_data_asset(objPtr), px, py, now);
         if (st->pid != key) return;
     }
-    st->seen = now;
+    st->seen     = now;
     float step_x = px - st->x, step_y = py - st->y;
     float step = sqrtf(step_x * step_x + step_y * step_y);
     ad_proj_sample++;
@@ -942,9 +937,9 @@ void update_autododge()
 {
     ad_best_dir = -1;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
-    ad_ind_n    = 0;
-    ad_windup_n = 0;
-    threat_n    = 0;
+    ad_ind_n                                         = 0;
+    ad_windup_n                                      = 0;
+    threat_n                                         = 0;
     memset(ad_enemy_charge_ms, 0, sizeof(ad_enemy_charge_ms));
     memset(ad_enemy_charge_mode, 0, sizeof(ad_enemy_charge_mode));
     if (own_hp < last_hp)

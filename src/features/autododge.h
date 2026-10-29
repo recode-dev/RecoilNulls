@@ -77,11 +77,11 @@ struct Proj
     uint64_t  seen;
     uintptr_t data;
     float     x, y, ux, uy, speed, rad;
-    uint8_t  flags;
-    bool     vel;
-    bool     homing;
-    int16_t  ttype;
-    char     name[40];
+    uint8_t   flags;
+    bool      vel;
+    bool      homing;
+    int16_t   ttype;
+    char      name[40];
 };
 extern Threat    threats[THREAT_MAX];
 extern int       threat_n;
