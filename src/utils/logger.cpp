@@ -663,7 +663,8 @@ void val_projectile()
             uintptr_t dataPtr = 0;
             uintptr_t vtable = 0;
             if (!obj_snapshot[i]) continue;
-            if (!read_ptr(obj_snapshot[i] + LOGICGAMEOBJECT_DATA_OFF, &dataPtr) ||
+            if (!read_ptr(obj_snapshot[i] + LOGICGAMEOBJECT_DATA_OFF,
+                          &dataPtr) ||
                 !dataPtr || !pointer_plausible(dataPtr))
                 continue;
             if (!read_ptr(dataPtr, &vtable)) continue;
