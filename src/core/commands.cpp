@@ -262,56 +262,6 @@ int enqueue_move_input(int x, int y)
     return enqueue_move_input_with_type(x, y, ClientInputMessageTypeMove);
 }
 
-int engine_own_path_length()
-{
-    uintptr_t self = own_elem;
-    uintptr_t function =
-        callable_at_rva(LOGICCHARACTERCLIENTOWN__GETPATHLENGTH);
-    if (!self || !function)
-    {
-        return -1;
-    }
-    return reinterpret_cast<int (*)(uintptr_t)>(function)(self);
-}
-
-int engine_own_tick_window(int32_t* start, int32_t* end)
-{
-    int32_t first = 0;
-    int32_t last  = 0;
-    if (!own_elem || !start || !end)
-    {
-        return 0;
-    }
-    if (!read_int(own_elem + static_cast<uintptr_t>(LOGICCHARACTER__TICKSTART),
-                  &first) ||
-        !read_int(own_elem + static_cast<uintptr_t>(LOGICCHARACTER__TICKEND),
-                  &last))
-    {
-        return 0;
-    }
-    *start = first;
-    *end   = last;
-    return 1;
-}
-
-int engine_own_pos_at_tick(int32_t tick, float* x, float* y)
-{
-    uintptr_t self     = own_elem;
-    uintptr_t function = callable_at_rva(LOGICCHARACTERCLIENTOWN__GETPOSATTICK);
-    int32_t   position[2] = {0, 0};
-    int32_t   previous[2] = {0, 0};
-    if (!self || !function || !x || !y)
-    {
-        return 0;
-    }
-    reinterpret_cast<void (*)(
-        uintptr_t, int32_t, int32_t*, int32_t*, uint32_t)>(function)(
-        self, tick, position, previous, 0u);
-    *x = static_cast<float>(position[0]);
-    *y = static_cast<float>(position[1]);
-    return 1;
-}
-
 int set_client_prediction_move_to(int x, int y)
 {
     static uintptr_t slot              = 0;

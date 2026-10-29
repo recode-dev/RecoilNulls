@@ -23,8 +23,6 @@ inline constexpr uint64_t LOGICCHARACTER__Y                   = 0x34ULL;
 inline constexpr uint64_t LOGICCHARACTER__TEAM                = 0x40ULL;
 inline constexpr uint64_t LOGICCHARACTER__ATTACKANGLE         = 0xb4ULL;
 inline constexpr uint64_t LOGICCHARACTER__HITPOINTS           = 0xc4ULL;
-inline constexpr uint64_t LOGICCHARACTER__TICKSTART           = 0x28ULL;
-inline constexpr uint64_t LOGICCHARACTER__TICKEND             = 0x2cULL;
 inline constexpr uint64_t LOGICCHARACTER__DATACOLLISIONRADIUS = 0x2acULL;
 inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS =
     0x30cULL;
@@ -79,8 +77,6 @@ inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETOWNPLAYERINDEX =
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM = 0xa7f47cULL;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO =
     0xac3a58ULL;
-inline constexpr uint64_t LOGICCHARACTERCLIENTOWN__GETPOSATTICK  = 0x9fdf88ULL;
-inline constexpr uint64_t LOGICCHARACTERCLIENTOWN__GETPATHLENGTH = 0x9fe840ULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__CONSTRUCTOR        = 0xa95798ULL;
 inline constexpr uint64_t CLIENTINPUTMANAGER__ADDINPUT           = 0x74675cULL;
 inline constexpr uint64_t LOGICTILEMAP__ISPASSABLEPATHFINDER     = 0x942ebcULL;

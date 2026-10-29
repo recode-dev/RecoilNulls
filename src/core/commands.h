@@ -8,9 +8,6 @@ inline constexpr int ClientInputMessagePredictionFlag = 1;
 
 uintptr_t           callable_at_rva(uintptr_t rva);
 [[nodiscard]] void* allocate_client_input_message();
-int                 engine_own_path_length();
-int                 engine_own_tick_window(int32_t* start, int32_t* end);
-int                 engine_own_pos_at_tick(int32_t tick, float* x, float* y);
 int                 set_client_prediction_move_to(int x, int y);
 int                 enqueue_client_input_message(int type, int x, int y);
 int                 enqueue_move_input(int x, int y);

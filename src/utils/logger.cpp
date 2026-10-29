@@ -894,26 +894,6 @@ void diag_tick()
          ad_windup_n);
     ad_proj_move   = 0;
     ad_proj_sample = 0;
-    {
-        int32_t tick_start = 0;
-        int32_t tick_end   = 0;
-        float   engine_x   = 0.0f;
-        float   engine_y   = 0.0f;
-        int     path_len   = engine_own_path_length();
-        int     window     = engine_own_tick_window(&tick_start, &tick_end);
-        int     forecast   = 0;
-        if (window && tick_end > tick_start)
-        {
-            forecast = engine_own_pos_at_tick(tick_end, &engine_x, &engine_y);
-        }
-        line("[eng] plen=%d win=%d..%d fc=%d e=(%.0f,%.0f)\n",
-             path_len,
-             window ? (int) tick_start : 0,
-             window ? (int) tick_end : 0,
-             forecast,
-             engine_x,
-             engine_y);
-    }
     for (int i = 0; i < ad_threat_n && i < 3; i++)
     {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) r=%.0f d=%.0f "
