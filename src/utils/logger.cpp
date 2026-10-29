@@ -133,8 +133,7 @@ void val_rva_table()
          RVA_LOGICBATTLEMODECLIENT_SETCLIENTPREDICTIONMOVETO},
         {"RVA_CLIENTINPUTMESSAGE_CTOR", RVA_CLIENTINPUTMESSAGE_CONSTRUCT},
         {"RVA_CLIENTINPUTMANAGER_ADDINPUT", RVA_CLIENTINPUTMANAGER_ADDINPUT},
-        {"RVA_ISPASSABLEPATHFINDER",
-         RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER},
+        {"RVA_ISPASSABLEPATHFINDER", RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER},
         {"RVA_ISPLAYERLINEOFSIGHTCLEAR",
          RVA_LOGIC_TILEMAP_ISPLAYERLINEOFSIGHTCLEAR},
         {"RVA_LOGIC_TILE_TO_LOGIC", RVA_LOGIC_TILE_TO_LOGIC},
@@ -159,10 +158,12 @@ void val_rva_table()
            exec ? 1 : 0,
            head);
     }
-    vf("RVA_TILE_TO_LOGIC(x)", game_tile_to_logic(3) == 900,
+    vf("RVA_TILE_TO_LOGIC(x)",
+       game_tile_to_logic(3) == 900,
        "3 -> %d (want 900)",
        game_tile_to_logic(3));
-    vf("RVA_LOGIC_TO_TILE(x)", game_logic_to_tile(900) == 3,
+    vf("RVA_LOGIC_TO_TILE(x)",
+       game_logic_to_tile(900) == 3,
        "900 -> %d (want 3)",
        game_logic_to_tile(900));
 }
@@ -230,7 +231,8 @@ void val_globals(uintptr_t slot)
         {
             BOOL keyOk = read_bytes(scene + BATTLEMODE_HASH_KEY_OFF, key, 16);
             BOOL used = NO;
-            for (int i = 0; i < 16 && keyOk; i++) used = used || key[i];
+            for (int i = 0; i < 16 && keyOk; i++)
+                used = used || key[i];
             vf("BATTLEMODE_HASH_ENABLED_OFF",
                hashOn <= 1 && (!hashOn || used),
                "on=%u key16=%d",
@@ -258,7 +260,9 @@ void val_globals(uintptr_t slot)
             }
             else
             {
-                vf("LOGICBATTLEMODECLIENT_OBJECTMANAGER_OFF", false, "read failed");
+                vf("LOGICBATTLEMODECLIENT_OBJECTMANAGER_OFF",
+                   false,
+                   "read failed");
             }
             if (manager && read_int(manager + OBJECTMANAGER_COUNT_OFF, &count))
             {
@@ -329,8 +333,7 @@ void val_client_input(uintptr_t clientPtr)
     int32_t mx = 0;
     int32_t my = 0;
     uint8_t token[8] = {0};
-    if (!read_ptr(clientPtr + LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF,
-                  &manager))
+    if (!read_ptr(clientPtr + LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF, &manager))
     {
         vf("LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF", false, "read failed");
         return;
@@ -353,8 +356,8 @@ void val_client_input(uintptr_t clientPtr)
        queue && pointer_plausible(queue),
        "0x%llx",
        (unsigned long long)queue);
-    if (!queue || !read_int(queue + OBJECTMANAGER_COUNT_OFF, &count) || count < 0 ||
-        count > 4096)
+    if (!queue || !read_int(queue + OBJECTMANAGER_COUNT_OFF, &count) ||
+        count < 0 || count > 4096)
     {
         vf("CLIENTINPUT_QUEUE_COUNT", false, "count=%d", count);
         vs("CLIENTINPUTMESSAGE_TYPE_OFF", "queue empty or unreadable");
@@ -370,8 +373,7 @@ void val_client_input(uintptr_t clientPtr)
         return;
     }
     if (!read_ptr(queue + OBJECTMANAGER_ARRAY_OFF, &array) || !array ||
-        !read_ptr(array, &message) || !message ||
-        !pointer_plausible(message))
+        !read_ptr(array, &message) || !message || !pointer_plausible(message))
     {
         vf("CLIENTINPUT_QUEUE_ARRAY", false, "array/message unreadable");
         return;
@@ -412,8 +414,8 @@ void val_client_input(uintptr_t clientPtr)
        addr_readable(message + CLIENTINPUT_SKILLDATA_OFF, 8),
        "readable");
     vf("CLIENTINPUT_TOKEN_INPUT_OFF",
-       addr_readable(message + CLIENTINPUT_TOKEN_OFF + CLIENTINPUT_TOKEN_INPUT_OFF,
-                     4),
+       addr_readable(
+           message + CLIENTINPUT_TOKEN_OFF + CLIENTINPUT_TOKEN_INPUT_OFF, 4),
        "readable");
 }
 
@@ -543,8 +545,8 @@ void val_character(uintptr_t own)
 void val_tilemap(uintptr_t clientPtr)
 {
     typedef uintptr_t (*map_t)(uintptr_t);
-    map_t fn = reinterpret_cast<map_t>(
-        callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP));
+    map_t fn =
+        reinterpret_cast<map_t>(callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP));
     uintptr_t map = fn ? fn(clientPtr) : 0;
     uintptr_t tiles = 0;
     uintptr_t tile = 0;
@@ -589,7 +591,10 @@ void val_tilemap(uintptr_t clientPtr)
         vs("TILETYPEDATA_BLOCKFLAGS_OFF", "no tile array");
         return;
     }
-    vf("TILEMAP_TILES_OFF", pointer_plausible(tiles), "0x%llx", (unsigned long long)tiles);
+    vf("TILEMAP_TILES_OFF",
+       pointer_plausible(tiles),
+       "0x%llx",
+       (unsigned long long)tiles);
     if (!read_ptr(tiles, &tile) || !tile || !read_ptr(tile, &type) || !type)
     {
         vs("LOGICTILEDATA_FLAGS_OFF", "tile[0] unreadable");
@@ -689,9 +694,9 @@ void val_projectile()
        (unsigned)bouncing);
     vf("PROJECTILEDATA_PIERCES_ENV_OFF",
        read_bytes(found + PROJECTILEDATA_PIERCES_ENV_OFF, &pierce, 1) &&
-           pierce <= 1 && read_bytes(found + PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF,
-                                     &butter,
-                                     1) &&
+           pierce <= 1 &&
+           read_bytes(
+               found + PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF, &butter, 1) &&
            butter <= 1,
        "pierce=%u butter=%u",
        (unsigned)pierce,
@@ -765,7 +770,9 @@ void validate_offsets()
     line("\n=== validate ===\n");
     val_rva_table();
     val_globals(slot);
-    vf("HEAP_MAX_REGION_SIZE", own_elem >= HEAP_MAX_REGION_SIZE, "own=0x%llx",
+    vf("HEAP_MAX_REGION_SIZE",
+       own_elem >= HEAP_MAX_REGION_SIZE,
+       "own=0x%llx",
        (unsigned long long)own_elem);
     if (own_elem && pointer_plausible(own_elem)) val_character(own_elem);
     {
