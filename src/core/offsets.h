@@ -42,7 +42,8 @@ inline constexpr uint64_t LogicProjectileServerStartYOffset          = 0xd4ULL;
 inline constexpr uint64_t LogicProjectileServerTargetXOffset         = 0xd8ULL;
 inline constexpr uint64_t LogicProjectileServerTargetYOffset         = 0xdcULL;
 inline constexpr uint64_t LogicProjectileServerOwnerGameObjectOffset = 0x100ULL;
-inline constexpr size_t   LogicProjectileDataSize                    = 0x1e8ULL;
+inline constexpr uint64_t LogicProjectileDataSpeedOffset         = 0x124ULL;
+inline constexpr size_t   LogicProjectileDataSize                = 0x1e8ULL;
 
 inline constexpr uint64_t LogicTileDataOffset           = 0x0ULL;
 inline constexpr uint64_t LogicTilePathFinderMaskOffset = 0x10ULL;

@@ -32,7 +32,7 @@ extern float         ad_hit_ttc[AD_REPORT_MAX];
 extern float         ad_hit_r[AD_REPORT_MAX];
 extern float         ad_threat_ca[AD_REPORT_MAX];
 extern int           ad_ind_n;
-extern int           ad_shot_tick;
+extern int           ad_windup_n;
 extern int32_t       ad_pj_pid[AD_REPORT_MAX];
 extern float         ad_pj_x[AD_REPORT_MAX];
 extern float         ad_pj_y[AD_REPORT_MAX];
@@ -51,6 +51,8 @@ extern float         ad_enemy_x[AD_ENEMY_MAX];
 extern float         ad_enemy_y[AD_ENEMY_MAX];
 extern int           ad_enemy_hp[AD_ENEMY_MAX];
 extern float         ad_enemy_d[AD_ENEMY_MAX];
+extern int           ad_enemy_charge_ms[AD_ENEMY_MAX];
+extern int           ad_enemy_charge_mode[AD_ENEMY_MAX];
 extern int           ad_enemy_aim[AD_ENEMY_MAX];
 void                 reset_autododge_state();
 void                 update_autododge();
@@ -71,9 +73,10 @@ struct Threat
 };
 struct Proj
 {
-    int32_t  pid;
-    uint64_t seen;
-    float    x, y, ux, uy, speed, rad;
+    int32_t   pid;
+    uint64_t  seen;
+    uintptr_t data;
+    float     x, y, ux, uy, speed, rad;
     uint8_t  flags;
     bool     vel;
     bool     homing;

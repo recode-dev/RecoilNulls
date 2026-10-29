@@ -42,6 +42,9 @@ uintptr_t callable(uintptr_t rva);
 int       game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY);
 int       game_tile_to_logic(int tile);
 int       game_logic_to_tile(int unit);
+int       game_projectile_travel_ticks(uintptr_t projectileData,
+                                       int       distance,
+                                       int       speed);
 BOOL      find_game_image(uintptr_t* out_base);
 void      poll_for_game(int tick);
 static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)

@@ -30,7 +30,9 @@ float    ad_pj_vx[AD_REPORT_MAX] = {0}, ad_pj_vy[AD_REPORT_MAX] = {0};
 float    ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
 int      ad_pj_t0[AD_REPORT_MAX] = {0}, ad_pj_t1[AD_REPORT_MAX] = {0};
 int      ad_pj_vel[AD_REPORT_MAX] = {0};
-int      ad_shot_tick             = 0;
+int      ad_windup_n                        = 0;
+int      ad_enemy_charge_ms[AD_ENEMY_MAX]   = {0};
+int      ad_enemy_charge_mode[AD_ENEMY_MAX] = {0};
 int   ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
 int   ad_hit_picked            = 0;
 float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
@@ -119,6 +121,7 @@ void init_projectile_state(
 {
     st->pid       = pid;
     st->seen      = now;
+    st->data      = dataPtr;
     st->x         = px;
     st->y         = py;
     st->speed     = 0.0f;
@@ -142,7 +145,11 @@ void init_projectile_state(
 }
 
 static void
-add_character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
+add_character_entry(const uint8_t* obj,
+                    uintptr_t      objPtr,
+                    int32_t        own_gid,
+                    float          mx,
+                    float          my)
 {
     ad_char_n++;
     int32_t team, hp, gid, xi, yi, aim;
@@ -162,6 +169,20 @@ add_character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
     ad_enemy_hp[k]  = hp;
     ad_enemy_d[k]   = sqrtf(ex * ex + ey * ey);
     ad_enemy_aim[k] = aim;
+    int32_t charge     = 0;
+    int32_t chargeMode = 0;
+    read_int(objPtr + LogicCharacterCurrentChargeUpMillisecondsOffset,
+             &charge);
+    read_int(objPtr + LogicCharacterChargeUpModeOffset, &chargeMode);
+    ad_enemy_charge_ms[k]   = charge;
+    ad_enemy_charge_mode[k] = chargeMode;
+    if (chargeMode == 1 && charge > 0 && ad_enemy_d[k] <= CLOSE_R)
+        ad_windup_n++;
+    else
+    {
+        ad_enemy_charge_ms[k]   = 0;
+        ad_enemy_charge_mode[k] = 0;
+    }
 }
 
 static float
@@ -328,47 +349,41 @@ static void add_projectile_threat(const uint8_t* obj,
             st, key, find_projectile_data_asset(objPtr), px, py, now);
         if (st->pid != key) return;
     }
-    uint64_t prev_ms   = st->seen;
-    bool     have_prev = prev_ms != 0 && now > prev_ms && now - prev_ms < 500;
-    st->seen           = now;
+    st->seen = now;
     float step_x = px - st->x, step_y = py - st->y;
     float step = sqrtf(step_x * step_x + step_y * step_y);
     ad_proj_sample++;
     if (step > 1.0f) ad_proj_move++;
-    float   vps = 0.0f, vux = 0.0f, vuy = 0.0f;
-    bool    have  = false;
-    int32_t ticks = tk1 - tk0;
-    if (ticks > 0 && ticks <= 3000)
+    int32_t dataSpeed = 0;
+    if (st->data &&
+        read_int(st->data + LogicProjectileDataSpeedOffset, &dataSpeed) &&
+        dataSpeed > 50 && dataSpeed < 20000)
     {
         float ddx = ex - sx, ddy = ey - sy;
-        float len  = sqrtf(ddx * ddx + ddy * ddy);
-        float cand = len / ((float) ticks * TICK_MS_SEC);
-        if (len > 0.5f && cand > 50.0f && cand < 20000.0f)
+        float len = sqrtf(ddx * ddx + ddy * ddy);
+        if (len < 0.5f)
         {
-            vps  = cand;
-            vux  = ddx / len;
-            vuy  = ddy / len;
-            have = true;
+            ddx = ex - px;
+            ddy = ey - py;
+            len = sqrtf(ddx * ddx + ddy * ddy);
+        }
+        if (len < 0.5f)
+        {
+            ddx = -step_x;
+            ddy = -step_y;
+            len = step;
+        }
+        if (len > 0.5f)
+        {
+            st->ux    = ddx / len;
+            st->uy    = ddy / len;
+            st->speed = (float) dataSpeed;
+            st->vel   = true;
         }
     }
-    else if (have_prev && step > 1.0f)
+    else
     {
-        float dt   = (float) (now - prev_ms) * 0.001f;
-        float cand = step / dt;
-        if (cand > 50.0f && cand < 20000.0f)
-        {
-            vps  = cand;
-            vux  = step_x / step;
-            vuy  = step_y / step;
-            have = true;
-        }
-    }
-    if (have)
-    {
-        st->ux    = vux;
-        st->uy    = vuy;
-        st->speed = vps;
-        st->vel   = true;
+        st->vel = false;
     }
     st->x = px, st->y = py;
     if (ad_proj_n <= AD_REPORT_MAX)
@@ -397,14 +412,19 @@ static void add_projectile_threat(const uint8_t* obj,
     if (vv <= 0.0f) return;
     float rad = st->rad + own_hitbox + AD_SAFETY;
     if (st->flags & B_BOUNCE) rad += own_hitbox * 0.5f;
-    float tt = -(dx * vx + dy * vy) / vv;
-    if (tt < 0.0f)
-    {
-        if (dx * dx + dy * dy > rad * rad) return;
-        tt = 0.0f;
-    }
+    float   dist    = sqrtf(dx * dx + dy * dy);
+    int32_t arrival = game_projectile_travel_ticks(
+        st->data, (int) (dist + 0.5f), (int) (st->speed + 0.5f));
+    if (arrival < 1) return;
+    float tt = (float) arrival * TICK_MS_SEC;
     if (tt > THREAT_HORIZON) return;
-    float miss_x = dx + vx * tt, miss_y = dy + vy * tt;
+    float ttc = -(dx * vx + dy * vy) / vv;
+    if (ttc < 0.0f)
+    {
+        if (dist > rad) return;
+        ttc = 0.0f;
+    }
+    float miss_x = dx + vx * ttc, miss_y = dy + vy * ttc;
     if (miss_x * miss_x + miss_y * miss_y > rad * rad) return;
     for (int k = 0; k < threat_n; k++)
     {
@@ -449,18 +469,11 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         }
         if (char_vt && obj_rva[i] == char_vt)
         {
-            add_character_entry(obj, own_gid, mx, my);
+            add_character_entry(obj, obj_snapshot[i], own_gid, mx, my);
             continue;
         }
         int32_t t0 = 0, t1 = 0;
         float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
-        {
-            int32_t nt0 = 0, nt1 = 0;
-            memcpy(
-                &nt0, obj + LogicProjectileServerTickStartOffset, sizeof(nt0));
-            memcpy(&nt1, obj + LogicProjectileServerTickEndOffset, sizeof(nt1));
-            if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 3000) ad_shot_tick++;
-        }
         if (!is_live_projectile(obj, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
         {
             if (obj_rva[i] != LogicProjectileDataVtableRva) continue;
@@ -829,9 +842,10 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             better &&
             compute_free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
                 own_hitbox * 2.0f;
-        bool held = now - turn_ms < TURN_HOLD_MS;
-        bool gain = best > cur_val + own_hitbox * 0.5f;
-        if (die_fast || walled)
+        bool held   = now - turn_ms < TURN_HOLD_MS;
+        bool gain   = best > cur_val + own_hitbox * 0.5f;
+        bool windup = ad_windup_n > 0;
+        if (die_fast || walled || windup)
         {
             ad_urgent = 1;
             turn_ms   = now;
@@ -928,9 +942,11 @@ void update_autododge()
 {
     ad_best_dir = -1;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
-    ad_ind_n                                         = 0;
-    ad_shot_tick                                     = 0;
-    threat_n                                         = 0;
+    ad_ind_n    = 0;
+    ad_windup_n = 0;
+    threat_n    = 0;
+    memset(ad_enemy_charge_ms, 0, sizeof(ad_enemy_charge_ms));
+    memset(ad_enemy_charge_mode, 0, sizeof(ad_enemy_charge_mode));
     if (own_hp < last_hp)
     {
         pend_dmg = (int) (last_hp - own_hp);
@@ -988,7 +1004,7 @@ void update_autododge()
             human_ms = now;
     }
     ad_human = now - human_ms < HUMAN_MS ? 1 : 0;
-    if (threat_n)
+    if (threat_n || ad_windup_n)
     {
         calm_ms = now;
     }

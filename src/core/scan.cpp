@@ -407,6 +407,24 @@ int game_logic_to_tile(int unit)
     return fn(unit);
 }
 
+int game_projectile_travel_ticks(uintptr_t projectileData,
+                                 int       distance,
+                                 int       speed)
+{
+    typedef int (*travel_t)(uintptr_t, int, int);
+    static travel_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<travel_t>(
+            callable(LogicProjectileClientGetTravelTicksRva));
+    }
+    if (!fn || !projectileData || distance < 1 || speed < 1)
+    {
+        return 0;
+    }
+    return fn(projectileData, distance, speed);
+}
+
 uintptr_t callable(uintptr_t rva)
 {
     if (!base || !rva)

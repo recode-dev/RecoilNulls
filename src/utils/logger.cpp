@@ -1038,7 +1038,7 @@ void diag_tick()
     }
     line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
          "dir=%s map=%dx%d dodge=%d hit=%d hb=%d ind=%d fd=%d tgt=%s "
-         "hu=%d pm=%u/%u wb=%d/%d pt=%d wp=%d tk=%d\n",
+         "hu=%d pm=%u/%u wb=%d/%d pt=%d wp=%d wu=%d\n",
          static_cast<unsigned long>(hz),
          static_cast<unsigned long>(wl_avg),
          static_cast<unsigned long>(wl_max),
@@ -1066,7 +1066,7 @@ void diag_tick()
          wall_cache_width() * wall_cache_height(),
          ad_pass_own,
          wall_engine_blocked_total(),
-         ad_shot_tick);
+         ad_windup_n);
     ad_proj_move   = 0;
     ad_proj_sample = 0;
     {
