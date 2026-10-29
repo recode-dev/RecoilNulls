@@ -47,7 +47,6 @@ constexpr uint64_t TURN_HOLD_MS = 0;
 constexpr size_t PROJDATA_TTYPE_OFF = 0x170;
 constexpr size_t PROJDATA_HOMING_OFF = 0x97;
 constexpr size_t PROJDATA_CFG_OFF = 0x10;
-constexpr size_t PROJDATA_SPEED_OFF = 0x9c;
 constexpr size_t PROJDATA_RADIUS_OFF = 0xa4;
 constexpr int HOLD_DANGER_STEPS = (int)(TURN_HOLD_MS * 2 / ad::TICK_MS);
 constexpr float AD_SAFETY = 40.0f;
@@ -111,49 +110,14 @@ Proj* find_proj(int32_t pid)
     return spare ? spare : stale;
 }
 
-struct SpdPrior
-{
-    char name[24];
-    float speed;
-};
-static SpdPrior spd_tab[16];
-static int spd_n = 0;
-
-static float speed_prior(const char* nm)
-{
-    if (!nm || !nm[0]) return 0.0f;
-    for (int i = 0; i < spd_n; i++)
-        if (!strcmp(spd_tab[i].name, nm)) return spd_tab[i].speed;
-    return 0.0f;
-}
-static void speed_learn(const char* nm, float v)
-{
-    if (!nm || !nm[0] || v < 100.0f || v > 20000.0f) return;
-    for (int i = 0; i < spd_n; i++)
-    {
-        if (!strcmp(spd_tab[i].name, nm))
-        {
-            spd_tab[i].speed = spd_tab[i].speed * 0.5f + v * 0.5f;
-            return;
-        }
-    }
-    if (spd_n >= 16) return;
-    strncpy(spd_tab[spd_n].name, nm, sizeof(spd_tab[0].name) - 1);
-    spd_tab[spd_n].name[sizeof(spd_tab[0].name) - 1] = '\0';
-    spd_tab[spd_n].speed = v;
-    spd_n++;
-}
-
 void init_proj(
     Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
 {
     uint8_t data[PROJ_DATA_BLOCK_SIZE];
-    int32_t speed = 0;
     int32_t radius = 0;
     if (!read_bytes(dataPtr, data, sizeof(data))) return;
     st->homing = false;
     st->ttype = 0;
-    memcpy(&speed, data + PROJECTILEDATA_SPEED_OFF, sizeof(speed));
     memcpy(&radius, data + PROJECTILEDATA_RADIUS_OFF, sizeof(radius));
     // The object we scan is the client projectile; the config lives behind it
     // (v36: LogicProjectileClient +0x10 -> LogicProjectileData, speed +0x9c,
@@ -165,13 +129,11 @@ void init_proj(
         uint8_t cb[0xc0];
         if (read_bytes(cfg, cb, sizeof(cb)))
         {
-            int32_t cs = 0, cr = 0, ct = 0;
+            int32_t cr = 0, ct = 0;
             uint8_t ch = 0;
-            memcpy(&cs, cb + PROJDATA_SPEED_OFF, sizeof(cs));
             memcpy(&cr, cb + PROJDATA_RADIUS_OFF, sizeof(cr));
             memcpy(&ct, cb + PROJDATA_TTYPE_OFF, sizeof(ct));
             memcpy(&ch, cb + PROJDATA_HOMING_OFF, sizeof(ch));
-            if (cs >= 100 && cs <= 20000) speed = cs;
             if (cr > 0 && cr <= 3000) radius = cr;
             st->homing = ch != 0;
             st->ttype = (int16_t)ct;
@@ -182,11 +144,10 @@ void init_proj(
     st->seen = now;
     st->x = px;
     st->y = py;
-    st->speed = 1000.0f;
+    st->speed = 0.0f;   /* set from the tick path on the first sample */
     st->rad = (float)radius;
     if (st->homing) st->rad += 80.0f; // curved path: keep extra distance
     st->vel = false;
-    st->meas = false;
     st->ux = 0.0f;
     st->uy = 0.0f;
     st->flags = 0;
@@ -205,29 +166,6 @@ void init_proj(
     if (str)
         read_scstring(
             str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
-    float prior = speed_prior(st->name);
-    if (prior <= 0.0f)
-        prior = (speed >= 100 && speed <= 20000) ? (float)speed : 1500.0f;
-    st->speed = prior;
-    int near = -1;
-    float best = 1e30f;
-    for (int i = 0; i < ad_enemy_n; i++)
-    {
-        float ex = ad_enemy_x[i] - px, ey = ad_enemy_y[i] - py;
-        float d2 = ex * ex + ey * ey;
-        if (d2 < best)
-        {
-            best = d2;
-            near = i;
-        }
-    }
-    if (near >= 0)
-    {
-        float a = (float)ad_enemy_aim[near] * 0.0174532925f;
-        st->ux = cosf(a);
-        st->uy = sinf(a);
-        st->vel = true;
-    }
 }
 
 static void add_char(const uint8_t* obj, int32_t own_gid, float mx, float my)
@@ -273,28 +211,42 @@ static void add_proj(const uint8_t* obj,
         init_proj(st, pid, dataPtr, px, py, now);
         if (st->pid != pid) return;
     }
-    uint64_t prev = st->seen;
     st->seen = now;
     float step_x = px - st->x, step_y = py - st->y;
     float step = sqrtf(step_x * step_x + step_y * step_y);
     ad_proj_sample++;
     if (step > 1.0f) ad_proj_move++;
-    if (step > 1.0f)
+    // LogicProjectileServer::getPosAtTick (v69 FUN_100a383ac) walks the shot
+    // from (start_x, start_y) to (end_x, end_y) over (endTick - startTick)
+    // ticks, so one tick of travel IS the velocity - no measurement needed.
+    int32_t tk0 = 0, tk1 = 0, sx = 0, sy = 0, ex = 0, ey = 0;
+    memcpy(&tk0, obj + PROJSERVER_STARTTICK_OFF, sizeof(tk0));
+    memcpy(&tk1, obj + PROJSERVER_ENDTICK_OFF, sizeof(tk1));
+    memcpy(&sx, obj + PROJSERVER_STARTX_OFF, sizeof(sx));
+    memcpy(&sy, obj + PROJSERVER_STARTY_OFF, sizeof(sy));
+    memcpy(&ex, obj + PROJSERVER_ENDX_OFF, sizeof(ex));
+    memcpy(&ey, obj + PROJSERVER_ENDY_OFF, sizeof(ey));
+    int32_t ticks = tk1 - tk0;
+    if (ticks > 0 && ticks <= 400)
     {
+        float ddx = (float)(ex - sx), ddy = (float)(ey - sy);
+        float len = sqrtf(ddx * ddx + ddy * ddy);
+        float vps = len / ((float)ticks * TICK_MS_SEC);
+        if (len > 0.5f && vps > 50.0f && vps < 20000.0f)
+        {
+            st->ux = ddx / len;
+            st->uy = ddy / len;
+            st->speed = vps;
+            st->vel = true;
+        }
+    }
+    if (!st->vel && step > 1.0f)
+    {
+        // tick fields did not resolve (unknown subclass): use the observed step
         st->ux = step_x / step;
         st->uy = step_y / step;
+        if (st->speed <= 0.0f) st->speed = 1000.0f;
         st->vel = true;
-        uint64_t dt = now - prev;
-        if (dt >= 20 && dt <= 400)
-        {
-            float meas = step * 1000.0f / (float)dt;
-            if (meas > 50.0f && meas < 20000.0f)
-            {
-                speed_learn(st->name, meas);
-                st->speed = st->meas ? st->speed * 0.4f + meas * 0.6f : meas;
-                st->meas = true;
-            }
-        }
     }
     st->x = px, st->y = py;
     float dx = px - mx, dy = py - my;

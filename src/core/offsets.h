@@ -51,7 +51,15 @@ inline constexpr uint64_t LOGICCHARACTER_HP_OFF = 0xc4ULL;
 inline constexpr uint64_t LOGICGAMEOBJECT_DATA_OFF = 0x10ULL;
 inline constexpr uint64_t LOGICCHARACTERDATA_COLLISION_OFF = 0x2acULL;
 
-inline constexpr uint64_t PROJECTILEDATA_SPEED_OFF = 0x6cULL;
+// LogicProjectileServer - proven on v69 through FUN_100a383ac (getPosAtTick):
+// pos(t) = (t - startTick) * end / (endTick - startTick) + rest * start / ...
+inline constexpr uint64_t PROJSERVER_STARTTICK_OFF = 0x28ULL;
+inline constexpr uint64_t PROJSERVER_ENDTICK_OFF = 0x2cULL;
+inline constexpr uint64_t PROJSERVER_STARTX_OFF = 0xd0ULL;
+inline constexpr uint64_t PROJSERVER_STARTY_OFF = 0xd4ULL;
+inline constexpr uint64_t PROJSERVER_ENDX_OFF = 0xd8ULL;
+inline constexpr uint64_t PROJSERVER_ENDY_OFF = 0xdcULL;
+
 inline constexpr uint64_t PROJECTILEDATA_RADIUS_OFF = 0x74ULL;
 inline constexpr uint64_t PROJECTILEDATA_PASSES_ENV_OFF = 0x148ULL;
 inline constexpr uint64_t PROJECTILEDATA_ISBOUNCING_OFF = 0xe9ULL;

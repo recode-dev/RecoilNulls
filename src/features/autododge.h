@@ -69,7 +69,6 @@ struct Proj
     float x, y, ux, uy, speed, rad;
     uint8_t flags;
     bool vel;
-    bool meas;
     bool homing;
     int16_t ttype;
     char name[40];
