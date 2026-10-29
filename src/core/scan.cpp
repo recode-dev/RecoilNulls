@@ -59,8 +59,8 @@ BOOL addr_writable(uintptr_t address, size_t length)
 {
     return memory_writable(address, length);
 }
-inline constexpr int      PAGE_CACHE_SLOTS   = 256;
-inline constexpr int      REGION_CACHE_SLOTS = 64;
+inline constexpr int PAGE_CACHE_SLOTS   = 256;
+inline constexpr int REGION_CACHE_SLOTS = 64;
 struct memory_region_entry
 {
     uintptr_t         start;
@@ -79,7 +79,7 @@ static guint                        memory_page_size()
     }
     return cached;
 }
-static __thread int region_cache_next = 0;
+static __thread int               region_cache_next = 0;
 static const memory_region_entry* region_cache_lookup(
     uintptr_t address, size_t length, GumPageProtection required)
 {
@@ -179,8 +179,8 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     cursor = address & ~(pageSize - 1);
     for (int guard = 0; cursor < end && guard < 64; guard++)
     {
-        int slot = static_cast<int>((cursor >> 12) & (PAGE_CACHE_SLOTS - 1));
-        uint8_t ok   = 0;
+        int slot   = static_cast<int>((cursor >> 12) & (PAGE_CACHE_SLOTS - 1));
+        uint8_t ok = 0;
         if (page_cache_key[slot] == cursor)
         {
             ok = page_cache_ok[slot];
