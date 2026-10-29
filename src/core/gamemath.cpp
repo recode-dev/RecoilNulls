@@ -52,8 +52,7 @@ int lm_get_angle(int x, int y)
     return reinterpret_cast<int (*)(int, int)>(slot)(x, y);
 }
 
-int lm_distance_square_to_line(
-    int ax, int ay, int bx, int by, int px, int py)
+int lm_distance_square_to_line(int ax, int ay, int bx, int by, int px, int py)
 {
     static uintptr_t slot = 0;
     if (!slot)

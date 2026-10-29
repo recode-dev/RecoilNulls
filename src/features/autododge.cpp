@@ -82,7 +82,7 @@ int       pend_dmg   = 0;
 float     compute_threat_clearance(
         float mx, float my, float dx, float dy, const Threat& t)
 {
-    float sx  = t.vx - dx * self_speed, sy = t.vy - dy * self_speed;
+    float sx = t.vx - dx * self_speed, sy = t.vy - dy * self_speed;
     float far = SIM_T * 1.5f;
     return lm_distance_to_line(
                t.x, t.y, t.x + sx * far, t.y + sy * far, mx, my) -
@@ -593,7 +593,7 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
             continue;
         }
         float sx = t.vx - mx_step, sy = t.vy - my_step;
-        float c  = lm_distance_to_line(
+        float c = lm_distance_to_line(
                       t.x, t.y, t.x + sx * SIM_T, t.y + sy * SIM_T, mx, my) -
                   t.rad;
         if (c < margin) margin = c;
@@ -693,8 +693,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     }
     ad_dir_x = bx, ad_dir_y = by;
     ad_best_dir =
-        (lm_get_angle((int) (bx * 1000.0f), (int) (by * 1000.0f)) / 45 + 8) &
-        7;
+        (lm_get_angle((int) (bx * 1000.0f), (int) (by * 1000.0f)) / 45 + 8) & 7;
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
 }

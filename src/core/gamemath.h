@@ -10,8 +10,7 @@ int lm_sqrt(int value);
 int lm_sin(int degrees);
 int lm_cos(int degrees);
 int lm_get_angle(int x, int y);
-int lm_distance_square_to_line(
-    int ax, int ay, int bx, int by, int px, int py);
+int lm_distance_square_to_line(int ax, int ay, int bx, int by, int px, int py);
 float lm_distance_to_line(
     float ax, float ay, float bx, float by, float px, float py);
 
