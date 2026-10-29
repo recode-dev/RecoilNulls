@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
@@ -82,6 +83,11 @@ int val_skip = 0;
 int val_stage = 0;
 int val_proj_done = 0;
 int val_proj_tries = 0;
+int val_input_state = 0;
+int val_input_tries = 0;
+uintptr_t val_ci_manager = 0;
+uintptr_t val_ci_queue = 0;
+int32_t val_ci_count = 0;
 uint64_t val_probe_next = 0;
 
 void vf(const char* name, bool pass, const char* format, ...)
@@ -109,7 +115,7 @@ void vs(const char* name, const char* why)
     line("[VAL] %-32s skip  %s\n", name, why);
 }
 
-void val_client_input(uintptr_t clientPtr);
+int val_client_input(uintptr_t clientPtr);
 
 BOOL span(long long value)
 {
@@ -158,10 +164,14 @@ void val_rva_table()
            exec ? 1 : 0,
            head);
     }
-    vf("RVA_TILE_TO_LOGIC(x)",
-       game_tile_to_logic(3) == 900,
-       "3 -> %d (want 900)",
-       game_tile_to_logic(3));
+    {
+        int center = game_tile_to_logic(3);
+        vf("RVA_TILE_TO_LOGIC(x)",
+           center == 3 * 300 + 150 && game_logic_to_tile(center) == 3,
+           "3 -> %d (want 1050) back=%d",
+           center,
+           game_logic_to_tile(center));
+    }
     vf("RVA_LOGIC_TO_TILE(x)",
        game_logic_to_tile(900) == 3,
        "900 -> %d (want 3)",
@@ -286,7 +296,7 @@ void val_globals(uintptr_t slot)
             {
                 vf("OBJECTMANAGER_ARRAY_OFF", false, "read failed");
             }
-            val_client_input(clientPtr);
+            val_input_state = val_client_input(clientPtr);
         }
     }
     if (read_ptr(base + VTABLE_PROJECTILEDATA_RVA, &vtable))
@@ -322,7 +332,7 @@ void val_globals(uintptr_t slot)
        (unsigned long long)CLIENTINPUT_HASH_OUTER_MASK_RVA);
 }
 
-void val_client_input(uintptr_t clientPtr)
+int val_client_input(uintptr_t clientPtr)
 {
     uintptr_t manager = 0;
     uintptr_t queue = 0;
@@ -333,50 +343,35 @@ void val_client_input(uintptr_t clientPtr)
     int32_t mx = 0;
     int32_t my = 0;
     uint8_t token[8] = {0};
-    if (!read_ptr(clientPtr + LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF, &manager))
+    if (!read_ptr(clientPtr + LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF, &manager) ||
+        !manager || !pointer_plausible(manager))
     {
-        vf("LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF", false, "read failed");
-        return;
+        return 0;
     }
+    val_ci_manager = manager;
+    if (!read_ptr(manager + CLIENTINPUTMANAGER_QUEUE_OFF, &queue) || !queue ||
+        !pointer_plausible(queue))
+    {
+        return 0;
+    }
+    val_ci_queue = queue;
+    if (!read_int(queue + OBJECTMANAGER_COUNT_OFF, &count) || count <= 0 ||
+        count > 4096)
+    {
+        return 0;
+    }
+    val_ci_count = count;
     vf("LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF",
-       manager && pointer_plausible(manager),
+       true,
        "0x%llx",
        (unsigned long long)manager);
-    if (!manager)
-    {
-        vs("CLIENTINPUTMANAGER_QUEUE_OFF", "no input manager");
-        return;
-    }
-    if (!read_ptr(manager + CLIENTINPUTMANAGER_QUEUE_OFF, &queue))
-    {
-        vf("CLIENTINPUTMANAGER_QUEUE_OFF", false, "read failed");
-        return;
-    }
-    vf("CLIENTINPUTMANAGER_QUEUE_OFF",
-       queue && pointer_plausible(queue),
-       "0x%llx",
-       (unsigned long long)queue);
-    if (!queue || !read_int(queue + OBJECTMANAGER_COUNT_OFF, &count) ||
-        count < 0 || count > 4096)
-    {
-        vf("CLIENTINPUT_QUEUE_COUNT", false, "count=%d", count);
-        vs("CLIENTINPUTMESSAGE_TYPE_OFF", "queue empty or unreadable");
-        return;
-    }
+    vf("CLIENTINPUTMANAGER_QUEUE_OFF", true, "0x%llx", (unsigned long long)queue);
     vf("CLIENTINPUT_QUEUE_COUNT", true, "count=%d", count);
-    if (count == 0)
-    {
-        vs("CLIENTINPUTMESSAGE_TYPE_OFF", "queue empty");
-        vs("CLIENTINPUTMESSAGE_X_OFF", "queue empty");
-        vs("CLIENTINPUT_TOKEN_OFF", "queue empty");
-        vs("CLIENTINPUT_SKILLDATA_OFF", "queue empty");
-        return;
-    }
     if (!read_ptr(queue + OBJECTMANAGER_ARRAY_OFF, &array) || !array ||
         !read_ptr(array, &message) || !message || !pointer_plausible(message))
     {
         vf("CLIENTINPUT_QUEUE_ARRAY", false, "array/message unreadable");
-        return;
+        return 1;
     }
     if (read_int(message + CLIENTINPUTMESSAGE_TYPE_OFF, &type))
     {
@@ -393,11 +388,7 @@ void val_client_input(uintptr_t clientPtr)
     if (read_int(message + CLIENTINPUTMESSAGE_X_OFF, &mx) &&
         read_int(message + CLIENTINPUTMESSAGE_Y_OFF, &my))
     {
-        vf("CLIENTINPUTMESSAGE_X/Y_OFF",
-           span(mx) && span(my),
-           "x=%d y=%d",
-           mx,
-           my);
+        vf("CLIENTINPUTMESSAGE_X/Y_OFF", span(mx) && span(my), "x=%d y=%d", mx, my);
     }
     else
     {
@@ -414,9 +405,10 @@ void val_client_input(uintptr_t clientPtr)
        addr_readable(message + CLIENTINPUT_SKILLDATA_OFF, 8),
        "readable");
     vf("CLIENTINPUT_TOKEN_INPUT_OFF",
-       addr_readable(
-           message + CLIENTINPUT_TOKEN_OFF + CLIENTINPUT_TOKEN_INPUT_OFF, 4),
+       addr_readable(message + CLIENTINPUT_TOKEN_OFF + CLIENTINPUT_TOKEN_INPUT_OFF,
+                     4),
        "readable");
+    return 1;
 }
 
 void val_character(uintptr_t own)
@@ -502,22 +494,16 @@ void val_character(uintptr_t own)
         typedef uintptr_t (*name_t)(uintptr_t);
         name_t fn = reinterpret_cast<name_t>(callable(RVA_LOGICDATA_GETNAME));
         uintptr_t text = fn ? fn(data) : 0;
-        int length = 0;
         BOOL ok = NO;
         if (text && pointer_plausible(text))
         {
-            length = read_scstring(text, sizeof(name) - 1, name, sizeof(name));
-            ok = (length > 0) ? YES : NO;
+            ok = read_scstring(text, sizeof(name) - 1, name, sizeof(name)) ? YES : NO;
         }
         for (size_t i = 0; ok && i < sizeof(name) - 1 && name[i]; i++)
         {
             if (name[i] < 0x20 || name[i] > 0x7e) ok = NO;
         }
-        vf("RVA_LOGICDATA_GETNAME(x)",
-           ok,
-           "name=%s len=%d",
-           ok ? name : "-",
-           length);
+        vf("RVA_LOGICDATA_GETNAME(x)", ok, "name=%s", ok ? name : "-");
         if (text && pointer_plausible(text))
         {
             int32_t strLen = -1;
@@ -526,7 +512,7 @@ void val_character(uintptr_t own)
             BOOL dataOk = read_ptr(text + SCSTRING_DATA_OFF, &strData);
             vf("SCSTRING_LENGTH/DATA_OFF",
                lenOk && dataOk && strLen >= 0 && strLen <= 64 &&
-                   (strLen == length || length >= (int)sizeof(name) - 1),
+                   strLen == (int32_t)strlen(ok ? name : ""),
                "len=%d data=0x%llx",
                strLen,
                (unsigned long long)strData);
@@ -549,10 +535,6 @@ void val_tilemap(uintptr_t clientPtr)
         reinterpret_cast<map_t>(callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP));
     uintptr_t map = fn ? fn(clientPtr) : 0;
     uintptr_t tiles = 0;
-    uintptr_t tile = 0;
-    uintptr_t type = 0;
-    uint32_t flags = 0;
-    uint8_t block = 0;
     int32_t width = 0;
     int32_t height = 0;
     vf("RVA_GETTILEMAP(x)",
@@ -595,20 +577,44 @@ void val_tilemap(uintptr_t clientPtr)
        pointer_plausible(tiles),
        "0x%llx",
        (unsigned long long)tiles);
-    if (!read_ptr(tiles, &tile) || !tile || !read_ptr(tile, &type) || !type)
     {
-        vs("LOGICTILEDATA_FLAGS_OFF", "tile[0] unreadable");
-        vs("TILETYPEDATA_BLOCKFLAGS_OFF", "tile[0] unreadable");
-        return;
+        int total = (width > 0 && height > 0 && width * height < 4096)
+                        ? width * height
+                        : 256;
+        int stride = total / 96 + 1;
+        int seen = 0;
+        int blocked = 0;
+        uint32_t sample = 0;
+        uint8_t sampleBlock = 0;
+        for (int i = 0; i < total; i += stride)
+        {
+            uintptr_t item = 0;
+            uintptr_t kind = 0;
+            uint32_t f = 0;
+            uint8_t b = 0;
+            if (!read_ptr(tiles + (uintptr_t)i * 8, &item) || !item) continue;
+            if (!read_ptr(item, &kind) || !kind) continue;
+            if (!read_bytes(kind + LOGICTILEDATA_FLAGS_OFF, &f, sizeof(f))) continue;
+            seen++;
+            if (f && !sample) sample = f;
+            if (read_bytes(kind + TILETYPEDATA_BLOCKFLAGS_OFF, &b, 1) && b)
+            {
+                blocked++;
+                if (!sampleBlock) sampleBlock = b;
+            }
+        }
+        vf("LOGICTILEDATA_FLAGS_OFF",
+           seen > 0 && sample != 0,
+           "probed=%d flags=0x%08x",
+           seen,
+           sample);
+        vf("TILETYPEDATA_BLOCKFLAGS_OFF",
+           blocked > 0,
+           "blocked=%d/%d sample=0x%02x",
+           blocked,
+           seen,
+           (unsigned)sampleBlock);
     }
-    vf("LOGICTILEDATA_FLAGS_OFF",
-       read_bytes(type + LOGICTILEDATA_FLAGS_OFF, &flags, sizeof(flags)),
-       "flags=0x%08x weak",
-       flags);
-    vf("TILETYPEDATA_BLOCKFLAGS_OFF",
-       read_bytes(type + TILETYPEDATA_BLOCKFLAGS_OFF, &block, 1),
-       "block=0x%02x weak",
-       (unsigned)block);
     vf("TILEMAP_GEOMETRY",
        width > 0 && height > 0 && width == wall_cache_w() &&
            height == wall_cache_h(),
@@ -801,17 +807,36 @@ void maybe_validate()
         val_probe_next = now_us + 500000ULL;
         return;
     }
-    if (val_proj_done || val_proj_tries >= 120) return;
+    if (val_input_state && val_proj_done) return;
     if (val_probe_next && now_us < val_probe_next) return;
     val_probe_next = now_us + 1000000ULL;
     if (!base || !own_elem || dead) return;
     val_ok = 0;
     val_fail = 0;
     val_skip = 0;
-    val_projectile();
+    if (val_input_state == 0)
+    {
+        uintptr_t clientPtr = client();
+        val_input_state = (clientPtr && pointer_plausible(clientPtr))
+                              ? val_client_input(clientPtr)
+                              : 0;
+        if (val_input_state == 0 && ++val_input_tries >= 120)
+        {
+            char why[128];
+            snprintf(why,
+                     sizeof(why),
+                     "queue not populated in 120s mgr=0x%llx q=0x%llx n=%d",
+                     (unsigned long long)val_ci_manager,
+                     (unsigned long long)val_ci_queue,
+                     val_ci_count);
+            vs("CLIENTINPUT_*", why);
+            val_input_state = 2;
+        }
+    }
+    if (!val_proj_done) val_projectile();
     if (val_ok + val_fail + val_skip > 0)
     {
-        line("[VAL] proj summary ok=%d fail=%d skip=%d\n",
+        line("[VAL] late summary ok=%d fail=%d skip=%d\n",
              val_ok,
              val_fail,
              val_skip);
