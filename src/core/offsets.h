@@ -19,7 +19,6 @@ inline constexpr uint64_t RVA_CLIENTINPUTMANAGER_ADDINPUT = 0x74675cULL;
 inline constexpr uint64_t RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER = 0x942ebcULL;
 inline constexpr uint64_t LOGICTILE_BLOCKMASK_OFF = 0x10ULL;
 inline constexpr uint64_t LOGICTILE_WATERMASK_OFF = 0x18ULL;
-inline constexpr uint64_t LOGICTILE_THIRDMASK_OFF = 0x20ULL;
 inline constexpr uint64_t LOGICTILE_FOURTHMASK_OFF = 0x28ULL;
 inline constexpr uint64_t RVA_LOGIC_TILEMAP_ISPLAYERLINEOFSIGHTCLEAR =
     0x943b08ULL;
@@ -64,11 +63,8 @@ inline constexpr uint64_t LOGICCHARACTERDATA_COLLISION_OFF = 0x2acULL;
 //   stores the live position at +0x38/+0x3c/+0x40 init(arg 4, the shooter) ->
 //   +0x100 owner travelTicks = max(1, distance * 20 / speed), so speed =
 //   distance * 20 / ticks
-inline constexpr uint64_t RVA_PROJSERVER_GETPOSATTICK = 0xa383acULL;
 inline constexpr uint64_t PROJSERVER_X_OFF = 0x38ULL;
 inline constexpr uint64_t PROJSERVER_Y_OFF = 0x3cULL;
-inline constexpr uint64_t PROJSERVER_Z_OFF = 0x40ULL;
-inline constexpr uint64_t PROJSERVER_TICKORIGIN_OFF = 0x448ULL;
 inline constexpr uint64_t PROJSERVER_OWNER_OFF = 0x100ULL;
 inline constexpr uint64_t PROJSERVER_STARTTICK_OFF = 0x28ULL;
 inline constexpr uint64_t PROJSERVER_ENDTICK_OFF = 0x2cULL;

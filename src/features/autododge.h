@@ -33,7 +33,6 @@ extern float ad_hit_r[AD_REPORT_MAX];
 extern float ad_threat_ca[AD_REPORT_MAX];
 extern int ad_ind_n;
 extern int ad_shot_tick;
-extern int ad_proj_list_off;
 extern int32_t ad_pj_pid[AD_REPORT_MAX];
 extern float ad_pj_x[AD_REPORT_MAX];
 extern float ad_pj_y[AD_REPORT_MAX];

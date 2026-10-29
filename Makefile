@@ -9,9 +9,8 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME := Recoil
 
 Recoil_FILES := $(shell find $(SRC_DIR) -name "*.cpp" | sort)
-Recoil_FILES += $(shell find tools -name "*.cpp" | sort)
 
-RECOIL_INCLUDE_FLAGS := -I$(SRC_DIR) -Itools -I$(RECOIL_GUM_DIR) -I$(RECOIL_GUM_DIR)/include
+RECOIL_INCLUDE_FLAGS := -I$(SRC_DIR) -I$(RECOIL_GUM_DIR) -I$(RECOIL_GUM_DIR)/include
 RECOIL_WARNING_FLAGS := -Wall -Wextra -Wno-ambiguous-macro
 RECOIL_OPT_FLAGS := -O3 -flto -fno-math-errno -fno-trapping-math \
 	-fno-unwind-tables -fno-asynchronous-unwind-tables -fmerge-all-constants \

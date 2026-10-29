@@ -31,7 +31,6 @@ float ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
 int ad_pj_t0[AD_REPORT_MAX] = {0}, ad_pj_t1[AD_REPORT_MAX] = {0};
 int ad_pj_vel[AD_REPORT_MAX] = {0};
 int ad_shot_tick = 0;
-int ad_proj_list_off = 0;
 int ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
 int ad_hit_picked = 0;
 float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
@@ -427,24 +426,11 @@ static void add_proj(const uint8_t* obj,
 static uintptr_t obj_data[COUNT_MAX];
 static uintptr_t obj_rva[COUNT_MAX];
 
-static uintptr_t proj_list_off = 0;
-
-static int proj_list(uintptr_t mgr, uintptr_t off, uintptr_t* items)
-{
-    uintptr_t p = 0;
-    int32_t n = 0;
-    if (!read_ptr(mgr + off, &p) || !p || !pointer_plausible(p)) return -1;
-    if (!read_int(mgr + off + 0xc, &n) || n < 0 || n > 256) return -1;
-    *items = p;
-    return n;
-}
-
 void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
 {
     float zone = self_speed * 6.0f;
     if (zone < ZONE_FAR) zone = ZONE_FAR;
     float zone2 = zone * zone;
-    uintptr_t mgr = manager_ptr;
     for (int i = 0; i < obj_count; i++)
     {
         obj_data[i] = 0;
@@ -495,62 +481,6 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
                  ex,
                  ey);
     }
-    if (mgr && !proj_list_off)
-    {
-        static const uintptr_t cand[] = {
-            0x40, 0x10, 0x20, 0x30, 0x50, 0x38, 0x48, 0x18, 0x28, 0x58};
-        for (unsigned c = 0; c < sizeof(cand) / sizeof(cand[0]); c++)
-        {
-            uintptr_t items = 0;
-            int n = proj_list(mgr, cand[c], &items);
-            if (n <= 0) continue;
-            bool shaped = false;
-            for (int i = 0; i < n && i < 8 && !shaped; i++)
-            {
-                uintptr_t item = 0;
-                uint8_t buf[OBJ_BLOCK_SIZE];
-                if (!read_ptr(items + (uintptr_t)i * sizeof(uintptr_t),
-                              &item) ||
-                    !item)
-                    continue;
-                if (!read_bytes(item, buf, sizeof(buf))) continue;
-                int32_t t0 = 0, t1 = 0;
-                float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f,
-                      ey = 0.0f;
-                if (proj_shaped(buf, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
-                    shaped = true;
-            }
-            if (!shaped) continue;
-            proj_list_off = cand[c];
-            break;
-        }
-        ad_proj_list_off = (int)proj_list_off;
-    }
-    if (mgr && proj_list_off)
-    {
-        uintptr_t items = 0;
-        int n = proj_list(mgr, proj_list_off, &items);
-        if (n > 64) n = 64;
-        for (int i = 0; i < n; i++)
-        {
-            uintptr_t op = 0;
-            if (!read_ptr(items + (uintptr_t)i * sizeof(uintptr_t), &op) || !op)
-                continue;
-            uint8_t buf[OBJ_BLOCK_SIZE];
-            if (!read_bytes(op, buf, sizeof(buf))) continue;
-            int32_t nt0 = 0, nt1 = 0;
-            memcpy(&nt0, buf + PROJSERVER_STARTTICK_OFF, sizeof(nt0));
-            memcpy(&nt1, buf + PROJSERVER_ENDTICK_OFF, sizeof(nt1));
-            if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 3000) ad_shot_tick++;
-            int32_t t0 = 0, t1 = 0;
-            float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f,
-                  ey = 0.0f;
-            if (!proj_shaped(buf, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
-                continue;
-            add_proj(
-                buf, op, now, mx, my, zone2, t0, t1, px, py, sx, sy, ex, ey);
-        }
-    }
 }
 
 int ad_find_shot(uintptr_t* objOut,
@@ -560,31 +490,6 @@ int ad_find_shot(uintptr_t* objOut,
                  float* px,
                  float* py)
 {
-    uintptr_t items = 0;
-    int n = 0;
-    if (manager_ptr && proj_list_off)
-    {
-        n = proj_list(manager_ptr, proj_list_off, &items);
-        if (n > 64) n = 64;
-    }
-    for (int i = 0; i < n; i++)
-    {
-        uintptr_t op = 0;
-        if (!read_ptr(items + (uintptr_t)i * sizeof(uintptr_t), &op) || !op)
-            continue;
-        uint8_t buf[OBJ_BLOCK_SIZE];
-        if (!read_bytes(op, buf, sizeof(buf))) continue;
-        int32_t t0 = 0, t1 = 0;
-        float x = 0.0f, y = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
-        if (!proj_shaped(buf, &t0, &t1, &x, &y, &sx, &sy, &ex, &ey)) continue;
-        *objOut = op;
-        *dataOut = proj_data(op);
-        *tick0 = t0;
-        *tick1 = t1;
-        *px = x;
-        *py = y;
-        return 1;
-    }
     for (int i = 0; i < obj_count; i++)
     {
         if (!obj_valid[i] || !obj_snapshot[i]) continue;
