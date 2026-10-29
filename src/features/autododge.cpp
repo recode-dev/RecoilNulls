@@ -562,10 +562,12 @@ void autododge_reset()
 }
 void autododge()
 {
-    static uint64_t pass_ms = 0;
-    uint64_t pass = us() / 1000;
-    if (pass_ms && pass - pass_ms < TICK_MS) return;
-    pass_ms = pass;
+    // No 50 ms gate here. The hook runs at 120 Hz and the move command has to
+    // be written at that rate or the joystick outvotes it on every frame it
+    // skips - that is what made the dodge freeze while the player rotated the
+    // stick in place. The cost is 17 headings * threats * 32 steps ~ 4k float
+    // operations, about half a million per second, which is nothing next to
+    // the game; [m] wl= reports the real number.
     ad_best_dir = -1;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = ad_ind_n = 0;
