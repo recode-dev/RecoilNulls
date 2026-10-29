@@ -462,7 +462,8 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
             if (!read_ptr(items, &first) || !first) continue;
             if (!read_bytes(first, buf, sizeof(buf))) continue;
             int32_t t0 = 0, t1 = 0;
-            float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
+            float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f,
+                  ey = 0.0f;
             if (!proj_shaped(buf, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
                 continue;
             proj_list_off = cand[c];
@@ -487,23 +488,12 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
             memcpy(&nt1, buf + PROJSERVER_ENDTICK_OFF, sizeof(nt1));
             if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 400) ad_shot_tick++;
             int32_t t0 = 0, t1 = 0;
-            float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f, ey = 0.0f;
+            float px = 0.0f, py = 0.0f, sx = 0.0f, sy = 0.0f, ex = 0.0f,
+                  ey = 0.0f;
             if (!proj_shaped(buf, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
                 continue;
-            add_proj(buf,
-                     op,
-                     now,
-                     mx,
-                     my,
-                     zone2,
-                     t0,
-                     t1,
-                     px,
-                     py,
-                     sx,
-                     sy,
-                     ex,
-                     ey);
+            add_proj(
+                buf, op, now, mx, my, zone2, t0, t1, px, py, sx, sy, ex, ey);
         }
     }
 }
