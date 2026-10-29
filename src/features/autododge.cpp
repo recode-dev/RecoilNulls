@@ -658,6 +658,10 @@ void autododge()
         fx = mx + (fx - mx) * 0.5f;
         fy = my + (fy - my) * 0.5f;
     }
+    float max_x = wall_units(wall_cache_w()) - OWN_HITBOX;
+    float max_y = wall_units(wall_cache_h()) - OWN_HITBOX;
+    fx = fminf(fmaxf(fx, OWN_HITBOX), max_x);
+    fy = fminf(fmaxf(fy, OWN_HITBOX), max_y);
     int32_t tx = axis(fx, wall_cache_w());
     int32_t ty = axis(fy, wall_cache_h());
     pred_set(tx, ty);
