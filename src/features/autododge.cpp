@@ -308,8 +308,8 @@ static uint32_t last_hp = 0;
 static float free_run(float mx, float my, float dx, float dy, float far)
 {
     float run = far;
-    float w = (float)wall_cache_w() * WALL_TILE_SIZE;
-    float h = (float)wall_cache_h() * WALL_TILE_SIZE;
+    float w = wall_units(wall_cache_w());
+    float h = wall_units(wall_cache_h());
     if (dx > 1e-6f)
         run = fminf(run, (w - OWN_HITBOX - mx) / dx);
     else if (dx < -1e-6f)
@@ -318,7 +318,8 @@ static float free_run(float mx, float my, float dx, float dy, float far)
         run = fminf(run, (h - OWN_HITBOX - my) / dy);
     else if (dy < -1e-6f)
         run = fminf(run, (OWN_HITBOX - my) / dy);
-    for (float d = WALL_TILE_SIZE; d < run; d += WALL_TILE_SIZE)
+    const float step = wall_units(1);
+    for (float d = step; d < run; d += step)
     {
         if (wall_is_blocked_wide(mx + dx * d, my + dy * d, OWN_HITBOX))
         {
@@ -374,8 +375,8 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
     float far = self_speed * SIM_T;
     float run = free_run(mx, my, dx, dy, far);
     float room = run >= far ? 1.0f : run / far;
-    float w = (float)wall_cache_w() * WALL_TILE_SIZE - OWN_HITBOX;
-    float h = (float)wall_cache_h() * WALL_TILE_SIZE - OWN_HITBOX;
+    float w = wall_units(wall_cache_w()) - OWN_HITBOX;
+    float h = wall_units(wall_cache_h()) - OWN_HITBOX;
     float mx_step = dx * self_speed, my_step = dy * self_speed;
     int survive = SIM_STEPS + 1;
     float margin = 1e30f;

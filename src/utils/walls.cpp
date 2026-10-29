@@ -12,6 +12,12 @@ static int wall_have = 0;
 static uintptr_t wall_map = 0;
 static int wall_dirty = 1;
 static uint64_t wall_fail_ms = 0;
+float wall_units(int tiles)
+{
+    return static_cast<float>(game_tile_to_logic(tiles) -
+                              game_tile_to_logic(0));
+}
+
 int wall_cache_w()
 {
     return wall_w;
@@ -208,7 +214,7 @@ int wall_los(float ax, float ay, float bx, float by)
 
 int32_t axis(float v, int tiles)
 {
-    float limit = (float)tiles * WALL_TILE_SIZE - 1.0f;
+    float limit = wall_units(tiles) - 1.0f;
     if (v < 0.0f) return 0;
     if (v > limit) return (int32_t)limit;
     return (int32_t)roundf(v);

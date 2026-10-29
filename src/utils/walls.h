@@ -1,12 +1,12 @@
 #ifndef UTILS_WALLS_H
 #define UTILS_WALLS_H
 #include <cstdint>
-#define WALL_TILE_SIZE 300.0f
 inline constexpr int WALL_BLOCKS_MOVEMENT = 128;
 inline constexpr int WALL_MAX_MAP_TILES = 120;
 inline constexpr int WALL_MAX_TOTAL_TILES =
     WALL_MAX_MAP_TILES * WALL_MAX_MAP_TILES;
 inline constexpr int WALL_RETRY_MS = 2000;
+float wall_units(int tiles);
 int wall_cache_w();
 int wall_cache_h();
 int wall_build();
