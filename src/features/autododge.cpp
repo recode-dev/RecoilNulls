@@ -11,7 +11,7 @@ int active = 0, in_move = 0;
 int ad_human = 0;
 float ad_dir_x = 1.0f, ad_dir_y = 0.0f;
 int ad_hold_ms = 0, ad_urgent = 0;
-int ad_beam_n = 0, ad_ind_n = 0;
+int ad_ind_n = 0;
 int ad_pass_own = 0;
 uint64_t ad_qv[16] = {0};
 uint16_t ad_qc[16] = {0};
@@ -36,7 +36,6 @@ float ad_enemy_d[AD_ENEMY_MAX] = {0};
 int ad_enemy_aim[AD_ENEMY_MAX] = {0};
 namespace
 {
-constexpr float OWN_HITBOX = 120.0f;
 constexpr float REACH = 300.0f;
 constexpr int DIRS = 16;
 constexpr int SIM_STEPS = 32;
@@ -61,6 +60,7 @@ int threat_n = 0;
 Proj projs[PROJ_SLOTS];
 uintptr_t char_vt = 0;
 float self_speed = 1.0f;
+float own_hitbox = 0.0f;
 int pend_dmg = 0;
 float clear_one(float mx, float my, float dx, float dy, const Threat& t)
 {
@@ -117,8 +117,7 @@ void init_proj(
     st->ux = 0.0f;
     st->uy = 0.0f;
     st->flags = 0;
-    if (data[PROJECTILEDATA_ISBEAM_OFF]) st->flags |= B_BEAM;
-    if (data[PROJECTILEDATA_INDIRECT_OFF]) st->flags |= B_IND;
+    if (data[PROJECTILEDATA_PASSES_ENV_OFF]) st->flags |= B_IND;
     if (data[PROJECTILEDATA_PIERCES_ENV_OFF] ||
         data[PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF])
         st->flags |= B_PIERCE;
@@ -213,17 +212,12 @@ static void add_proj(const uint8_t* obj,
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
     if (dx * dx + dy * dy > zone2) return;
-    if (st->flags & B_BEAM)
-    {
-        ad_beam_n++;
-        return;
-    }
     if (st->flags & B_IND) ad_ind_n++;
     if (!(st->flags & (B_IND | B_PIERCE)) && !wall_los(px, py, mx, my)) return;
     float vv = vx * vx + vy * vy;
     if (vv <= 0.0f) return;
-    float rad = st->rad + OWN_HITBOX + AD_SAFETY;
-    if (st->flags & B_BOUNCE) rad += OWN_HITBOX * 0.5f;
+    float rad = st->rad + own_hitbox + AD_SAFETY;
+    if (st->flags & B_BOUNCE) rad += own_hitbox * 0.5f;
     float tt = -(dx * vx + dy * vy) / vv;
     if (tt < 0.0f && dx * dx + dy * dy > rad * rad) return;
     for (int k = 0; k < threat_n; k++)
@@ -312,17 +306,17 @@ static float free_run(float mx, float my, float dx, float dy, float far)
     float w = wall_units(wall_cache_w());
     float h = wall_units(wall_cache_h());
     if (dx > 1e-6f)
-        run = fminf(run, (w - OWN_HITBOX - mx) / dx);
+        run = fminf(run, (w - own_hitbox - mx) / dx);
     else if (dx < -1e-6f)
-        run = fminf(run, (OWN_HITBOX - mx) / dx);
+        run = fminf(run, (own_hitbox - mx) / dx);
     if (dy > 1e-6f)
-        run = fminf(run, (h - OWN_HITBOX - my) / dy);
+        run = fminf(run, (h - own_hitbox - my) / dy);
     else if (dy < -1e-6f)
-        run = fminf(run, (OWN_HITBOX - my) / dy);
+        run = fminf(run, (own_hitbox - my) / dy);
     const float step = wall_units(1);
     for (float d = step; d < run; d += step)
     {
-        if (wall_is_blocked_wide(mx + dx * d, my + dy * d, OWN_HITBOX))
+        if (wall_is_blocked_wide(mx + dx * d, my + dy * d, own_hitbox))
         {
             run = d;
             break;
@@ -349,12 +343,12 @@ static void sim_pos(float mx,
         ax += dx * self_speed * (tk - delay);
         ay += dy * self_speed * (tk - delay);
     }
-    if (ax < OWN_HITBOX)
-        ax = OWN_HITBOX;
+    if (ax < own_hitbox)
+        ax = own_hitbox;
     else if (ax > w)
         ax = w;
-    if (ay < OWN_HITBOX)
-        ay = OWN_HITBOX;
+    if (ay < own_hitbox)
+        ay = own_hitbox;
     else if (ay > h)
         ay = h;
 }
@@ -376,8 +370,8 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
     float far = self_speed * SIM_T;
     float run = free_run(mx, my, dx, dy, far);
     float room = run >= far ? 1.0f : run / far;
-    float w = wall_units(wall_cache_w()) - OWN_HITBOX;
-    float h = wall_units(wall_cache_h()) - OWN_HITBOX;
+    float w = wall_units(wall_cache_w()) - own_hitbox;
+    float h = wall_units(wall_cache_h()) - own_hitbox;
     float mx_step = dx * self_speed, my_step = dy * self_speed;
     int survive = SIM_STEPS + 1;
     float margin = 1e30f;
@@ -418,11 +412,11 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
         if (c < margin) margin = c;
     }
     if (margin > 1e29f) margin = 0.0f;
-    if (margin > OWN_HITBOX * 3.0f) margin = OWN_HITBOX * 3.0f;
+    if (margin > own_hitbox * 3.0f) margin = own_hitbox * 3.0f;
     steps = survive;
     return (float)survive * WEIGHT_STEP + margin + WEIGHT_POS * room +
            WEIGHT_POS * 0.28f * nearest_away(mx, my, dx, dy) -
-           OWN_HITBOX * wall_pull(mx, my, dx, dy, OWN_HITBOX);
+           own_hitbox * wall_pull(mx, my, dx, dy, own_hitbox);
 }
 static void choose(float mx, float my, float& out_x, float& out_y)
 {
@@ -436,7 +430,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         float dx = cosf(a), dy = sinf(a);
         int steps = 0;
         float v = dir_value(mx, my, dx, dy, steps);
-        if (has) v += OWN_HITBOX * 8.0f * (dx * commit_x + dy * commit_y);
+        if (has) v += own_hitbox * 8.0f * (dx * commit_x + dy * commit_y);
         val[i] = v;
         if (v > best)
         {
@@ -457,7 +451,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         float rdx = cosf(ra), rdy = sinf(ra);
         int steps = 0;
         float v = dir_value(mx, my, rdx, rdy, steps);
-        if (has) v += OWN_HITBOX * 8.0f * (rdx * commit_x + rdy * commit_y);
+        if (has) v += own_hitbox * 8.0f * (rdx * commit_x + rdy * commit_y);
         if (v > best)
         {
             best = v, a = ra, best_steps = steps;
@@ -474,7 +468,7 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         bool die_fast = better && cur > 0 && cur <= HOLD_DANGER_STEPS;
         bool walled =
             better && free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
-                          OWN_HITBOX * 2.0f;
+                          own_hitbox * 2.0f;
         bool held = now - turn_ms < TURN_HOLD_MS;
         if (die_fast || walled)
         {
@@ -538,6 +532,22 @@ static void learn_vtable()
         return;
     char_vt = rva;
 }
+static void learn_hitbox()
+{
+    void* data = nullptr;
+    int32_t r = 0;
+    if (!base || !own_elem) return;
+    if (!read_ptr(own_elem + LOGICGAMEOBJECT_DATA_OFF, &data) || !data ||
+        !pointer_plausible((uintptr_t)data))
+        return;
+    if (!read_bytes(
+            (uintptr_t)data + LOGICCHARACTERDATA_COLLISION_OFF, &r, sizeof(r)))
+        return;
+    if (r <= 0) return;
+    float tile = wall_units(1);
+    if (tile > 0.0f && (float)r >= tile) return;
+    own_hitbox = (float)r;
+}
 void autododge_reset()
 {
     ad_best_dir = -1;
@@ -545,10 +555,10 @@ void autododge_reset()
     ad_proj_n = 0;
     ad_enemy_n = 0;
     ad_threat_n = 0;
-    ad_beam_n = 0;
     ad_ind_n = 0;
     threat_n = 0;
     char_vt = 0;
+    own_hitbox = 0.0f;
     last_hp = 0;
     pend_dmg = 0;
     sent_ms = 0;
@@ -565,7 +575,7 @@ void autododge()
 {
     ad_best_dir = -1;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
-    ad_beam_n = ad_ind_n = 0;
+    ad_ind_n = 0;
     threat_n = 0;
     if (own_hp < last_hp)
     {
@@ -578,7 +588,9 @@ void autododge()
         return;
     }
     learn_vtable();
-    if (!char_vt || wall_cache_w() <= 0 || wall_cache_h() <= 0)
+    learn_hitbox();
+    if (!char_vt || own_hitbox <= 0.0f || wall_cache_w() <= 0 ||
+        wall_cache_h() <= 0)
     {
         end_dodge();
         return;
@@ -625,7 +637,7 @@ void autododge()
     bool hot = false;
     for (int i = 0; i < threat_n; i++)
     {
-        if (ad::static_clear(threats[i], mx, my) < ad::OWN_HITBOX * 2.0f)
+        if (ad::static_clear(threats[i], mx, my) < ad::own_hitbox * 2.0f)
         {
             hot = true;
             break;
@@ -658,10 +670,10 @@ void autododge()
         fx = mx + (fx - mx) * 0.5f;
         fy = my + (fy - my) * 0.5f;
     }
-    float max_x = wall_units(wall_cache_w()) - OWN_HITBOX;
-    float max_y = wall_units(wall_cache_h()) - OWN_HITBOX;
-    fx = fminf(fmaxf(fx, OWN_HITBOX), max_x);
-    fy = fminf(fmaxf(fy, OWN_HITBOX), max_y);
+    float max_x = wall_units(wall_cache_w()) - own_hitbox;
+    float max_y = wall_units(wall_cache_h()) - own_hitbox;
+    fx = fminf(fmaxf(fx, own_hitbox), max_x);
+    fy = fminf(fmaxf(fy, own_hitbox), max_y);
     int32_t tx = axis(fx, wall_cache_w());
     int32_t ty = axis(fy, wall_cache_h());
     pred_set(tx, ty);

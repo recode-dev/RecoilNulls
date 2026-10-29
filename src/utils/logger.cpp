@@ -222,7 +222,7 @@ void diag_tick()
         read_int(own_elem + LOGICCHARACTER_ATTACK_ANGLE_OFF, &own_aim);
     }
     line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
-         "dir=%s map=%dx%d dodge=%d hit=%d beam=%d ind=%d fd=%d tgt=(%d,%d) "
+         "dir=%s map=%dx%d dodge=%d hit=%d hb=%d ind=%d fd=%d tgt=(%d,%d) "
          "hu=%d pm=%u/%u wb=%d/%d pt=%d wp=%d\n",
          static_cast<unsigned long>(hz),
          static_cast<unsigned long>(wl_avg),
@@ -240,7 +240,7 @@ void diag_tick()
          wall_cache_h(),
          dodge_count,
          hit_count,
-         ad_beam_n,
+         (int)(ad::own_hitbox + 0.5f),
          ad_ind_n,
          own_aim,
          ad_target_x,

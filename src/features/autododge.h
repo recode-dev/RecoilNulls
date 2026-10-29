@@ -31,7 +31,6 @@ extern float ad_hit_ca[AD_REPORT_MAX];
 extern float ad_hit_ttc[AD_REPORT_MAX];
 extern float ad_hit_r[AD_REPORT_MAX];
 extern float ad_threat_ca[AD_REPORT_MAX];
-extern int ad_beam_n;
 extern int ad_ind_n;
 extern uint64_t ad_qv[16];
 extern uint16_t ad_qc[16];
@@ -46,12 +45,12 @@ void autododge_reset();
 void autododge();
 namespace ad
 {
-constexpr float OWN_HITBOX = 120.0f;
+extern float own_hitbox;
 constexpr int THREAT_MAX = 32;
 constexpr int PROJ_SLOTS = 48;
 constexpr uint64_t TICK_MS = 50;
 constexpr uint64_t PROJ_TTL_MS = TICK_MS * 20;
-constexpr uint8_t B_BEAM = 1, B_IND = 2, B_PIERCE = 4, B_BOUNCE = 8;
+constexpr uint8_t B_IND = 2, B_PIERCE = 4, B_BOUNCE = 8;
 struct Threat
 {
     float x, y, vx, vy, rad, tt;
