@@ -118,14 +118,8 @@ int game_distance_sq(int x1, int y1, int x2, int y2)
     return reinterpret_cast<int (*)(int, int, int, int)>(slot)(x1, y1, x2, y2);
 }
 
-int game_segment_hits_circle(int         x1,
-                             int         y1,
-                             int         x2,
-                             int         y2,
-                             int         cx,
-                             int         cy,
-                             int         radius,
-                             int*        out)
+int game_segment_hits_circle(
+    int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
 {
     static uintptr_t slot = 0;
     if (!slot)
@@ -658,7 +652,8 @@ static void prepare_direction_costs(float mx, float my)
         cost_threat_ry[i] = my - t.y;
         if (vv >= 1e-6f)
         {
-            float iv = 1.0f / (float) game_distance(0, 0, (int) t.vx, (int) t.vy);
+            float iv =
+                1.0f / (float) game_distance(0, 0, (int) t.vx, (int) t.vy);
             cost_threat_ux[i]     = t.vx * iv;
             cost_threat_uy[i]     = t.vy * iv;
             cost_threat_moving[i] = 1;
@@ -1097,8 +1092,8 @@ void fill_autododge_report(float mx, float my, float dx, float dy)
         ad_threat_r[s]   = t.rad;
         ad_threat_ca[s]  = bc;
         ad_threat_ttc[s] = t.tt;
-        ad_threat_d[s]   = (float) game_distance(
-            (int) t.x, (int) t.y, (int) mx, (int) my);
+        ad_threat_d[s] =
+            (float) game_distance((int) t.x, (int) t.y, (int) mx, (int) my);
         memcpy(ad_threat_name[s], t.name, sizeof(ad_threat_name[s]));
         ad_threat_name[s][sizeof(ad_threat_name[s]) - 1] = '\0';
     }
