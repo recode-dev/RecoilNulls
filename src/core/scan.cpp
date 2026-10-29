@@ -95,7 +95,7 @@ static void track_own_speed()
         return;
     }
     float dt = (float)(now_us - last_pos_us) / 1000000.0f;
-    if (dt < 0.06f) return;  // window not long enough yet, keep accumulating
+    if (dt < 0.06f) return; // window not long enough yet, keep accumulating
     // The sample point has to advance even when the sample is rejected. It
     // used to advance only inside the accept branch, so the first stop or
     // loading stall (dt >= 0.25) left dt above the limit for good and the
