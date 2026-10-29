@@ -9,27 +9,27 @@
 #include <vector>
 static struct
 {
-    float AWARE = 3200.0f;
-    uint32_t TICK_MS = 4;
-    uint32_t TICK_MS_IDLE = 48;
-    int DIR_COUNT = 48;
-    float SKIN = 50.0f;
-    uint32_t LOCK_MS = 70;
-    float REACH = 600.0f;
-    float HORIZON_S = 1.4f;
-    float KEEP_BAND = 100.0f;
-    float MOMENTUM = 55.0f;
-    float ENGAGE = 100.0f;
+    float    AWARE            = 3200.0f;
+    uint32_t TICK_MS          = 4;
+    uint32_t TICK_MS_IDLE     = 48;
+    int      DIR_COUNT        = 48;
+    float    SKIN             = 50.0f;
+    uint32_t LOCK_MS          = 70;
+    float    REACH            = 600.0f;
+    float    HORIZON_S        = 1.4f;
+    float    KEEP_BAND        = 100.0f;
+    float    MOMENTUM         = 55.0f;
+    float    ENGAGE           = 100.0f;
     uint32_t RELEASE_GRACE_MS = 200;
-    float WALL_HIT = 9000.0f;
-    int PROBE_N = 3;
-    float PROBE_T = 0.35f;
-    float WALL_BODY = 240.0f;
-    uint32_t SEND_MIN_MS = 80;
-    float SEND_MIN_DIST = 8.0f;
-    float MIN_POS = 50.0f;
+    float    WALL_HIT         = 9000.0f;
+    int      PROBE_N          = 3;
+    float    PROBE_T          = 0.35f;
+    float    WALL_BODY        = 240.0f;
+    uint32_t SEND_MIN_MS      = 80;
+    float    SEND_MIN_DIST    = 8.0f;
+    float    MIN_POS          = 50.0f;
 } TUNE;
-static const float DEFAULT_PAD = 80.0f;
+static const float DEFAULT_PAD  = 80.0f;
 static const float DEFAULT_GROW = 0.5f;
 struct V2
 {
@@ -48,53 +48,53 @@ struct Threat
 };
 struct ProjectileState
 {
-    float dirX, dirY;
-    float speed;
-    float radius;
+    float    dirX, dirY;
+    float    speed;
+    float    radius;
     uint64_t lastSeen;
-    float sampleX, sampleY;
+    float    sampleX, sampleY;
     uint64_t sampleTime;
-    float spawnX, spawnY;
-    float castRange;
-    bool isIndirect;
-    bool isBeam;
+    float    spawnX, spawnY;
+    float    castRange;
+    bool     isIndirect;
+    bool     isBeam;
 };
-__thread int in_move = 0;
-int32_t pl_mine[12] = {0};
-int active = 0;
-int moving = 0;
+__thread int                          in_move     = 0;
+int32_t                               pl_mine[12] = {0};
+int                                   active      = 0;
+int                                   moving      = 0;
 static std::map<int, ProjectileState> g_proj_cache;
-static std::vector<V2> g_ring;
-static int g_headingIdx = -1;
-static uint64_t g_holdUntil = 0;
-static uint64_t g_lastDangerTs = 0;
-static uint64_t g_lastTick = 0;
-static float g_lastSentX = 1e9f;
-static float g_lastSentY = 1e9f;
-static uint64_t g_lastSentAt = 0;
-static float CHAR_SPEED = 720.0f;
-static void buildRing()
+static std::vector<V2>                g_ring;
+static int                            g_headingIdx   = -1;
+static uint64_t                       g_holdUntil    = 0;
+static uint64_t                       g_lastDangerTs = 0;
+static uint64_t                       g_lastTick     = 0;
+static float                          g_lastSentX    = 1e9f;
+static float                          g_lastSentY    = 1e9f;
+static uint64_t                       g_lastSentAt   = 0;
+static float                          CHAR_SPEED     = 720.0f;
+static void                           buildRing()
 {
-    if ((int)g_ring.size() == TUNE.DIR_COUNT) return;
+    if ((int) g_ring.size() == TUNE.DIR_COUNT) return;
     g_ring.clear();
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
-        float a = (float)M_PI * 2.0f * (float)i / (float)TUNE.DIR_COUNT;
+        float a = (float) M_PI * 2.0f * (float) i / (float) TUNE.DIR_COUNT;
         g_ring.push_back(V2(cosf(a), sinf(a)));
     }
     g_headingIdx = -1;
 }
 static float clearanceFor(const std::vector<Threat>& threats,
-                          float myX,
-                          float myY,
-                          float mvx,
-                          float mvy)
+                          float                      myX,
+                          float                      myY,
+                          float                      mvx,
+                          float                      mvy)
 {
     float minClear = 1e18f;
-    float horizon = TUNE.HORIZON_S;
+    float horizon  = TUNE.HORIZON_S;
     for (const auto& t : threats)
     {
-        float spd = sqrtf(t.vx * t.vx + t.vy * t.vy);
+        float spd  = sqrtf(t.vx * t.vx + t.vy * t.vy);
         float maxT = horizon;
         if (spd > 1.0f)
         {
@@ -103,9 +103,9 @@ static float clearanceFor(const std::vector<Threat>& threats,
         }
         float relx = t.x - myX;
         float rely = t.y - myY;
-        float vrx = t.vx - mvx;
-        float vry = t.vy - mvy;
-        float vv = vrx * vrx + vry * vry;
+        float vrx  = t.vx - mvx;
+        float vry  = t.vy - mvy;
+        float vv   = vrx * vrx + vry * vry;
         float cx, cy;
         if (vv < 1e-6f)
         {
@@ -130,15 +130,15 @@ static float clearanceFor(const std::vector<Threat>& threats,
 static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
 {
     if (!wall_ready()) return 0.0f;
-    float step = speed * TUNE.PROBE_T;
+    float step    = speed * TUNE.PROBE_T;
     float penalty = 0.0f;
     for (int s = 1; s <= TUNE.PROBE_N; s++)
     {
-        float px = myX + dir.x * step * (float)s;
-        float py = myY + dir.y * step * (float)s;
+        float px = myX + dir.x * step * (float) s;
+        float py = myY + dir.y * step * (float) s;
         if (wall_is_blocked_wide(px, py, bodyR, WALL_BLOCKS_MOVEMENT))
         {
-            penalty += TUNE.WALL_HIT * (float)(TUNE.PROBE_N - s + 1);
+            penalty += TUNE.WALL_HIT * (float) (TUNE.PROBE_N - s + 1);
         }
     }
     return penalty;
@@ -146,17 +146,17 @@ static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
 static void clearHeading()
 {
     g_headingIdx = -1;
-    g_holdUntil = 0;
+    g_holdUntil  = 0;
 }
 static int32_t call1i_local(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self || !base) return 0;
     if (!pointer_plausible(self)) return 0;
-    uintptr_t rva = (fn >= base) ? (fn - base) : fn;
+    uintptr_t rva    = (fn >= base) ? (fn - base) : fn;
     uintptr_t target = callable(rva);
     if (!target) return 0;
     typedef int32_t (*fn_t)(uintptr_t);
-    return ((fn_t)target)(self);
+    return ((fn_t) target)(self);
 }
 void autododge(void)
 {
@@ -165,17 +165,17 @@ void autododge(void)
         active = 0;
         return;
     }
-    uint64_t now = us() / 1000;
+    uint64_t now    = us() / 1000;
     uint32_t tickMs = (g_headingIdx >= 0) ? TUNE.TICK_MS : TUNE.TICK_MS_IDLE;
     if (now - g_lastTick < tickMs) return;
     g_lastTick = now;
-    dbg.sent = 0;
-    dbg.thn = 0;
-    dbg.mapn = range_map_size();
+    dbg.sent   = 0;
+    dbg.thn    = 0;
+    dbg.mapn   = range_map_size();
     dbg.ranged = 0;
     buildRing();
-    float mx = (float)own_x;
-    float my = (float)own_y;
+    float mx       = (float) own_x;
+    float my       = (float) own_y;
     float myRadius = own_r;
     if (fabsf(mx) < TUNE.MIN_POS && fabsf(my) < TUNE.MIN_POS) return;
     if (own_speed >= 300.0f && own_speed <= 8500.0f)
@@ -185,47 +185,47 @@ void autododge(void)
     else
     {
         uintptr_t data = 0;
-        if (read_ptr(own_elem + ELEM_DEF_OFF, (void**)&data) && data)
+        if (read_ptr(own_elem + ELEM_DEF_OFF, (void**) &data) && data)
         {
             int32_t readSpd = 0;
             if (read_int(data + 0x1c4, &readSpd))
             {
                 if (readSpd >= 300 && readSpd <= 8500)
                 {
-                    CHAR_SPEED = (float)readSpd;
+                    CHAR_SPEED = (float) readSpd;
                 }
             }
         }
     }
     std::vector<Threat> threats;
-    int hits = 0;
+    int                 hits = 0;
     {
         std::map<int, bool> seen;
-        float zoneSq = TUNE.AWARE * TUNE.AWARE;
-        float bodyR = myRadius + TUNE.SKIN;
+        float               zoneSq = TUNE.AWARE * TUNE.AWARE;
+        float               bodyR  = myRadius + TUNE.SKIN;
         if (manager_array_ptr && manager_count_v > 0 && manager_count_v < 512)
         {
             for (int i = 0; i < manager_count_v; i++)
             {
                 uintptr_t objPtr = 0;
-                if (!read_ptr(manager_array_ptr + (uintptr_t)i * 8ULL,
-                              (void**)&objPtr) ||
+                if (!read_ptr(manager_array_ptr + (uintptr_t) i * 8ULL,
+                              (void**) &objPtr) ||
                     !objPtr)
                     continue;
                 if (!pointer_plausible(objPtr)) continue;
                 uintptr_t dataPtr = 0;
-                if (!read_ptr(objPtr + ELEM_DEF_OFF, (void**)&dataPtr) ||
+                if (!read_ptr(objPtr + ELEM_DEF_OFF, (void**) &dataPtr) ||
                     !dataPtr)
                     continue;
                 if (!pointer_plausible(dataPtr)) continue;
                 uintptr_t dataVtable = 0;
-                if (!read_ptr(dataPtr, (void**)&dataVtable) || !dataVtable)
+                if (!read_ptr(dataPtr, (void**) &dataVtable) || !dataVtable)
                     continue;
                 if (!pointer_plausible(dataVtable)) continue;
                 uintptr_t vtRva = dataVtable - base;
                 if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
                     continue;
-                int pid = gid(objPtr, nullptr);
+                int  pid    = gid(objPtr, nullptr);
                 bool isProj = (pid >= 2000000) ||
                               (dataVtable - base == VTABLE_PROJ_DATA_RVA);
                 if (!isProj || pid == 0) continue;
@@ -236,28 +236,28 @@ void autododge(void)
                 if (!read_int(objPtr + OBJ_X_OFF, &px_i) ||
                     !read_int(objPtr + OBJ_Y_OFF, &py_i))
                     continue;
-                float px = (float)px_i;
-                float py = (float)py_i;
+                float px      = (float) px_i;
+                float py      = (float) py_i;
                 float dx_dist = px - mx;
                 float dy_dist = py - my;
                 if (dx_dist * dx_dist + dy_dist * dy_dist > zoneSq) continue;
                 uint32_t deadFlag = 0;
-                if (!read_int(objPtr + 208, (int32_t*)&deadFlag) ||
+                if (!read_int(objPtr + 208, (int32_t*) &deadFlag) ||
                     deadFlag != 0)
                     continue;
-                seen[pid] = true;
+                seen[pid]              = true;
                 ProjectileState& state = g_proj_cache[pid];
                 if (state.lastSeen == 0)
                 {
-                    state.spawnX = px;
-                    state.spawnY = py;
-                    state.sampleX = px;
-                    state.sampleY = py;
+                    state.spawnX     = px;
+                    state.spawnY     = py;
+                    state.sampleX    = px;
+                    state.sampleY    = py;
                     state.sampleTime = now;
                     int32_t ownerIdx = -1;
                     read_int(objPtr + OBJ_OWNERINDEX_OFF, &ownerIdx);
                     state.castRange = range_for_proj(dataPtr, ownerIdx);
-                    uint8_t ind = 0;
+                    uint8_t ind     = 0;
                     if (read_byte(dataPtr + PROJ_ISTHROWER_OFF, &ind))
                     {
                         state.isIndirect = (ind != 0);
@@ -289,7 +289,7 @@ void autododge(void)
                         if (addr_projspeed)
                         {
                             state.speed =
-                                (float)call1i_local(addr_projspeed, dataPtr);
+                                (float) call1i_local(addr_projspeed, dataPtr);
                         }
                         else
                         {
@@ -297,7 +297,7 @@ void autododge(void)
                             if (read_int(dataPtr + PROJDATA_SPEED_OFF, &spd) &&
                                 spd > 0)
                             {
-                                state.speed = (float)spd;
+                                state.speed = (float) spd;
                             }
                         }
                     }
@@ -310,24 +310,24 @@ void autododge(void)
                         angleDegrees >= 0 && angleDegrees <= 360)
                     {
                         float angle =
-                            (float)angleDegrees * ((float)M_PI / 180.0f);
+                            (float) angleDegrees * ((float) M_PI / 180.0f);
                         state.dirX = cosf(angle);
                         state.dirY = sinf(angle);
                     }
                 }
                 else if (now - state.sampleTime >= 20)
                 {
-                    float ddx = px - state.sampleX;
-                    float ddy = py - state.sampleY;
-                    float distance = sqrtf(ddx * ddx + ddy * ddy);
-                    uint64_t elapsed = now - state.sampleTime;
+                    float    ddx      = px - state.sampleX;
+                    float    ddy      = py - state.sampleY;
+                    float    distance = sqrtf(ddx * ddx + ddy * ddy);
+                    uint64_t elapsed  = now - state.sampleTime;
                     if (distance >= 6.0f && elapsed > 0)
                     {
-                        state.dirX = ddx / distance;
-                        state.dirY = ddy / distance;
-                        state.speed = distance * 1000.0f / (float)elapsed;
-                        state.sampleX = px;
-                        state.sampleY = py;
+                        state.dirX       = ddx / distance;
+                        state.dirY       = ddy / distance;
+                        state.speed      = distance * 1000.0f / (float) elapsed;
+                        state.sampleX    = px;
+                        state.sampleY    = py;
                         state.sampleTime = now;
                     }
                 }
@@ -335,14 +335,14 @@ void autododge(void)
                 if (addr_projradius)
                 {
                     state.radius =
-                        (float)call1i_local(addr_projradius, dataPtr);
+                        (float) call1i_local(addr_projradius, dataPtr);
                 }
                 else
                 {
                     int32_t r = 0;
                     if (read_int(dataPtr + PROJDATA_RADIUS_OFF, &r) && r > 0)
                     {
-                        state.radius = (float)r;
+                        state.radius = (float) r;
                     }
                     else
                     {
@@ -366,16 +366,16 @@ void autododge(void)
                 bool blob = !state.isBeam && !state.isIndirect &&
                             state.speed > 0 && state.speed < 1600;
                 Threat t;
-                t.x = px;
-                t.y = py;
-                t.vx = blob ? 0 : state.dirX * state.speed;
-                t.vy = blob ? 0 : state.dirY * state.speed;
+                t.x   = px;
+                t.y   = py;
+                t.vx  = blob ? 0 : state.dirX * state.speed;
+                t.vy  = blob ? 0 : state.dirY * state.speed;
                 t.rad = state.radius + bodyR + DEFAULT_PAD +
                         state.radius * DEFAULT_GROW;
                 t.pathLen = state.castRange > 0.0f
                                 ? state.castRange + state.radius
                                 : 1e6f;
-                t.left = left;
+                t.left    = left;
                 if (!blob && !state.isIndirect && state.speed >= 1.0f)
                 {
                     float playerAlong =
@@ -389,11 +389,11 @@ void autododge(void)
                         playerAlong > state.castRange + state.radius)
                         continue;
                 }
-                float ax = px - mx;
-                float ay = py - my;
+                float ax    = px - mx;
+                float ay    = py - my;
                 float along = 0.0f;
-                float hx = 0.0f;
-                float hy = 0.0f;
+                float hx    = 0.0f;
+                float hy    = 0.0f;
                 if (state.speed > 1.0f)
                 {
                     along = ax * state.dirX + ay * state.dirY;
@@ -432,7 +432,7 @@ void autododge(void)
         return;
     }
     float stayClear = clearanceFor(threats, mx, my, 0, 0);
-    bool inDanger = stayClear < TUNE.ENGAGE;
+    bool  inDanger  = stayClear < TUNE.ENGAGE;
     if (inDanger) g_lastDangerTs = now;
     if (!inDanger &&
         (g_headingIdx < 0 || now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS))
@@ -440,16 +440,16 @@ void autododge(void)
         if (g_headingIdx >= 0) clearHeading();
         return;
     }
-    int prevIdx = g_headingIdx;
-    V2 prevDir = (prevIdx >= 0) ? g_ring[prevIdx] : V2(0, 0);
-    float bodyR = TUNE.WALL_BODY;
-    int bestIdx = 0;
+    int   prevIdx   = g_headingIdx;
+    V2    prevDir   = (prevIdx >= 0) ? g_ring[prevIdx] : V2(0, 0);
+    float bodyR     = TUNE.WALL_BODY;
+    int   bestIdx   = 0;
     float bestScore = -1e18f;
     float prevScore = -1e18f;
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
         const V2& d = g_ring[i];
-        float s =
+        float     s =
             clearanceFor(threats, mx, my, CHAR_SPEED * d.x, CHAR_SPEED * d.y);
         s -= wallAhead(mx, my, d, CHAR_SPEED, bodyR);
         if (prevIdx >= 0)
@@ -458,16 +458,16 @@ void autododge(void)
         if (s > bestScore)
         {
             bestScore = s;
-            bestIdx = i;
+            bestIdx   = i;
         }
     }
-    int chosenIdx = bestIdx;
+    int   chosenIdx   = bestIdx;
     float chosenScore = bestScore;
     if (prevIdx >= 0 && now < g_holdUntil && chosenIdx != prevIdx)
     {
         if (prevScore + TUNE.KEEP_BAND >= bestScore)
         {
-            chosenIdx = prevIdx;
+            chosenIdx   = prevIdx;
             chosenScore = prevScore;
         }
         else
@@ -484,33 +484,33 @@ void autododge(void)
         if (g_headingIdx >= 0) clearHeading();
         return;
     }
-    V2 chosen = g_ring[chosenIdx];
+    V2 chosen    = g_ring[chosenIdx];
     g_headingIdx = chosenIdx;
-    int32_t tx = (int32_t)roundf(mx + chosen.x * TUNE.REACH);
-    int32_t ty = (int32_t)roundf(my + chosen.y * TUNE.REACH);
-    float ddx = (float)tx - g_lastSentX;
-    float ddy = (float)ty - g_lastSentY;
-    bool moved =
+    int32_t tx   = (int32_t) roundf(mx + chosen.x * TUNE.REACH);
+    int32_t ty   = (int32_t) roundf(my + chosen.y * TUNE.REACH);
+    float   ddx  = (float) tx - g_lastSentX;
+    float   ddy  = (float) ty - g_lastSentY;
+    bool    moved =
         (ddx * ddx + ddy * ddy > TUNE.SEND_MIN_DIST * TUNE.SEND_MIN_DIST);
     bool stale = (now - g_lastSentAt > TUNE.SEND_MIN_MS);
     if (moved || stale)
     {
-        g_lastSentX = (float)tx;
-        g_lastSentY = (float)ty;
+        g_lastSentX  = (float) tx;
+        g_lastSentY  = (float) ty;
         g_lastSentAt = now;
         move_to(tx, ty, mx, my);
         enqueue(tx, ty);
         dbg.sent = 1;
     }
-    active = 1;
-    moving = 1;
-    dbg.px = mx;
-    dbg.py = my;
-    dbg.dx = chosen.x;
-    dbg.dy = chosen.y;
-    dbg.tx = (float)tx;
-    dbg.ty = (float)ty;
-    dbg.hazards = (int)threats.size();
+    active      = 1;
+    moving      = 1;
+    dbg.px      = mx;
+    dbg.py      = my;
+    dbg.dx      = chosen.x;
+    dbg.dy      = chosen.y;
+    dbg.tx      = (float) tx;
+    dbg.ty      = (float) ty;
+    dbg.hazards = (int) threats.size();
     dbg.threats = hits;
     snprintf(dbg.note,
              sizeof(dbg.note),

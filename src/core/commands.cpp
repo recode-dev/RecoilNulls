@@ -11,11 +11,11 @@
 #endif
 static uint32_t ci_table[CI_TABLE_TYPES];
 static uint32_t ci_fallback = 0;
-static uint8_t ci_inner[0x10];
-static uint8_t ci_outer[0x10];
-static int ci_ready = 0;
-static int msg_ok(void* ptr, size_t size);
-int ci_load_constants(void)
+static uint8_t  ci_inner[0x10];
+static uint8_t  ci_outer[0x10];
+static int      ci_ready = 0;
+static int      msg_ok(void* ptr, size_t size);
+int             ci_load_constants(void)
 {
     int i = 0;
     if (ci_ready)
@@ -26,9 +26,9 @@ int ci_load_constants(void)
     {
         return 0;
     }
-    for (i = 0; i < (int)CI_TABLE_TYPES; i++)
+    for (i = 0; i < (int) CI_TABLE_TYPES; i++)
     {
-        if (!read_bytes(base + CI_TYPE_TABLE_RVA + (uintptr_t)i * 4ULL,
+        if (!read_bytes(base + CI_TYPE_TABLE_RVA + (uintptr_t) i * 4ULL,
                         &ci_table[i],
                         sizeof(uint32_t)))
         {
@@ -54,15 +54,15 @@ int ci_load_constants(void)
 uint32_t ci_sign(void* ci, void* battle)
 {
 #if CI_SIGNING_ON
-    uint8_t key[0x10];
-    uint8_t cmd[0x10];
-    uint8_t enabled = 0;
-    uint32_t token = 0;
+    uint8_t  key[0x10];
+    uint8_t  cmd[0x10];
+    uint8_t  enabled = 0;
+    uint32_t token   = 0;
     if (!ci || !battle)
     {
         return 0;
     }
-    if (!read_bytes((uintptr_t)battle + BM_HASH_ENABLED_OFF, &enabled, 1))
+    if (!read_bytes((uintptr_t) battle + BM_HASH_ENABLED_OFF, &enabled, 1))
     {
         return 0;
     }
@@ -74,24 +74,24 @@ uint32_t ci_sign(void* ci, void* battle)
     {
         return 0;
     }
-    if (!read_bytes((uintptr_t)battle + BM_HASH_KEY_OFF, key, 0x10))
+    if (!read_bytes((uintptr_t) battle + BM_HASH_KEY_OFF, key, 0x10))
     {
         return 0;
     }
-    if (!read_bytes((uintptr_t)ci + CI_TOKEN_READ_OFF, cmd, 0x10))
+    if (!read_bytes((uintptr_t) ci + CI_TOKEN_READ_OFF, cmd, 0x10))
     {
         return 0;
     }
     token =
         ci_compute_token(key, cmd, ci_table, ci_fallback, ci_inner, ci_outer);
-    if (!write_bytes((uintptr_t)ci + CI_TOKEN_OFF, &token, sizeof(token)))
+    if (!write_bytes((uintptr_t) ci + CI_TOKEN_OFF, &token, sizeof(token)))
     {
         return 0;
     }
     return token;
 #else
-    (void)ci;
-    (void)battle;
+    (void) ci;
+    (void) battle;
     return 0;
 #endif
 }
@@ -109,31 +109,31 @@ static uintptr_t callable_cached(uintptr_t* cache, uintptr_t rva)
 }
 static int ptr_is_heap(const void* p)
 {
-    if (!p || ((uintptr_t)p & 7ULL))
+    if (!p || ((uintptr_t) p & 7ULL))
     {
         return 0;
     }
-    return malloc_zone_from_ptr((void*)p) != NULL;
+    return malloc_zone_from_ptr((void*) p) != NULL;
 }
 int enqueue_skill(int x, int y, int type, void* skillData)
 {
-    uintptr_t ctorFn = 0;
-    uintptr_t inputFn = 0;
+    uintptr_t ctorFn   = 0;
+    uintptr_t inputFn  = 0;
     uintptr_t battleFn = 0;
-    int32_t vx = x;
-    int32_t vy = y;
-    void* battle = nullptr;
-    void* mgr = nullptr;
-    void* msg = nullptr;
+    int32_t   vx       = x;
+    int32_t   vy       = y;
+    void*     battle   = nullptr;
+    void*     mgr      = nullptr;
+    void*     msg      = nullptr;
     if (!coord_ok || dead)
     {
         return 0;
     }
-    static uintptr_t c_ctor = 0;
-    static uintptr_t c_input = 0;
+    static uintptr_t c_ctor   = 0;
+    static uintptr_t c_input  = 0;
     static uintptr_t c_battle = 0;
-    ctorFn = callable_cached(&c_ctor, MSGCTOR_RVA);
-    inputFn = callable_cached(&c_input, ADDINPUT_RVA);
+    ctorFn                    = callable_cached(&c_ctor, MSGCTOR_RVA);
+    inputFn                   = callable_cached(&c_input, ADDINPUT_RVA);
     battleFn = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
     if (!inputFn || !ctorFn || !battleFn)
     {
@@ -144,7 +144,7 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     {
         return 0;
     }
-    battle = ((void* (*)(void))battleFn)();
+    battle = ((void* (*) (void) ) battleFn)();
     if (!object_plausible(battle))
     {
         return 0;
@@ -156,43 +156,43 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     }
     {
         void* mgrInner = nullptr;
-        if (!read_ptr((uintptr_t)mgr + CI_MGR_QUEUE_OFF, &mgrInner) ||
+        if (!read_ptr((uintptr_t) mgr + CI_MGR_QUEUE_OFF, &mgrInner) ||
             !mgrInner)
         {
             return 0;
         }
     }
-    if (QUEUE_GUARD_MGR && !manager_shape((uintptr_t)mgr))
+    if (QUEUE_GUARD_MGR && !manager_shape((uintptr_t) mgr))
     {
         return 0;
     }
     msg = msg_alloc();
-    if (!msg_ok(msg, (size_t)MSG_SIZE + (size_t)MSG_SLACK))
+    if (!msg_ok(msg, (size_t) MSG_SIZE + (size_t) MSG_SLACK))
     {
         return 0;
     }
-    memset(msg, 0, (size_t)MSG_SIZE + (size_t)MSG_SLACK);
-    ((void (*)(void*, int))ctorFn)(msg, TYPE_MOVE);
-    write_bytes((uintptr_t)msg + TYPE_OFF, &type, sizeof(type));
-    write_bytes((uintptr_t)msg + X_OFF, &vx, sizeof(vx));
-    write_bytes((uintptr_t)msg + Y_OFF, &vy, sizeof(vy));
+    memset(msg, 0, (size_t) MSG_SIZE + (size_t) MSG_SLACK);
+    ((void (*)(void*, int)) ctorFn)(msg, TYPE_MOVE);
+    write_bytes((uintptr_t) msg + TYPE_OFF, &type, sizeof(type));
+    write_bytes((uintptr_t) msg + X_OFF, &vx, sizeof(vx));
+    write_bytes((uintptr_t) msg + Y_OFF, &vy, sizeof(vy));
     if (skillData && ptr_is_heap(skillData))
     {
-        write_bytes((uintptr_t)msg + (uintptr_t)OFF_CLIENTINPUT_SKILLDATA,
+        write_bytes((uintptr_t) msg + (uintptr_t) OFF_CLIENTINPUT_SKILLDATA,
                     &skillData,
                     sizeof(skillData));
     }
     ci_sign(msg, battle);
-    if (type == (int)TYPE_MOVE)
+    if (type == (int) TYPE_MOVE)
     {
-        (void)pred_set(x, y);
+        (void) pred_set(x, y);
     }
-    ((void (*)(void*, void*))inputFn)(mgr, msg);
+    ((void (*)(void*, void*)) inputFn)(mgr, msg);
     return 1;
 }
 int enqueue(int x, int y)
 {
-    return enqueue_type(x, y, (int)TYPE_MOVE);
+    return enqueue_type(x, y, (int) TYPE_MOVE);
 }
 uintptr_t entry_callable(uintptr_t rva)
 {
@@ -212,15 +212,15 @@ static int msg_ok(void* ptr, size_t size)
     {
         return 0;
     }
-    if (((uintptr_t)ptr & 7ULL) != 0)
+    if (((uintptr_t) ptr & 7ULL) != 0)
     {
         return 0;
     }
-    if (!addr_readable((uintptr_t)ptr, size))
+    if (!addr_readable((uintptr_t) ptr, size))
     {
         return 0;
     }
-    if (!addr_writable((uintptr_t)ptr, size))
+    if (!addr_writable((uintptr_t) ptr, size))
     {
         return 0;
     }
@@ -229,10 +229,10 @@ static int msg_ok(void* ptr, size_t size)
 void* msg_alloc(void)
 {
     uintptr_t stub = entry_callable(ALLOC_RVA);
-    uintptr_t got = 0;
-    size_t size = (size_t)MSG_SIZE + (size_t)MSG_SLACK;
-    void* mem = nullptr;
-    mem = malloc(size);
+    uintptr_t got  = 0;
+    size_t    size = (size_t) MSG_SIZE + (size_t) MSG_SLACK;
+    void*     mem  = nullptr;
+    mem            = malloc(size);
     if (msg_ok(mem, size))
     {
         memset(mem, 0, size);
@@ -240,16 +240,16 @@ void* msg_alloc(void)
     }
     if (stub)
     {
-        mem = ((void* (*)(size_t))stub)(size);
+        mem = ((void* (*) (size_t)) stub)(size);
         if (msg_ok(mem, size))
         {
             memset(mem, 0, size);
             return mem;
         }
     }
-    if (base && read_ptr(base + ALLOC_GOT_RVA, (void**)&got) && got)
+    if (base && read_ptr(base + ALLOC_GOT_RVA, (void**) &got) && got)
     {
-        mem = ((void* (*)(size_t))got)(size);
+        mem = ((void* (*) (size_t)) got)(size);
         if (msg_ok(mem, size))
         {
             memset(mem, 0, size);
@@ -266,18 +266,18 @@ void* manager(void)
     }
     static uintptr_t c_battle = 0;
     uintptr_t battleFn = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
-    void* battle = nullptr;
-    void* mgr = nullptr;
+    void*     battle   = nullptr;
+    void*     mgr      = nullptr;
     if (!battleFn)
     {
         return nullptr;
     }
-    battle = ((void* (*)(void))battleFn)();
+    battle = ((void* (*) (void) ) battleFn)();
     if (!battle)
     {
         return nullptr;
     }
-    if (!read_ptr((uintptr_t)battle + MGR_OFF, &mgr) || !mgr)
+    if (!read_ptr((uintptr_t) battle + MGR_OFF, &mgr) || !mgr)
     {
         return nullptr;
     }
@@ -286,29 +286,29 @@ void* manager(void)
 int pred_set(int x, int y)
 {
     uintptr_t setFn = 0;
-    uintptr_t ctrl = 0;
+    uintptr_t ctrl  = 0;
     if (!PRED_SET || !coord_ok)
     {
         return 0;
     }
     {
         static uintptr_t c_set = 0;
-        setFn = callable_cached(&c_set, MOVE_RVA);
+        setFn                  = callable_cached(&c_set, MOVE_RVA);
     }
     ctrl = controller();
     if (!setFn || !ctrl)
     {
         return 0;
     }
-    ((void (*)(uintptr_t, int, int, int))setFn)(ctrl, x, y, PRED_FLAG);
+    ((void (*)(uintptr_t, int, int, int)) setFn)(ctrl, x, y, PRED_FLAG);
     return 1;
 }
 int move_to(int32_t x, int32_t y, float ox, float oy)
 {
-    uintptr_t fn = 0;
+    uintptr_t fn   = 0;
     uintptr_t ctrl = 0;
-    (void)ox;
-    (void)oy;
+    (void) ox;
+    (void) oy;
     if (!MOVE_ON || dead)
     {
         return 0;
@@ -319,13 +319,13 @@ int move_to(int32_t x, int32_t y, float ox, float oy)
     }
     {
         static uintptr_t c_move = 0;
-        fn = callable_cached(&c_move, MOVE_RVA);
+        fn                      = callable_cached(&c_move, MOVE_RVA);
     }
     ctrl = controller();
     if (!fn || !ctrl)
     {
         return 0;
     }
-    ((void (*)(void*, int, int, int))fn)((void*)ctrl, (int)x, (int)y, 1);
+    ((void (*)(void*, int, int, int)) fn)((void*) ctrl, (int) x, (int) y, 1);
     return 1;
 }

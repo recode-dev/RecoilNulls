@@ -5,37 +5,37 @@
 #if __has_include(<ptrauth.h>)
 #include <ptrauth.h>
 #endif
-#define OBJC_HOOK_MAX 32
+#define OBJC_HOOK_MAX   32
 #define OBJC_WANTED_MAX 4
 typedef struct
 {
-    Class cls;
-    Class wanted[OBJC_WANTED_MAX];
-    int wantedCount;
-    SEL sel;
-    IMP original;
-    IMP replacement;
+    Class       cls;
+    Class       wanted[OBJC_WANTED_MAX];
+    int         wantedCount;
+    SEL         sel;
+    IMP         original;
+    IMP         replacement;
     const char* selName;
     const char* signature;
-    int hits;
-    int used;
+    int         hits;
+    int         used;
     objc_body_t body;
 } objc_hook_t;
 static objc_hook_t g_objc_hooks[OBJC_HOOK_MAX];
-static uintptr_t objc_strip_imp(IMP imp)
+static uintptr_t   objc_strip_imp(IMP imp)
 {
 #if defined(__has_feature)
 #if __has_feature(ptrauth_calls)
-    return (uintptr_t)ptrauth_strip((void*)imp, ptrauth_key_function_pointer);
+    return (uintptr_t) ptrauth_strip((void*) imp, ptrauth_key_function_pointer);
 #endif
 #endif
-    return (uintptr_t)imp;
+    return (uintptr_t) imp;
 }
 static const char* objc_skip_compound(const char* p)
 {
-    char open = *p;
+    char open  = *p;
     char close = (open == '{') ? '}' : ((open == '(') ? ')' : ']');
-    int depth = 0;
+    int  depth = 0;
     while (*p)
     {
         if (*p == open)
@@ -58,8 +58,8 @@ static const char* objc_skip_compound(const char* p)
 static int objc_arg_types(const char* types, char* out, size_t capacity)
 {
     if (!types || !out || capacity < 8) return -1;
-    size_t used = 0;
-    const char* p = types;
+    size_t      used = 0;
+    const char* p    = types;
     while (*p && (used + 1) < capacity)
     {
         while (*p >= '0' && *p <= '9')
@@ -81,7 +81,7 @@ static int objc_arg_types(const char* types, char* out, size_t capacity)
         }
         if (c == '{' || c == '(' || c == '[')
         {
-            p = objc_skip_compound(p);
+            p           = objc_skip_compound(p);
             out[used++] = 'X';
             continue;
         }
@@ -89,13 +89,13 @@ static int objc_arg_types(const char* types, char* out, size_t capacity)
         p++;
     }
     out[used] = 0;
-    return (int)used;
+    return (int) used;
 }
 static int objc_class_owns(Class cls, SEL sel)
 {
     if (!cls || !sel) return 0;
     unsigned count = 0;
-    Method* list = class_copyMethodList(cls, &count);
+    Method*  list  = class_copyMethodList(cls, &count);
     if (!list) return 0;
     int found = 0;
     for (unsigned i = 0; i < count; i++)
@@ -122,8 +122,8 @@ static objc_hook_t* objc_find(id self, SEL _cmd)
 {
     Class start = object_getClass(self);
     if (!start) return NULL;
-    objc_hook_t* bySelector = NULL;
-    int bySelectorCount = 0;
+    objc_hook_t* bySelector      = NULL;
+    int          bySelectorCount = 0;
     for (int i = 0; i < OBJC_HOOK_MAX; i++)
     {
         objc_hook_t* hook = &g_objc_hooks[i];
@@ -190,7 +190,7 @@ static void objc_rep_c(id self, SEL _cmd, id a1, id a2)
             self, _cmd, a1, a2);
     }
 }
-int objc_arm(uintptr_t imageBase,
+int objc_arm(uintptr_t   imageBase,
              const char* clsName,
              const char* selName,
              objc_body_t body)
@@ -198,18 +198,18 @@ int objc_arm(uintptr_t imageBase,
     if (!imageBase || !clsName || !selName || !body) return 0;
     Class wanted = objc_getClass(clsName);
     if (!wanted) return 0;
-    if (hook_image_base((uintptr_t)wanted) != imageBase) return 0;
-    SEL sel = sel_registerName(selName);
+    if (hook_image_base((uintptr_t) wanted) != imageBase) return 0;
+    SEL   sel        = sel_registerName(selName);
     Class ownerClass = objc_owner(wanted, sel);
     if (!ownerClass) return 0;
-    if (hook_image_base((uintptr_t)ownerClass) != imageBase) return 0;
+    if (hook_image_base((uintptr_t) ownerClass) != imageBase) return 0;
     Method method = class_getInstanceMethod(ownerClass, sel);
     if (!method) return 0;
     if (!sel_isEqual(method_getName(method), sel)) return 0;
     const char* types = method_getTypeEncoding(method);
     if (!types) return 0;
     char args[10];
-    int argc = objc_arg_types(types, args, sizeof(args));
+    int  argc = objc_arg_types(types, args, sizeof(args));
     if (argc < 3) return 0;
     if (args[0] != 'v') return 0;
     IMP replacement = NULL;
@@ -250,16 +250,16 @@ int objc_arm(uintptr_t imageBase,
             method_setImplementation(method, previous);
             return 0;
         }
-        g_objc_hooks[i].used = 1;
-        g_objc_hooks[i].cls = ownerClass;
-        g_objc_hooks[i].sel = sel;
-        g_objc_hooks[i].original = previous;
+        g_objc_hooks[i].used        = 1;
+        g_objc_hooks[i].cls         = ownerClass;
+        g_objc_hooks[i].sel         = sel;
+        g_objc_hooks[i].original    = previous;
         g_objc_hooks[i].replacement = replacement;
-        g_objc_hooks[i].selName = selName;
-        g_objc_hooks[i].signature = types;
-        g_objc_hooks[i].hits = 0;
-        g_objc_hooks[i].body = body;
-        g_objc_hooks[i].wanted[0] = ownerClass;
+        g_objc_hooks[i].selName     = selName;
+        g_objc_hooks[i].signature   = types;
+        g_objc_hooks[i].hits        = 0;
+        g_objc_hooks[i].body        = body;
+        g_objc_hooks[i].wanted[0]   = ownerClass;
         g_objc_hooks[i].wantedCount = 1;
         return 1;
     }
