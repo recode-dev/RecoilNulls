@@ -186,7 +186,7 @@ void val_globals(uintptr_t slot)
 {
     uintptr_t scene = 0;
     uintptr_t clientPtr = 0;
-    uintptr_t manager = 0;
+    uintptr_t get_client_input_manager = 0;
     uintptr_t array = 0;
     uintptr_t vtable = 0;
     int32_t state = -1;
@@ -266,12 +266,12 @@ void val_globals(uintptr_t slot)
         {
             if (read_ptr(clientPtr +
                              LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF,
-                         &manager))
+                         &get_client_input_manager))
             {
                 vf("LOGIC_BATTLE_MODE_CLIENT_GAME_OBJECT_MANAGER_OFF",
-                   manager && pointer_plausible(manager),
+                   get_client_input_manager && pointer_plausible(get_client_input_manager),
                    "0x%llx",
-                   (unsigned long long)manager);
+                   (unsigned long long)get_client_input_manager);
             }
             else
             {
@@ -279,8 +279,8 @@ void val_globals(uintptr_t slot)
                    false,
                    "read failed");
             }
-            if (manager &&
-                read_int(manager + LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF,
+            if (get_client_input_manager &&
+                read_int(get_client_input_manager + LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF,
                          &count))
             {
                 vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_COUNT_OFF",
@@ -294,8 +294,8 @@ void val_globals(uintptr_t slot)
                    false,
                    "read failed");
             }
-            if (manager &&
-                read_ptr(manager + LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF,
+            if (get_client_input_manager &&
+                read_ptr(get_client_input_manager + LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF,
                          &array))
             {
                 vf("LOGIC_GAME_OBJECT_MANAGER_SERVER_ARRAY_OFF",
@@ -348,7 +348,7 @@ void val_globals(uintptr_t slot)
 
 int val_client_input(uintptr_t clientPtr)
 {
-    uintptr_t manager = 0;
+    uintptr_t get_client_input_manager = 0;
     uintptr_t queue = 0;
     uintptr_t array = 0;
     uintptr_t message = 0;
@@ -358,13 +358,13 @@ int val_client_input(uintptr_t clientPtr)
     int32_t my = 0;
     uint8_t token[8] = {0};
     if (!read_ptr(clientPtr + LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF,
-                  &manager) ||
-        !manager || !pointer_plausible(manager))
+                  &get_client_input_manager) ||
+        !get_client_input_manager || !pointer_plausible(get_client_input_manager))
     {
         return 0;
     }
-    val_ci_manager = manager;
-    if (!read_ptr(manager + CLIENT_INPUT_MANAGER_QUEUE_OFF, &queue) || !queue ||
+    val_ci_manager = get_client_input_manager;
+    if (!read_ptr(get_client_input_manager + CLIENT_INPUT_MANAGER_QUEUE_OFF, &queue) || !queue ||
         !pointer_plausible(queue))
     {
         return 0;
@@ -379,7 +379,7 @@ int val_client_input(uintptr_t clientPtr)
     vf("LOGIC_BATTLE_MODE_CLIENT_INPUT_MANAGER_OFF",
        true,
        "0x%llx",
-       (unsigned long long)manager);
+       (unsigned long long)get_client_input_manager);
     vf("CLIENT_INPUT_MANAGER_QUEUE_OFF",
        true,
        "0x%llx",

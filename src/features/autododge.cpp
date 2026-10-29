@@ -879,7 +879,7 @@ void update_autododge()
     self_speed = own_speed > 1.0f ? own_speed : 1.0f;
     uint64_t now = us() / 1000;
     {
-        void* mgr = manager();
+        void* mgr = get_client_input_manager();
         uint64_t w[16] = {0};
         if (mgr && read_bytes((uintptr_t)mgr, w, sizeof(w)))
         {
@@ -960,12 +960,12 @@ void update_autododge()
     fy = fminf(fmaxf(fy, lo_y), hi_y);
     int32_t tx = axis(fx, wall_cache_width());
     int32_t ty = axis(fy, wall_cache_height());
-    pred_set(tx, ty);
+    set_client_prediction_move_to(tx, ty);
     if (now - sent_ms >= SEND_MS)
     {
         sent_ms = now;
         sent_x = dir_x, sent_y = dir_y;
-        enqueue(tx, ty);
+        enqueue_move_input(tx, ty);
         ad_target_x = tx;
         ad_target_y = ty;
     }
