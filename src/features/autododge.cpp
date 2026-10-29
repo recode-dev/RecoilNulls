@@ -44,6 +44,8 @@ constexpr uint64_t CALM_MS = 0;
 constexpr uint64_t SEND_MS = ad::TICK_MS;
 constexpr int MOVE_DELAY_TICKS = 2;
 constexpr uint64_t TURN_HOLD_MS = 0;
+constexpr size_t PROJDATA_TTYPE_OFF = 0x170;
+constexpr size_t PROJDATA_HOMING_OFF = 0x97;
 constexpr size_t PROJDATA_CFG_OFF = 0x10;
 constexpr size_t PROJDATA_SPEED_OFF = 0x9c;
 constexpr size_t PROJDATA_RADIUS_OFF = 0xa4;
@@ -149,6 +151,8 @@ void init_proj(
     int32_t speed = 0;
     int32_t radius = 0;
     if (!read_bytes(dataPtr, data, sizeof(data))) return;
+    st->homing = false;
+    st->ttype = 0;
     memcpy(&speed, data + PROJECTILEDATA_SPEED_OFF, sizeof(speed));
     memcpy(&radius, data + PROJECTILEDATA_RADIUS_OFF, sizeof(radius));
     // The object we scan is the client projectile; the config lives behind it
@@ -161,11 +165,16 @@ void init_proj(
         uint8_t cb[0xc0];
         if (read_bytes(cfg, cb, sizeof(cb)))
         {
-            int32_t cs = 0, cr = 0;
+            int32_t cs = 0, cr = 0, ct = 0;
+            uint8_t ch = 0;
             memcpy(&cs, cb + PROJDATA_SPEED_OFF, sizeof(cs));
             memcpy(&cr, cb + PROJDATA_RADIUS_OFF, sizeof(cr));
+            memcpy(&ct, cb + PROJDATA_TTYPE_OFF, sizeof(ct));
+            memcpy(&ch, cb + PROJDATA_HOMING_OFF, sizeof(ch));
             if (cs >= 100 && cs <= 20000) speed = cs;
             if (cr > 0 && cr <= 3000) radius = cr;
+            st->homing = ch != 0;
+            st->ttype = (int16_t)ct;
         }
     }
     if (radius < 0 || radius > 3000) radius = 60;
@@ -175,6 +184,7 @@ void init_proj(
     st->y = py;
     st->speed = 1000.0f;
     st->rad = (float)radius;
+    if (st->homing) st->rad += 80.0f;  // curved path: keep extra distance
     st->vel = false;
     st->meas = false;
     st->ux = 0.0f;

@@ -70,6 +70,8 @@ struct Proj
     uint8_t flags;
     bool vel;
     bool meas;
+    bool homing;
+    int16_t ttype;
     char name[40];
 };
 extern Threat threats[THREAT_MAX];
