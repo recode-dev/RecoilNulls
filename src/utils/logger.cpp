@@ -16,9 +16,9 @@
 namespace
 {
 constexpr long long LOG_MAX_BYTES = 4000000;
-constexpr uint64_t REPORT_US = 1000000ULL;
-constexpr uint64_t FAST_TRACE_US = 50000ULL;
-constexpr uint64_t IDLE_TRACE_US = 500000ULL;
+constexpr uint64_t  REPORT_US     = 1000000ULL;
+constexpr uint64_t  FAST_TRACE_US = 50000ULL;
+constexpr uint64_t  IDLE_TRACE_US = 500000ULL;
 
 static const char* target_text(char* out, size_t cap)
 {
@@ -27,25 +27,25 @@ static const char* target_text(char* out, size_t cap)
         snprintf(out, cap, "-");
         return out;
     }
-    snprintf(out, cap, "%d,%d", (int)ad_target_x, (int)ad_target_y);
+    snprintf(out, cap, "%d,%d", (int) ad_target_x, (int) ad_target_y);
     return out;
 }
 
-char log_path[1100] = {0};
-FILE* log_file = nullptr;
+char     log_path[1100] = {0};
+FILE*    log_file       = nullptr;
 uint64_t last_report_us = 0;
-int32_t last_hp = -1;
-float last_tx = 1.0f;
-float last_ty = 0.0f;
-int dodge_count = 0;
-int hit_count = 0;
-int match_open = 0;
-int idle_logged = 0;
+int32_t  last_hp        = -1;
+float    last_tx        = 1.0f;
+float    last_ty        = 0.0f;
+int      dodge_count    = 0;
+int      hit_count      = 0;
+int      match_open     = 0;
+int      idle_logged    = 0;
 
 void document_path(char* out, size_t cap)
 {
     const char* home = getenv("HOME");
-    out[0] = 0;
+    out[0]           = 0;
     if (home != nullptr) snprintf(out, cap, "%s/Documents", home);
 }
 
@@ -91,22 +91,22 @@ bool open_log()
     return true;
 }
 
-int val_ok = 0;
-int val_fail = 0;
-int val_skip = 0;
-int val_stage = 0;
-int val_proj_done = 0;
-int val_proj_tries = 0;
-int val_input_state = 0;
-int val_input_tries = 0;
-uintptr_t val_ci_manager = 0;
-uintptr_t val_ci_queue = 0;
-int32_t val_ci_count = 0;
-uint64_t val_probe_next = 0;
+int       val_ok          = 0;
+int       val_fail        = 0;
+int       val_skip        = 0;
+int       val_stage       = 0;
+int       val_proj_done   = 0;
+int       val_proj_tries  = 0;
+int       val_input_state = 0;
+int       val_input_tries = 0;
+uintptr_t val_ci_manager  = 0;
+uintptr_t val_ci_queue    = 0;
+int32_t   val_ci_count    = 0;
+uint64_t  val_probe_next  = 0;
 
 void vf(const char* name, bool pass, const char* format, ...)
 {
-    char buf[192];
+    char    buf[192];
     va_list args;
     va_start(args, format);
     vsnprintf(buf, sizeof(buf), format, args);
@@ -141,7 +141,7 @@ void val_rva_table()
     static const struct
     {
         const char* name;
-        uint64_t rva;
+        uint64_t    rva;
     } table[] = {
         {"BattleModeGetInstanceRva", BattleModeGetInstanceRva},
         {"LogicBattleModeClientGetTileMapRva",
@@ -167,9 +167,9 @@ void val_rva_table()
     for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++)
     {
         uintptr_t address = callable(table[i].rva);
-        uint32_t head = 0;
-        BOOL exec = NO;
-        BOOL read = NO;
+        uint32_t  head    = 0;
+        BOOL      exec    = NO;
+        BOOL      read    = NO;
         if (address)
         {
             exec = addr_executable(address);
@@ -178,8 +178,8 @@ void val_rva_table()
         vf(table[i].name,
            address && exec && read && head != 0,
            "rva=0x%llx addr=0x%llx exec=%d head=%08x",
-           (unsigned long long)table[i].rva,
-           (unsigned long long)address,
+           (unsigned long long) table[i].rva,
+           (unsigned long long) address,
            exec ? 1 : 0,
            head);
     }
@@ -199,19 +199,19 @@ void val_rva_table()
 
 void val_globals(uintptr_t slot)
 {
-    uintptr_t scene = 0;
-    uintptr_t clientPtr = 0;
+    uintptr_t scene                    = 0;
+    uintptr_t clientPtr                = 0;
     uintptr_t get_client_input_manager = 0;
-    uintptr_t array = 0;
-    uintptr_t vtable = 0;
-    int32_t state = -1;
-    int32_t count = 0;
-    uint8_t hashOn = 0;
-    uint8_t key[16] = {0};
+    uintptr_t array                    = 0;
+    uintptr_t vtable                   = 0;
+    int32_t   state                    = -1;
+    int32_t   count                    = 0;
+    uint8_t   hashOn                   = 0;
+    uint8_t   key[16]                  = {0};
     vf("GameStateManagerRva",
        slot && pointer_plausible(slot),
        "0x%llx",
-       (unsigned long long)slot);
+       (unsigned long long) slot);
     if (!slot)
     {
         vs("GameStateManagerStateOffset", "no game state");
@@ -234,7 +234,7 @@ void val_globals(uintptr_t slot)
         vf("GameStateManagerCurrentStateOffset",
            scene && pointer_plausible(scene),
            "0x%llx",
-           (unsigned long long)scene);
+           (unsigned long long) scene);
     }
     else
     {
@@ -253,7 +253,7 @@ void val_globals(uintptr_t slot)
             vf("GameStateClientOffset",
                clientPtr && pointer_plausible(clientPtr),
                "0x%llx",
-               (unsigned long long)clientPtr);
+               (unsigned long long) clientPtr);
         }
         else
         {
@@ -270,7 +270,7 @@ void val_globals(uintptr_t slot)
             vf("LogicBattleModeClientHashEnabledOffset",
                hashOn <= 1 && (!hashOn || used),
                "on=%u key16=%d",
-               (unsigned)hashOn,
+               (unsigned) hashOn,
                keyOk ? 1 : 0);
         }
         else
@@ -292,7 +292,7 @@ void val_globals(uintptr_t slot)
                    get_client_input_manager &&
                        pointer_plausible(get_client_input_manager),
                    "0x%llx",
-                   (unsigned long long)get_client_input_manager);
+                   (unsigned long long) get_client_input_manager);
             }
             else
             {
@@ -324,7 +324,7 @@ void val_globals(uintptr_t slot)
                 vf("LogicGameObjectManagerServerGameObjectsOffset",
                    array && pointer_plausible(array),
                    "0x%llx",
-                   (unsigned long long)array);
+                   (unsigned long long) array);
             }
             else
             {
@@ -340,7 +340,7 @@ void val_globals(uintptr_t slot)
         vf("LogicProjectileDataVtableRva",
            vtable && addr_executable(vtable),
            "asset anchor slot0=0x%llx",
-           (unsigned long long)vtable);
+           (unsigned long long) vtable);
     }
     else
     {
@@ -350,35 +350,35 @@ void val_globals(uintptr_t slot)
        addr_readable(base + DataConstRvaLow, 16) &&
            addr_readable(base + DataConstRvaLow + DataConstRvaSize - 16, 16),
        "lo=0x%llx size=0x%llx",
-       (unsigned long long)DataConstRvaLow,
-       (unsigned long long)DataConstRvaSize);
+       (unsigned long long) DataConstRvaLow,
+       (unsigned long long) DataConstRvaSize);
     vf("ClientInputTypeTableRva",
        addr_readable(base + ClientInputTypeTableRva, 8),
        "0x%llx",
-       (unsigned long long)ClientInputTypeTableRva);
+       (unsigned long long) ClientInputTypeTableRva);
     vf("ClientInputTypeFallbackRva",
        addr_readable(base + ClientInputTypeFallbackRva, 8),
        "0x%llx",
-       (unsigned long long)ClientInputTypeFallbackRva);
+       (unsigned long long) ClientInputTypeFallbackRva);
     vf("CLIENTINPUT_HASH_MASK_RVA",
        addr_readable(base + ClientInputHashInnerMaskRva, 8) &&
            addr_readable(base + ClientInputHashOuterMaskRva, 8),
        "inner=0x%llx outer=0x%llx",
-       (unsigned long long)ClientInputHashInnerMaskRva,
-       (unsigned long long)ClientInputHashOuterMaskRva);
+       (unsigned long long) ClientInputHashInnerMaskRva,
+       (unsigned long long) ClientInputHashOuterMaskRva);
 }
 
 int val_client_input(uintptr_t clientPtr)
 {
     uintptr_t get_client_input_manager = 0;
-    uintptr_t queue = 0;
-    uintptr_t array = 0;
-    uintptr_t message = 0;
-    int32_t count = 0;
-    int32_t type = -1;
-    int32_t mx = 0;
-    int32_t my = 0;
-    uint8_t token[8] = {0};
+    uintptr_t queue                    = 0;
+    uintptr_t array                    = 0;
+    uintptr_t message                  = 0;
+    int32_t   count                    = 0;
+    int32_t   type                     = -1;
+    int32_t   mx                       = 0;
+    int32_t   my                       = 0;
+    uint8_t   token[8]                 = {0};
     if (!read_ptr(clientPtr + LogicBattleModeClientInputManagerOffset,
                   &get_client_input_manager) ||
         !get_client_input_manager ||
@@ -404,11 +404,11 @@ int val_client_input(uintptr_t clientPtr)
     vf("LogicBattleModeClientInputManagerOffset",
        true,
        "0x%llx",
-       (unsigned long long)get_client_input_manager);
+       (unsigned long long) get_client_input_manager);
     vf("ClientInputManagerInputQueueOffset",
        true,
        "0x%llx",
-       (unsigned long long)queue);
+       (unsigned long long) queue);
     vf("CLIENTINPUT_QUEUE_COUNT", true, "count=%d", count);
     if (!read_ptr(queue + LogicGameObjectManagerServerGameObjectsOffset,
                   &array) ||
@@ -421,10 +421,10 @@ int val_client_input(uintptr_t clientPtr)
     if (read_int(message + ClientInputMessageTypeOffset, &type))
     {
         vf("ClientInputMessageTypeOffset",
-           type >= 0 && type <= (int32_t)ClientInputTypeCount,
+           type >= 0 && type <= (int32_t) ClientInputTypeCount,
            "type=%d max=%llu",
            type,
-           (unsigned long long)ClientInputTypeCount);
+           (unsigned long long) ClientInputTypeCount);
     }
     else
     {
@@ -464,15 +464,15 @@ int val_client_input(uintptr_t clientPtr)
 
 void val_character(uintptr_t own)
 {
-    int32_t pid = 0;
-    int32_t x = 0;
-    int32_t y = 0;
-    int32_t team = 0;
-    int32_t angle = 0;
-    int32_t hp = 0;
-    int32_t collision = 0;
-    uintptr_t data = 0;
-    char name[48] = {0};
+    int32_t   pid       = 0;
+    int32_t   x         = 0;
+    int32_t   y         = 0;
+    int32_t   team      = 0;
+    int32_t   angle     = 0;
+    int32_t   hp        = 0;
+    int32_t   collision = 0;
+    uintptr_t data      = 0;
+    char      name[48]  = {0};
     vf("LogicCharacterGlobalIdOffset",
        read_int(own + LogicCharacterGlobalIdOffset, &pid) && pid > 0,
        "pid=%d",
@@ -508,7 +508,7 @@ void val_character(uintptr_t own)
     if (read_int(own + LogicCharacterHitpointsOffset, &hp))
     {
         vf("LogicCharacterHitpointsOffset",
-           hp >= 0 && hp <= 20000 && (uint32_t)hp == own_hp,
+           hp >= 0 && hp <= 20000 && (uint32_t) hp == own_hp,
            "hp=%d scan=%u",
            hp,
            own_hp);
@@ -522,7 +522,7 @@ void val_character(uintptr_t own)
         vf("LogicGameObjectDataOffset",
            data && pointer_plausible(data),
            "0x%llx",
-           (unsigned long long)data);
+           (unsigned long long) data);
     }
     else
     {
@@ -543,9 +543,9 @@ void val_character(uintptr_t own)
     if (data && pointer_plausible(data))
     {
         typedef uintptr_t (*name_t)(uintptr_t);
-        name_t fn = reinterpret_cast<name_t>(callable(LogicDataGetNameRva));
+        name_t    fn = reinterpret_cast<name_t>(callable(LogicDataGetNameRva));
         uintptr_t text = fn ? fn(data) : 0;
-        BOOL ok = NO;
+        BOOL      ok   = NO;
         if (text && pointer_plausible(text))
         {
             ok = read_scstring(text, sizeof(name) - 1, name, sizeof(name)) ? YES
@@ -558,16 +558,16 @@ void val_character(uintptr_t own)
         vf("LogicDataGetNameRva(x)", ok, "name=%s", ok ? name : "-");
         if (text && pointer_plausible(text))
         {
-            int32_t strLen = -1;
+            int32_t   strLen  = -1;
             uintptr_t strData = 0;
-            BOOL lenOk = read_int(text + StringByteLengthOffset, &strLen);
-            BOOL dataOk = read_ptr(text + StringCharactersOffset, &strData);
+            BOOL      lenOk = read_int(text + StringByteLengthOffset, &strLen);
+            BOOL dataOk     = read_ptr(text + StringCharactersOffset, &strData);
             vf("SCSTRING_LENGTH/DATA_OFF",
                lenOk && dataOk && strLen >= 0 && strLen <= 64 &&
-                   strLen == (int32_t)strlen(ok ? name : ""),
+                   strLen == (int32_t) strlen(ok ? name : ""),
                "len=%d data=0x%llx",
                strLen,
-               (unsigned long long)strData);
+               (unsigned long long) strData);
         }
         else
         {
@@ -585,14 +585,14 @@ void val_tilemap(uintptr_t clientPtr)
     typedef uintptr_t (*map_t)(uintptr_t);
     map_t fn =
         reinterpret_cast<map_t>(callable(LogicBattleModeClientGetTileMapRva));
-    uintptr_t map = fn ? fn(clientPtr) : 0;
-    uintptr_t tiles = 0;
-    int32_t width = 0;
-    int32_t height = 0;
+    uintptr_t map    = fn ? fn(clientPtr) : 0;
+    uintptr_t tiles  = 0;
+    int32_t   width  = 0;
+    int32_t   height = 0;
     vf("LogicBattleModeClientGetTileMapRva",
        map && pointer_plausible(map),
        "0x%llx",
-       (unsigned long long)map);
+       (unsigned long long) map);
     if (!map || !pointer_plausible(map))
     {
         vs("LogicTileMapWidthOffset", "no tilemap");
@@ -631,22 +631,22 @@ void val_tilemap(uintptr_t clientPtr)
     vf("LogicTileMapTileArrayOffset",
        pointer_plausible(tiles),
        "0x%llx",
-       (unsigned long long)tiles);
+       (unsigned long long) tiles);
     {
-        int total = (width > 0 && height > 0 && width * height < 4096)
-                        ? width * height
-                        : 256;
-        int stride = total / 96 + 1;
-        int seen = 0;
-        int blocked = 0;
-        uint64_t sample = 0;
+        int      total   = (width > 0 && height > 0 && width * height < 4096)
+                               ? width * height
+                               : 256;
+        int      stride  = total / 96 + 1;
+        int      seen    = 0;
+        int      blocked = 0;
+        uint64_t sample  = 0;
         for (int i = 0; i < total; i += stride)
         {
-            uintptr_t item = 0;
-            uint64_t mask = 0;
-            uint64_t water = 0;
-            uint64_t hard = 0;
-            if (!read_ptr(tiles + (uintptr_t)i * 8, &item) || !item) continue;
+            uintptr_t item  = 0;
+            uint64_t  mask  = 0;
+            uint64_t  water = 0;
+            uint64_t  hard  = 0;
+            if (!read_ptr(tiles + (uintptr_t) i * 8, &item) || !item) continue;
             if (!read_bytes(item + LogicTilePathFinderMaskOffset,
                             &mask,
                             sizeof(mask)) ||
@@ -665,7 +665,7 @@ void val_tilemap(uintptr_t clientPtr)
            "blocked=%d/%d sample=0x%llx",
            blocked,
            seen,
-           (unsigned long long)sample);
+           (unsigned long long) sample);
     }
 
     vf("TILEMAP_GEOMETRY",
@@ -680,16 +680,16 @@ void val_tilemap(uintptr_t clientPtr)
 
 void val_projectile()
 {
-    uintptr_t found = 0;
-    uintptr_t objPtr = 0;
-    int32_t startTick = 0;
-    int32_t endTick = 0;
-    int32_t sx = 0;
-    int32_t sy = 0;
-    int32_t ex = 0;
-    int32_t ey = 0;
+    uintptr_t found     = 0;
+    uintptr_t objPtr    = 0;
+    int32_t   startTick = 0;
+    int32_t   endTick   = 0;
+    int32_t   sx        = 0;
+    int32_t   sy        = 0;
+    int32_t   ex        = 0;
+    int32_t   ey        = 0;
     {
-        float px = 0.0f, py = 0.0f;
+        float   px = 0.0f, py = 0.0f;
         int32_t t0 = 0, t1 = 0;
         if (!ad::find_live_projectile(&objPtr, &found, &t0, &t1, &px, &py))
         {
@@ -699,7 +699,7 @@ void val_projectile()
         {
             line("[VAL] proj probe objs=%d shot=%d t=%d..%d p=(%.0f,%.0f)\n",
                  obj_count,
-                 (int)ad_proj_n,
+                 (int) ad_proj_n,
                  t0,
                  t1,
                  px,
@@ -735,10 +735,11 @@ void val_projectile()
                startTick,
                endTick);
             char dump[420];
-            int at = 0;
+            int  at = 0;
             at += snprintf(
-                dump, sizeof(dump), " obj=%llx", (unsigned long long)objPtr);
-            for (int i = 0x00; i <= 0x60 && at < (int)sizeof(dump) - 12; i += 4)
+                dump, sizeof(dump), " obj=%llx", (unsigned long long) objPtr);
+            for (int i = 0x00; i <= 0x60 && at < (int) sizeof(dump) - 12;
+                 i += 4)
             {
                 int32_t v = 0;
                 read_int(objPtr + i, &v);
@@ -761,11 +762,11 @@ void val_projectile()
         if (read_int(objPtr + LogicProjectileServerXOffset, &xi) &&
             read_int(objPtr + LogicProjectileServerYOffset, &yi))
         {
-            int mapW = wall_cache_width(), mapH = wall_cache_height();
-            float unit = wall_logic_units(1);
-            bool in_map = mapW > 0 && mapH > 0 && xi >= 0 && yi >= 0 &&
-                          (float)xi <= (float)mapW * unit &&
-                          (float)yi <= (float)mapH * unit;
+            int   mapW = wall_cache_width(), mapH = wall_cache_height();
+            float unit   = wall_logic_units(1);
+            bool  in_map = mapW > 0 && mapH > 0 && xi >= 0 && yi >= 0 &&
+                          (float) xi <= (float) mapW * unit &&
+                          (float) yi <= (float) mapH * unit;
             vf("PROJSERVER_X/Y_OFF",
                in_map,
                "p=(%d,%d) map=%dx%d",
@@ -787,13 +788,13 @@ void val_projectile()
     vf("LogicProjectileDataSize",
        addr_readable(found, LogicProjectileDataSize),
        "0x%llx readable 0x%llx",
-       (unsigned long long)found,
-       (unsigned long long)LogicProjectileDataSize);
+       (unsigned long long) found,
+       (unsigned long long) LogicProjectileDataSize);
     vf("PROJSERVER_IN_OBJECT",
        LogicProjectileServerTargetYOffset + 4 <= OBJ_BLOCK_SIZE,
        "endY=0x%llx block=0x%x",
-       (unsigned long long)(LogicProjectileServerTargetYOffset + 4),
-       (unsigned)OBJ_BLOCK_SIZE);
+       (unsigned long long) (LogicProjectileServerTargetYOffset + 4),
+       (unsigned) OBJ_BLOCK_SIZE);
     if (read_int(objPtr + LogicProjectileServerStartXOffset, &sx) &&
         read_int(objPtr + LogicProjectileServerStartYOffset, &sy) &&
         read_int(objPtr + LogicProjectileServerTargetXOffset, &ex) &&
@@ -816,10 +817,10 @@ void val_projectile()
 
 void validate_offsets()
 {
-    uintptr_t slot = (uintptr_t)read_global_ptr(GameStateManagerRva);
-    val_ok = 0;
-    val_fail = 0;
-    val_skip = 0;
+    uintptr_t slot = (uintptr_t) read_global_ptr(GameStateManagerRva);
+    val_ok         = 0;
+    val_fail       = 0;
+    val_skip       = 0;
     line("\n=== validate ===\n");
     val_rva_table();
     val_globals(slot);
@@ -854,23 +855,23 @@ void maybe_validate()
     if (val_probe_next && now_us < val_probe_next) return;
     val_probe_next = now_us + 1000000ULL;
     if (!base || !own_elem || dead) return;
-    val_ok = 0;
+    val_ok   = 0;
     val_fail = 0;
     val_skip = 0;
     if (val_input_state == 0)
     {
-        uintptr_t battle = (uintptr_t)read_global_ptr(GameStateManagerRva);
-        val_input_state = (battle && pointer_plausible(battle))
-                              ? val_client_input(battle)
-                              : 0;
+        uintptr_t battle = (uintptr_t) read_global_ptr(GameStateManagerRva);
+        val_input_state  = (battle && pointer_plausible(battle))
+                               ? val_client_input(battle)
+                               : 0;
         if (val_input_state == 0 && ++val_input_tries >= 120)
         {
             char why[128];
             snprintf(why,
                      sizeof(why),
                      "queue not populated in 120s mgr=0x%llx q=0x%llx n=%d",
-                     (unsigned long long)val_ci_manager,
-                     (unsigned long long)val_ci_queue,
+                     (unsigned long long) val_ci_manager,
+                     (unsigned long long) val_ci_queue,
                      val_ci_count);
             vs("CLIENTINPUT_*", why);
             val_input_state = 2;
@@ -914,22 +915,22 @@ const char* dir_name(int dir)
 
 void diag_tick()
 {
-    char target_buf[32];
-    uint64_t now_us = 0;
-    unsigned long hz = 0;
-    uint64_t wl_avg = 0;
-    uint32_t wl_max = 0;
+    char          target_buf[32];
+    uint64_t      now_us = 0;
+    unsigned long hz     = 0;
+    uint64_t      wl_avg = 0;
+    uint32_t      wl_max = 0;
     if (!open_log()) return;
     maybe_validate();
     now_us = us();
     if (base && own_elem && !dead)
     {
         static uint64_t last_fast = 0;
-        uint64_t prev = __atomic_load_n(&last_fast, __ATOMIC_RELAXED);
-        bool busy =
+        uint64_t        prev = __atomic_load_n(&last_fast, __ATOMIC_RELAXED);
+        bool            busy =
             ad::threat_n || active || ad_hold_ms || ad_urgent || ad_human;
         uint64_t period = busy ? FAST_TRACE_US : IDLE_TRACE_US;
-        bool slot = !prev || now_us - prev >= period;
+        bool     slot   = !prev || now_us - prev >= period;
         if (slot && !__atomic_compare_exchange_n(&last_fast,
                                                  &prev,
                                                  now_us,
@@ -940,14 +941,14 @@ void diag_tick()
         if (slot)
         {
             char buf[2048];
-            int n = snprintf(buf,
+            int  n = snprintf(buf,
                              sizeof(buf),
                              "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%s n=%d "
-                             "h=%d u=%d hm=%d",
-                             (unsigned long long)(now_us / 1000),
+                              "h=%d u=%d hm=%d",
+                             (unsigned long long) (now_us / 1000),
                              own_x,
                              own_y,
-                             (int)(own_speed + 0.5f),
+                             (int) (own_speed + 0.5f),
                              ad_dir_x,
                              ad_dir_y,
                              target_text(target_buf, sizeof(target_buf)),
@@ -956,22 +957,22 @@ void diag_tick()
                              ad_urgent,
                              ad_human);
             for (int i = 0;
-                 i < ad::threat_n && n > 0 && n < (int)sizeof(buf) - 48;
+                 i < ad::threat_n && n > 0 && n < (int) sizeof(buf) - 48;
                  i++)
             {
                 n += snprintf(buf + n,
-                              sizeof(buf) - (size_t)n,
+                              sizeof(buf) - (size_t) n,
                               ";%d,%d,%d,%d,%d",
-                              (int)ad::threats[i].x,
-                              (int)ad::threats[i].y,
-                              (int)ad::threats[i].vx,
-                              (int)ad::threats[i].vy,
-                              (int)ad::threats[i].rad);
+                              (int) ad::threats[i].x,
+                              (int) ad::threats[i].y,
+                              (int) ad::threats[i].vx,
+                              (int) ad::threats[i].vy,
+                              (int) ad::threats[i].rad);
             }
-            if (n > 0 && n < (int)sizeof(buf) - 2)
+            if (n > 0 && n < (int) sizeof(buf) - 2)
             {
                 buf[n++] = '\n';
-                buf[n] = '\0';
+                buf[n]   = '\0';
                 line("%s", buf);
             }
         }
@@ -993,12 +994,12 @@ void diag_tick()
     if (!match_open)
     {
         line("\n=== match ===\n");
-        match_open = 1;
+        match_open  = 1;
         dodge_count = 0;
-        hit_count = 0;
-        last_hp = -1;
-        last_tx = 1.0f;
-        last_ty = 0.0f;
+        hit_count   = 0;
+        last_hp     = -1;
+        last_tx     = 1.0f;
+        last_ty     = 0.0f;
     }
     if (last_hp > 0 && static_cast<int32_t>(own_hp) < last_hp) hit_count++;
     last_hp = static_cast<int32_t>(own_hp);
@@ -1015,20 +1016,20 @@ void diag_tick()
     }
     {
         static uint32_t prev_ticks = 0;
-        static uint64_t prev_ms = 0;
-        uint64_t now_ms = now_us / 1000;
-        uint32_t ticks = workload_ticks - prev_ticks;
-        uint64_t dt_ms = (prev_ms && now_ms > prev_ms) ? now_ms - prev_ms : 0;
-        hz = dt_ms ? static_cast<unsigned long>(
+        static uint64_t prev_ms    = 0;
+        uint64_t        now_ms     = now_us / 1000;
+        uint32_t        ticks      = workload_ticks - prev_ticks;
+        uint64_t dt_ms  = (prev_ms && now_ms > prev_ms) ? now_ms - prev_ms : 0;
+        hz              = dt_ms ? static_cast<unsigned long>(
                          (static_cast<uint64_t>(ticks) * 1000ULL) / dt_ms)
-                   : 0UL;
-        prev_ticks = workload_ticks;
-        prev_ms = now_ms;
-        wl_avg = workload_us_n ? workload_us_sum / workload_us_n : 0;
-        wl_max = workload_us_max;
+                                : 0UL;
+        prev_ticks      = workload_ticks;
+        prev_ms         = now_ms;
+        wl_avg          = workload_us_n ? workload_us_sum / workload_us_n : 0;
+        wl_max          = workload_us_max;
         workload_us_sum = 0;
         workload_us_max = 0;
-        workload_us_n = 0;
+        workload_us_n   = 0;
     }
     int32_t own_aim = 0;
     if (own_elem)
@@ -1048,13 +1049,13 @@ void diag_tick()
          own_hp,
          own_x,
          own_y,
-         (int)(own_speed + 0.5f),
+         (int) (own_speed + 0.5f),
          active ? dir_name(ad_best_dir) : "idle",
          wall_cache_width(),
          wall_cache_height(),
          dodge_count,
          hit_count,
-         (int)(ad::own_hitbox + 0.5f),
+         (int) (ad::own_hitbox + 0.5f),
          ad_ind_n,
          own_aim,
          target_text(target_buf, sizeof(target_buf)),
@@ -1066,23 +1067,23 @@ void diag_tick()
          ad_pass_own,
          wall_engine_blocked_total(),
          ad_shot_tick);
-    ad_proj_move = 0;
+    ad_proj_move   = 0;
     ad_proj_sample = 0;
     {
         char qbuf[192];
-        int qn = snprintf(qbuf, sizeof(qbuf), "qc=");
-        for (int i = 0; i < 16 && qn > 0 && qn < (int)sizeof(qbuf) - 8; i++)
+        int  qn = snprintf(qbuf, sizeof(qbuf), "qc=");
+        for (int i = 0; i < 16 && qn > 0 && qn < (int) sizeof(qbuf) - 8; i++)
         {
             qn += snprintf(qbuf + qn,
-                           sizeof(qbuf) - (size_t)qn,
+                           sizeof(qbuf) - (size_t) qn,
                            i ? ",%u" : "%u",
-                           (unsigned)ad_qc[i]);
+                           (unsigned) ad_qc[i]);
             ad_qc[i] = 0;
         }
-        if (qn > 0 && qn < (int)sizeof(qbuf) - 2)
+        if (qn > 0 && qn < (int) sizeof(qbuf) - 2)
         {
             qbuf[qn++] = '\n';
-            qbuf[qn] = '\0';
+            qbuf[qn]   = '\0';
             line("%s", qbuf);
         }
     }
@@ -1114,13 +1115,13 @@ void diag_tick()
                  ad_hit_x,
                  ad_hit_y);
         }
-        ad_hit_dmg = 0;
+        ad_hit_dmg    = 0;
         ad_hit_picked = 0;
     }
     else if (ad_hit_dmg > 0)
     {
         char buf[256];
-        int len = snprintf(buf,
+        int  len = snprintf(buf,
                            sizeof(buf),
                            "dmg=%d act=%d n=%d p=(%d,%d)",
                            ad_hit_dmg,
@@ -1131,20 +1132,20 @@ void diag_tick()
         if (ad_hit_picked < 1 && len > 0)
         {
             const char* why = " | unresolved";
-            snprintf(buf + len, sizeof(buf) - (size_t)len, "%s", why);
+            snprintf(buf + len, sizeof(buf) - (size_t) len, "%s", why);
         }
         for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++)
         {
-            if (len <= 0 || len >= (int)sizeof(buf) - 40) break;
+            if (len <= 0 || len >= (int) sizeof(buf) - 40) break;
             len += snprintf(buf + len,
-                            sizeof(buf) - (size_t)len,
+                            sizeof(buf) - (size_t) len,
                             " | ca=%.0f ttc=%.2f r=%.0f",
                             ad_hit_ca[i],
                             ad_hit_ttc[i],
                             ad_hit_r[i]);
         }
         line("[hit] %s\n", buf);
-        ad_hit_dmg = 0;
+        ad_hit_dmg    = 0;
         ad_hit_picked = 0;
     }
     for (int i = 0; i < ad_proj_n && i < AD_REPORT_MAX; i++)

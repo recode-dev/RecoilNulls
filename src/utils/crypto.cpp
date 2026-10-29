@@ -6,10 +6,10 @@
 static void
 ClientInputMessageHashKeyedParts(const uint8_t* key16,
                                  const uint8_t* mask16,
-                                 uint8_t pad,
+                                 uint8_t        pad,
                                  const uint8_t* message,
-                                 size_t messageLength,
-                                 uint8_t out[CC_SHA256_DIGEST_LENGTH])
+                                 size_t         messageLength,
+                                 uint8_t        out[CC_SHA256_DIGEST_LENGTH])
 {
     uint8_t keyedBlock[64];
     for (int i = 0; i < 16; ++i)
@@ -24,17 +24,17 @@ ClientInputMessageHashKeyedParts(const uint8_t* key16,
     CC_SHA256_Final(out, &context);
 }
 
-uint32_t ClientInputMessageComputeChecksum(const uint8_t* key16,
-                                           const uint8_t* signedData,
+uint32_t ClientInputMessageComputeChecksum(const uint8_t*  key16,
+                                           const uint8_t*  signedData,
                                            const uint32_t* typeTable,
-                                           uint32_t typeFallback,
-                                           const uint8_t* innerMask,
-                                           const uint8_t* outerMask)
+                                           uint32_t        typeFallback,
+                                           const uint8_t*  innerMask,
+                                           const uint8_t*  outerMask)
 {
     constexpr size_t signedSpan =
         static_cast<size_t>(ClientInputMessageSignedDataSize);
     constexpr size_t typeSpan = sizeof(uint32_t);
-    uint32_t rawType = 0;
+    uint32_t         rawType  = 0;
     memcpy(&rawType,
            signedData + (ClientInputMessageTypeOffset -
                          ClientInputMessageSignedDataOffset),

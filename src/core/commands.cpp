@@ -7,24 +7,24 @@
 #include "offsets.h"
 #include "scan.h"
 
-static constexpr uintptr_t ClientInputTypeTableScanSpan = 0x20000ULL;
-static constexpr size_t ClientInputTypeTableScanChunk = 0x4000;
-static const uint8_t client_input_type_table_anchor[8] = {
-    0xd2, 0xc7, 0xb1, 0xa3, 0xb8, 0xa6, 0xf5, 0xe4};
+static constexpr uintptr_t ClientInputTypeTableScanSpan      = 0x20000ULL;
+static constexpr size_t    ClientInputTypeTableScanChunk     = 0x4000;
+static const uint8_t       client_input_type_table_anchor[8] = {
+          0xd2, 0xc7, 0xb1, 0xa3, 0xb8, 0xa6, 0xf5, 0xe4};
 
 static uint32_t client_input_type_table[ClientInputTypeCount];
 static uint32_t client_input_type_fallback = 0;
-static uint8_t client_input_hash_inner_mask[0x10];
-static uint8_t client_input_hash_outer_mask[0x10];
-static int client_input_constants_ready = 0;
-static int client_input_layout_confirmed = 0;
-static int client_input_pipeline_state_value = ClientInputPipelineUnknown;
+static uint8_t  client_input_hash_inner_mask[0x10];
+static uint8_t  client_input_hash_outer_mask[0x10];
+static int      client_input_constants_ready      = 0;
+static int      client_input_layout_confirmed     = 0;
+static int      client_input_pipeline_state_value = ClientInputPipelineUnknown;
 
-static int client_input_message_is_valid(void* memory, size_t size);
+static int   client_input_message_is_valid(void* memory, size_t size);
 static void* client_input_battle_instance();
 static void* client_input_manager_of_battle(void* battle);
-static int client_input_manager_queue_is_ready(void* manager);
-static int client_input_layout_probe(uintptr_t constructor);
+static int   client_input_manager_queue_is_ready(void* manager);
+static int   client_input_layout_probe(uintptr_t constructor);
 
 uintptr_t callable_at_rva(uintptr_t rva)
 {
@@ -67,9 +67,9 @@ static uintptr_t client_input_resolve(uintptr_t* slot, uintptr_t rva)
 
 static int client_input_type_table_is_plausible(const uint32_t* table)
 {
-    int count = static_cast<int>(ClientInputTypeCount);
+    int count   = static_cast<int>(ClientInputTypeCount);
     int nonzero = 0;
-    int unique = 0;
+    int unique  = 0;
     for (int i = 0; i < count; i++)
     {
         int repeated = 0;
@@ -102,8 +102,8 @@ static int client_input_constants_at(uintptr_t tableRva)
 {
     uint32_t table[ClientInputTypeCount];
     uint32_t fallback = 0;
-    uint8_t inner[0x10];
-    uint8_t outer[0x10];
+    uint8_t  inner[0x10];
+    uint8_t  outer[0x10];
     if (!base || !tableRva)
     {
         return 0;
@@ -147,13 +147,13 @@ static int client_input_constants_at(uintptr_t tableRva)
 
 static int client_input_constants_relocate(uintptr_t* outRva)
 {
-    uint8_t buffer[ClientInputTypeTableScanChunk +
+    uint8_t   buffer[ClientInputTypeTableScanChunk +
                    sizeof(client_input_type_table_anchor)];
     uintptr_t start = ClientInputTypeTableRva - ClientInputTypeTableScanSpan;
-    uintptr_t end = ClientInputTypeTableRva + ClientInputTypeTableScanSpan +
+    uintptr_t end   = ClientInputTypeTableRva + ClientInputTypeTableScanSpan +
                     sizeof(client_input_type_table_anchor);
     uintptr_t found = 0;
-    int hits = 0;
+    int       hits  = 0;
     if (!base || !outRva)
     {
         return 0;
@@ -242,11 +242,11 @@ int client_input_pipeline_state()
 
 uint32_t sign_client_input_message(void* ci, void* battle)
 {
-    uint8_t key[0x10];
-    uint8_t enabled = 0;
-    uint32_t checksum = 0;
-    uintptr_t message = reinterpret_cast<uintptr_t>(ci);
-    uintptr_t mode = reinterpret_cast<uintptr_t>(battle);
+    uint8_t   key[0x10];
+    uint8_t   enabled  = 0;
+    uint32_t  checksum = 0;
+    uintptr_t message  = reinterpret_cast<uintptr_t>(ci);
+    uintptr_t mode     = reinterpret_cast<uintptr_t>(battle);
     if (!ci || !battle)
     {
         return 0;
@@ -321,11 +321,11 @@ void* allocate_client_input_message()
 
 static int client_input_layout_probe(uintptr_t constructor)
 {
-    void* probe = malloc(ClientInputMessageProbeSize);
-    int32_t type = 0;
+    void*   probe        = malloc(ClientInputMessageProbeSize);
+    int32_t type         = 0;
     int32_t coordinate_x = 0;
     int32_t coordinate_y = 0;
-    int matches = 0;
+    int     matches      = 0;
     if (!probe)
     {
         return 0;
@@ -356,7 +356,7 @@ static void* client_input_battle_instance()
     {
         return nullptr;
     }
-    return reinterpret_cast<void* (*)()>(function)();
+    return reinterpret_cast<void* (*) ()>(function)();
 }
 
 static void* client_input_manager_of_battle(void* battle)
@@ -408,15 +408,15 @@ static int client_input_manager_queue_is_ready(void* manager)
 int enqueue_client_input_message(int type, int x, int y)
 {
     static uintptr_t constructor_slot = 0;
-    static uintptr_t add_input_slot = 0;
-    int32_t coordinate_x = x;
-    int32_t coordinate_y = y;
-    int32_t input_type = type;
-    uintptr_t constructor = 0;
-    uintptr_t add_input = 0;
-    void* battle = nullptr;
-    void* manager = nullptr;
-    void* message = nullptr;
+    static uintptr_t add_input_slot   = 0;
+    int32_t          coordinate_x     = x;
+    int32_t          coordinate_y     = y;
+    int32_t          input_type       = type;
+    uintptr_t        constructor      = 0;
+    uintptr_t        add_input        = 0;
+    void*            battle           = nullptr;
+    void*            manager          = nullptr;
+    void*            message          = nullptr;
     if (!coord_ok || dead)
     {
         return 0;
@@ -498,7 +498,7 @@ int enqueue_move_input_with_type(int x, int y, int type)
     }
     if (type == ClientInputMessageTypeMove)
     {
-        (void)set_client_prediction_move_to(x, y);
+        (void) set_client_prediction_move_to(x, y);
     }
     return 1;
 }
@@ -510,9 +510,9 @@ int enqueue_move_input(int x, int y)
 
 int set_client_prediction_move_to(int x, int y)
 {
-    static uintptr_t slot = 0;
-    uintptr_t function = 0;
-    uintptr_t controller_object = 0;
+    static uintptr_t slot              = 0;
+    uintptr_t        function          = 0;
+    uintptr_t        controller_object = 0;
     if (!coord_ok)
     {
         return 0;
