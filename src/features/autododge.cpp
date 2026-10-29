@@ -920,8 +920,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     }
     ad_dir_x = bx, ad_dir_y = by;
     ad_best_dir =
-        (vector_angle((int) (bx * 1000.0f), (int) (by * 1000.0f)) / 45 + 8) &
-        7;
+        (vector_angle((int) (bx * 1000.0f), (int) (by * 1000.0f)) / 45 + 8) & 7;
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
 }
