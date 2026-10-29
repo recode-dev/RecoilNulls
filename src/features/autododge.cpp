@@ -44,6 +44,9 @@ constexpr uint64_t CALM_MS = 0;
 constexpr uint64_t SEND_MS = ad::TICK_MS;
 constexpr int MOVE_DELAY_TICKS = 2;
 constexpr uint64_t TURN_HOLD_MS = 0;
+constexpr size_t PROJDATA_CFG_OFF = 0x10;
+constexpr size_t PROJDATA_SPEED_OFF = 0x9c;
+constexpr size_t PROJDATA_RADIUS_OFF = 0xa4;
 constexpr int HOLD_DANGER_STEPS = (int)(TURN_HOLD_MS * 2 / ad::TICK_MS);
 constexpr float AD_SAFETY = 40.0f;
 constexpr uint64_t HUMAN_MS = 200;
@@ -148,6 +151,23 @@ void init_proj(
     if (!read_bytes(dataPtr, data, sizeof(data))) return;
     memcpy(&speed, data + PROJECTILEDATA_SPEED_OFF, sizeof(speed));
     memcpy(&radius, data + PROJECTILEDATA_RADIUS_OFF, sizeof(radius));
+    // The object we scan is the client projectile; the config lives behind it
+    // (v36: LogicProjectileClient +0x10 -> LogicProjectileData, speed +0x9c,
+    // radius +0xa4). The client's own +0x6c is a bitstream counter, not speed.
+    uintptr_t cfg = 0;
+    memcpy(&cfg, data + PROJDATA_CFG_OFF, sizeof(cfg));
+    if (cfg && pointer_plausible(cfg))
+    {
+        uint8_t cb[0xc0];
+        if (read_bytes(cfg, cb, sizeof(cb)))
+        {
+            int32_t cs = 0, cr = 0;
+            memcpy(&cs, cb + PROJDATA_SPEED_OFF, sizeof(cs));
+            memcpy(&cr, cb + PROJDATA_RADIUS_OFF, sizeof(cr));
+            if (cs >= 100 && cs <= 20000) speed = cs;
+            if (cr > 0 && cr <= 3000) radius = cr;
+        }
+    }
     if (radius < 0 || radius > 3000) radius = 60;
     st->pid = pid;
     st->seen = now;
