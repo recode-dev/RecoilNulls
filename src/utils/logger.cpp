@@ -970,7 +970,7 @@ void diag_tick()
     for (int i = 0; i < ad_proj_n && i < AD_REPORT_MAX; i++)
     {
         line("[p%d] pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) sp=%.0f "
-             "r=%.0f vel=%d\n",
+             "r=%.0f vel=%d inf=%d,%d,%d,%d,%d,%d,%d\n",
              i,
              ad_pj_pid[i],
              ad_pj_x[i],
@@ -979,7 +979,14 @@ void diag_tick()
              ad_pj_vy[i],
              ad_pj_sp[i],
              ad_pj_r[i],
-             ad_pj_vel[i]);
+             ad_pj_vel[i],
+             ad_pj_info[i][0],
+             ad_pj_info[i][1],
+             ad_pj_info[i][2],
+             ad_pj_info[i][3],
+             ad_pj_info[i][4],
+             ad_pj_info[i][5],
+             ad_pj_info[i][6]);
     }
     for (int i = 0; i < ad_enemy_n && i < 4; i++)
     {

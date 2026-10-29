@@ -41,6 +41,7 @@ extern float         ad_pj_vy[AD_REPORT_MAX];
 extern float         ad_pj_sp[AD_REPORT_MAX];
 extern float         ad_pj_r[AD_REPORT_MAX];
 extern int           ad_pj_vel[AD_REPORT_MAX];
+extern int32_t       ad_pj_info[AD_REPORT_MAX][7];
 extern uint32_t      ad_proj_sample, ad_proj_move;
 extern int           ad_enemy_pid[AD_ENEMY_MAX];
 extern float         ad_enemy_x[AD_ENEMY_MAX];
