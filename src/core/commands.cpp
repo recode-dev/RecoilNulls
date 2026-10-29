@@ -8,14 +8,8 @@
 
 static constexpr uintptr_t CLIENT_INPUT_TABLE_SCAN_SPAN = 0x20000ULL;
 static constexpr size_t CLIENT_INPUT_TABLE_SCAN_CHUNK = 0x4000;
-static const uint8_t client_input_type_table_anchor[8] = {0xd2,
-                                                          0xc7,
-                                                          0xb1,
-                                                          0xa3,
-                                                          0xb8,
-                                                          0xa6,
-                                                          0xf5,
-                                                          0xe4};
+static const uint8_t client_input_type_table_anchor[8] = {
+    0xd2, 0xc7, 0xb1, 0xa3, 0xb8, 0xa6, 0xf5, 0xe4};
 
 static uint32_t client_input_type_table[CLIENT_INPUT_TYPE_COUNT];
 static uint32_t client_input_type_fallback = 0;
@@ -152,8 +146,10 @@ static int client_input_constants_at(uintptr_t tableRva)
 
 static int client_input_constants_relocate(uintptr_t* outRva)
 {
-    uint8_t buffer[CLIENT_INPUT_TABLE_SCAN_CHUNK + sizeof(client_input_type_table_anchor)];
-    uintptr_t start = CLIENT_INPUT_TYPE_TABLE_RVA - CLIENT_INPUT_TABLE_SCAN_SPAN;
+    uint8_t buffer[CLIENT_INPUT_TABLE_SCAN_CHUNK +
+                   sizeof(client_input_type_table_anchor)];
+    uintptr_t start =
+        CLIENT_INPUT_TYPE_TABLE_RVA - CLIENT_INPUT_TABLE_SCAN_SPAN;
     uintptr_t end = CLIENT_INPUT_TYPE_TABLE_RVA + CLIENT_INPUT_TABLE_SCAN_SPAN +
                     sizeof(client_input_type_table_anchor);
     uintptr_t found = 0;
