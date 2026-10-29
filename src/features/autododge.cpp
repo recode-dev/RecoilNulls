@@ -1087,8 +1087,8 @@ void reset_autododge_state()
 }
 void update_autododge()
 {
-    ad_best_dir = -1;
-    ad_tick     = battle_call(LOGICBATTLEMODECLIENT__GETTICK);
+    ad_best_dir  = -1;
+    ad_tick      = battle_call(LOGICBATTLEMODECLIENT__GETTICK);
     ad_pred_tick = battle_call(LOGICBATTLEMODECLIENT__GETPREDICTEDTICK);
     ad_tick_lag  = battle_call(LOGICBATTLEMODECLIENT__GETTIMESINCELASTTICK);
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
