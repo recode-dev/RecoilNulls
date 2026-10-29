@@ -219,9 +219,7 @@ static void add_proj(const uint8_t* obj,
         return;
     }
     if (st->flags & B_IND) ad_ind_n++;
-    if (!(st->flags & (B_IND | B_PIERCE)) &&
-        !wall_los(px, py, mx, my))
-        return;
+    if (!(st->flags & (B_IND | B_PIERCE)) && !wall_los(px, py, mx, my)) return;
     float vv = vx * vx + vy * vy;
     if (vv <= 0.0f) return;
     float rad = st->rad + OWN_HITBOX + AD_SAFETY;
