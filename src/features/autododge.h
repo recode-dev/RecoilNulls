@@ -6,6 +6,7 @@ inline constexpr int AD_ENEMY_MAX = 4;
 extern int in_move;
 extern int active;
 extern int ad_human;
+extern int ad_pass_own;
 extern float ad_dir_x, ad_dir_y;
 extern int ad_hold_ms, ad_urgent;
 extern int32_t ad_target_x;

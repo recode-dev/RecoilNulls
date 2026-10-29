@@ -223,7 +223,7 @@ void diag_tick()
     }
     line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
          "dir=%s map=%dx%d dodge=%d hit=%d beam=%d ind=%d fd=%d tgt=(%d,%d) "
-         "hu=%d pm=%u/%u\n",
+         "hu=%d pm=%u/%u wb=%d/%d pt=%d\n",
          static_cast<unsigned long>(hz),
          static_cast<unsigned long>(wl_avg),
          static_cast<unsigned long>(wl_max),
@@ -247,7 +247,10 @@ void diag_tick()
          ad_target_y,
          ad_human,
          ad_proj_move,
-         ad_proj_sample);
+         ad_proj_sample,
+         wall_blocked_count(),
+         wall_cache_w() * wall_cache_h(),
+         ad_pass_own);
     ad_proj_move = 0;
     ad_proj_sample = 0;
     {

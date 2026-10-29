@@ -12,6 +12,36 @@ static int wall_have = 0;
 static uintptr_t wall_map = 0;
 static int wall_dirty = 1;
 static uint64_t wall_fail_ms = 0;
+
+int wall_passable_at(float x, float y)
+{
+    if (!wall_map)
+    {
+        return 0;
+    }
+    int cell = game_tile_to_logic(1) / 3;
+    if (cell <= 0)
+    {
+        return 0;
+    }
+    return game_tile_passable(wall_map,
+                              static_cast<int>(x) / cell,
+                              static_cast<int>(y) / cell);
+}
+
+int wall_blocked_count()
+{
+    int n = 0;
+    for (int i = 0; i < wall_w * wall_h; i++)
+    {
+        if (wall_grid[i])
+        {
+            n++;
+        }
+    }
+    return n;
+}
+
 float wall_units(int tiles)
 {
     return static_cast<float>(game_tile_to_logic(tiles) -

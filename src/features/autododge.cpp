@@ -12,6 +12,7 @@ int ad_human = 0;
 float ad_dir_x = 1.0f, ad_dir_y = 0.0f;
 int ad_hold_ms = 0, ad_urgent = 0;
 int ad_beam_n = 0, ad_ind_n = 0;
+int ad_pass_own = 0;
 uint64_t ad_qv[16] = {0};
 uint16_t ad_qc[16] = {0};
 uint32_t ad_proj_sample = 0, ad_proj_move = 0;
@@ -40,7 +41,7 @@ constexpr float REACH = 300.0f;
 constexpr int DIRS = 16;
 constexpr int SIM_STEPS = 32;
 constexpr float ZONE_FAR = 5000.0f;
-constexpr uint64_t CALM_MS = 60;
+constexpr uint64_t CALM_MS = 0;
 constexpr uint64_t SEND_MS = ad::TICK_MS;
 constexpr int MOVE_DELAY_TICKS = 2;
 constexpr uint64_t TURN_HOLD_MS = 130;
@@ -650,8 +651,15 @@ void autododge()
         choose(mx, my, dir_x, dir_y);
     }
     fill_report(mx, my, dir_x, dir_y);
-    int32_t tx = axis(mx + dir_x * REACH, wall_cache_w());
-    int32_t ty = axis(my + dir_y * REACH, wall_cache_h());
+    ad_pass_own = wall_passable_at(mx, my);
+    float fx = mx + dir_x * REACH, fy = my + dir_y * REACH;
+    for (int k = 0; k < 3 && !wall_los(mx, my, fx, fy); k++)
+    {
+        fx = mx + (fx - mx) * 0.5f;
+        fy = my + (fy - my) * 0.5f;
+    }
+    int32_t tx = axis(fx, wall_cache_w());
+    int32_t ty = axis(fy, wall_cache_h());
     pred_set(tx, ty);
     if (now - sent_ms >= SEND_MS)
     {
