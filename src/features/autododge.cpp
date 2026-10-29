@@ -56,6 +56,9 @@ constexpr float AXIS_INTO = 0.35f;
 constexpr float WEIGHT_APPROACH = 2000.0f;
 constexpr float APPROACH_R = 2400.0f;
 constexpr float HOT_CLEAR = 420.0f;
+constexpr float BORDER_PAD = 60.0f;
+constexpr float EDGE_ZONE = 300.0f;
+constexpr float WEIGHT_EDGE = 1600.0f;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 constexpr float SIM_T = (float)SIM_STEPS * TICK_MS_SEC;
 }
@@ -306,19 +309,36 @@ static float move_dx = 0.0f, move_dy = 0.0f;
 static uint64_t human_ms = 0;
 static int32_t prev_x = 0, prev_y = 0;
 static uint32_t last_hp = 0;
+static float edge_margin()
+{
+    return own_hitbox + BORDER_PAD;
+}
+static float edge_pull(float mx, float my, float dx, float dy)
+{
+    float w = wall_units(wall_cache_w());
+    float h = wall_units(wall_cache_h());
+    float zone = own_hitbox + EDGE_ZONE;
+    float pen = 0.0f;
+    if (mx < zone) pen -= dx * (zone - mx) / zone;
+    if (mx > w - zone) pen += dx * (mx - (w - zone)) / zone;
+    if (my < zone) pen -= dy * (zone - my) / zone;
+    if (my > h - zone) pen += dy * (my - (h - zone)) / zone;
+    return pen;
+}
 static float free_run(float mx, float my, float dx, float dy, float far)
 {
     float run = far;
+    float em = edge_margin();
     float w = wall_units(wall_cache_w());
     float h = wall_units(wall_cache_h());
     if (dx > 1e-6f)
-        run = fminf(run, (w - own_hitbox - mx) / dx);
+        run = fminf(run, (w - em - mx) / dx);
     else if (dx < -1e-6f)
-        run = fminf(run, (own_hitbox - mx) / dx);
+        run = fminf(run, (em - mx) / dx);
     if (dy > 1e-6f)
-        run = fminf(run, (h - own_hitbox - my) / dy);
+        run = fminf(run, (h - em - my) / dy);
     else if (dy < -1e-6f)
-        run = fminf(run, (own_hitbox - my) / dy);
+        run = fminf(run, (em - my) / dy);
     const float step = wall_units(1);
     for (float d = step; d < run; d += step)
     {
@@ -342,6 +362,7 @@ static void sim_pos(float mx,
 {
     float delay = (float)MOVE_DELAY_TICKS * TICK_MS_SEC;
     float coast = tk < delay ? tk : delay;
+    float em = edge_margin();
     ax = mx + move_dx * self_speed * coast;
     ay = my + move_dy * self_speed * coast;
     if (tk > delay)
@@ -349,12 +370,12 @@ static void sim_pos(float mx,
         ax += dx * self_speed * (tk - delay);
         ay += dy * self_speed * (tk - delay);
     }
-    if (ax < own_hitbox)
-        ax = own_hitbox;
+    if (ax < em)
+        ax = em;
     else if (ax > w)
         ax = w;
-    if (ay < own_hitbox)
-        ay = own_hitbox;
+    if (ay < em)
+        ay = em;
     else if (ay > h)
         ay = h;
 }
@@ -409,8 +430,8 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
     float far = self_speed * SIM_T;
     float run = free_run(mx, my, dx, dy, far);
     float room = run >= far ? 1.0f : run / far;
-    float w = wall_units(wall_cache_w()) - own_hitbox;
-    float h = wall_units(wall_cache_h()) - own_hitbox;
+    float w = wall_units(wall_cache_w()) - edge_margin();
+    float h = wall_units(wall_cache_h()) - edge_margin();
     float mx_step = dx * self_speed, my_step = dy * self_speed;
     int survive = SIM_STEPS + 1;
     float margin = 1e30f;
@@ -457,6 +478,7 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
            WEIGHT_POS * WEIGHT_AWAY * nearest_away(mx, my, dx, dy) -
            WEIGHT_AXIS * thrust_penalty(mx, my, dx, dy) -
            WEIGHT_APPROACH * enemy_approach(mx, my, dx, dy) -
+           WEIGHT_EDGE * edge_pull(mx, my, dx, dy) -
            own_hitbox * wall_pull(mx, my, dx, dy, own_hitbox);
 }
 static void choose(float mx, float my, float& out_x, float& out_y)
@@ -713,10 +735,14 @@ void autododge()
         fx = mx + (fx - mx) * 0.5f;
         fy = my + (fy - my) * 0.5f;
     }
-    float max_x = wall_units(wall_cache_w()) - own_hitbox;
-    float max_y = wall_units(wall_cache_h()) - own_hitbox;
-    fx = fminf(fmaxf(fx, own_hitbox), max_x);
-    fy = fminf(fmaxf(fy, own_hitbox), max_y);
+    float em = edge_margin();
+    float wu = wall_units(wall_cache_w()), hu = wall_units(wall_cache_h());
+    float lo_x = em < wu * 0.5f ? em : wu * 0.5f;
+    float hi_x = wu - em > wu * 0.5f ? wu - em : wu * 0.5f;
+    float lo_y = em < hu * 0.5f ? em : hu * 0.5f;
+    float hi_y = hu - em > hu * 0.5f ? hu - em : hu * 0.5f;
+    fx = fminf(fmaxf(fx, lo_x), hi_x);
+    fy = fminf(fmaxf(fy, lo_y), hi_y);
     int32_t tx = axis(fx, wall_cache_w());
     int32_t ty = axis(fy, wall_cache_h());
     pred_set(tx, ty);
