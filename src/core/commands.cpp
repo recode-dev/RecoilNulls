@@ -464,15 +464,16 @@ int enqueue_move_input(int x, int y)
     return enqueue_move_input_with_type(x, y, ClientInputMessageTypeMove);
 }
 
-int      engine_pathfind_calls = 0;
-int      engine_pathfind_ok    = 0;
-int32_t  engine_pathfind_x     = 0;
-int32_t  engine_pathfind_y     = 0;
+int     engine_pathfind_calls = 0;
+int     engine_pathfind_ok    = 0;
+int32_t engine_pathfind_x     = 0;
+int32_t engine_pathfind_y     = 0;
 
 int engine_own_path_length()
 {
-    uintptr_t self     = own_elem;
-    uintptr_t function = callable_at_rva(LOGICCHARACTERCLIENTOWN__GETPATHLENGTH);
+    uintptr_t self = own_elem;
+    uintptr_t function =
+        callable_at_rva(LOGICCHARACTERCLIENTOWN__GETPATHLENGTH);
     if (!self || !function)
     {
         return -1;
@@ -510,8 +511,9 @@ int engine_own_pos_at_tick(int32_t tick, float* x, float* y)
     {
         return 0;
     }
-    reinterpret_cast<void (*)(uintptr_t, int32_t, int32_t*, int32_t*, uint32_t)>(
-        function)(self, tick, position, previous, 0u);
+    reinterpret_cast<void (*)(
+        uintptr_t, int32_t, int32_t*, int32_t*, uint32_t)>(function)(
+        self, tick, position, previous, 0u);
     *x = static_cast<float>(position[0]);
     *y = static_cast<float>(position[1]);
     return 1;
