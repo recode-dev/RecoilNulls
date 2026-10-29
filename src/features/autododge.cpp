@@ -52,6 +52,7 @@ constexpr int MOVE_DELAY_TICKS = 2;
 constexpr uint64_t TURN_HOLD_MS = 0;
 constexpr int HOLD_DANGER_STEPS = (int)(TURN_HOLD_MS * 2 / ad::TICK_MS);
 constexpr float AD_SAFETY = 40.0f;
+constexpr float PROJECTILE_RADIUS = 60.0f;
 constexpr uint64_t HUMAN_MS = 200;
 constexpr float WEIGHT_STEP = 4096.0f;
 constexpr float WEIGHT_POS = 900.0f;
@@ -116,49 +117,18 @@ Proj* find_projectile_entry(int32_t pid)
 void init_projectile_state(
     Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
 {
-    uint8_t data[LOGIC_PROJECTILE_DATA_BLOCK_SIZE];
-    int32_t radius = 0;
-    if (!read_bytes(dataPtr, data, sizeof(data))) return;
-    st->homing = false;
-    st->ttype = 0;
-    memcpy(&radius, data + LOGIC_PROJECTILE_DATA_RADIUS_OFF, sizeof(radius));
-    uintptr_t cfg = 0;
-    memcpy(&cfg, data + LOGIC_PROJECTILE_DATA_CONFIG_ADDRESS_OFF, sizeof(cfg));
-    if (cfg && pointer_plausible(cfg))
-    {
-        uint8_t cb[LOGIC_PROJECTILE_DATA_CONFIG_BLOCK_SIZE];
-        if (read_bytes(cfg, cb, sizeof(cb)))
-        {
-            int32_t cr = 0, ct = 0;
-            uint8_t ch = 0;
-            memcpy(
-                &cr, cb + LOGIC_PROJECTILE_DATA_CONFIG_RADIUS_OFF, sizeof(cr));
-            memcpy(
-                &ct, cb + LOGIC_PROJECTILE_DATA_CONFIG_TTYPE_OFF, sizeof(ct));
-            memcpy(
-                &ch, cb + LOGIC_PROJECTILE_DATA_CONFIG_HOMING_OFF, sizeof(ch));
-            if (cr > 0 && cr <= 3000) radius = cr;
-            st->homing = ch != 0;
-            st->ttype = (int16_t)ct;
-        }
-    }
-    if (radius < 0 || radius > 3000) radius = 60;
     st->pid = pid;
     st->seen = now;
     st->x = px;
     st->y = py;
     st->speed = 0.0f;
-    st->rad = (float)radius;
-    if (st->homing) st->rad += 80.0f;
+    st->rad = PROJECTILE_RADIUS;
+    st->homing = false;
+    st->ttype = 0;
     st->vel = false;
     st->ux = 0.0f;
     st->uy = 0.0f;
     st->flags = 0;
-    if (data[LOGIC_PROJECTILE_DATA_PASSES_ENV_OFF]) st->flags |= B_IND;
-    if (data[LOGIC_PROJECTILE_DATA_PIERCES_ENV_OFF] ||
-        data[LOGIC_PROJECTILE_DATA_PIERCES_ENV_BUTTER_OFF])
-        st->flags |= B_PIERCE;
-    if (data[LOGIC_PROJECTILE_DATA_IS_BOUNCING_OFF]) st->flags |= B_BOUNCE;
     st->name[0] = '\0';
     uintptr_t str = 0;
     if (addr_dataname)

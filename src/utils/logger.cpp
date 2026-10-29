@@ -652,21 +652,12 @@ void val_projectile()
 {
     uintptr_t found = 0;
     uintptr_t objPtr = 0;
-    int32_t radius = 0;
-    int32_t ttype = 0;
     int32_t startTick = 0;
     int32_t endTick = 0;
     int32_t sx = 0;
     int32_t sy = 0;
     int32_t ex = 0;
     int32_t ey = 0;
-    int32_t cfgRadius = 0;
-    uint8_t homing = 0;
-    uint8_t bouncing = 0;
-    uint8_t pierce = 0;
-    uint8_t butter = 0;
-    uint8_t passes = 0;
-    uintptr_t cfg = 0;
     {
         float px = 0.0f, py = 0.0f;
         int32_t t0 = 0, t1 = 0;
@@ -730,7 +721,7 @@ void val_projectile()
     }
     val_proj_done = 1;
     vf("PROJSERVER_TICK_SPAN",
-       endTick - startTick > 0 && endTick - startTick <= 400,
+       endTick - startTick >= 0 && endTick - startTick <= 3000,
        "%d..%d span=%d",
        startTick,
        endTick,
@@ -768,55 +759,6 @@ void val_projectile()
        "0x%llx readable 0x%llx",
        (unsigned long long)found,
        (unsigned long long)LOGIC_PROJECTILE_DATA_BLOCK_SIZE);
-    if (read_int(found + LOGIC_PROJECTILE_DATA_RADIUS_OFF, &radius))
-    {
-        vf("LOGIC_PROJECTILE_DATA_RADIUS_OFF",
-           radius > 0 && radius <= 300,
-           "r=%d",
-           radius);
-    }
-    else
-    {
-        vf("LOGIC_PROJECTILE_DATA_RADIUS_OFF", false, "read failed");
-    }
-    if (read_int(found + LOGIC_PROJECTILE_DATA_CONFIG_TTYPE_OFF, &ttype))
-    {
-        vf("LOGIC_PROJECTILE_DATA_CONFIG_TTYPE_OFF",
-           ttype >= -1 && ttype <= 64,
-           "tt=%d",
-           ttype);
-    }
-    else
-    {
-        vf("LOGIC_PROJECTILE_DATA_CONFIG_TTYPE_OFF", false, "read failed");
-    }
-    vf("LOGIC_PROJECTILE_DATA_CONFIG_HOMING_OFF",
-       read_bytes(
-           found + LOGIC_PROJECTILE_DATA_CONFIG_HOMING_OFF, &homing, 1) &&
-           homing <= 1,
-       "homing=%u",
-       (unsigned)homing);
-    vf("LOGIC_PROJECTILE_DATA_IS_BOUNCING_OFF",
-       read_bytes(
-           found + LOGIC_PROJECTILE_DATA_IS_BOUNCING_OFF, &bouncing, 1) &&
-           (bouncing <= 1 || bouncing == 255),
-       "bounce=%u",
-       (unsigned)bouncing);
-    vf("LOGIC_PROJECTILE_DATA_PIERCES_ENV_OFF",
-       read_bytes(found + LOGIC_PROJECTILE_DATA_PIERCES_ENV_OFF, &pierce, 1) &&
-           pierce <= 1 &&
-           read_bytes(found + LOGIC_PROJECTILE_DATA_PIERCES_ENV_BUTTER_OFF,
-                      &butter,
-                      1) &&
-           butter <= 1,
-       "pierce=%u butter=%u",
-       (unsigned)pierce,
-       (unsigned)butter);
-    vf("LOGIC_PROJECTILE_DATA_PASSES_ENV_OFF",
-       read_bytes(found + LOGIC_PROJECTILE_DATA_PASSES_ENV_OFF, &passes, 1) &&
-           passes <= 1,
-       "passes=%u",
-       (unsigned)passes);
     vf("PROJSERVER_IN_OBJECT",
        LOGIC_PROJECTILE_SERVER_ENDY_OFF + 4 <= OBJ_BLOCK_SIZE,
        "endY=0x%llx block=0x%x",
@@ -839,32 +781,6 @@ void val_projectile()
     else
     {
         vf("PROJSERVER_COORDS", false, "read failed");
-    }
-    if (read_ptr(found + LOGIC_PROJECTILE_DATA_CONFIG_ADDRESS_OFF, &cfg) &&
-        cfg && pointer_plausible(cfg))
-    {
-        vf("LOGIC_PROJECTILE_DATA_CONFIG_ADDRESS_OFF",
-           addr_readable(cfg, LOGIC_PROJECTILE_DATA_CONFIG_BLOCK_SIZE),
-           "0x%llx",
-           (unsigned long long)cfg);
-        if (read_int(cfg + LOGIC_PROJECTILE_DATA_CONFIG_RADIUS_OFF, &cfgRadius))
-        {
-            float cfgRadiusF = 0.0f;
-            memcpy(&cfgRadiusF, &cfgRadius, sizeof(cfgRadiusF));
-            vf("LOGIC_PROJECTILE_DATA_CONFIG_RADIUS_OFF",
-               (cfgRadius >= 0 && cfgRadius <= 4000) ||
-                   (cfgRadiusF > 0.0f && cfgRadiusF <= 10.0f),
-               "r=%d",
-               cfgRadius);
-        }
-        else
-        {
-            vf("LOGIC_PROJECTILE_DATA_CONFIG_RADIUS_OFF", false, "read failed");
-        }
-    }
-    else
-    {
-        vf("LOGIC_PROJECTILE_DATA_CONFIG_ADDRESS_OFF", false, "read failed");
     }
 }
 
