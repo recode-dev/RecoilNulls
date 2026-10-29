@@ -251,25 +251,18 @@ void diag_tick()
     ad_proj_move = 0;
     ad_proj_sample = 0;
     {
-        static uint32_t q_seen = 0;
-        static uint64_t q_us = 0;
-        static uint32_t q_lines = 0;
-        if (ad_q_ver != q_seen && q_lines < 600 && now_us - q_us > 1000)
+        char qbuf[192];
+        int qn = snprintf(qbuf, sizeof(qbuf), "qc=");
+        for (int i = 0; i < 16 && qn > 0 && qn < (int)sizeof(qbuf) - 8; i++)
         {
-            q_seen = ad_q_ver;
-            q_us = now_us;
-            q_lines++;
-            line("[q] v=%u i=%u %llx %llx %llx %llx %llx %llx %llx %llx\n",
-                 (unsigned)ad_q_ver,
-                 (unsigned)ad_q_i,
-                 (unsigned long long)ad_q_w[0],
-                 (unsigned long long)ad_q_w[1],
-                 (unsigned long long)ad_q_w[2],
-                 (unsigned long long)ad_q_w[3],
-                 (unsigned long long)ad_q_w[4],
-                 (unsigned long long)ad_q_w[5],
-                 (unsigned long long)ad_q_w[6],
-                 (unsigned long long)ad_q_w[7]);
+            qn += snprintf(qbuf + qn, sizeof(qbuf) - (size_t)qn, i ? ",%u" : "%u", (unsigned)ad_qc[i]);
+            ad_qc[i] = 0;
+        }
+        if (qn > 0 && qn < (int)sizeof(qbuf) - 2)
+        {
+            qbuf[qn++] = '\n';
+            qbuf[qn] = '\0';
+            line("%s", qbuf);
         }
     }
     for (int i = 0; i < ad_threat_n && i < 3; i++)
