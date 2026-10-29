@@ -50,6 +50,9 @@ constexpr float AD_SAFETY = 40.0f;
 constexpr uint64_t HUMAN_MS = 200;
 constexpr float WEIGHT_STEP = 4096.0f;
 constexpr float WEIGHT_POS = 900.0f;
+constexpr float WEIGHT_AWAY = 0.06f;
+constexpr float WEIGHT_AXIS = 2600.0f;
+constexpr float AXIS_INTO = 0.35f;
 constexpr float TICK_MS_SEC = (float)ad::TICK_MS * 0.001f;
 constexpr float SIM_T = (float)SIM_STEPS * TICK_MS_SEC;
 }
@@ -365,6 +368,24 @@ static float nearest_away(float mx, float my, float dx, float dy)
     }
     return best < 1e29f ? -dot : 0.0f;
 }
+static float thrust_penalty(float mx, float my, float dx, float dy)
+{
+    float worst = 0.0f;
+    for (int i = 0; i < threat_n; i++)
+    {
+        const Threat& t = threats[i];
+        float vv = t.vx * t.vx + t.vy * t.vy;
+        if (vv < 1e-6f) continue;
+        float iv = 1.0f / sqrtf(vv);
+        float ux = t.vx * iv, uy = t.vy * iv;
+        float rx = mx - t.x, ry = my - t.y;
+        if (rx * ux + ry * uy < 0.0f) continue;
+        float a = dx * ux + dy * uy;
+        float p = a > 0.0f ? a : -AXIS_INTO * a;
+        if (p > worst) worst = p;
+    }
+    return worst;
+}
 static float dir_value(float mx, float my, float dx, float dy, int& steps)
 {
     float far = self_speed * SIM_T;
@@ -415,7 +436,8 @@ static float dir_value(float mx, float my, float dx, float dy, int& steps)
     if (margin > own_hitbox * 3.0f) margin = own_hitbox * 3.0f;
     steps = survive;
     return (float)survive * WEIGHT_STEP + margin + WEIGHT_POS * room +
-           WEIGHT_POS * 0.28f * nearest_away(mx, my, dx, dy) -
+           WEIGHT_POS * WEIGHT_AWAY * nearest_away(mx, my, dx, dy) -
+           WEIGHT_AXIS * thrust_penalty(mx, my, dx, dy) -
            own_hitbox * wall_pull(mx, my, dx, dy, own_hitbox);
 }
 static void choose(float mx, float my, float& out_x, float& out_y)
@@ -463,19 +485,21 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     if (has)
     {
         int cur = 0;
-        dir_value(mx, my, commit_x, commit_y, cur);
+        float cur_val = dir_value(mx, my, commit_x, commit_y, cur) +
+                        own_hitbox * 8.0f;
         bool better = best_steps > cur;
         bool die_fast = better && cur > 0 && cur <= HOLD_DANGER_STEPS;
         bool walled =
             better && free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
                           own_hitbox * 2.0f;
         bool held = now - turn_ms < TURN_HOLD_MS;
+        bool gain = best > cur_val + own_hitbox * 2.0f;
         if (die_fast || walled)
         {
             ad_urgent = 1;
             turn_ms = now;
         }
-        else if (held || best_steps < cur + 2)
+        else if (held || !gain)
         {
             bx = commit_x, by = commit_y;
         }
