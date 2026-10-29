@@ -907,8 +907,7 @@ void diag_tick()
             forecast = engine_own_pos_at_tick(tick_end, &engine_x, &engine_y);
         }
         line(
-            "[eng] plen=%d win=%d..%d fc=%d e=(%.0f,%.0f) pf=%d/%d sk=%d tgt=%d,%d
-            ",
+            "[eng] plen=%d win=%d..%d fc=%d e=(%.0f,%.0f) pf=%d/%d sk=%d tgt=%d,%d\n",
             path_len,
             window ? (int) tick_start : 0,
             window ? (int) tick_end : 0,
