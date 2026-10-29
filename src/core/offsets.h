@@ -17,11 +17,12 @@ inline constexpr uint64_t RVA_LOGICBATTLEMODECLIENT_SETCLIENTPREDICTIONMOVETO =
 inline constexpr uint64_t RVA_CLIENTINPUTMESSAGE_CONSTRUCT = 0x00a95798ULL;
 inline constexpr uint64_t RVA_CLIENTINPUTMANAGER_ADDINPUT = 0x74675cULL;
 inline constexpr uint64_t RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER = 0x942ebcULL;
-// LogicTile keeps three 64-bit passability bitmaps. Bit index is
-// (x % 3) + (y % 3) * 3 + layer * 9; a set bit means the sub-cell is blocked.
-// Verified in v69: LogicTileMap::isPassablePathFinder (0x942ebc) calls
-// LogicTile::isPassablePathFinder (0x9402ec), which reads
-// +0x10/+0x18/+0x20/+0x28.
+// LogicTile keeps four 64-bit passability bitmaps. LogicTileMap::isPassable-
+// PathFinder (0x942ebc) calls LogicTile::isPassablePathFinder (0x9402ec), which
+// builds bit = 1 << (layer * 9 + (x % 3) + (y % 3) * 3) and reports the sub-cell
+// as blocked when that bit is set in +0x10 or +0x28. The +0x18 / +0x20 words are
+// only consulted when the caller's flag bits are clear, so the flag-independent
+// blocker set is (+0x10 | +0x28) over the nine layer-0 sub-cells (mask 0x1ff).
 inline constexpr uint64_t LOGICTILE_BLOCKMASK_OFF = 0x10ULL;
 inline constexpr uint64_t LOGICTILE_WATERMASK_OFF = 0x18ULL;
 inline constexpr uint64_t LOGICTILE_THIRDMASK_OFF = 0x20ULL;
