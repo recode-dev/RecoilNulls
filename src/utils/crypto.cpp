@@ -1,4 +1,5 @@
 #include "crypto.h"
+#include "../core/offsets.h"
 #include <CommonCrypto/CommonDigest.h>
 #include <cstring>
 
@@ -31,7 +32,8 @@ uint32_t ci_compute_token(const uint8_t* key16,
 {
     uint32_t rawType = 0;
     memcpy(&rawType, cmd16 + 4, sizeof(rawType));
-    uint32_t mappedType = rawType <= 0x16 ? table[rawType] : fallback;
+    uint32_t mappedType =
+        rawType < CLIENT_INPUT_TYPE_COUNT ? table[rawType] : fallback;
     uint8_t message[20];
     memcpy(message, cmd16, 16);
     memcpy(message + 16, &mappedType, sizeof(mappedType));

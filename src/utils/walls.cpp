@@ -12,10 +12,11 @@ static constexpr int WALL_SUBTILE_TOTAL =
     WALL_MAX_TOTAL_TILES * WALL_BITS_PER_TILE;
 static constexpr int WALL_SUBTILE_WORDS = (WALL_SUBTILE_TOTAL + 31) / 32;
 static constexpr int WALL_TILE_WORDS = (WALL_MAX_TOTAL_TILES + 31) / 32;
-static constexpr uint64_t WALL_SUBTILE_BITS = 0x1ffULL;
+static constexpr uint64_t WALL_SUBTILE_BITS =
+    (1ULL << WALL_LAYER_BIT_STRIDE) - 1ULL;
 static constexpr int WALL_SAMPLE_TILES = 24;
 static constexpr int WALL_MASK_OFFSET_COUNT = 3;
-static constexpr uintptr_t WALL_TILE_WINDOW_SIZE = 0x40;
+static constexpr uintptr_t WALL_TILE_WINDOW_SIZE = LOGIC_TILE_READ_WINDOW_MAX;
 static constexpr float WALL_FAR_T = 1.0e30f;
 
 struct wall_tile_window
@@ -26,7 +27,9 @@ struct wall_tile_window
 static uint32_t wall_movement_bits[WALL_SUBTILE_WORDS];
 static uint32_t wall_projectile_bits[WALL_TILE_WORDS];
 static const uintptr_t wall_mask_offsets[WALL_MASK_OFFSET_COUNT] = {
-    static_cast<uintptr_t>(LOGIC_TILE_MASK_ARRAY_OFF), 0x08ULL, 0x18ULL};
+    LOGIC_TILE_MASK_BASE_CANDIDATES[0],
+    LOGIC_TILE_MASK_BASE_CANDIDATES[1],
+    LOGIC_TILE_MASK_BASE_CANDIDATES[2]};
 static uintptr_t wall_map = 0;
 static uintptr_t wall_tiles = 0;
 static uintptr_t wall_flag_source = 0;
@@ -88,7 +91,9 @@ static uint16_t wall_tile_data_flags(uintptr_t tileData)
     uint16_t flags = 0;
     if (!tileData || !pointer_plausible(tileData)) return 0;
     if (tileData == wall_flag_source) return wall_flag_value;
-    if (!read_bytes(tileData + LOGIC_TILE_DATA_BLOCKS_MOVEMENT_OFF, &flags, 2))
+    if (!read_bytes(tileData + LOGIC_TILE_DATA_BLOCKS_MOVEMENT_OFF,
+               &flags,
+               LOGIC_TILE_DATA_FLAG_SPAN))
         return 0;
     wall_flag_source = tileData;
     wall_flag_value = flags;
@@ -97,8 +102,7 @@ static uint16_t wall_tile_data_flags(uintptr_t tileData)
 
 static int wall_read_tile(uintptr_t tile, wall_tile_window* window)
 {
-    static const uintptr_t windowSizes[5] = {
-        0x40ULL, 0x38ULL, 0x30ULL, 0x28ULL, 0x20ULL};
+    static const uintptr_t* windowSizes = LOGIC_TILE_READ_WINDOWS;
     if (!tile || !window) return 0;
     for (int i = 0; i < 5; i++)
     {
@@ -160,7 +164,8 @@ static int wall_collect(int maskOffset, int planes, int* enginePassable)
             if (!wall_read_tile(tile, &window)) continue;
             flags = wall_tile_data_flags(wall_window_data(&window));
             if (flags & 0xffu) wall_script_blocked_tiles++;
-            if (flags >> 8) wall_bit_raise(wall_projectile_bits, tileIndex);
+            if (flags >> LOGIC_TILE_DATA_PROJECTILE_SHIFT)
+                wall_bit_raise(wall_projectile_bits, tileIndex);
             if (planes > 0)
             {
                 subtiles = static_cast<uint32_t>(

@@ -61,7 +61,7 @@ constexpr float WEIGHT_AXIS = 2600.0f;
 constexpr float AXIS_INTO = 0.35f;
 constexpr float WEIGHT_APPROACH = 2000.0f;
 constexpr float APPROACH_R = 2400.0f;
-constexpr float HOT_CLEAR = 420.0f;
+constexpr float THREAT_HORIZON = 0.6f;
 constexpr float CLOSE_R = 1200.0f;
 constexpr float COMMIT_BONUS = 3.0f;
 constexpr float BORDER_PAD = 60.0f;
@@ -186,7 +186,8 @@ seg_dist(float px, float py, float ax, float ay, float bx, float by)
 static uintptr_t find_projectile_data_asset(uintptr_t objPtr)
 {
     if (!objPtr) return 0;
-    for (uintptr_t off = LOGIC_GAME_OBJECT_DATA_OFF; off < 0x200;
+    for (uintptr_t off = LOGIC_GAME_OBJECT_DATA_OFF;
+         off < LOGIC_GAME_OBJECT_DATA_SCAN_SPAN;
          off += sizeof(uintptr_t))
     {
         uintptr_t v = 0, vt = 0;
@@ -384,7 +385,14 @@ static void add_projectile_threat(const uint8_t* obj,
     float rad = st->rad + own_hitbox + AD_SAFETY;
     if (st->flags & B_BOUNCE) rad += own_hitbox * 0.5f;
     float tt = -(dx * vx + dy * vy) / vv;
-    if (tt < 0.0f && dx * dx + dy * dy > rad * rad) return;
+    if (tt < 0.0f)
+    {
+        if (dx * dx + dy * dy > rad * rad) return;
+        tt = 0.0f;
+    }
+    if (tt > THREAT_HORIZON) return;
+    float miss_x = dx + vx * tt, miss_y = dy + vy * tt;
+    if (miss_x * miss_x + miss_y * miss_y > rad * rad) return;
     for (int k = 0; k < threat_n; k++)
     {
         if (fabsf(threats[k].x - px) < 1.0f &&
@@ -913,16 +921,6 @@ void update_autododge()
             human_ms = now;
     }
     ad_human = now - human_ms < HUMAN_MS ? 1 : 0;
-    bool hot = false;
-    for (int i = 0; i < threat_n; i++)
-    {
-        if (ad::compute_static_clearance(threats[i], mx, my) < HOT_CLEAR)
-        {
-            hot = true;
-            break;
-        }
-    }
-    if (!hot) threat_n = 0;
     if (threat_n)
     {
         calm_ms = now;

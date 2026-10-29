@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
@@ -16,6 +17,19 @@ namespace
 {
 constexpr long long LOG_MAX_BYTES = 4000000;
 constexpr uint64_t REPORT_US = 1000000ULL;
+constexpr uint64_t FAST_TRACE_US = 50000ULL;
+constexpr uint64_t IDLE_TRACE_US = 500000ULL;
+
+static const char* target_text(char* out, size_t cap)
+{
+    if (ad_target_x == INT32_MAX || ad_target_y == INT32_MAX)
+    {
+        snprintf(out, cap, "-");
+        return out;
+    }
+    snprintf(out, cap, "%d,%d", (int)ad_target_x, (int)ad_target_y);
+    return out;
+}
 
 char log_path[1100] = {0};
 FILE* log_file = nullptr;
@@ -897,6 +911,7 @@ const char* dir_name(int dir)
 
 void diag_tick()
 {
+    char target_buf[32];
     uint64_t now_us = 0;
     unsigned long hz = 0;
     uint64_t wl_avg = 0;
@@ -908,7 +923,9 @@ void diag_tick()
     {
         static uint64_t last_fast = 0;
         uint64_t prev = __atomic_load_n(&last_fast, __ATOMIC_RELAXED);
-        bool slot = !prev || now_us - prev >= 50000;
+        bool busy = ad::threat_n || active || ad_hold_ms || ad_urgent || ad_human;
+        uint64_t period = busy ? FAST_TRACE_US : IDLE_TRACE_US;
+        bool slot = !prev || now_us - prev >= period;
         if (slot && !__atomic_compare_exchange_n(&last_fast,
                                                  &prev,
                                                  now_us,
@@ -922,7 +939,7 @@ void diag_tick()
             int n =
                 snprintf(buf,
                          sizeof(buf),
-                         "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%d,%d n=%d "
+                         "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%s n=%d "
                          "h=%d u=%d hm=%d",
                          (unsigned long long)(now_us / 1000),
                          own_x,
@@ -930,8 +947,7 @@ void diag_tick()
                          (int)(own_speed + 0.5f),
                          ad_dir_x,
                          ad_dir_y,
-                         ad_target_x,
-                         ad_target_y,
+                         target_text(target_buf, sizeof(target_buf)),
                          ad::threat_n,
                          ad_hold_ms,
                          ad_urgent,
@@ -1017,7 +1033,7 @@ void diag_tick()
         read_int(own_elem + LOGIC_CHARACTER_ATTACK_ANGLE_OFF, &own_aim);
     }
     line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
-         "dir=%s map=%dx%d dodge=%d hit=%d hb=%d ind=%d fd=%d tgt=(%d,%d) "
+         "dir=%s map=%dx%d dodge=%d hit=%d hb=%d ind=%d fd=%d tgt=%s "
          "hu=%d pm=%u/%u wb=%d/%d pt=%d wp=%d tk=%d\n",
          static_cast<unsigned long>(hz),
          static_cast<unsigned long>(wl_avg),
@@ -1038,8 +1054,7 @@ void diag_tick()
          (int)(ad::own_hitbox + 0.5f),
          ad_ind_n,
          own_aim,
-         ad_target_x,
-         ad_target_y,
+         target_text(target_buf, sizeof(target_buf)),
          ad_human,
          ad_proj_move,
          ad_proj_sample,
@@ -1084,7 +1099,22 @@ void diag_tick()
              ad_threat_ca[i],
              ad_threat_ttc[i]);
     }
-    if (ad_hit_n >= 0 && ad_hit_dmg > 0)
+    if (ad_hit_dmg > 0 && !ad_hit_act && ad_hit_n == 0)
+    {
+        static uint64_t last_env_us = 0;
+        if (!last_env_us || now_us - last_env_us >= 2000000ULL)
+        {
+            last_env_us = now_us;
+            line("[env] dmg=%d hp=%u p=(%d,%d)\n",
+                 ad_hit_dmg,
+                 own_hp,
+                 ad_hit_x,
+                 ad_hit_y);
+        }
+        ad_hit_dmg = 0;
+        ad_hit_picked = 0;
+    }
+    else if (ad_hit_dmg > 0)
     {
         char buf[256];
         int len = snprintf(buf,
@@ -1097,7 +1127,7 @@ void diag_tick()
                            ad_hit_y);
         if (ad_hit_picked < 1 && len > 0)
         {
-            const char* why = ad_hit_n ? " | unresolved" : " | env";
+            const char* why = " | unresolved";
             snprintf(buf + len, sizeof(buf) - (size_t)len, "%s", why);
         }
         for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++)
