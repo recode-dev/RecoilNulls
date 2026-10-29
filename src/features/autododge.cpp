@@ -270,6 +270,33 @@ static bool proj_shaped(const uint8_t* obj,
     return true;
 }
 
+static bool proj_pos(const uint8_t* obj, float* px, float* py)
+{
+    float w = (float)wall_cache_w() * wall_units(1);
+    float h = (float)wall_cache_h() * wall_units(1);
+    if (w <= 0.0f || h <= 0.0f) return false;
+    int32_t xi = 0, yi = 0;
+    memcpy(&xi, obj + LOGICCHARACTER_X_OFF, sizeof(xi));
+    memcpy(&yi, obj + LOGICCHARACTER_Y_OFF, sizeof(yi));
+    if ((float)xi >= -300.0f && (float)yi >= -300.0f &&
+        (float)xi <= w + 300.0f && (float)yi <= h + 300.0f)
+    {
+        *px = (float)xi;
+        *py = (float)yi;
+        return true;
+    }
+    memcpy(&xi, obj + PROJSERVER_X_OFF, sizeof(xi));
+    memcpy(&yi, obj + PROJSERVER_Y_OFF, sizeof(yi));
+    if ((float)xi >= -300.0f && (float)yi >= -300.0f &&
+        (float)xi <= w + 300.0f && (float)yi <= h + 300.0f)
+    {
+        *px = (float)xi;
+        *py = (float)yi;
+        return true;
+    }
+    return false;
+}
+
 static void add_proj(const uint8_t* obj,
                      uintptr_t objPtr,
                      uint64_t now,
@@ -311,6 +338,8 @@ static void add_proj(const uint8_t* obj,
         init_proj(st, key, proj_data(objPtr), px, py, now);
         if (st->pid != key) return;
     }
+    uint64_t prev_ms = st->seen;
+    bool have_prev = prev_ms != 0 && now > prev_ms && now - prev_ms < 500;
     st->seen = now;
     float step_x = px - st->x, step_y = py - st->y;
     float step = sqrtf(step_x * step_x + step_y * step_y);
@@ -319,7 +348,7 @@ static void add_proj(const uint8_t* obj,
     float vps = 0.0f, vux = 0.0f, vuy = 0.0f;
     bool have = false;
     int32_t ticks = tk1 - tk0;
-    if (ticks > 0 && ticks <= 400)
+    if (ticks > 0 && ticks <= 3000)
     {
         float ddx = ex - sx, ddy = ey - sy;
         float len = sqrtf(ddx * ddx + ddy * ddy);
@@ -329,6 +358,18 @@ static void add_proj(const uint8_t* obj,
             vps = cand;
             vux = ddx / len;
             vuy = ddy / len;
+            have = true;
+        }
+    }
+    else if (have_prev && step > 1.0f)
+    {
+        float dt = (float)(now - prev_ms) * 0.001f;
+        float cand = step / dt;
+        if (cand > 50.0f && cand < 20000.0f)
+        {
+            vps = cand;
+            vux = step_x / step;
+            vuy = step_y / step;
             have = true;
         }
     }
@@ -432,7 +473,13 @@ void collect_world(uint64_t now, int32_t own_gid, float mx, float my)
             memcpy(&nt1, obj + PROJSERVER_ENDTICK_OFF, sizeof(nt1));
             if (nt0 > 0 && nt1 >= nt0 && nt1 - nt0 <= 3000) ad_shot_tick++;
         }
-        if (!proj_shaped(obj, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey)) continue;
+        if (!proj_shaped(obj, &t0, &t1, &px, &py, &sx, &sy, &ex, &ey))
+        {
+            if (obj_rva[i] != VTABLE_PROJECTILEDATA_RVA) continue;
+            if (!proj_pos(obj, &px, &py)) continue;
+            t0 = 0;
+            t1 = 0;
+        }
         add_proj(obj,
                  obj_snapshot[i],
                  now,
