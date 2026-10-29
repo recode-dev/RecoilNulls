@@ -7,9 +7,6 @@
 #include <cstdint>
 #include <cstring>
 
-// LogicMath bridges. The dodge geometry is done in integer logic units, so the
-// engine takes and returns integers; only the call sites convert. sin/cos are
-// fixed point (1024) and degrees, hence the scaling here.
 namespace
 {
 int math_sqrt(int value)
@@ -40,8 +37,6 @@ int math_sin(int degrees)
     return reinterpret_cast<int (*)(int)>(slot)(degrees);
 }
 
-// No standalone cos() in v69: the engine defines it as sin(a + 90), which is
-// what the v36 body does before its table lookup.
 int math_cos(int degrees)
 {
     return math_sin(degrees + 90);
