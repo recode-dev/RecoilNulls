@@ -42,6 +42,7 @@ constexpr int SIM_STEPS = 32;
 constexpr float ZONE_FAR = 5000.0f;
 constexpr uint64_t CALM_MS = 60;
 constexpr uint64_t SEND_MS = ad::TICK_MS;
+constexpr int MOVE_DELAY_TICKS = 2;
 constexpr uint64_t TURN_HOLD_MS = 130;
 constexpr float MAX_TURN = 1.0471976f;
 constexpr int HOLD_DANGER_STEPS = (int)(TURN_HOLD_MS * 2 / ad::TICK_MS);
@@ -303,6 +304,7 @@ static uint64_t sent_ms = 0;
 static uint64_t calm_ms = 0;
 static uint64_t turn_ms = 0;
 static float sent_x = 1.0f, sent_y = 0.0f;
+static float move_dx = 0.0f, move_dy = 0.0f;
 static uint64_t human_ms = 0;
 static int32_t prev_x = 0, prev_y = 0;
 static uint32_t last_hp = 0;
@@ -340,8 +342,15 @@ static void sim_pos(float mx,
                     float& ax,
                     float& ay)
 {
-    ax = mx + dx * self_speed * tk;
-    ay = my + dy * self_speed * tk;
+    float delay = (float)MOVE_DELAY_TICKS * TICK_MS_SEC;
+    float coast = tk < delay ? tk : delay;
+    ax = mx + move_dx * self_speed * coast;
+    ay = my + move_dy * self_speed * coast;
+    if (tk > delay)
+    {
+        ax += dx * self_speed * (tk - delay);
+        ay += dy * self_speed * (tk - delay);
+    }
     if (ax < OWN_HITBOX)
         ax = OWN_HITBOX;
     else if (ax > w)
@@ -601,6 +610,16 @@ void autododge()
         float mvx = (float)(own_x - prev_x), mvy = (float)(own_y - prev_y);
         float mv = sqrtf(mvx * mvx + mvy * mvy);
         prev_x = own_x, prev_y = own_y;
+        if (mv > 1.0f)
+        {
+            move_dx = mvx / mv;
+            move_dy = mvy / mv;
+        }
+        else
+        {
+            move_dx = 0.0f;
+            move_dy = 0.0f;
+        }
         if (active && mv > 15.0f && (mvx * sent_x + mvy * sent_y) < 0.7f * mv)
             human_ms = now;
     }
