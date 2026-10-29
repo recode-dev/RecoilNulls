@@ -20,6 +20,18 @@ constexpr uint64_t  REPORT_US     = 1000000;
 constexpr uint64_t  FAST_TRACE_US = 50000;
 constexpr uint64_t  IDLE_TRACE_US = 500000;
 
+constexpr uint64_t LOGICTILE__WATERPATHFINDERMASK =
+    LOGICTILE__PATHFINDERMASK + LOGICTILE__PATHFINDERMASKSIZE;
+constexpr uint64_t LOGICTILE__HARDBLOCKMASK =
+    LOGICTILE__WATERPATHFINDERMASK + LOGICTILE__PATHFINDERMASKSIZE;
+
+constexpr uint64_t LOGICBATTLEMODECLIENT__GETOWNPLAYERINDEX  = 0x9cda04ULL;
+constexpr uint64_t LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR    = 0x943b08ULL;
+constexpr uint64_t CLIENTINPUT__TYPETABLE                    = 0xe1bd30ULL;
+constexpr uint64_t CLIENTINPUT__TYPEFALLBACK                 = 0xe1bc28ULL;
+constexpr uint64_t CLIENTINPUTMESSAGE__HASHINNERMASK         = 0xe1bbd0ULL;
+constexpr uint64_t CLIENTINPUTMESSAGE__HASHOUTERMASK         = 0xe1bbf0ULL;
+
 static const char* target_text(char* out, size_t cap)
 {
     if (ad_target_x == INT32_MAX || ad_target_y == INT32_MAX)
