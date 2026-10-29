@@ -479,7 +479,8 @@ static void choose(float mx, float my, float& out_x, float& out_y)
             turn_ms = now;
             if (bx * commit_x + by * commit_y < 0.5f)
             {
-                float sgn = (bx * commit_y - by * commit_x) >= 0.0f ? 1.0f : -1.0f;
+                float sgn =
+                    (bx * commit_y - by * commit_x) >= 0.0f ? 1.0f : -1.0f;
                 float a = sgn * MAX_TURN;
                 float nx = commit_x * cosf(a) - commit_y * sinf(a);
                 float ny = commit_x * sinf(a) + commit_y * cosf(a);
