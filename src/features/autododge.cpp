@@ -497,7 +497,8 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         float dx = cosf(a), dy = sinf(a);
         int steps = 0;
         float v = dir_value(mx, my, dx, dy, steps);
-        if (has) v += own_hitbox * COMMIT_BONUS * (dx * commit_x + dy * commit_y);
+        if (has)
+            v += own_hitbox * COMMIT_BONUS * (dx * commit_x + dy * commit_y);
         val[i] = v;
         if (v > best)
         {
@@ -518,7 +519,8 @@ static void choose(float mx, float my, float& out_x, float& out_y)
         float rdx = cosf(ra), rdy = sinf(ra);
         int steps = 0;
         float v = dir_value(mx, my, rdx, rdy, steps);
-        if (has) v += own_hitbox * COMMIT_BONUS * (rdx * commit_x + rdy * commit_y);
+        if (has)
+            v += own_hitbox * COMMIT_BONUS * (rdx * commit_x + rdy * commit_y);
         if (v > best)
         {
             best = v, a = ra, best_steps = steps;
@@ -530,8 +532,8 @@ static void choose(float mx, float my, float& out_x, float& out_y)
     if (has)
     {
         int cur = 0;
-        float cur_val =
-            dir_value(mx, my, commit_x, commit_y, cur) + own_hitbox * COMMIT_BONUS;
+        float cur_val = dir_value(mx, my, commit_x, commit_y, cur) +
+                        own_hitbox * COMMIT_BONUS;
         bool better = best_steps > cur;
         bool die_fast = better && cur > 0 && cur <= HOLD_DANGER_STEPS;
         bool walled =
