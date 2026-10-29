@@ -37,11 +37,8 @@ constexpr float REACH = OWN_HITBOX * 6.0f;
 constexpr int DIRS = 16;
 constexpr int SIM_STEPS = 32;
 constexpr float ZONE_FAR = 5000.0f;
-constexpr uint64_t CALM_MS = 200;
-// Well under one frame at the 120 Hz scan rate (8.33 ms). An active dodge
-// writes its move command on every pass; the gate only stops a re-entrant
-// second call in the same frame from pushing a duplicate message.
-constexpr uint64_t SEND_FAST_MS = 4;
+constexpr uint64_t CALM_MS = 60;
+constexpr uint64_t SEND_MS = ad::TICK_MS;
 constexpr uint64_t TURN_HOLD_MS = 130;
 constexpr float MAX_TURN = 1.0471976f;
 // Broken early only when the held heading dies inside twice the hold budget.
@@ -521,10 +518,6 @@ static void choose(float mx, float my, float& out_x, float& out_y)
 static void end_dodge()
 {
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
-    // Drop the held heading with the dodge. Leaving it set kept the character
-    // walking the last dodge direction for seconds after the threats were gone,
-    // and the log kept reporting a direction nobody was driving any more.
-    commit_x = 0.0f, commit_y = 0.0f;
     ad_dir_x = 0.0f, ad_dir_y = 0.0f;
     ad_hold_ms = 0;
     ad_urgent = 0;
@@ -571,12 +564,6 @@ void autododge_reset()
 }
 void autododge()
 {
-    // No 50 ms gate here. The hook runs at 120 Hz and the move command has to
-    // be written at that rate or the joystick outvotes it on every frame it
-    // skips - that is what made the dodge freeze while the player rotated the
-    // stick in place. The cost is 17 headings * threats * 32 steps ~ 4k float
-    // operations, about half a million per second, which is nothing next to
-    // the game; [m] wl= reports the real number.
     ad_best_dir = -1;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
     ad_beam_n = ad_ind_n = 0;
@@ -644,14 +631,8 @@ void autododge()
     fill_report(mx, my, dir_x, dir_y);
     int32_t tx = axis(mx + dir_x * REACH, wall_cache_w());
     int32_t ty = axis(my + dir_y * REACH, wall_cache_h());
-    // The game polls the stick once per frame, so a move command older than one
-    // frame has already lost: whatever the player is holding on the stick
-    // overwrites it on the next tick. That is why the dodge looked like it was
-    // standing still while the player rotated in place - the stick was the only
-    // input that survived, and rotating in place cancels itself out. Anything
-    // slower than the frame rate loses by construction, so an active dodge
-    // writes its target every frame, exactly like the stick does.
-    if (now - sent_ms >= SEND_FAST_MS)
+    pred_set(tx, ty);
+    if (now - sent_ms >= SEND_MS)
     {
         sent_ms = now;
         sent_x = dir_x, sent_y = dir_y;
