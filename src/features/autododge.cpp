@@ -38,10 +38,10 @@ constexpr int DIRS = 16;
 constexpr int SIM_STEPS = 32;
 constexpr float ZONE_FAR = 5000.0f;
 constexpr uint64_t CALM_MS = 200;
-constexpr uint64_t SEND_MS = 100;
-// One frame at the 120 Hz scan rate. Anything that has to beat the joystick or
-// land with a heading change cannot wait for SEND_MS.
-constexpr uint64_t SEND_FAST_MS = 8;
+// Well under one frame at the 120 Hz scan rate (8.33 ms). An active dodge
+// writes its move command on every pass; the gate only stops a re-entrant
+// second call in the same frame from pushing a duplicate message.
+constexpr uint64_t SEND_FAST_MS = 4;
 constexpr uint64_t TURN_HOLD_MS = 200;
 constexpr float MAX_TURN = 1.0471976f;
 // The hold is broken early only when the held heading dies inside twice the
@@ -633,24 +633,14 @@ void autododge()
     fill_report(mx, my, dir_x, dir_y);
     int32_t tx = axis(mx + dir_x * REACH, wall_cache_w());
     int32_t ty = axis(my + dir_y * REACH, wall_cache_h());
-    float rem_x = (float)(ad_target_x - own_x);
-    float rem_y = (float)(ad_target_y - own_y);
-    bool spent = ad_target_x == INT32_MAX ||
-                 rem_x * rem_x + rem_y * rem_y < REACH * REACH * 0.25f;
-    bool turned = dir_x * sent_x + dir_y * sent_y < 0.94f;
-    // Two different latencies used to share one 100 ms gate:
-    //   - a changed heading waited for the gate, so the game kept walking to
-    //     the previous target for up to 100 ms after the decision. In the log
-    //     the target sat at 3755,6630 from t=111016747 while the heading moved
-    //     three times, and at 4898,7348 for another 100 ms. Half of a 200 ms
-    //     hold was spent walking somewhere else.
-    //   - a held joystick overwrites the move command every frame, so a 10 Hz
-    //     re-assert only won 1 frame out of 12 - i.e. not at all.
-    // Both now go out on the next frame. Only topping up a spent target keeps
-    // the slow cadence, because that one is not latency sensitive.
-    bool turn_now = (turned || ad_human) && now - sent_ms >= SEND_FAST_MS;
-    bool repeat = spent && now - sent_ms >= SEND_MS;
-    if (turn_now || repeat)
+    // The game polls the stick once per frame, so a move command older than one
+    // frame has already lost: whatever the player is holding on the stick
+    // overwrites it on the next tick. That is why the dodge looked like it was
+    // standing still while the player rotated in place - the stick was the only
+    // input that survived, and rotating in place cancels itself out. Anything
+    // slower than the frame rate loses by construction, so an active dodge
+    // writes its target every frame, exactly like the stick does.
+    if (now - sent_ms >= SEND_FAST_MS)
     {
         sent_ms = now;
         sent_x = dir_x, sent_y = dir_y;
