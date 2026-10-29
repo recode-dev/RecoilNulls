@@ -908,7 +908,7 @@ void diag_tick()
         }
         line(
             "[eng] plen=%d win=%d..%d fc=%d e=(%.0f,%.0f) pf=%d/%d sk=%d tgt=%d,%d
-",
+            ",
             path_len,
             window ? (int) tick_start : 0,
             window ? (int) tick_end : 0,

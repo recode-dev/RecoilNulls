@@ -527,19 +527,19 @@ int engine_own_pathfind_to(int x, int y, int flag)
     static int32_t  last_y  = 0;
     uintptr_t       self    = own_elem;
     uintptr_t       battle  = client();
-    uintptr_t       function =
-        callable_at_rva(LOGICCHARACTERCLIENTOWN__PATHFINDTO);
-    uint64_t elapsed = last_us ? (us() - last_us) / 1000 : ~0ULL;
-    int      remaining;
+    uintptr_t function = callable_at_rva(LOGICCHARACTERCLIENTOWN__PATHFINDTO);
+    uint64_t  elapsed  = last_us ? (us() - last_us) / 1000 : ~0ULL;
+    int       remaining;
     engine_pathfind_calls++;
     if (!coord_ok || !self || !battle || !function)
     {
         return 0;
     }
     remaining = engine_own_path_length();
-    // Re-planning every tick rebuilds the tick window from the remaining path, so the
-    // character keeps getting a fresh short budget and outruns its real speed. Only
-    // re-plan when the destination changed or the previous path is nearly spent.
+    // Re-planning every tick rebuilds the tick window from the remaining path,
+    // so the character keeps getting a fresh short budget and outruns its real
+    // speed. Only re-plan when the destination changed or the previous path is
+    // nearly spent.
     if (x == last_x && y == last_y)
     {
         if (elapsed < PATHFIND_REFRESH_MS &&
