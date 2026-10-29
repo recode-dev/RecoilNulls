@@ -2,7 +2,10 @@
 #define SCAN_SCAN_H
 #include "./offsets.h"
 #include <cstdint>
-#define OBJ_BLOCK_SIZE 0xd4
+// 0xdc + 4: the projectile start/end coords live at the end of the object, so
+// the snapshot has to reach PROJSERVER_ENDY_OFF + 4 (0xe0). At 0xd4 every read
+// of STARTY/ENDX/ENDY fell past the copy and returned the next object's bytes.
+#define OBJ_BLOCK_SIZE 0xe0
 #ifndef NSEC_PER_SEC
 #define NSEC_PER_SEC 1000000000ull
 #endif

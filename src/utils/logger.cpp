@@ -689,6 +689,38 @@ void val_projectile()
         }
         return;
     }
+    {
+        bool ticks_ok =
+            read_int(objPtr + PROJSERVER_STARTTICK_OFF, &startTick) &&
+            read_int(objPtr + PROJSERVER_ENDTICK_OFF, &endTick);
+        if (!ticks_ok || startTick < 0 || endTick < startTick)
+        {
+            if (val_proj_tries < 119)
+            {
+                val_proj_tries++;
+                return;
+            }
+            val_proj_done = 1;
+            vf("PROJSERVER_START/ENDTICK",
+               false,
+               "%d..%d after 120s",
+               startTick,
+               endTick);
+            char dump[420];
+            int at = 0;
+            at += snprintf(
+                dump, sizeof(dump), " obj=%llx", (unsigned long long)objPtr);
+            for (int i = 0x00; i <= 0x60 && at < (int)sizeof(dump) - 12; i += 4)
+            {
+                int32_t v = 0;
+                read_int(objPtr + i, &v);
+                at += snprintf(dump + at, sizeof(dump) - at, " %x=%d", i, v);
+            }
+            line("[VAL] proj obj dump%s\n", dump);
+            return;
+        }
+        vf("PROJSERVER_START/ENDTICK", true, "%d..%d", startTick, endTick);
+    }
     val_proj_done = 1;
     vf("PROJDATA_BLOCK_SIZE",
        addr_readable(found, PROJDATA_BLOCK_SIZE),
@@ -742,33 +774,6 @@ void val_projectile()
        "endY=0x%llx block=0x%x",
        (unsigned long long)(PROJSERVER_ENDY_OFF + 4),
        (unsigned)OBJ_BLOCK_SIZE);
-    if (read_int(objPtr + PROJSERVER_STARTTICK_OFF, &startTick) &&
-        read_int(objPtr + PROJSERVER_ENDTICK_OFF, &endTick))
-    {
-        vf("PROJSERVER_START/ENDTICK",
-           startTick >= 0 && endTick >= startTick,
-           "%d..%d",
-           startTick,
-           endTick);
-    }
-    else
-    {
-        vf("PROJSERVER_START/ENDTICK", false, "read failed");
-    }
-    if (objPtr && (startTick < 0 || endTick < startTick))
-    {
-        char dump[420];
-        int at = 0;
-        at += snprintf(
-            dump, sizeof(dump), " obj=%llx", (unsigned long long)objPtr);
-        for (int i = 0x00; i <= 0x60 && at < (int)sizeof(dump) - 12; i += 4)
-        {
-            int32_t v = 0;
-            read_int(objPtr + i, &v);
-            at += snprintf(dump + at, sizeof(dump) - at, " %x=%d", i, v);
-        }
-        line("[VAL] proj obj dump%s\n", dump);
-    }
     if (read_int(objPtr + PROJSERVER_STARTX_OFF, &sx) &&
         read_int(objPtr + PROJSERVER_STARTY_OFF, &sy) &&
         read_int(objPtr + PROJSERVER_ENDX_OFF, &ex) &&

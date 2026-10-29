@@ -59,6 +59,18 @@ inline constexpr uint64_t LOGICCHARACTER_HP_OFF = 0xc4ULL;
 inline constexpr uint64_t LOGICGAMEOBJECT_DATA_OFF = 0x10ULL;
 inline constexpr uint64_t LOGICCHARACTERDATA_COLLISION_OFF = 0x2acULL;
 
+// LogicProjectileServer::getPosAtTick(int tick, LogicVector2& out) is v69
+// 0xa383ac (const, 1576 bytes). Same body, instruction for instruction, as the
+// symbolized v36 twin _ZNK21LogicProjectileServer12getPosAtTickEiR12LogicVector2
+// (0x712f50 / 1488 bytes): the +0x5db / 0x5dc bounce block, the two /2000
+// interpolation polynomials, the gravity 0.001 / 40.0 branch, the 2e+06 term
+// and the final clamp(0, 3000) are all present. Field mapping follows from that
+// one body: v36 0x20/0x24 -> v69 0x28/0x2c, v36 0x60..0x6c -> v69 0xd0..0xdc,
+// v36 0x78 (z) -> v69 0xf0. LogicProjectileServer::tickMovement (0xa33108) is
+// the caller: it compares endTick (+0x2c) with the current tick, calls
+// getPosAtTick with a scratch vector at +0xb4 and adds the object tick base
+// (+0x448).
+inline constexpr uint64_t RVA_PROJSERVER_GETPOSATTICK = 0xa383acULL;
 inline constexpr uint64_t PROJSERVER_STARTTICK_OFF = 0x28ULL;
 inline constexpr uint64_t PROJSERVER_ENDTICK_OFF = 0x2cULL;
 inline constexpr uint64_t PROJSERVER_STARTX_OFF = 0xd0ULL;
