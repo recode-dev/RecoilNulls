@@ -40,10 +40,11 @@ void run_supervisor_tick(supervisor_progress progress)
 
 void schedule_supervisor_tick(supervisor_progress progress)
 {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                                 progress.interval_seconds * kNanosecondsPerSecond),
-                   dispatch_get_main_queue(),
-                   ^{ run_supervisor_tick(progress); });
+    dispatch_after(
+        dispatch_time(DISPATCH_TIME_NOW,
+                      progress.interval_seconds * kNanosecondsPerSecond),
+        dispatch_get_main_queue(),
+        ^{ run_supervisor_tick(progress); });
 }
 
 void start_supervisor()
@@ -64,14 +65,13 @@ void on_image_added(const struct mach_header*, intptr_t)
     {
         return;
     }
-    dispatch_async(dispatch_get_main_queue(),
-                   ^{
-                       if (setup_done || base)
-                       {
-                           return;
-                       }
-                       poll_for_game(0);
-                   });
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if (setup_done || base)
+      {
+          return;
+      }
+      poll_for_game(0);
+    });
 }
 
 }
@@ -79,9 +79,8 @@ void on_image_added(const struct mach_header*, intptr_t)
 __attribute__((constructor)) static void start()
 {
     static dispatch_once_t once;
-    dispatch_once(&once,
-                  ^{
-                      _dyld_register_func_for_add_image(&on_image_added);
-                      dispatch_async(dispatch_get_main_queue(), ^{ start_supervisor(); });
-                  });
+    dispatch_once(&once, ^{
+      _dyld_register_func_for_add_image(&on_image_added);
+      dispatch_async(dispatch_get_main_queue(), ^{ start_supervisor(); });
+    });
 }
