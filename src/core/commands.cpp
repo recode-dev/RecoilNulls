@@ -281,7 +281,7 @@ int pred_set(int x, int y)
         static uintptr_t c_set = 0;
         setFn = callable_cached(
             &c_set,
-            RVA_LOGICCHARACTERCLIENTOWN_SETTARGETPOSITIONWITHCLIENTPREDICTION);
+            RVA_LOGICBATTLEMODECLIENT_SETCLIENTPREDICTIONMOVETO);
     }
     ctrl = controller();
     if (!setFn || !ctrl)
