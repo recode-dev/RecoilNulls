@@ -235,7 +235,8 @@ static void add_proj(const uint8_t* obj,
     if (step > 1.0f)
     {
         uint64_t dt = now - prev;
-        float meas = (dt >= 20 && dt <= 400) ? step * 1000.0f / (float)dt : 0.0f;
+        float meas =
+            (dt >= 20 && dt <= 400) ? step * 1000.0f / (float)dt : 0.0f;
         if (meas > 50.0f && meas < 20000.0f &&
             (!have || fabsf(meas - vps) > vps * 0.3f))
         {
