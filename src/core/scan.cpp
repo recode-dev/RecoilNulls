@@ -122,7 +122,8 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     {
         return NO;
     }
-    return gum_memory_read((gconstpointer)address, out, (gsize)length) ? YES : NO;
+    return gum_memory_read((gconstpointer)address, out, (gsize)length) ? YES
+                                                                       : NO;
 }
 BOOL pointer_plausible(uintptr_t value)
 {
