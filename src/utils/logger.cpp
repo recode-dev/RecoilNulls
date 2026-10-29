@@ -660,13 +660,17 @@ void val_projectile()
         uintptr_t sampleB = 0;
         for (int i = 0; i < obj_count; i++)
         {
+            uintptr_t dataPtr = 0;
             uintptr_t vtable = 0;
-            if (!obj_snapshot[i] || !read_ptr(obj_snapshot[i], &vtable))
+            if (!obj_snapshot[i]) continue;
+            if (!read_ptr(obj_snapshot[i] + LOGICGAMEOBJECT_DATA_OFF, &dataPtr) ||
+                !dataPtr || !pointer_plausible(dataPtr))
                 continue;
+            if (!read_ptr(dataPtr, &vtable)) continue;
             scanned++;
             if (vtable == target)
             {
-                found = obj_snapshot[i];
+                found = dataPtr;
                 break;
             }
             if (!sampleA)
