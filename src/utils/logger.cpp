@@ -1,4 +1,5 @@
 #include "../core/scan.h"
+#include "../core/scstring.h"
 #include "../core/commands.h"
 #include "../features/autododge.h"
 #include "../utils/walls.h"
@@ -75,6 +76,741 @@ bool open_log()
     return true;
 }
 
+int val_ok = 0;
+int val_fail = 0;
+int val_skip = 0;
+int val_stage = 0;
+int val_proj_done = 0;
+int val_proj_tries = 0;
+uint64_t val_probe_next = 0;
+
+void vf(const char* name, bool pass, const char* format, ...)
+{
+    char buf[192];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buf, sizeof(buf), format, args);
+    va_end(args);
+    if (pass)
+    {
+        val_ok++;
+        line("[VAL] %-32s ok    %s\n", name, buf);
+    }
+    else
+    {
+        val_fail++;
+        line("[VAL] %-32s FAIL  %s\n", name, buf);
+    }
+}
+
+void vs(const char* name, const char* why)
+{
+    val_skip++;
+    line("[VAL] %-32s skip  %s\n", name, why);
+}
+
+void val_client_input(uintptr_t clientPtr);
+
+BOOL span(long long value)
+{
+    return (value >= -3000 && value <= 40000) ? YES : NO;
+}
+
+void val_rva_table()
+{
+    static const struct
+    {
+        const char* name;
+        uint64_t rva;
+    } table[] = {
+        {"RVA_BATTLEMODE_GETINSTANCE", RVA_BATTLEMODE_GETINSTANCE},
+        {"RVA_GETTILEMAP", RVA_LOGICBATTLEMODECLIENT_GETTILEMAP},
+        {"RVA_GETOWNCHARACTER", RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER},
+        {"RVA_GETOWNPLAYERINDEX", RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX},
+        {"RVA_GETOWNPLAYERTEAM", RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM},
+        {"RVA_LOGICDATA_GETNAME", RVA_LOGICDATA_GETNAME},
+        {"RVA_SETCLIENTPREDICTIONMOVETO",
+         RVA_LOGICBATTLEMODECLIENT_SETCLIENTPREDICTIONMOVETO},
+        {"RVA_CLIENTINPUTMESSAGE_CTOR", RVA_CLIENTINPUTMESSAGE_CONSTRUCT},
+        {"RVA_CLIENTINPUTMANAGER_ADDINPUT", RVA_CLIENTINPUTMANAGER_ADDINPUT},
+        {"RVA_ISPASSABLEPATHFINDER",
+         RVA_LOGIC_TILEMAP_ISPASSABLEPATHFINDER},
+        {"RVA_ISPLAYERLINEOFSIGHTCLEAR",
+         RVA_LOGIC_TILEMAP_ISPLAYERLINEOFSIGHTCLEAR},
+        {"RVA_LOGIC_TILE_TO_LOGIC", RVA_LOGIC_TILE_TO_LOGIC},
+        {"RVA_LOGIC_LOGIC_TO_TILE", RVA_LOGIC_LOGIC_TO_TILE},
+    };
+    for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++)
+    {
+        uintptr_t address = callable(table[i].rva);
+        uint32_t head = 0;
+        BOOL exec = NO;
+        BOOL read = NO;
+        if (address)
+        {
+            exec = addr_executable(address);
+            read = read_bytes(address, &head, sizeof(head));
+        }
+        vf(table[i].name,
+           address && exec && read && head != 0,
+           "rva=0x%llx addr=0x%llx exec=%d head=%08x",
+           (unsigned long long)table[i].rva,
+           (unsigned long long)address,
+           exec ? 1 : 0,
+           head);
+    }
+    vf("RVA_TILE_TO_LOGIC(x)", game_tile_to_logic(3) == 900,
+       "3 -> %d (want 900)",
+       game_tile_to_logic(3));
+    vf("RVA_LOGIC_TO_TILE(x)", game_logic_to_tile(900) == 3,
+       "900 -> %d (want 3)",
+       game_logic_to_tile(900));
+}
+
+void val_globals(uintptr_t slot)
+{
+    uintptr_t scene = 0;
+    uintptr_t clientPtr = 0;
+    uintptr_t manager = 0;
+    uintptr_t array = 0;
+    uintptr_t vtable = 0;
+    int32_t state = -1;
+    int32_t count = 0;
+    uint8_t hashOn = 0;
+    uint8_t key[16] = {0};
+    vf("GAMESTATE_RVA",
+       slot && pointer_plausible(slot),
+       "0x%llx",
+       (unsigned long long)slot);
+    if (!slot)
+    {
+        vs("GAMESTATE_STATE_OFF", "no game state");
+        vs("GAMESTATE_SCENE_OFF", "no game state");
+        return;
+    }
+    if (read_int(slot + GAMESTATE_STATE_OFF, &state))
+    {
+        vf("GAMESTATE_STATE_OFF", state >= 0 && state <= 8, "state=%d", state);
+    }
+    else
+    {
+        vf("GAMESTATE_STATE_OFF", false, "read failed");
+    }
+    if (read_ptr(slot + GAMESTATE_SCENE_OFF, &scene))
+    {
+        vf("GAMESTATE_SCENE_OFF",
+           scene && pointer_plausible(scene),
+           "0x%llx",
+           (unsigned long long)scene);
+    }
+    else
+    {
+        vf("GAMESTATE_SCENE_OFF", false, "read failed");
+    }
+    if (!scene)
+    {
+        vs("SCENE_CLIENT_OFF", "no scene");
+        vs("LOGICBATTLEMODECLIENT_OBJECTMANAGER_OFF", "no scene");
+        vs("LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF", "no scene");
+    }
+    else
+    {
+        if (read_ptr(scene + SCENE_CLIENT_OFF, &clientPtr))
+        {
+            vf("SCENE_CLIENT_OFF",
+               clientPtr && pointer_plausible(clientPtr),
+               "0x%llx",
+               (unsigned long long)clientPtr);
+        }
+        else
+        {
+            vf("SCENE_CLIENT_OFF", false, "read failed");
+        }
+        if (read_bytes(scene + BATTLEMODE_HASH_ENABLED_OFF, &hashOn, 1))
+        {
+            BOOL keyOk = read_bytes(scene + BATTLEMODE_HASH_KEY_OFF, key, 16);
+            BOOL used = NO;
+            for (int i = 0; i < 16 && keyOk; i++) used = used || key[i];
+            vf("BATTLEMODE_HASH_ENABLED_OFF",
+               hashOn <= 1 && (!hashOn || used),
+               "on=%u key16=%d",
+               (unsigned)hashOn,
+               keyOk ? 1 : 0);
+        }
+        else
+        {
+            vf("BATTLEMODE_HASH_ENABLED_OFF", false, "read failed");
+        }
+        if (!clientPtr)
+        {
+            vs("LOGICBATTLEMODECLIENT_OBJECTMANAGER_OFF", "no client");
+            vs("LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF", "no client");
+        }
+        else
+        {
+            if (read_ptr(clientPtr + LOGICBATTLEMODECLIENT_OBJECTMANAGER_OFF,
+                         &manager))
+            {
+                vf("LOGICBATTLEMODECLIENT_OBJECTMANAGER_OFF",
+                   manager && pointer_plausible(manager),
+                   "0x%llx",
+                   (unsigned long long)manager);
+            }
+            else
+            {
+                vf("LOGICBATTLEMODECLIENT_OBJECTMANAGER_OFF", false, "read failed");
+            }
+            if (manager && read_int(manager + OBJECTMANAGER_COUNT_OFF, &count))
+            {
+                vf("OBJECTMANAGER_COUNT_OFF",
+                   count > 0 && count <= OBJECT_COUNT_MAX,
+                   "count=%d",
+                   count);
+            }
+            else
+            {
+                vf("OBJECTMANAGER_COUNT_OFF", false, "read failed");
+            }
+            if (manager && read_ptr(manager + OBJECTMANAGER_ARRAY_OFF, &array))
+            {
+                vf("OBJECTMANAGER_ARRAY_OFF",
+                   array && pointer_plausible(array),
+                   "0x%llx",
+                   (unsigned long long)array);
+            }
+            else
+            {
+                vf("OBJECTMANAGER_ARRAY_OFF", false, "read failed");
+            }
+            val_client_input(clientPtr);
+        }
+    }
+    if (read_ptr(base + VTABLE_PROJECTILEDATA_RVA, &vtable))
+    {
+        vf("VTABLE_PROJECTILEDATA_RVA",
+           vtable && addr_executable(vtable),
+           "slot0=0x%llx",
+           (unsigned long long)vtable);
+    }
+    else
+    {
+        vf("VTABLE_PROJECTILEDATA_RVA", false, "read failed");
+    }
+    vf("DATACONST_RVA",
+       addr_readable(base + DATACONST_RVA_LO, 16) &&
+           addr_readable(base + DATACONST_RVA_LO + DATACONST_RVA_SIZE - 16, 16),
+       "lo=0x%llx size=0x%llx",
+       (unsigned long long)DATACONST_RVA_LO,
+       (unsigned long long)DATACONST_RVA_SIZE);
+    vf("CLIENTINPUT_TYPE_TABLE_RVA",
+       addr_readable(base + CLIENTINPUT_TYPE_TABLE_RVA, 8),
+       "0x%llx",
+       (unsigned long long)CLIENTINPUT_TYPE_TABLE_RVA);
+    vf("CLIENTINPUT_TYPE_FALLBACK_RVA",
+       addr_readable(base + CLIENTINPUT_TYPE_FALLBACK_RVA, 8),
+       "0x%llx",
+       (unsigned long long)CLIENTINPUT_TYPE_FALLBACK_RVA);
+    vf("CLIENTINPUT_HASH_MASK_RVA",
+       addr_readable(base + CLIENTINPUT_HASH_INNER_MASK_RVA, 8) &&
+           addr_readable(base + CLIENTINPUT_HASH_OUTER_MASK_RVA, 8),
+       "inner=0x%llx outer=0x%llx",
+       (unsigned long long)CLIENTINPUT_HASH_INNER_MASK_RVA,
+       (unsigned long long)CLIENTINPUT_HASH_OUTER_MASK_RVA);
+}
+
+void val_client_input(uintptr_t clientPtr)
+{
+    uintptr_t manager = 0;
+    uintptr_t queue = 0;
+    uintptr_t array = 0;
+    uintptr_t message = 0;
+    int32_t count = 0;
+    int32_t type = -1;
+    int32_t mx = 0;
+    int32_t my = 0;
+    uint8_t token[8] = {0};
+    if (!read_ptr(clientPtr + LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF,
+                  &manager))
+    {
+        vf("LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF", false, "read failed");
+        return;
+    }
+    vf("LOGICBATTLEMODECLIENT_INPUTMANAGER_OFF",
+       manager && pointer_plausible(manager),
+       "0x%llx",
+       (unsigned long long)manager);
+    if (!manager)
+    {
+        vs("CLIENTINPUTMANAGER_QUEUE_OFF", "no input manager");
+        return;
+    }
+    if (!read_ptr(manager + CLIENTINPUTMANAGER_QUEUE_OFF, &queue))
+    {
+        vf("CLIENTINPUTMANAGER_QUEUE_OFF", false, "read failed");
+        return;
+    }
+    vf("CLIENTINPUTMANAGER_QUEUE_OFF",
+       queue && pointer_plausible(queue),
+       "0x%llx",
+       (unsigned long long)queue);
+    if (!queue || !read_int(queue + OBJECTMANAGER_COUNT_OFF, &count) || count < 0 ||
+        count > 4096)
+    {
+        vf("CLIENTINPUT_QUEUE_COUNT", false, "count=%d", count);
+        vs("CLIENTINPUTMESSAGE_TYPE_OFF", "queue empty or unreadable");
+        return;
+    }
+    vf("CLIENTINPUT_QUEUE_COUNT", true, "count=%d", count);
+    if (count == 0)
+    {
+        vs("CLIENTINPUTMESSAGE_TYPE_OFF", "queue empty");
+        vs("CLIENTINPUTMESSAGE_X_OFF", "queue empty");
+        vs("CLIENTINPUT_TOKEN_OFF", "queue empty");
+        vs("CLIENTINPUT_SKILLDATA_OFF", "queue empty");
+        return;
+    }
+    if (!read_ptr(queue + OBJECTMANAGER_ARRAY_OFF, &array) || !array ||
+        !read_ptr(array, &message) || !message ||
+        !pointer_plausible(message))
+    {
+        vf("CLIENTINPUT_QUEUE_ARRAY", false, "array/message unreadable");
+        return;
+    }
+    if (read_int(message + CLIENTINPUTMESSAGE_TYPE_OFF, &type))
+    {
+        vf("CLIENTINPUTMESSAGE_TYPE_OFF",
+           type >= 0 && type <= (int32_t)CLIENTINPUT_TYPE_COUNT,
+           "type=%d max=%llu",
+           type,
+           (unsigned long long)CLIENTINPUT_TYPE_COUNT);
+    }
+    else
+    {
+        vf("CLIENTINPUTMESSAGE_TYPE_OFF", false, "read failed");
+    }
+    if (read_int(message + CLIENTINPUTMESSAGE_X_OFF, &mx) &&
+        read_int(message + CLIENTINPUTMESSAGE_Y_OFF, &my))
+    {
+        vf("CLIENTINPUTMESSAGE_X/Y_OFF",
+           span(mx) && span(my),
+           "x=%d y=%d",
+           mx,
+           my);
+    }
+    else
+    {
+        vf("CLIENTINPUTMESSAGE_X/Y_OFF", false, "read failed");
+    }
+    vf("CLIENTINPUT_TOKEN_OFF",
+       read_bytes(message + CLIENTINPUT_TOKEN_OFF, token, sizeof(token)),
+       "hash=%02x%02x%02x%02x",
+       token[0],
+       token[1],
+       token[2],
+       token[3]);
+    vf("CLIENTINPUT_SKILLDATA_OFF",
+       addr_readable(message + CLIENTINPUT_SKILLDATA_OFF, 8),
+       "readable");
+    vf("CLIENTINPUT_TOKEN_INPUT_OFF",
+       addr_readable(message + CLIENTINPUT_TOKEN_OFF + CLIENTINPUT_TOKEN_INPUT_OFF,
+                     4),
+       "readable");
+}
+
+void val_character(uintptr_t own)
+{
+    int32_t pid = 0;
+    int32_t x = 0;
+    int32_t y = 0;
+    int32_t team = 0;
+    int32_t angle = 0;
+    int32_t hp = 0;
+    int32_t collision = 0;
+    uintptr_t data = 0;
+    char name[48] = {0};
+    vf("LOGICCHARACTER_GLOBALID_OFF",
+       read_int(own + LOGICCHARACTER_GLOBALID_OFF, &pid) && pid > 0,
+       "pid=%d",
+       pid);
+    if (read_int(own + LOGICCHARACTER_X_OFF, &x) &&
+        read_int(own + LOGICCHARACTER_Y_OFF, &y))
+    {
+        vf("LOGICCHARACTER_X/Y_OFF", span(x) && span(y), "x=%d y=%d", x, y);
+    }
+    else
+    {
+        vf("LOGICCHARACTER_X/Y_OFF", false, "read failed");
+    }
+    if (read_int(own + LOGICCHARACTER_TEAM_OFF, &team))
+    {
+        vf("LOGICCHARACTER_TEAM_OFF", team >= 0 && team <= 3, "team=%d", team);
+    }
+    else
+    {
+        vf("LOGICCHARACTER_TEAM_OFF", false, "read failed");
+    }
+    if (read_int(own + LOGICCHARACTER_ATTACK_ANGLE_OFF, &angle))
+    {
+        vf("LOGICCHARACTER_ATTACK_ANGLE_OFF",
+           angle >= -720 && angle <= 720,
+           "angle=%d",
+           angle);
+    }
+    else
+    {
+        vf("LOGICCHARACTER_ATTACK_ANGLE_OFF", false, "read failed");
+    }
+    if (read_int(own + LOGICCHARACTER_HP_OFF, &hp))
+    {
+        vf("LOGICCHARACTER_HP_OFF",
+           hp >= 0 && hp <= 20000 && (uint32_t)hp == own_hp,
+           "hp=%d scan=%u",
+           hp,
+           own_hp);
+    }
+    else
+    {
+        vf("LOGICCHARACTER_HP_OFF", false, "read failed");
+    }
+    if (read_ptr(own + LOGICGAMEOBJECT_DATA_OFF, &data))
+    {
+        vf("LOGICGAMEOBJECT_DATA_OFF",
+           data && pointer_plausible(data),
+           "0x%llx",
+           (unsigned long long)data);
+    }
+    else
+    {
+        vf("LOGICGAMEOBJECT_DATA_OFF", false, "read failed");
+    }
+    if (data && pointer_plausible(data) &&
+        read_int(data + LOGICCHARACTERDATA_COLLISION_OFF, &collision))
+    {
+        vf("LOGICCHARACTERDATA_COLLISION_OFF",
+           collision >= 0 && collision <= 100000,
+           "v=%d",
+           collision);
+    }
+    else
+    {
+        vf("LOGICCHARACTERDATA_COLLISION_OFF", false, "read failed");
+    }
+    if (data && pointer_plausible(data))
+    {
+        typedef uintptr_t (*name_t)(uintptr_t);
+        name_t fn = reinterpret_cast<name_t>(callable(RVA_LOGICDATA_GETNAME));
+        uintptr_t text = fn ? fn(data) : 0;
+        int length = 0;
+        BOOL ok = NO;
+        if (text && pointer_plausible(text))
+        {
+            length = read_scstring(text, sizeof(name) - 1, name, sizeof(name));
+            ok = (length > 0) ? YES : NO;
+        }
+        for (size_t i = 0; ok && i < sizeof(name) - 1 && name[i]; i++)
+        {
+            if (name[i] < 0x20 || name[i] > 0x7e) ok = NO;
+        }
+        vf("RVA_LOGICDATA_GETNAME(x)",
+           ok,
+           "name=%s len=%d",
+           ok ? name : "-",
+           length);
+        if (text && pointer_plausible(text))
+        {
+            int32_t strLen = -1;
+            uintptr_t strData = 0;
+            BOOL lenOk = read_int(text + SCSTRING_LENGTH_OFF, &strLen);
+            BOOL dataOk = read_ptr(text + SCSTRING_DATA_OFF, &strData);
+            vf("SCSTRING_LENGTH/DATA_OFF",
+               lenOk && dataOk && strLen >= 0 && strLen <= 64 &&
+                   (strLen == length || length >= (int)sizeof(name) - 1),
+               "len=%d data=0x%llx",
+               strLen,
+               (unsigned long long)strData);
+        }
+        else
+        {
+            vs("SCSTRING_LENGTH/DATA_OFF", "no name object");
+        }
+    }
+    else
+    {
+        vs("RVA_LOGICDATA_GETNAME(x)", "no data pointer");
+    }
+}
+
+void val_tilemap(uintptr_t clientPtr)
+{
+    typedef uintptr_t (*map_t)(uintptr_t);
+    map_t fn = reinterpret_cast<map_t>(
+        callable(RVA_LOGICBATTLEMODECLIENT_GETTILEMAP));
+    uintptr_t map = fn ? fn(clientPtr) : 0;
+    uintptr_t tiles = 0;
+    uintptr_t tile = 0;
+    uintptr_t type = 0;
+    uint32_t flags = 0;
+    uint8_t block = 0;
+    int32_t width = 0;
+    int32_t height = 0;
+    vf("RVA_GETTILEMAP(x)",
+       map && pointer_plausible(map),
+       "0x%llx",
+       (unsigned long long)map);
+    if (!map || !pointer_plausible(map))
+    {
+        vs("TILEMAP_WIDTH_OFF", "no tilemap");
+        vs("TILEMAP_HEIGHT_OFF", "no tilemap");
+        vs("TILEMAP_TILES_OFF", "no tilemap");
+        vs("LOGICTILEDATA_FLAGS_OFF", "no tilemap");
+        vs("TILETYPEDATA_BLOCKFLAGS_OFF", "no tilemap");
+        return;
+    }
+    if (read_int(map + TILEMAP_WIDTH_OFF, &width))
+    {
+        vf("TILEMAP_WIDTH_OFF", width > 0 && width <= 120, "w=%d", width);
+    }
+    else
+    {
+        vf("TILEMAP_WIDTH_OFF", false, "read failed");
+    }
+    if (read_int(map + TILEMAP_HEIGHT_OFF, &height))
+    {
+        vf("TILEMAP_HEIGHT_OFF", height > 0 && height <= 120, "h=%d", height);
+    }
+    else
+    {
+        vf("TILEMAP_HEIGHT_OFF", false, "read failed");
+    }
+    if (!read_ptr(map + TILEMAP_TILES_OFF, &tiles) || !tiles)
+    {
+        vf("TILEMAP_TILES_OFF", false, "read failed");
+        vs("LOGICTILEDATA_FLAGS_OFF", "no tile array");
+        vs("TILETYPEDATA_BLOCKFLAGS_OFF", "no tile array");
+        return;
+    }
+    vf("TILEMAP_TILES_OFF", pointer_plausible(tiles), "0x%llx", (unsigned long long)tiles);
+    if (!read_ptr(tiles, &tile) || !tile || !read_ptr(tile, &type) || !type)
+    {
+        vs("LOGICTILEDATA_FLAGS_OFF", "tile[0] unreadable");
+        vs("TILETYPEDATA_BLOCKFLAGS_OFF", "tile[0] unreadable");
+        return;
+    }
+    vf("LOGICTILEDATA_FLAGS_OFF",
+       read_bytes(type + LOGICTILEDATA_FLAGS_OFF, &flags, sizeof(flags)),
+       "flags=0x%08x weak",
+       flags);
+    vf("TILETYPEDATA_BLOCKFLAGS_OFF",
+       read_bytes(type + TILETYPEDATA_BLOCKFLAGS_OFF, &block, 1),
+       "block=0x%02x weak",
+       (unsigned)block);
+    vf("TILEMAP_GEOMETRY",
+       width > 0 && height > 0 && width == wall_cache_w() &&
+           height == wall_cache_h(),
+       "%dx%d cache=%dx%d",
+       width,
+       height,
+       wall_cache_w(),
+       wall_cache_h());
+}
+
+void val_projectile()
+{
+    uintptr_t found = 0;
+    uintptr_t target = base + VTABLE_PROJECTILEDATA_RVA;
+    int32_t radius = 0;
+    int32_t ttype = 0;
+    int32_t startTick = 0;
+    int32_t endTick = 0;
+    int32_t sx = 0;
+    int32_t sy = 0;
+    int32_t ex = 0;
+    int32_t ey = 0;
+    int32_t cfgRadius = 0;
+    uint8_t homing = 0;
+    uint8_t bouncing = 0;
+    uint8_t pierce = 0;
+    uint8_t butter = 0;
+    uint8_t passes = 0;
+    uintptr_t cfg = 0;
+    for (int i = 0; i < obj_count; i++)
+    {
+        uintptr_t vtable = 0;
+        if (!obj_snapshot[i] || !read_ptr(obj_snapshot[i], &vtable)) continue;
+        if (vtable == target)
+        {
+            found = obj_snapshot[i];
+            break;
+        }
+    }
+    if (!found)
+    {
+        val_proj_tries++;
+        if (val_proj_tries >= 120)
+        {
+            vs("PROJECTILEDATA_*", "no projectile seen in 120s");
+            val_proj_done = 1;
+        }
+        return;
+    }
+    val_proj_done = 1;
+    vf("PROJDATA_BLOCK_SIZE",
+       addr_readable(found, PROJDATA_BLOCK_SIZE),
+       "0x%llx readable 0x%llx",
+       (unsigned long long)found,
+       (unsigned long long)PROJDATA_BLOCK_SIZE);
+    if (read_int(found + PROJECTILEDATA_RADIUS_OFF, &radius))
+    {
+        vf("PROJECTILEDATA_RADIUS_OFF",
+           radius > 0 && radius <= 300,
+           "r=%d",
+           radius);
+    }
+    else
+    {
+        vf("PROJECTILEDATA_RADIUS_OFF", false, "read failed");
+    }
+    if (read_int(found + PROJDATA_TTYPE_OFF, &ttype))
+    {
+        vf("PROJDATA_TTYPE_OFF", ttype >= -1 && ttype <= 64, "tt=%d", ttype);
+    }
+    else
+    {
+        vf("PROJDATA_TTYPE_OFF", false, "read failed");
+    }
+    vf("PROJDATA_HOMING_OFF",
+       read_bytes(found + PROJDATA_HOMING_OFF, &homing, 1) && homing <= 1,
+       "homing=%u",
+       (unsigned)homing);
+    vf("PROJECTILEDATA_ISBOUNCING_OFF",
+       read_bytes(found + PROJECTILEDATA_ISBOUNCING_OFF, &bouncing, 1) &&
+           bouncing <= 1,
+       "bounce=%u",
+       (unsigned)bouncing);
+    vf("PROJECTILEDATA_PIERCES_ENV_OFF",
+       read_bytes(found + PROJECTILEDATA_PIERCES_ENV_OFF, &pierce, 1) &&
+           pierce <= 1 && read_bytes(found + PROJECTILEDATA_PIERCES_ENV_BUTTER_OFF,
+                                     &butter,
+                                     1) &&
+           butter <= 1,
+       "pierce=%u butter=%u",
+       (unsigned)pierce,
+       (unsigned)butter);
+    vf("PROJECTILEDATA_PASSES_ENV_OFF",
+       read_bytes(found + PROJECTILEDATA_PASSES_ENV_OFF, &passes, 1) &&
+           passes <= 1,
+       "passes=%u",
+       (unsigned)passes);
+    if (read_int(found + PROJSERVER_STARTTICK_OFF, &startTick) &&
+        read_int(found + PROJSERVER_ENDTICK_OFF, &endTick))
+    {
+        vf("PROJSERVER_START/ENDTICK",
+           startTick >= 0 && endTick >= startTick,
+           "%d..%d",
+           startTick,
+           endTick);
+    }
+    else
+    {
+        vf("PROJSERVER_START/ENDTICK", false, "read failed");
+    }
+    if (read_int(found + PROJSERVER_STARTX_OFF, &sx) &&
+        read_int(found + PROJSERVER_STARTY_OFF, &sy) &&
+        read_int(found + PROJSERVER_ENDX_OFF, &ex) &&
+        read_int(found + PROJSERVER_ENDY_OFF, &ey))
+    {
+        vf("PROJSERVER_COORDS",
+           span(sx) && span(sy) && span(ex) && span(ey),
+           "(%d,%d)->(%d,%d)",
+           sx,
+           sy,
+           ex,
+           ey);
+    }
+    else
+    {
+        vf("PROJSERVER_COORDS", false, "read failed");
+    }
+    if (read_ptr(found + PROJDATA_CFG_OFF, &cfg) && cfg &&
+        pointer_plausible(cfg))
+    {
+        vf("PROJDATA_CFG_OFF",
+           addr_readable(cfg, PROJDATA_CFG_BLOCK_SIZE),
+           "0x%llx",
+           (unsigned long long)cfg);
+        if (read_int(cfg + PROJDATA_RADIUS_OFF, &cfgRadius))
+        {
+            vf("PROJDATA_RADIUS_OFF",
+               cfgRadius >= 0 && cfgRadius <= 4000,
+               "r=%d",
+               cfgRadius);
+        }
+        else
+        {
+            vf("PROJDATA_RADIUS_OFF", false, "read failed");
+        }
+    }
+    else
+    {
+        vf("PROJDATA_CFG_OFF", false, "read failed");
+    }
+}
+
+void validate_offsets()
+{
+    uintptr_t slot = (uintptr_t)read_global_ptr(GAMESTATE_RVA);
+    val_ok = 0;
+    val_fail = 0;
+    val_skip = 0;
+    line("\n=== validate ===\n");
+    val_rva_table();
+    val_globals(slot);
+    vf("HEAP_MAX_REGION_SIZE", own_elem >= HEAP_MAX_REGION_SIZE, "own=0x%llx",
+       (unsigned long long)own_elem);
+    if (own_elem && pointer_plausible(own_elem)) val_character(own_elem);
+    {
+        uintptr_t clientPtr = client();
+        if (clientPtr && pointer_plausible(clientPtr))
+        {
+            val_tilemap(clientPtr);
+        }
+        else
+        {
+            vs("RVA_GETTILEMAP(x)", "no client");
+        }
+    }
+    val_projectile();
+    line("[VAL] summary ok=%d fail=%d skip=%d\n", val_ok, val_fail, val_skip);
+}
+
+void maybe_validate()
+{
+    uint64_t now_us = us();
+    if (val_stage == 0)
+    {
+        if (!base || !own_elem || dead) return;
+        val_stage = 1;
+        validate_offsets();
+        val_probe_next = now_us + 500000ULL;
+        return;
+    }
+    if (val_proj_done || val_proj_tries >= 120) return;
+    if (val_probe_next && now_us < val_probe_next) return;
+    val_probe_next = now_us + 1000000ULL;
+    if (!base || !own_elem || dead) return;
+    val_ok = 0;
+    val_fail = 0;
+    val_skip = 0;
+    val_projectile();
+    if (val_ok + val_fail + val_skip > 0)
+    {
+        line("[VAL] proj summary ok=%d fail=%d skip=%d\n",
+             val_ok,
+             val_fail,
+             val_skip);
+    }
+}
+
 const char* dir_name(int dir)
 {
     switch (dir)
@@ -108,6 +844,7 @@ void diag_tick()
     uint64_t wl_avg = 0;
     uint32_t wl_max = 0;
     if (!open_log()) return;
+    maybe_validate();
     now_us = us();
     if (base && own_elem && !dead)
     {
