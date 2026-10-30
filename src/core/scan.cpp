@@ -10,7 +10,6 @@
 #include "offsets.h"
 #include "scan.h"
 #include <frida-gum.h>
-constexpr uintptr_t       kCharacterHitpoints = 0xc4;
 const char*               image_name          = "Nulls Brawl";
 BOOL                      setup_done          = NO;
 __thread BOOL             inside_hook         = NO;
@@ -565,7 +564,7 @@ void scan_world()
         own_y    = y;
         coord_ok = 1;
     }
-    if (read_int(own + kCharacterHitpoints, &hp) && hp >= 0 && hp < 1000000)
+    if (read_int(own + 0xc4, &hp) && hp >= 0 && hp < 1000000)
     {
         own_ok_hp = 1;
         own_hp    = static_cast<uint32_t>(hp);

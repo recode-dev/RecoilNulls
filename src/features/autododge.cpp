@@ -142,8 +142,6 @@ int   windup_n           = 0;
 
 namespace
 {
-constexpr uintptr_t kGameObjectDataTeam = 0x40;
-constexpr uintptr_t kCharacterHitpoints = 0xc4;
 constexpr float     REACH               = 300.0f;
 constexpr int       DIRS                = 16;
 constexpr int       SIM_STEPS           = 32;
@@ -235,7 +233,7 @@ static void cache_frame_geom()
         pointer_plausible(data))
     {
         own_team_valid =
-            read_int(data + kGameObjectDataTeam, &own_team_value) ? 1 : 0;
+            read_int(data + 0x40, &own_team_value) ? 1 : 0;
     }
 }
 
@@ -286,7 +284,7 @@ void init_projectile_state(
 static int object_team(uintptr_t data, int32_t* out)
 {
     if (!pointer_plausible(data)) return 0;
-    return read_int(data + kGameObjectDataTeam, out) ? 1 : 0;
+    return read_int(data + 0x40, out) ? 1 : 0;
 }
 
 static int own_team_matches(int32_t team)
@@ -304,7 +302,7 @@ static void add_character_entry(const uint8_t* obj,
 {
     int32_t team, hp, gid, xi, yi;
     if (!object_team(dataPtr, &team)) return;
-    memcpy(&hp, obj + kCharacterHitpoints, sizeof(hp));
+    memcpy(&hp, obj + 0xc4, sizeof(hp));
     memcpy(&gid, obj + LOGICCHARACTER__GLOBALID, sizeof(gid));
     xi = object_x((uintptr_t) obj);
     yi = object_y((uintptr_t) obj);
