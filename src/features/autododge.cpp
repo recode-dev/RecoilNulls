@@ -342,11 +342,23 @@ void init_projectile_state(
             str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
 }
 
+// GameObject::getTeam(): *(int32_t*)(*(uintptr_t*)(obj + 0x10) + 0x40).
+// Returns 0 when the data pointer is not readable, so callers can drop the
+// object instead of classifying it with a guess.
+static int character_team(const uint8_t* obj, int32_t* out)
+{
+    uintptr_t data = 0;
+    memcpy(&data, obj + LOGICGAMEOBJECT__DATA, sizeof(data));
+    if (!pointer_plausible(data)) return 0;
+    return read_int(data + LOGICGAMEOBJECTDATA__TEAM, out) ? 1 : 0;
+}
+
 static int own_team_matches(int32_t team)
 {
     if (own_team_b >= 0 && team == own_team_b) return 1;
     int32_t self_team = 0;
-    if (own_elem && read_int(own_elem + LOGICCHARACTER__TEAM, &self_team) &&
+    if (own_elem && character_team(reinterpret_cast<const uint8_t*>(own_elem),
+                                   &self_team) &&
         team == self_team)
         return 1;
     return 0;
@@ -357,7 +369,7 @@ static void add_character_entry(
 {
     ad_char_n++;
     int32_t team, hp, gid, xi, yi, aim;
-    memcpy(&team, obj + LOGICCHARACTER__TEAM, sizeof(team));
+    if (!character_team(obj, &team)) return;
     memcpy(&hp, obj + LOGICCHARACTER__HITPOINTS, sizeof(hp));
     memcpy(&gid, obj + LOGICCHARACTER__GLOBALID, sizeof(gid));
     xi = object_x((uintptr_t) obj);
@@ -491,7 +503,7 @@ static void add_projectile_threat(const uint8_t* obj,
         ad_pj_vel[k] = st->vel ? 1 : 0;
     }
     int32_t team = 0;
-    memcpy(&team, obj + LOGICCHARACTER__TEAM, sizeof(team));
+    if (!character_team(obj, &team)) return;
     if (own_team_matches(team)) return;
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;

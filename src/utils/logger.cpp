@@ -141,7 +141,6 @@ constexpr field_entry kCharacterFieldTable[] = {
     {"LOGICCHARACTER__GLOBALID", LOGICCHARACTER__GLOBALID, sizeof(int32_t)},
     {"LOGICCHARACTER__X", LOGICCHARACTER__X, sizeof(int32_t)},
     {"LOGICCHARACTER__Y", LOGICCHARACTER__Y, sizeof(int32_t)},
-    {"LOGICCHARACTER__TEAM", LOGICCHARACTER__TEAM, sizeof(int32_t)},
     {"LOGICCHARACTER__ATTACKANGLE",
      LOGICCHARACTER__ATTACKANGLE,
      sizeof(int32_t)},
@@ -210,10 +209,16 @@ void validate_character_fields(uintptr_t own)
                  hp <= 1000000;
     snprintf(detail, sizeof(detail), "hp=%d", hp);
     check(hp_ok, "LOGICCHARACTER__HITPOINTS range", detail);
-    bool team_ok =
-        read_int(own + LOGICCHARACTER__TEAM, &team) && team >= 0 && team <= 64;
-    snprintf(detail, sizeof(detail), "team=%d", team);
-    check(team_ok, "LOGICCHARACTER__TEAM range", detail);
+    uintptr_t data = 0;
+    bool      team_ok = read_ptr(own + LOGICGAMEOBJECT__DATA, &data) &&
+                   read_int(data + LOGICGAMEOBJECTDATA__TEAM, &team) &&
+                   team >= 0 && team <= 64;
+    snprintf(detail,
+             sizeof(detail),
+             "data=0x%llx team=%d",
+             (unsigned long long) data,
+             team);
+    check(team_ok, "LOGICGAMEOBJECTDATA__TEAM range", detail);
 }
 
 void validate_tilemap_fields(uintptr_t clientPtr)
