@@ -631,7 +631,7 @@ uintptr_t client()
     {
         return 0;
     }
-    return static_cast<uintptr_t>(value);
+    return reinterpret_cast<uintptr_t>(value);
 }
 uintptr_t controller()
 {
