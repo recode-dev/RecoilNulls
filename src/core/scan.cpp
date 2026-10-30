@@ -429,10 +429,6 @@ static uintptr_t battle_instance()
     return fn();
 }
 
-static int battle_state()
-{
-    return battle_instance() ? 5 : -1;
-}
 static int32_t  last_pos_x  = 0;
 static int32_t  last_pos_y  = 0;
 static uint64_t last_pos_us = 0;
@@ -489,14 +485,12 @@ void scan_world()
     uintptr_t array      = 0;
     uintptr_t own        = 0;
     int32_t   count      = 0;
-    int32_t   state      = -1;
     int32_t   x          = 0;
     int32_t   y          = 0;
     int32_t   hp         = 0;
     if (!base) return;
-    state        = battle_state();
     scene_object = battle_instance();
-    if (state != 5)
+    if (!scene_object)
     {
         world_reset();
         return;
