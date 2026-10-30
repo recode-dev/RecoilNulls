@@ -130,7 +130,7 @@ void dir_from_angle(float radians, float& ox, float& oy)
     ox = static_cast<float>(vx) * (1.0f / 1024.0f);
     oy = static_cast<float>(vy) * (1.0f / 1024.0f);
 }
-}  // namespace
+}
 
 int   in_move     = 0;
 float dodge_dir_x = 1.0f, dodge_dir_y = 0.0f;
@@ -166,7 +166,7 @@ constexpr float    WEIGHT_EDGE       = 1600.0f;
 constexpr float    TICK_MS_SEC       = static_cast<float>(ad::TICK_MS) * 0.001f;
 constexpr float    SIM_T = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
 
-}  // namespace
+}
 
 int32_t projectile_radius(uintptr_t data)
 {
@@ -242,7 +242,7 @@ Proj      projs[PROJ_SLOTS];
 uintptr_t char_vt    = 0;
 float     self_speed = 1.0f;
 float     own_hitbox = 0.0f;
-}  // namespace ad
+}
 
 namespace ad
 {
@@ -482,7 +482,7 @@ void evict_stale_projectiles(uint64_t now)
     for (auto& proj : projs)
         if (proj.pid && now - proj.seen > PROJ_TTL_MS) proj.pid = 0;
 }
-}  // namespace ad
+}
 
 using namespace ad;
 namespace
@@ -791,7 +791,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
 }
-}  // namespace
+}
 
 static void reset_dodge_state()
 {

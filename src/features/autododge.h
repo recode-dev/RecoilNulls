@@ -42,5 +42,5 @@ extern uintptr_t char_vt;
 extern float     self_speed;
 void             evict_stale_projectiles(uint64_t now);
 void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my);
-}  // namespace ad
+}
 #endif
