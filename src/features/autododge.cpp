@@ -154,50 +154,6 @@ void vector_normalize(int* x, int* y, int scale)
     *y = v[1];
 }
 
-int game_distance(int x1, int y1, int x2, int y2)
-{
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN);
-    }
-    if (!slot)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int (*)(int, int, int, int)>(slot)(x1, y1, x2, y2);
-}
-
-int game_distance_sq(int x1, int y1, int x2, int y2)
-{
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN);
-    }
-    if (!slot)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int (*)(int, int, int, int)>(slot)(x1, y1, x2, y2);
-}
-
-int game_segment_hits_circle(
-    int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
-{
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE);
-    }
-    if (!slot)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int (*)(int, int, int, int, int, int, int, int*)>(
-        slot)(x1, y1, x2, y2, cx, cy, radius, out);
-}
-
 float math_sin_f(float radians)
 {
     int deg = static_cast<int>(radians * 57.29577951f +
@@ -511,7 +467,7 @@ static void add_projectile_threat(const uint8_t* obj,
     if (!(st->flags & (B_IND | B_PIERCE)) &&
         !wall_line_of_sight_clear(px, py, mx, my))
         return;
-    float vv = vx * vx + vy * vy;
+    float vv = (float) game_distance_sq(0, 0, (int) vx, (int) vy);
     if (vv <= 0.0f) return;
     float rad = st->rad + own_hitbox + AD_SAFETY;
     if (st->flags & B_BOUNCE) rad += own_hitbox * 0.5f;

@@ -243,6 +243,55 @@ int game_logic_to_tile(int unit)
     return fn(unit);
 }
 
+int game_distance(int x1, int y1, int x2, int y2)
+{
+    typedef int (*dist_t)(int, int, int, int);
+    static dist_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<dist_t>(
+            callable(LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN));
+    }
+    if (!fn)
+    {
+        return 0;
+    }
+    return fn(x1, y1, x2, y2);
+}
+
+int game_distance_sq(int x1, int y1, int x2, int y2)
+{
+    typedef int (*dist_t)(int, int, int, int);
+    static dist_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<dist_t>(
+            callable(LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN));
+    }
+    if (!fn)
+    {
+        return 0;
+    }
+    return fn(x1, y1, x2, y2);
+}
+
+int game_segment_hits_circle(
+    int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
+{
+    typedef int (*hit_t)(int, int, int, int, int, int, int, int*);
+    static hit_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<hit_t>(
+            callable(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE));
+    }
+    if (!fn)
+    {
+        return 0;
+    }
+    return fn(x1, y1, x2, y2, cx, cy, radius, out);
+}
+
 int game_projectile_travel_ticks(uintptr_t projectileData,
                                  int       distance,
                                  int       speed)
@@ -414,9 +463,9 @@ static void track_own_speed()
     if (dt < 0.06f) return;
     if (dt < 0.25f)
     {
-        float dx = (float) (own_x - last_pos_x);
-        float dy = (float) (own_y - last_pos_y);
-        float sp = sqrtf(dx * dx + dy * dy) / dt;
+        int px = own_x - last_pos_x;
+        int py = own_y - last_pos_y;
+        float sp = (float) game_distance(0, 0, px, py) / dt;
         if (sp >= 300.0f && sp <= 6000.0f)
         {
             if (sp > own_speed)
