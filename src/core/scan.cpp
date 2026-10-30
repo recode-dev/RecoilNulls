@@ -245,23 +245,6 @@ int game_distance_sq(int x1, int y1, int x2, int y2)
     return fn(x1, y1, x2, y2);
 }
 
-int game_segment_hits_circle(
-    int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
-{
-    using hit_t     = int (*)(int, int, int, int, int, int, int, int*);
-    static hit_t fn = nullptr;
-    if (!fn)
-    {
-        fn = reinterpret_cast<hit_t>(
-            callable(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE));
-    }
-    if (!fn)
-    {
-        return 0;
-    }
-    return fn(x1, y1, x2, y2, cx, cy, radius, out);
-}
-
 int game_projectile_travel_ticks(uintptr_t projectileData,
                                  int       distance,
                                  int       speed)

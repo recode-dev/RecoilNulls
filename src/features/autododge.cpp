@@ -9,6 +9,28 @@
 namespace
 {
 
+static float fast_len(float x, float y)
+{
+    return sqrtf(x * x + y * y);
+}
+
+static bool aim_hit(float x1, float y1, float x2, float y2, float cx, float cy, float r)
+{
+    float dx   = x2 - x1;
+    float dy   = y2 - y1;
+    float len2 = dx * dx + dy * dy;
+    float t    = 0.0f;
+    if (len2 > 0.0f)
+    {
+        t = ((cx - x1) * dx + (cy - y1) * dy) / len2;
+        if (t < 0.0f) t = 0.0f;
+        if (t > 1.0f) t = 1.0f;
+    }
+    float ox = x1 + dx * t - cx;
+    float oy = y1 + dy * t - cy;
+    return ox * ox + oy * oy <= r * r;
+}
+
 int deg_from_rad(float r)
 {
     return static_cast<int>(r * 57.29577951f + (r < 0.0f ? -0.5f : 0.5f));
@@ -262,7 +284,7 @@ static void add_character_entry(const uint8_t* obj,
     enemy_x[k] = static_cast<float>(xi);
     enemy_y[k] = static_cast<float>(yi);
     enemy_d[k] = static_cast<float>(
-        game_distance(0, 0, static_cast<int>(ex), static_cast<int>(ey)));
+        fast_len(ex, ey));
     int32_t charge     = 0;
     int32_t chargeMode = 0;
     read_int(objPtr + LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS, &charge);
@@ -326,10 +348,7 @@ static void add_projectile_threat(const uint8_t* obj,
     }
     st->seen       = now;
     float   step_x = px - st->x, step_y = py - st->y;
-    float   step = static_cast<float>(game_distance(static_cast<int>(st->x),
-                                                  static_cast<int>(st->y),
-                                                  static_cast<int>(px),
-                                                  static_cast<int>(py)));
+    float   step = fast_len(px - st->x, py - st->y);
     int32_t dataSpeed = projectile_speed(st->data);
     if (dataSpeed > 50 && dataSpeed < 20000)
     {
@@ -352,15 +371,11 @@ static void add_projectile_threat(const uint8_t* obj,
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
-    if (static_cast<float>(game_distance_sq(
-            0, 0, static_cast<int>(dx), static_cast<int>(dy))) > zone2)
-        return;
+    if (dx * dx + dy * dy > zone2) return;
     if (!wall_line_of_sight_clear(px, py, mx, my)) return;
-    if (game_distance_sq(0, 0, static_cast<int>(vx), static_cast<int>(vy)) <= 0)
-        return;
+    if (vx * vx + vy * vy <= 0.0f) return;
     float rad  = st->rad + own_hitbox + SAFETY;
-    float dist = static_cast<float>(
-        game_distance(0, 0, static_cast<int>(dx), static_cast<int>(dy)));
+    float dist = fast_len(dx, dy);
     int32_t arrival =
         game_projectile_travel_ticks(st->data,
                                      static_cast<int>(dist + 0.5f),
@@ -369,15 +384,7 @@ static void add_projectile_threat(const uint8_t* obj,
     float tt = static_cast<float>(arrival) * TICK_MS_SEC;
     if (tt > THREAT_HORIZON) return;
     {
-        int32_t hit[2] = {0, 0};
-        if (!game_segment_hits_circle(static_cast<int>(px),
-                                      static_cast<int>(py),
-                                      static_cast<int>(px + vx * tt),
-                                      static_cast<int>(py + vy * tt),
-                                      static_cast<int>(mx),
-                                      static_cast<int>(my),
-                                      static_cast<int>(rad + 0.5f),
-                                      hit))
+        if (!aim_hit(px, py, px + vx * tt, py + vy * tt, mx, my, rad))
             return;
     }
     for (int k = 0; k < threat_n; k++)
@@ -396,6 +403,7 @@ static void add_projectile_threat(const uint8_t* obj,
 }
 
 static uintptr_t obj_rva[COUNT_MAX];
+static uintptr_t proj_obj_vt = 0;
 
 void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
 {
@@ -421,7 +429,11 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
             add_character_entry(obj, obj_snapshot[i], dataPtr, own_gid, mx, my);
             continue;
         }
-        if (obj_rva[i] != LOGICPROJECTILEDATA__VTABLE) continue;
+        uintptr_t ovt = 0;
+        memcpy(&ovt, obj, sizeof(ovt));
+        if (!proj_obj_vt && obj_rva[i] == LOGICPROJECTILEDATA__VTABLE)
+            proj_obj_vt = ovt;
+        if (!proj_obj_vt || ovt != proj_obj_vt) continue;
         float px = 0.0f, py = 0.0f;
         if (!read_projectile_position(obj, &px, &py)) continue;
         add_projectile_threat(
@@ -550,10 +562,7 @@ static void prepare_direction_costs(float mx, float my)
         cost_threat_ry[i] = my - t.y;
         if (vv >= 1e-6f)
         {
-            float iv =
-                1.0f /
-                static_cast<float>(game_distance(
-                    0, 0, static_cast<int>(t.vx), static_cast<int>(t.vy)));
+            float iv = 1.0f / fast_len(t.vx, t.vy);
             cost_threat_ux[i]     = t.vx * iv;
             cost_threat_uy[i]     = t.vy * iv;
             cost_threat_moving[i] = 1;
@@ -646,9 +655,7 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
             float tk = step_time[k];
             float ex = t.x + t.vx * tk - step_x[k];
             float ey = t.y + t.vy * tk - step_y[k];
-            if (static_cast<float>(game_distance_sq(
-                    0, 0, static_cast<int>(ex), static_cast<int>(ey))) < r2)
-                hit = k;
+            if (ex * ex + ey * ey < r2) hit = k;
         }
         if (hit)
         {
@@ -823,8 +830,7 @@ void update_autododge()
     {
         float mvx = static_cast<float>(own_x - prev_x),
               mvy = static_cast<float>(own_y - prev_y);
-        float mv  = static_cast<float>(
-            game_distance(0, 0, static_cast<int>(mvx), static_cast<int>(mvy)));
+        float mv  = fast_len(mvx, mvy);
         prev_x = own_x, prev_y = own_y;
         if (mv > 1.0f)
         {
