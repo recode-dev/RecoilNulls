@@ -15,7 +15,6 @@ static float fast_len(float x, float y)
         game_distance(0, 0, static_cast<int>(x), static_cast<int>(y)));
 }
 
-
 int deg_from_rad(float r)
 {
     return static_cast<int>(r * 57.29577951f + (r < 0.0f ? -0.5f : 0.5f));

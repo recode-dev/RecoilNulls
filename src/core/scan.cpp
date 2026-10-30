@@ -248,7 +248,7 @@ int game_distance_sq(int x1, int y1, int x2, int y2)
 int game_segment_hits_circle(
     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
 {
-    using hit_t = int (*)(int, int, int, int, int, int, int, int*);
+    using hit_t     = int (*)(int, int, int, int, int, int, int, int*);
     static hit_t fn = nullptr;
     if (!fn)
     {
