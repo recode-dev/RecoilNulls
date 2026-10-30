@@ -14,7 +14,8 @@ static float fast_len(float x, float y)
     return sqrtf(x * x + y * y);
 }
 
-static bool aim_hit(float x1, float y1, float x2, float y2, float cx, float cy, float r)
+static bool
+aim_hit(float x1, float y1, float x2, float y2, float cx, float cy, float r)
 {
     float dx   = x2 - x1;
     float dy   = y2 - y1;
@@ -281,10 +282,9 @@ static void add_character_entry(const uint8_t* obj,
     if (enemy_n >= ENEMY_MAX) return;
     int   k  = enemy_n++;
     float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
-    enemy_x[k] = static_cast<float>(xi);
-    enemy_y[k] = static_cast<float>(yi);
-    enemy_d[k] = static_cast<float>(
-        fast_len(ex, ey));
+    enemy_x[k]         = static_cast<float>(xi);
+    enemy_y[k]         = static_cast<float>(yi);
+    enemy_d[k]         = fast_len(ex, ey);
     int32_t charge     = 0;
     int32_t chargeMode = 0;
     read_int(objPtr + LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS, &charge);
@@ -348,7 +348,7 @@ static void add_projectile_threat(const uint8_t* obj,
     }
     st->seen       = now;
     float   step_x = px - st->x, step_y = py - st->y;
-    float   step = fast_len(px - st->x, py - st->y);
+    float   step      = fast_len(px - st->x, py - st->y);
     int32_t dataSpeed = projectile_speed(st->data);
     if (dataSpeed > 50 && dataSpeed < 20000)
     {
@@ -374,8 +374,8 @@ static void add_projectile_threat(const uint8_t* obj,
     if (dx * dx + dy * dy > zone2) return;
     if (!wall_line_of_sight_clear(px, py, mx, my)) return;
     if (vx * vx + vy * vy <= 0.0f) return;
-    float rad  = st->rad + own_hitbox + SAFETY;
-    float dist = fast_len(dx, dy);
+    float   rad  = st->rad + own_hitbox + SAFETY;
+    float   dist = fast_len(dx, dy);
     int32_t arrival =
         game_projectile_travel_ticks(st->data,
                                      static_cast<int>(dist + 0.5f),
@@ -384,8 +384,7 @@ static void add_projectile_threat(const uint8_t* obj,
     float tt = static_cast<float>(arrival) * TICK_MS_SEC;
     if (tt > THREAT_HORIZON) return;
     {
-        if (!aim_hit(px, py, px + vx * tt, py + vy * tt, mx, my, rad))
-            return;
+        if (!aim_hit(px, py, px + vx * tt, py + vy * tt, mx, my, rad)) return;
     }
     for (int k = 0; k < threat_n; k++)
     {
@@ -562,7 +561,7 @@ static void prepare_direction_costs(float mx, float my)
         cost_threat_ry[i] = my - t.y;
         if (vv >= 1e-6f)
         {
-            float iv = 1.0f / fast_len(t.vx, t.vy);
+            float iv              = 1.0f / fast_len(t.vx, t.vy);
             cost_threat_ux[i]     = t.vx * iv;
             cost_threat_uy[i]     = t.vy * iv;
             cost_threat_moving[i] = 1;
