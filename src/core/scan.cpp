@@ -179,14 +179,6 @@ BOOL read_ptr(uintptr_t address, void** out)
     }
     return read_bytes(address, out, sizeof(void*));
 }
-void* read_global_ptr(uintptr_t rva)
-{
-    require_object(base);
-    require_object(rva);
-    void* value = nullptr;
-    read_ptr(base + rva, &value);
-    return value;
-}
 int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
 {
     using pass_t     = uint8_t (*)(void*, int, int, int, int, int);
@@ -272,18 +264,6 @@ int game_distance(int x1, int y1, int x2, int y2)
     return fn(x1, y1, x2, y2);
 }
 
-int game_distance_sq(int x1, int y1, int x2, int y2)
-{
-    using dist_t     = int (*)(int, int, int, int);
-    static dist_t fn = nullptr;
-    if (!fn)
-    {
-        fn = reinterpret_cast<dist_t>(
-            callable(LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN));
-    }
-    require_method(reinterpret_cast<uintptr_t>(fn));
-    return fn(x1, y1, x2, y2);
-}
 
 int game_segment_hits_circle(
     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)

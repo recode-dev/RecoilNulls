@@ -4,11 +4,7 @@
 #include <cstdint>
 
 inline constexpr int WALL_SUBTILES_PER_TILE = 3;
-inline constexpr int WALL_TILE_LOGIC_UNITS  = 300;
 inline constexpr int WALL_MAX_MAP_TILES     = 120;
-inline constexpr int WALL_MAX_TOTAL_TILES =
-    WALL_MAX_MAP_TILES * WALL_MAX_MAP_TILES;
-inline constexpr int WALL_POINTER_CHUNK = 64;
 
 float wall_logic_units(int tiles);
 int   wall_cache_width();

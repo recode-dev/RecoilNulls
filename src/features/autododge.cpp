@@ -316,7 +316,7 @@ static int data_is_projectile(uintptr_t dataPtr)
     if (!dataPtr || !pointer_plausible(dataPtr)) return 0;
     if (!read_ptr(dataPtr, &vt) || vt < base) return 0;
     using fn_t = int (*)(uintptr_t);
-    fn_t fn    = reinterpret_cast<fn_t>(vt + LOGICDATA__ISPROJECTILEVTABLESLOT);
+    fn_t fn    = reinterpret_cast<fn_t>(vt + LOGICDATA__ISPROJECTILE);
     return fn(dataPtr);
 }
 

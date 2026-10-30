@@ -28,7 +28,6 @@ BOOL      read_int(uintptr_t address, int32_t* out);
 BOOL      write_bytes(uintptr_t address, const void* src, size_t length);
 BOOL      read_ptr(uintptr_t address, void** out);
 BOOL      read_ptr(uintptr_t address, uintptr_t* out);
-void*     read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 int       game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY);
 int       game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1);
@@ -135,7 +134,6 @@ int                  scene_live();
 int                  game_segment_hits_circle(
                      int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
 int              game_distance(int x1, int y1, int x2, int y2);
-int              game_distance_sq(int x1, int y1, int x2, int y2);
 extern int       coord_ok;
 extern int       dead;
 extern uintptr_t own_elem;
