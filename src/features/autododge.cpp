@@ -15,49 +15,6 @@ static float fast_len(float x, float y)
         game_distance(0, 0, static_cast<int>(x), static_cast<int>(y)));
 }
 
-int math_distance_square_to_line(int ax, int ay, int bx, int by, int px, int py)
-{
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICMATH__GETDISTANCESQUARETOLINE);
-    }
-    if (!slot)
-    {
-        return 0;
-    }
-    int a[2] = {ax, ay};
-    int b[2] = {bx, by};
-    int p[2] = {px, py};
-    return reinterpret_cast<int (*)(const int*, const int*, const int*)>(slot)(
-        a, b, p);
-}
-
-float math_distance_to_line(
-    float ax, float ay, float bx, float by, float px, float py)
-{
-    int sq = math_distance_square_to_line(static_cast<int>(ax + 0.5f),
-                                          static_cast<int>(ay + 0.5f),
-                                          static_cast<int>(bx + 0.5f),
-                                          static_cast<int>(by + 0.5f),
-                                          static_cast<int>(px + 0.5f),
-                                          static_cast<int>(py + 0.5f));
-    static uintptr_t sqrt_slot = 0;
-    if (sq < 1)
-    {
-        sq = 1;
-    }
-    if (!sqrt_slot)
-    {
-        sqrt_slot = callable_at_rva(LOGICMATH__SQRT);
-    }
-    if (!sqrt_slot)
-    {
-        return 0.0f;
-    }
-    return static_cast<float>(reinterpret_cast<int (*)(int)>(sqrt_slot)(sq));
-}
-
 void vector_normalize(int* x, int* y, int scale)
 {
     static uintptr_t slot = 0;
@@ -448,48 +405,84 @@ static float compute_free_run(float mx, float my, float dx, float dy, float far)
         run = fminf(run, (h - em - my) / dy);
     else if (dy < -1e-6f)
         run = fminf(run, (em - my) / dy);
-    const float step  = frame_geom.step;
-    const int   steps = step > 0.0f ? (int) (run / step) : 0;
-    for (int i = 1; i <= steps; i++)
+    if (run <= 0.0f) return 0.0f;
+    if (wall_segment_clear(
+            mx, my, mx + dx * run, my + dy * run, own_hitbox))
     {
-        const float d = step * (float) i;
-        if (wall_cell_blocked_wide(mx + dx * d, my + dy * d, own_hitbox))
+        return run;
+    }
+    const float step = frame_geom.step;
+    float       low  = 0.0f;
+    float       high = run;
+    for (int i = 0; i < 8 && high - low > step * 0.5f; i++)
+    {
+        const float mid = 0.5f * (low + high);
+        if (wall_segment_clear(
+                mx, my, mx + dx * mid, my + dy * mid, own_hitbox))
         {
-            run = d;
-            break;
+            low = mid;
+        }
+        else
+        {
+            high = mid;
         }
     }
-    return run > 0.0f ? run : 0.0f;
+    return low;
 }
 
-static void simulate_position(float  mx,
-                              float  my,
-                              float  dx,
-                              float  dy,
-                              float  tk,
-                              float  w,
-                              float  h,
-                              float& ax,
-                              float& ay)
+static float hit_time(const Threat& t,
+                      float        px,
+                      float        py,
+                      float        vx,
+                      float        vy,
+                      float        from,
+                      float        to)
 {
-    constexpr float delay = static_cast<float>(MOVE_DELAY_TICKS) * TICK_MS_SEC;
-    float           coast = tk < delay ? tk : delay;
-    float           em    = frame_geom.em;
-    ax                    = mx + move_dx * self_speed * coast;
-    ay                    = my + move_dy * self_speed * coast;
-    if (tk > delay)
+    if (to <= from) return -1.0f;
+    float rx = px - vx * from - t.x;
+    float ry = py - vy * from - t.y;
+    float ux = vx - t.vx;
+    float uy = vy - t.vy;
+    float a  = ux * ux + uy * uy;
+    float b  = 2.0f * (rx * ux + ry * uy);
+    float c  = rx * rx + ry * ry - t.rad * t.rad;
+    if (a < 1e-6f)
     {
-        ax += dx * self_speed * (tk - delay);
-        ay += dy * self_speed * (tk - delay);
+        if (b >= 0.0f) return -1.0f;
+        float hit = -c / b;
+        if (hit < from) hit = from;
+        return hit < to ? hit : -1.0f;
     }
-    if (ax < em)
-        ax = em;
-    else if (ax > w)
-        ax = w;
-    if (ay < em)
-        ay = em;
-    else if (ay > h)
-        ay = h;
+    float disc = b * b - 4.0f * a * c;
+    if (disc <= 0.0f) return -1.0f;
+    float root = sqrtf(disc);
+    float lo   = (-b - root) / (2.0f * a);
+    float hi   = (-b + root) / (2.0f * a);
+    if (hi <= from) return -1.0f;
+    float hit = lo < from ? from : lo;
+    return hit < to ? hit : -1.0f;
+}
+
+static float closest_approach(
+    const Threat& t, float px, float py, float vx, float vy, float span)
+{
+    float rx = px - t.x;
+    float ry = py - t.y;
+    float ux = vx - t.vx;
+    float uy = vy - t.vy;
+    float a  = ux * ux + uy * uy;
+    float tk = 0.0f;
+    if (a > 1e-6f)
+    {
+        tk = -(rx * ux + ry * uy) / a;
+        if (tk < 0.0f)
+            tk = 0.0f;
+        else if (tk > span)
+            tk = span;
+    }
+    float cx = rx + ux * tk;
+    float cy = ry + uy * tk;
+    return sqrtf(cx * cx + cy * cy) - t.rad;
 }
 
 static float cost_enemy_dx[ENEMY_MAX];
@@ -497,7 +490,6 @@ static float cost_enemy_dy[ENEMY_MAX];
 static float cost_enemy_dist[ENEMY_MAX];
 static int   cost_enemy_count = 0;
 
-static float   cost_threat_r2[THREAT_MAX];
 static float   cost_threat_rx[THREAT_MAX];
 static float   cost_threat_ry[THREAT_MAX];
 static float   cost_threat_ux[THREAT_MAX];
@@ -522,7 +514,6 @@ static void prepare_direction_costs(float mx, float my)
     {
         const Threat& t   = threats[i];
         float         vv  = t.vx * t.vx + t.vy * t.vy;
-        cost_threat_r2[i] = t.rad * t.rad;
         cost_threat_rx[i] = mx - t.x;
         cost_threat_ry[i] = my - t.y;
         if (vv >= 1e-6f)
@@ -589,48 +580,32 @@ static float compute_thrust_penalty(float dx, float dy)
 static float
 evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
 {
-    const float  far     = frame_geom.far;
-    float        run     = compute_free_run(mx, my, dx, dy, far);
-    float        room    = run >= far ? 1.0f : run / far;
-    float        w       = frame_geom.w - frame_geom.em;
-    float        h       = frame_geom.h - frame_geom.em;
-    float        mx_step = dx * self_speed, my_step = dy * self_speed;
-    static float step_time[SIM_STEPS + 1];
-    float        step_x[SIM_STEPS + 1];
-    float        step_y[SIM_STEPS + 1];
-    int          survive = SIM_STEPS + 1;
-    float        margin  = 1e30f;
-    if (step_time[1] == 0.0f)
-    {
-        for (int k = 1; k <= SIM_STEPS; k++)
-            step_time[k] = static_cast<float>(k) * TICK_MS_SEC;
-    }
-    for (int k = 1; k <= SIM_STEPS; k++)
-    {
-        simulate_position(
-            mx, my, dx, dy, step_time[k], w, h, step_x[k], step_y[k]);
-    }
+    const float far   = frame_geom.far;
+    float       run   = compute_free_run(mx, my, dx, dy, far);
+    float       room  = run >= far ? 1.0f : run / far;
+    const float delay = static_cast<float>(MOVE_DELAY_TICKS) * TICK_MS_SEC;
+    const float coast = delay < SIM_T ? delay : SIM_T;
+    float       vdx   = dx * self_speed;
+    float       vdy   = dy * self_speed;
+    float       vcx   = move_dx * self_speed;
+    float       vcy   = move_dy * self_speed;
+    float       bx    = mx + vcx * coast;
+    float       by    = my + vcy * coast;
+    float       margin  = 1e30f;
+    int         survive = SIM_STEPS + 1;
     for (int i = 0; i < threat_n; i++)
     {
         const Threat& t   = threats[i];
-        float         r2  = cost_threat_r2[i];
-        int           hit = 0;
-        for (int k = 1; k <= SIM_STEPS && !hit; k++)
+        float         hit = hit_time(t, mx, my, vcx, vcy, 0.0f, coast);
+        if (hit < 0.0f) hit = hit_time(t, bx, by, vdx, vdy, coast, SIM_T);
+        if (hit >= 0.0f)
         {
-            float tk = step_time[k];
-            float ex = t.x + t.vx * tk - step_x[k];
-            float ey = t.y + t.vy * tk - step_y[k];
-            if (ex * ex + ey * ey < r2) hit = k;
-        }
-        if (hit)
-        {
-            if (hit < survive) survive = hit;
+            int k = static_cast<int>(ceilf(hit / TICK_MS_SEC));
+            if (k < 1) k = 1;
+            if (k < survive) survive = k;
             continue;
         }
-        float sx = t.vx - mx_step, sy = t.vy - my_step;
-        float c = math_distance_to_line(
-                      t.x, t.y, t.x + sx * SIM_T, t.y + sy * SIM_T, mx, my) -
-                  t.rad;
+        float c = closest_approach(t, mx, my, vdx, vdy, SIM_T);
         if (c < margin) margin = c;
     }
     if (margin > 1e29f) margin = 0.0f;

@@ -161,6 +161,51 @@ int wall_path_clear(float ax, float ay, float bx, float by)
     return wall_line_of_sight_clear(ax, ay, bx, by);
 }
 
+static int wall_grid_x(float x)
+{
+    int limit = wall_w * WALL_SUBTILES_PER_TILE - 1;
+    int cell  = static_cast<int>(x) / wall_subtile_span;
+    if (cell < 0) return 0;
+    if (cell > limit) return limit;
+    return cell;
+}
+
+static int wall_grid_y(float y)
+{
+    int limit = wall_h * WALL_SUBTILES_PER_TILE - 1;
+    int cell  = static_cast<int>(y) / wall_subtile_span;
+    if (cell < 0) return 0;
+    if (cell > limit) return limit;
+    return cell;
+}
+
+int wall_segment_clear(float ax, float ay, float bx, float by, float radius)
+{
+    if (!wall_have || wall_subtile_span <= 0) return 1;
+    float len = sqrtf((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+    float nx  = 0.0f, ny = 0.0f;
+    if (len > 0.5f && radius > 0.0f)
+    {
+        nx = -(by - ay) / len * radius;
+        ny = (bx - ax) / len * radius;
+    }
+    const float lanes[3] = {0.0f, 1.0f, -1.0f};
+    for (int i = 0; i < 3; i++)
+    {
+        float ox = nx * lanes[i], oy = ny * lanes[i];
+        if (!game_path_clear(wall_map,
+                             wall_grid_x(ax + ox),
+                             wall_grid_y(ay + oy),
+                             wall_grid_x(bx + ox),
+                             wall_grid_y(by + oy)))
+        {
+            return 0;
+        }
+        if (radius <= 0.0f) break;
+    }
+    return 1;
+}
+
 int32_t axis(float v, int tiles)
 {
     float limit = wall_logic_units(tiles) - 1.0f;

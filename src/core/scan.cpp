@@ -201,6 +201,52 @@ int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
     return fn(reinterpret_cast<void*>(tileMap), 1, cellX, cellY, 0, 0);
 }
 
+static uintptr_t path_finder(uintptr_t tileMap)
+{
+    static uintptr_t cached_map = 0;
+    static uintptr_t cached_pf  = 0;
+    if (tileMap == cached_map && cached_pf)
+    {
+        return cached_pf;
+    }
+    require_object(tileMap);
+    void* pf   = nullptr;
+    void* back = nullptr;
+    if (!read_ptr(tileMap + LOGICTILEMAP__PATHFINDER, &pf) || !pf)
+    {
+        __builtin_trap();
+    }
+    if (!read_ptr(reinterpret_cast<uintptr_t>(pf) + LOGICPATHFINDER__TILEMAP,
+                  &back) ||
+        back != reinterpret_cast<void*>(tileMap))
+    {
+        __builtin_trap();
+    }
+    cached_map = tileMap;
+    cached_pf  = reinterpret_cast<uintptr_t>(pf);
+    return cached_pf;
+}
+
+int game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1)
+{
+    using clear_t = uint32_t (*)(void*, int, int, int, int, int, int, int, int);
+    static clear_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<clear_t>(callable(LOGICPATHFINDER__ISCLEARPATH));
+    }
+    require_method(reinterpret_cast<uintptr_t>(fn));
+    return static_cast<int>(fn(reinterpret_cast<void*>(path_finder(tileMap)),
+                               1,
+                               x0,
+                               y0,
+                               x1,
+                               y1,
+                               0,
+                               1,
+                               0));
+}
+
 int game_tile_to_logic(int tile)
 {
     using conv_t     = int (*)(int);

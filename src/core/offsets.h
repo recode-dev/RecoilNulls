@@ -28,9 +28,13 @@ inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED  = 0x124;
 inline constexpr uint64_t LOGICPROJECTILEDATA__RADIUS = 0x130;
 inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE = 0xff3b18;
 
-inline constexpr uint64_t LOGICTILEMAP__TILEARRAY = 0x20;
-inline constexpr uint64_t LOGICTILEMAP__WIDTH     = 0xc4;
-inline constexpr uint64_t LOGICTILEMAP__HEIGHT    = 0xc8;
+inline constexpr uint64_t LOGICTILEMAP__TILEARRAY  = 0x20;
+inline constexpr uint64_t LOGICTILEMAP__PATHFINDER = 0x60;
+inline constexpr uint64_t LOGICTILEMAP__WIDTH  = 0xc4;
+inline constexpr uint64_t LOGICTILEMAP__HEIGHT = 0xc8;
+
+inline constexpr uint64_t LOGICPATHFINDER__TILEMAP     = 0x10;
+inline constexpr uint64_t LOGICPATHFINDER__ISCLEARPATH = 0xafb06c;
 
 inline constexpr uint64_t BATTLEMODE__GETINSTANCE                 = 0x8c5130;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETTILEMAP       = 0x991440;
@@ -43,8 +47,6 @@ inline constexpr uint64_t CLIENTINPUTMANAGER__ADDINPUT          = 0x74675c;
 inline constexpr uint64_t LOGICTILEMAP__ISPASSABLEPATHFINDER    = 0x942ebc;
 inline constexpr uint64_t LOGICTILEMAP__TILETOLOGIC             = 0x943040;
 inline constexpr uint64_t LOGICTILEMAP__ISPLAYERLINEOFSIGHT     = 0x943b34;
-inline constexpr uint64_t LOGICMATH__SQRT                       = 0xbd000c;
-inline constexpr uint64_t LOGICMATH__GETDISTANCESQUARETOLINE    = 0xbd0424;
 inline constexpr uint64_t LOGICVECTOR2__NORMALIZE               = 0xbd0794;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN = 0xaf6838;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE =
