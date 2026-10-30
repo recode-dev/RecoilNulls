@@ -458,28 +458,17 @@ static float hit_time(const Threat& t,
 static float closest_approach(
     const Threat& t, float px, float py, float vx, float vy, float span)
 {
-    int ax   = static_cast<int>(px - t.x);
-    int ay   = static_cast<int>(py - t.y);
-    int dx   = static_cast<int>((vx - t.vx) * span);
-    int dy   = static_cast<int>((vy - t.vy) * span);
-    int cx   = ax;
-    int cy   = ay;
-    int len2 = dx * dx + dy * dy;
-    if (len2 != 0)
+    int ax = static_cast<int>(px - t.x);
+    int ay = static_cast<int>(py - t.y);
+    int bx = ax + static_cast<int>((vx - t.vx) * span);
+    int by = ay + static_cast<int>((vy - t.vy) * span);
+    int pt[2] = {ax, ay};
+    if (game_segment_hits_circle(
+            ax, ay, bx, by, 0, 0, static_cast<int>(t.rad), pt))
     {
-        int dot = -(ax * dx + ay * dy);
-        if (dot >= 1 && dot < len2)
-        {
-            cx = ax + static_cast<int>(static_cast<long long>(dx) * dot / len2);
-            cy = ay + static_cast<int>(static_cast<long long>(dy) * dot / len2);
-        }
-        else if (dot >= len2)
-        {
-            cx = ax + dx;
-            cy = ay + dy;
-        }
+        return 0.0f;
     }
-    return static_cast<float>(vector_length(cx, cy)) - t.rad;
+    return 1.0e30f;
 }
 static float   cost_enemy_dx[ENEMY_MAX];
 static float   cost_enemy_dy[ENEMY_MAX];
