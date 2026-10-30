@@ -391,7 +391,7 @@ void diag_tick()
         read_int(own_elem + LOGICCHARACTER__ATTACKANGLE, &own_aim);
     }
     line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
-         "dir=%s map=%dx%d dodge=%d hit=%d hb=%d ind=%d fd=%d tgt=%s "
+         "dir=%s map=%dx%d dodge=%d hit=%d hb=%d fd=%d tgt=%s "
          "hu=%d pm=%u/%u pt=%d wu=%d\n",
          static_cast<unsigned long>(hz),
          static_cast<unsigned long>(wl_avg),
@@ -410,7 +410,6 @@ void diag_tick()
          dodge_count,
          hit_count,
          (int) (ad::own_hitbox + 0.5f),
-         ad_ind_n,
          own_aim,
          target_text(target_buf, sizeof(target_buf)),
          ad_human,

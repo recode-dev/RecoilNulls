@@ -160,8 +160,6 @@ void dir_from_angle(float radians, float& ox, float& oy)
 int     active = 0, in_move = 0;
 int     ad_human = 0;
 float   ad_dir_x = 1.0f, ad_dir_y = 0.0f;
-int     ad_hold_ms = 0, ad_urgent = 0;
-int     ad_ind_n    = 0;
 int     ad_pass_own = 0;
 int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int     ad_best_dir = -1;
@@ -178,8 +176,6 @@ float   ad_pj_vx[AD_REPORT_MAX] = {0}, ad_pj_vy[AD_REPORT_MAX] = {0};
 float   ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
 int     ad_pj_vel[AD_REPORT_MAX]           = {0};
 int     ad_windup_n                        = 0;
-int     ad_enemy_charge_ms[AD_ENEMY_MAX]   = {0};
-int     ad_enemy_charge_mode[AD_ENEMY_MAX] = {0};
 int   ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
 int   ad_hit_picked            = 0;
 float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
@@ -195,11 +191,8 @@ constexpr float    REACH             = 300.0f;
 constexpr int      DIRS              = 16;
 constexpr int      SIM_STEPS         = 32;
 constexpr float    ZONE_FAR          = 5000.0f;
-constexpr uint64_t CALM_MS           = 0;
 constexpr uint64_t SEND_MS           = ad::TICK_MS;
 constexpr int      MOVE_DELAY_TICKS  = 2;
-constexpr uint64_t TURN_HOLD_MS      = 0;
-constexpr int      HOLD_DANGER_STEPS = (int) (TURN_HOLD_MS * 2 / ad::TICK_MS);
 constexpr float    AD_SAFETY         = 40.0f;
 constexpr float    PROJECTILE_RADIUS = 60.0f;
 constexpr uint64_t HUMAN_MS          = 200;
@@ -218,6 +211,7 @@ constexpr float    EDGE_ZONE         = 300.0f;
 constexpr float    WEIGHT_EDGE       = 1600.0f;
 constexpr float    TICK_MS_SEC       = (float) ad::TICK_MS * 0.001f;
 constexpr float    SIM_T             = (float) SIM_STEPS * TICK_MS_SEC;
+
 }
 int ad_dir_angle_deg(float x, float y)
 {
@@ -282,6 +276,31 @@ int32_t character_collision_radius(uintptr_t data)
 
 namespace ad
 {
+struct FrameGeom
+{
+    float w, h, em, step, far;
+};
+static FrameGeom frame_geom;
+static int32_t   own_team_value = 0;
+static int       own_team_valid = 0;
+
+static void cache_frame_geom()
+{
+    frame_geom.w    = wall_logic_units(wall_cache_width());
+    frame_geom.h    = wall_logic_units(wall_cache_height());
+    frame_geom.step = wall_logic_units(1);
+    frame_geom.em   = own_hitbox + BORDER_PAD;
+    frame_geom.far  = self_speed * SIM_T;
+    own_team_valid  = 0;
+    uintptr_t data  = 0;
+    if (own_elem && read_ptr(own_elem + LOGICGAMEOBJECT__DATA, &data) &&
+        pointer_plausible(data))
+    {
+        own_team_valid =
+            read_int(data + LOGICGAMEOBJECTDATA__TEAM, &own_team_value) ? 1 : 0;
+    }
+}
+
 Threat    threats[THREAT_MAX];
 int       threat_n = 0;
 Proj      projs[PROJ_SLOTS];
@@ -329,12 +348,9 @@ void init_projectile_state(
     st->speed          = 0.0f;
     int32_t dataRadius = projectile_radius(dataPtr);
     st->rad       = dataRadius > 0 ? (float) dataRadius : PROJECTILE_RADIUS;
-    st->homing    = false;
-    st->ttype     = 0;
     st->vel       = false;
     st->ux        = 0.0f;
     st->uy        = 0.0f;
-    st->flags     = 0;
     st->name[0]   = '\0';
     uintptr_t str = 0;
     if (addr_dataname)
@@ -347,10 +363,8 @@ void init_projectile_state(
             str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
 }
 
-static int character_team(const uint8_t* obj, int32_t* out)
+static int object_team(uintptr_t data, int32_t* out)
 {
-    uintptr_t data = 0;
-    memcpy(&data, obj + LOGICGAMEOBJECT__DATA, sizeof(data));
     if (!pointer_plausible(data)) return 0;
     return read_int(data + LOGICGAMEOBJECTDATA__TEAM, out) ? 1 : 0;
 }
@@ -358,21 +372,19 @@ static int character_team(const uint8_t* obj, int32_t* out)
 static int own_team_matches(int32_t team)
 {
     if (own_team_b >= 0 && team == own_team_b) return 1;
-    int32_t self_team = 0;
-    if (own_elem &&
-        character_team(reinterpret_cast<const uint8_t*>(own_elem),
-                       &self_team) &&
-        team == self_team)
-        return 1;
-    return 0;
+    return own_team_valid && team == own_team_value;
 }
 
-static void add_character_entry(
-    const uint8_t* obj, uintptr_t objPtr, int32_t own_gid, float mx, float my)
+static void add_character_entry(const uint8_t* obj,
+                                uintptr_t      objPtr,
+                                uintptr_t      dataPtr,
+                                int32_t        own_gid,
+                                float          mx,
+                                float          my)
 {
     ad_char_n++;
     int32_t team, hp, gid, xi, yi, aim;
-    if (!character_team(obj, &team)) return;
+    if (!object_team(dataPtr, &team)) return;
     memcpy(&hp, obj + LOGICCHARACTER__HITPOINTS, sizeof(hp));
     memcpy(&gid, obj + LOGICCHARACTER__GLOBALID, sizeof(gid));
     xi = object_x((uintptr_t) obj);
@@ -392,26 +404,7 @@ static void add_character_entry(
     int32_t chargeMode = 0;
     read_int(objPtr + LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS, &charge);
     read_int(objPtr + LOGICCHARACTER__CHARGEUPMODE, &chargeMode);
-    ad_enemy_charge_ms[k]   = charge;
-    ad_enemy_charge_mode[k] = chargeMode;
-    if (chargeMode == 1 && charge > 0 && ad_enemy_d[k] <= CLOSE_R)
-        ad_windup_n++;
-    else
-    {
-        ad_enemy_charge_ms[k]   = 0;
-        ad_enemy_charge_mode[k] = 0;
-    }
-}
-
-static uintptr_t find_projectile_data_asset(uintptr_t objPtr)
-{
-    uintptr_t data = 0;
-    uintptr_t vt   = 0;
-    if (!objPtr) return 0;
-    if (!read_ptr(objPtr + LOGICGAMEOBJECT__DATA, &data)) return 0;
-    if (!data || !pointer_plausible(data)) return 0;
-    if (!read_ptr(data, &vt) || vt < base) return 0;
-    return vt - base == LOGICPROJECTILEDATA__VTABLE ? data : 0;
+    if (chargeMode == 1 && charge > 0 && ad_enemy_d[k] <= CLOSE_R) ad_windup_n++;
 }
 
 static float world_extent_x = 0.0f;
@@ -443,6 +436,7 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
 
 static void add_projectile_threat(const uint8_t* obj,
                                   uintptr_t      objPtr,
+                                  uintptr_t      dataPtr,
                                   uint64_t       now,
                                   float          mx,
                                   float          my,
@@ -460,8 +454,7 @@ static void add_projectile_threat(const uint8_t* obj,
     Proj* st = find_projectile_entry(key);
     if (st->pid != key)
     {
-        init_projectile_state(
-            st, key, find_projectile_data_asset(objPtr), px, py, now);
+        init_projectile_state(st, key, dataPtr, px, py, now);
         if (st->pid != key) return;
     }
     st->seen     = now;
@@ -497,20 +490,15 @@ static void add_projectile_threat(const uint8_t* obj,
         ad_pj_vel[k] = st->vel ? 1 : 0;
     }
     int32_t team = 0;
-    if (!character_team(obj, &team)) return;
+    if (!object_team(dataPtr, &team)) return;
     if (own_team_matches(team)) return;
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
     if ((float) game_distance_sq(0, 0, (int) dx, (int) dy) > zone2) return;
-    if (st->flags & B_IND) ad_ind_n++;
-    if (!(st->flags & (B_IND | B_PIERCE)) &&
-        !wall_line_of_sight_clear(px, py, mx, my))
-        return;
-    float vv = (float) game_distance_sq(0, 0, (int) vx, (int) vy);
-    if (vv <= 0.0f) return;
+    if (!wall_line_of_sight_clear(px, py, mx, my)) return;
+    if (game_distance_sq(0, 0, (int) vx, (int) vy) <= 0) return;
     float rad = st->rad + own_hitbox + AD_SAFETY;
-    if (st->flags & B_BOUNCE) rad += own_hitbox * 0.5f;
     float   dist    = (float) game_distance(0, 0, (int) dx, (int) dy);
     int32_t arrival = game_projectile_travel_ticks(
         st->data, (int) (dist + 0.5f), (int) (st->speed + 0.5f));
@@ -572,13 +560,15 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         }
         if (char_vt && obj_rva[i] == char_vt)
         {
-            add_character_entry(obj, obj_snapshot[i], own_gid, mx, my);
+            add_character_entry(
+                obj, obj_snapshot[i], dataPtr, own_gid, mx, my);
             continue;
         }
         if (obj_rva[i] != LOGICPROJECTILEDATA__VTABLE) continue;
         float px = 0.0f, py = 0.0f;
         if (!read_projectile_position(obj, &px, &py)) continue;
-        add_projectile_threat(obj, obj_snapshot[i], now, mx, my, zone2, px, py);
+        add_projectile_threat(
+            obj, obj_snapshot[i], dataPtr, now, mx, my, zone2, px, py);
     }
 }
 
@@ -615,8 +605,6 @@ namespace
 {
 static float    commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
-static uint64_t calm_ms = 0;
-static uint64_t turn_ms = 0;
 static float    sent_x = 1.0f, sent_y = 0.0f;
 static float    move_dx = 0.0f, move_dy = 0.0f;
 static uint64_t human_ms = 0;
@@ -624,8 +612,8 @@ static int32_t  prev_x = 0, prev_y = 0;
 static uint32_t last_hp = 0;
 static float    compute_edge_pull(float mx, float my, float dx, float dy)
 {
-    float w    = wall_logic_units(wall_cache_width());
-    float h    = wall_logic_units(wall_cache_height());
+    float w    = frame_geom.w;
+    float h    = frame_geom.h;
     float zone = own_hitbox + EDGE_ZONE;
     float pen  = 0.0f;
     if (mx < zone) pen -= dx * (zone - mx) / zone;
@@ -637,9 +625,9 @@ static float    compute_edge_pull(float mx, float my, float dx, float dy)
 static float compute_free_run(float mx, float my, float dx, float dy, float far)
 {
     float run = far;
-    float em  = (own_hitbox + BORDER_PAD);
-    float w   = wall_logic_units(wall_cache_width());
-    float h   = wall_logic_units(wall_cache_height());
+    float em  = frame_geom.em;
+    float w   = frame_geom.w;
+    float h   = frame_geom.h;
     if (dx > 1e-6f)
         run = fminf(run, (w - em - mx) / dx);
     else if (dx < -1e-6f)
@@ -648,7 +636,7 @@ static float compute_free_run(float mx, float my, float dx, float dy, float far)
         run = fminf(run, (h - em - my) / dy);
     else if (dy < -1e-6f)
         run = fminf(run, (em - my) / dy);
-    const float step = wall_logic_units(1);
+    const float step = frame_geom.step;
     for (float d = step; d < run; d += step)
     {
         if (wall_cell_blocked_wide(mx + dx * d, my + dy * d, own_hitbox))
@@ -669,9 +657,9 @@ static void simulate_position(float  mx,
                               float& ax,
                               float& ay)
 {
-    float delay = (float) MOVE_DELAY_TICKS * TICK_MS_SEC;
-    float coast = tk < delay ? tk : delay;
-    float em    = (own_hitbox + BORDER_PAD);
+    constexpr float delay = (float) MOVE_DELAY_TICKS * TICK_MS_SEC;
+    float           coast = tk < delay ? tk : delay;
+    float           em    = frame_geom.em;
     ax          = mx + move_dx * self_speed * coast;
     ay          = my + move_dy * self_speed * coast;
     if (tk > delay)
@@ -692,6 +680,7 @@ static float   cost_enemy_dx[AD_ENEMY_MAX];
 static float   cost_enemy_dy[AD_ENEMY_MAX];
 static float   cost_enemy_dist[AD_ENEMY_MAX];
 static int     cost_enemy_count = 0;
+static float   cost_threat_r2[THREAT_MAX];
 static float   cost_threat_rx[THREAT_MAX];
 static float   cost_threat_ry[THREAT_MAX];
 static float   cost_threat_ux[THREAT_MAX];
@@ -706,7 +695,7 @@ static void prepare_direction_costs(float mx, float my)
     {
         float ex = ad_enemy_x[i] - mx, ey = ad_enemy_y[i] - my;
         int   ux = (int) ex, uy = (int) ey;
-        cost_enemy_dist[i] = (float) game_distance(0, 0, (int) ex, (int) ey);
+        cost_enemy_dist[i] = ad_enemy_d[i];
         vector_normalize(&ux, &uy, 1000);
         cost_enemy_dx[i] = ux / 1000.0f;
         cost_enemy_dy[i] = uy / 1000.0f;
@@ -716,6 +705,7 @@ static void prepare_direction_costs(float mx, float my)
     {
         const Threat& t   = threats[i];
         float         vv  = t.vx * t.vx + t.vy * t.vy;
+        cost_threat_r2[i] = t.rad * t.rad;
         cost_threat_rx[i] = mx - t.x;
         cost_threat_ry[i] = my - t.y;
         if (vv >= 1e-6f)
@@ -735,10 +725,8 @@ static void prepare_direction_costs(float mx, float my)
     }
 }
 
-static float compute_nearest_away(float mx, float my, float dx, float dy)
+static float compute_nearest_away(float dx, float dy)
 {
-    (void) mx;
-    (void) my;
     float best = 1e30f, dot = 0.0f;
     for (int i = 0; i < cost_enemy_count; i++)
     {
@@ -749,10 +737,8 @@ static float compute_nearest_away(float mx, float my, float dx, float dy)
     }
     return best < 1e29f ? -dot : 0.0f;
 }
-static float compute_enemy_approach(float mx, float my, float dx, float dy)
+static float compute_enemy_approach(float dx, float dy)
 {
-    (void) mx;
-    (void) my;
     float worst = 0.0f;
     for (int i = 0; i < cost_enemy_count; i++)
     {
@@ -766,10 +752,8 @@ static float compute_enemy_approach(float mx, float my, float dx, float dy)
     }
     return worst;
 }
-static float compute_thrust_penalty(float mx, float my, float dx, float dy)
+static float compute_thrust_penalty(float dx, float dy)
 {
-    (void) mx;
-    (void) my;
     float worst = 0.0f;
     for (int i = 0; i < cost_threat_count; i++)
     {
@@ -786,27 +770,31 @@ static float compute_thrust_penalty(float mx, float my, float dx, float dy)
 static float
 evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
 {
-    float far  = self_speed * SIM_T;
-    float run  = compute_free_run(mx, my, dx, dy, far);
-    float room = run >= far ? 1.0f : run / far;
-    float w = wall_logic_units(wall_cache_width()) - (own_hitbox + BORDER_PAD);
-    float h = wall_logic_units(wall_cache_height()) - (own_hitbox + BORDER_PAD);
+    const float far  = frame_geom.far;
+    float       run  = compute_free_run(mx, my, dx, dy, far);
+    float       room = run >= far ? 1.0f : run / far;
+    float       w    = frame_geom.w - frame_geom.em;
+    float       h    = frame_geom.h - frame_geom.em;
     float mx_step = dx * self_speed, my_step = dy * self_speed;
-    float step_time[SIM_STEPS + 1];
-    float step_x[SIM_STEPS + 1];
-    float step_y[SIM_STEPS + 1];
-    int   survive = SIM_STEPS + 1;
-    float margin  = 1e30f;
+    static float step_time[SIM_STEPS + 1];
+    float        step_x[SIM_STEPS + 1];
+    float        step_y[SIM_STEPS + 1];
+    int          survive = SIM_STEPS + 1;
+    float        margin  = 1e30f;
+    if (step_time[1] == 0.0f)
+    {
+        for (int k = 1; k <= SIM_STEPS; k++)
+            step_time[k] = static_cast<float>(k) * TICK_MS_SEC;
+    }
     for (int k = 1; k <= SIM_STEPS; k++)
     {
-        step_time[k] = static_cast<float>(k) * TICK_MS_SEC;
         simulate_position(
             mx, my, dx, dy, step_time[k], w, h, step_x[k], step_y[k]);
     }
     for (int i = 0; i < threat_n; i++)
     {
         const Threat& t   = threats[i];
-        float         r2  = t.rad * t.rad;
+        float         r2  = cost_threat_r2[i];
         int           hit = 0;
         for (int k = 1; k <= SIM_STEPS && !hit; k++)
         {
@@ -831,9 +819,9 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
     if (margin > own_hitbox * 3.0f) margin = own_hitbox * 3.0f;
     steps = survive;
     return (float) survive * WEIGHT_STEP + margin + WEIGHT_POS * room +
-           WEIGHT_POS * WEIGHT_AWAY * compute_nearest_away(mx, my, dx, dy) -
-           WEIGHT_AXIS * compute_thrust_penalty(mx, my, dx, dy) -
-           WEIGHT_APPROACH * compute_enemy_approach(mx, my, dx, dy) -
+           WEIGHT_POS * WEIGHT_AWAY * compute_nearest_away(dx, dy) -
+           WEIGHT_AXIS * compute_thrust_penalty(dx, dy) -
+           WEIGHT_APPROACH * compute_enemy_approach(dx, dy) -
            WEIGHT_EDGE * compute_edge_pull(mx, my, dx, dy) -
            own_hitbox * wall_pull(mx, my, dx, dy, own_hitbox);
 }
@@ -884,44 +872,22 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     }
     float bx = 0.0f, by = 0.0f;
     dir_from_angle(a, bx, by);
-    uint64_t now = us() / 1000;
-    ad_urgent    = 0;
     if (has)
     {
         int   cur = 0;
         float cur_val =
             evaluate_dodge_direction(mx, my, commit_x, commit_y, cur) +
             own_hitbox * COMMIT_BONUS;
-        bool better   = best_steps > cur;
-        bool die_fast = better && cur > 0 && cur <= HOLD_DANGER_STEPS;
-        bool walled =
-            better &&
-            compute_free_run(mx, my, commit_x, commit_y, self_speed * SIM_T) <
-                own_hitbox * 2.0f;
-        bool held   = now - turn_ms < TURN_HOLD_MS;
+        bool better = best_steps > cur;
+        bool walled = better &&
+                      compute_free_run(mx, my, commit_x, commit_y, frame_geom.far) <
+                          own_hitbox * 2.0f;
         bool gain   = best > cur_val + own_hitbox * 0.5f;
         bool windup = ad_windup_n > 0;
-        if (die_fast || walled || windup)
-        {
-            ad_urgent = 1;
-            turn_ms   = now;
-        }
-        else if (held || !gain)
+        if (!(walled || windup) && !gain)
         {
             bx = commit_x, by = commit_y;
         }
-        else
-        {
-            turn_ms = now;
-        }
-    }
-    else
-    {
-        turn_ms = now;
-    }
-    {
-        uint64_t since = now - turn_ms;
-        ad_hold_ms = since >= TURN_HOLD_MS ? 0 : (int) (TURN_HOLD_MS - since);
     }
     ad_dir_x = bx, ad_dir_y = by;
     ad_best_dir =
@@ -935,9 +901,7 @@ static void reset_dodge_state()
 {
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
     ad_dir_x = 0.0f, ad_dir_y = 0.0f;
-    ad_hold_ms = 0;
-    ad_urgent  = 0;
-    active     = 0;
+    active   = 0;
 }
 
 static void learn_character_data_vtable()
@@ -974,15 +938,12 @@ void reset_autododge_state()
     ad_proj_n   = 0;
     ad_enemy_n  = 0;
     ad_threat_n = 0;
-    ad_ind_n    = 0;
     threat_n    = 0;
     char_vt     = 0;
     own_hitbox  = 0.0f;
     last_hp     = 0;
     pend_dmg    = 0;
     sent_ms     = 0;
-    calm_ms     = 0;
-    turn_ms     = 0;
     human_ms    = 0;
     ad_human    = 0;
     ad_dir_x = 1.0f, ad_dir_y = 0.0f;
@@ -994,11 +955,8 @@ void update_autododge()
 {
     ad_best_dir = -1;
     ad_char_n = ad_proj_n = ad_enemy_n = ad_threat_n = 0;
-    ad_ind_n                                         = 0;
     ad_windup_n                                      = 0;
     threat_n                                         = 0;
-    memset(ad_enemy_charge_ms, 0, sizeof(ad_enemy_charge_ms));
-    memset(ad_enemy_charge_mode, 0, sizeof(ad_enemy_charge_mode));
     if (own_hp < last_hp)
     {
         pend_dmg = (int) (last_hp - own_hp);
@@ -1020,6 +978,7 @@ void update_autododge()
     int32_t own_gid = 0;
     read_int(own_elem + LOGICCHARACTER__GLOBALID, &own_gid);
     self_speed   = own_speed > 1.0f ? own_speed : 1.0f;
+    cache_frame_geom();
     uint64_t now = us() / 1000;
     float    mx = (float) own_x, my = (float) own_y;
     evict_stale_projectiles(now);
@@ -1049,11 +1008,7 @@ void update_autododge()
             human_ms = now;
     }
     ad_human = now - human_ms < HUMAN_MS ? 1 : 0;
-    if (threat_n || ad_windup_n)
-    {
-        calm_ms = now;
-    }
-    else if (!active || now - calm_ms >= CALM_MS)
+    if (!threat_n && !ad_windup_n)
     {
         reset_dodge_state();
         return;
@@ -1075,9 +1030,8 @@ void update_autododge()
         fx = mx + (fx - mx) * 0.5f;
         fy = my + (fy - my) * 0.5f;
     }
-    float em   = (own_hitbox + BORDER_PAD);
-    float wu   = wall_logic_units(wall_cache_width()),
-          hu   = wall_logic_units(wall_cache_height());
+    float em   = frame_geom.em;
+    float wu   = frame_geom.w, hu = frame_geom.h;
     float lo_x = em < wu * 0.5f ? em : wu * 0.5f;
     float hi_x = wu - em > wu * 0.5f ? wu - em : wu * 0.5f;
     float lo_y = em < hu * 0.5f ? em : hu * 0.5f;
