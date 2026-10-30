@@ -458,22 +458,20 @@ static float hit_time(const Threat& t,
 static float closest_approach(
     const Threat& t, float px, float py, float vx, float vy, float span)
 {
-    int ax = static_cast<int>(px - t.x);
-    int ay = static_cast<int>(py - t.y);
-    int dx = static_cast<int>((vx - t.vx) * span);
-    int dy = static_cast<int>((vy - t.vy) * span);
-    int cx = ax;
-    int cy = ay;
+    int ax   = static_cast<int>(px - t.x);
+    int ay   = static_cast<int>(py - t.y);
+    int dx   = static_cast<int>((vx - t.vx) * span);
+    int dy   = static_cast<int>((vy - t.vy) * span);
+    int cx   = ax;
+    int cy   = ay;
     int len2 = dx * dx + dy * dy;
     if (len2 != 0)
     {
         int dot = -(ax * dx + ay * dy);
         if (dot >= 1 && dot < len2)
         {
-            cx = ax + static_cast<int>(
-                          static_cast<long long>(dx) * dot / len2);
-            cy = ay + static_cast<int>(
-                          static_cast<long long>(dy) * dot / len2);
+            cx = ax + static_cast<int>(static_cast<long long>(dx) * dot / len2);
+            cy = ay + static_cast<int>(static_cast<long long>(dy) * dot / len2);
         }
         else if (dot >= len2)
         {
