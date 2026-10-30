@@ -88,10 +88,7 @@ jobs:
           fi
           GUM="$(dirname "$(ls vendor/frida-gum/frida-gum.h vendor/frida-gum/include/frida-gum.h 2>/dev/null | head -1)")"
           python3 tools/gen_compile_db.py "$SDK" "$GUM"
-          checks='-*,bugprone-*,-bugprone-easily-swappable-parameters,performance-*,portability-*,misc-unused-*,misc-definitions-in-headers,misc-redundant-expression,modernize-use-nullptr,modernize-use-override,modernize-use-emplace,modernize-use-auto,readability-braces-around-statements,readability-redundant-*,readability-simplify-boolean-expr,readability-container-size-empty,readability-uniqueptr-delete-release'
-          git ls-files 'src/*.cpp' | xargs -r clang-tidy -p . --fix --quiet \
-            --checks="$checks" \
-            --header-filter='^(src|tools)/'
+          git ls-files 'src/*.cpp' | xargs -r clang-tidy -p . --fix --quiet
           rm -f compile_commands.json
 
       - name: Verify
