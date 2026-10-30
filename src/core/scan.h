@@ -26,7 +26,6 @@ BOOL      memory_protection_flags(uintptr_t address, vm_prot_t* flags);
 void      read_cache_reset();
 BOOL      pointer_plausible(uintptr_t value);
 BOOL      read_int(uintptr_t address, int32_t* out);
-BOOL      writable(uintptr_t address, size_t length);
 BOOL      write_bytes(uintptr_t address, const void* src, size_t length);
 BOOL      read_ptr(uintptr_t address, void** out);
 BOOL      read_ptr(uintptr_t address, uintptr_t* out);

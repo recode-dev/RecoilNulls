@@ -145,7 +145,7 @@ BOOL write_bytes(uintptr_t address, const void* src, size_t length)
     {
         return NO;
     }
-    if (!writable(address, length))
+    if (!addr_writable(address, length))
     {
         return NO;
     }
