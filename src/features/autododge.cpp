@@ -14,21 +14,25 @@ static float fast_len(float x, float y)
 }
 void vector_normalize(int* x, int* y, int scale)
 {
+    using normalize_t    = void (*)(int*, int);
+    static normalize_t fn = nullptr;
+    int                v[2] = {0, 0};
     if (!x || !y)
     {
         return;
     }
-    const double vx  = static_cast<double>(*x);
-    const double vy  = static_cast<double>(*y);
-    const double len = std::sqrt(vx * vx + vy * vy);
-    if (len < 1e-6)
+    if (!fn)
+        fn = reinterpret_cast<normalize_t>(
+            callable_at_rva(LOGICVECTOR2__NORMALIZE));
+    if (!fn)
     {
-        *x = 0;
-        *y = 0;
         return;
     }
-    *x = static_cast<int>(std::lround(vx * static_cast<double>(scale) / len));
-    *y = static_cast<int>(std::lround(vy * static_cast<double>(scale) / len));
+    v[0] = *x;
+    v[1] = *y;
+    fn(v, scale);
+    *x = v[0];
+    *y = v[1];
 }
 }
 int   in_move     = 0;
