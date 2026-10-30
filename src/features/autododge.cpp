@@ -95,7 +95,6 @@ constexpr float    ZONE_FAR          = 5000.0f;
 constexpr uint64_t SEND_MS           = ad::TICK_MS;
 constexpr int      MOVE_DELAY_TICKS  = 2;
 constexpr float    SAFETY            = 40.0f;
-constexpr float    PROJECTILE_RADIUS = 60.0f;
 constexpr int      HOLD_TICKS        = 3;
 constexpr float    SWITCH_GAIN       = 1.4f;
 constexpr float    SWITCH_ALIGN      = 0.9f;
@@ -202,8 +201,7 @@ void init_projectile_state(
     st->y              = py;
     st->speed          = 0.0f;
     int32_t dataRadius = projectile_radius(dataPtr);
-    st->rad =
-        dataRadius > 0 ? static_cast<float>(dataRadius) : PROJECTILE_RADIUS;
+    st->rad = static_cast<float>(dataRadius);
     st->vel = false;
     st->ux  = 0.0f;
     st->uy  = 0.0f;

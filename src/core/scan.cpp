@@ -95,6 +95,16 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     __builtin_memcpy(out, reinterpret_cast<const void*>(address), length);
     return YES;
 }
+static void require_method(uintptr_t fn)
+{
+    if (!fn) __builtin_trap();
+}
+
+static void require_object(uintptr_t value)
+{
+    if (!value) __builtin_trap();
+}
+
 BOOL pointer_plausible(uintptr_t value)
 {
     if (value < 0x100000000ULL || value >= 0x00007fffffffffffULL)
@@ -171,15 +181,10 @@ BOOL read_ptr(uintptr_t address, void** out)
 }
 void* read_global_ptr(uintptr_t rva)
 {
-    if (!base || !rva)
-    {
-        return nullptr;
-    }
+    require_object(base);
+    require_object(rva);
     void* value = nullptr;
-    if (!read_ptr(base + rva, &value))
-    {
-        return nullptr;
-    }
+    read_ptr(base + rva, &value);
     return value;
 }
 int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
@@ -191,10 +196,8 @@ int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
         fn = reinterpret_cast<pass_t>(
             callable(LOGICTILEMAP__ISPASSABLEPATHFINDER));
     }
-    if (!fn || !tileMap)
-    {
-        return 0;
-    }
+    require_method(reinterpret_cast<uintptr_t>(fn));
+    require_object(tileMap);
     return fn(reinterpret_cast<void*>(tileMap), 1, cellX, cellY, 0, 0);
 }
 
@@ -206,10 +209,7 @@ int game_tile_to_logic(int tile)
     {
         fn = reinterpret_cast<conv_t>(callable(LOGICTILEMAP__TILETOLOGIC));
     }
-    if (!fn)
-    {
-        return 0;
-    }
+    require_method(reinterpret_cast<uintptr_t>(fn));
     return fn(tile);
 }
 
@@ -222,10 +222,7 @@ int game_distance(int x1, int y1, int x2, int y2)
         fn = reinterpret_cast<dist_t>(
             callable(LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN));
     }
-    if (!fn)
-    {
-        return 0;
-    }
+    require_method(reinterpret_cast<uintptr_t>(fn));
     return fn(x1, y1, x2, y2);
 }
 
@@ -238,10 +235,7 @@ int game_distance_sq(int x1, int y1, int x2, int y2)
         fn = reinterpret_cast<dist_t>(
             callable(LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN));
     }
-    if (!fn)
-    {
-        return 0;
-    }
+    require_method(reinterpret_cast<uintptr_t>(fn));
     return fn(x1, y1, x2, y2);
 }
 
@@ -255,7 +249,7 @@ int game_segment_hits_circle(
         fn = reinterpret_cast<hit_t>(
             callable(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE));
     }
-    if (!fn) return 0;
+    require_method(reinterpret_cast<uintptr_t>(fn));
     return fn(x1, y1, x2, y2, cx, cy, radius, out);
 }
 
@@ -270,10 +264,8 @@ int game_projectile_travel_ticks(uintptr_t projectileData,
         fn = reinterpret_cast<travel_t>(
             callable(LOGICPROJECTILECLIENT__GETTRAVELTICKS));
     }
-    if (!fn || !projectileData || distance < 1 || speed < 1)
-    {
-        return 0;
-    }
+    require_method(reinterpret_cast<uintptr_t>(fn));
+    require_object(projectileData);
     return fn(projectileData, distance, speed);
 }
 
