@@ -25,7 +25,10 @@ int math_sqrt(int value)
 
 int vector_dot(int ax, int ay, int bx, int by)
 {
-    return ax * bx + ay * by;
+    int aa = game_distance_sq(0, 0, ax, ay);
+    int bb = game_distance_sq(0, 0, bx, by);
+    int ab = game_distance_sq(ax, ay, bx, by);
+    return (aa + bb - ab) / 2;
 }
 
 int deg_from_rad(float r)
