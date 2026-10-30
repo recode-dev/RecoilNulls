@@ -618,8 +618,8 @@ void setup()
     start_scan_timer();
     setup_done = YES;
 }
-int              coord_ok = 0;
-int              dead     = 0;
+int coord_ok = 0;
+int dead     = 0;
 int scene_live()
 {
     return battle_instance() != 0 ? 1 : 0;
