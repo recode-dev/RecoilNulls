@@ -80,8 +80,7 @@ float math_distance_to_line(
     {
         return 0.0f;
     }
-    return static_cast<float>(
-        reinterpret_cast<int (*)(int)>(sqrt_slot)(sq));
+    return static_cast<float>(reinterpret_cast<int (*)(int)>(sqrt_slot)(sq));
 }
 
 int32_t object_x(uintptr_t object)
@@ -158,29 +157,29 @@ void dir_from_angle(float radians, float& ox, float& oy)
     oy = (float) vy * (1.0f / 1024.0f);
 }
 }
-int      active = 0, in_move = 0;
-int      ad_human = 0;
-float    ad_dir_x = 1.0f, ad_dir_y = 0.0f;
-int      ad_hold_ms = 0, ad_urgent = 0;
-int      ad_ind_n       = 0;
-int      ad_pass_own    = 0;
-int32_t  ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
-int      ad_best_dir = -1;
-int      ad_char_n = 0, ad_proj_n = 0, ad_enemy_n = 0, ad_threat_n = 0;
-int      ad_threat_pid[AD_REPORT_MAX] = {0};
-float    ad_threat_x[AD_REPORT_MAX] = {0}, ad_threat_y[AD_REPORT_MAX] = {0};
-float    ad_threat_vx[AD_REPORT_MAX] = {0}, ad_threat_vy[AD_REPORT_MAX] = {0};
-float    ad_threat_r[AD_REPORT_MAX] = {0}, ad_threat_d[AD_REPORT_MAX] = {0};
-float    ad_threat_ttc[AD_REPORT_MAX] = {0}, ad_threat_ca[AD_REPORT_MAX] = {0};
-char     ad_threat_name[AD_REPORT_MAX][40] = {{0}};
-int32_t  ad_pj_pid[AD_REPORT_MAX]          = {0};
-float    ad_pj_x[AD_REPORT_MAX] = {0}, ad_pj_y[AD_REPORT_MAX] = {0};
-float    ad_pj_vx[AD_REPORT_MAX] = {0}, ad_pj_vy[AD_REPORT_MAX] = {0};
-float    ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
-int      ad_pj_vel[AD_REPORT_MAX]           = {0};
-int      ad_windup_n                        = 0;
-int      ad_enemy_charge_ms[AD_ENEMY_MAX]   = {0};
-int      ad_enemy_charge_mode[AD_ENEMY_MAX] = {0};
+int     active = 0, in_move = 0;
+int     ad_human = 0;
+float   ad_dir_x = 1.0f, ad_dir_y = 0.0f;
+int     ad_hold_ms = 0, ad_urgent = 0;
+int     ad_ind_n    = 0;
+int     ad_pass_own = 0;
+int32_t ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
+int     ad_best_dir = -1;
+int     ad_char_n = 0, ad_proj_n = 0, ad_enemy_n = 0, ad_threat_n = 0;
+int     ad_threat_pid[AD_REPORT_MAX] = {0};
+float   ad_threat_x[AD_REPORT_MAX] = {0}, ad_threat_y[AD_REPORT_MAX] = {0};
+float   ad_threat_vx[AD_REPORT_MAX] = {0}, ad_threat_vy[AD_REPORT_MAX] = {0};
+float   ad_threat_r[AD_REPORT_MAX] = {0}, ad_threat_d[AD_REPORT_MAX] = {0};
+float   ad_threat_ttc[AD_REPORT_MAX] = {0}, ad_threat_ca[AD_REPORT_MAX] = {0};
+char    ad_threat_name[AD_REPORT_MAX][40] = {{0}};
+int32_t ad_pj_pid[AD_REPORT_MAX]          = {0};
+float   ad_pj_x[AD_REPORT_MAX] = {0}, ad_pj_y[AD_REPORT_MAX] = {0};
+float   ad_pj_vx[AD_REPORT_MAX] = {0}, ad_pj_vy[AD_REPORT_MAX] = {0};
+float   ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
+int     ad_pj_vel[AD_REPORT_MAX]           = {0};
+int     ad_windup_n                        = 0;
+int     ad_enemy_charge_ms[AD_ENEMY_MAX]   = {0};
+int     ad_enemy_charge_mode[AD_ENEMY_MAX] = {0};
 int   ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
 int   ad_hit_picked            = 0;
 float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
@@ -623,7 +622,7 @@ static float    move_dx = 0.0f, move_dy = 0.0f;
 static uint64_t human_ms = 0;
 static int32_t  prev_x = 0, prev_y = 0;
 static uint32_t last_hp = 0;
-static float compute_edge_pull(float mx, float my, float dx, float dy)
+static float    compute_edge_pull(float mx, float my, float dx, float dy)
 {
     float w    = wall_logic_units(wall_cache_width());
     float h    = wall_logic_units(wall_cache_height());
@@ -790,8 +789,8 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
     float far  = self_speed * SIM_T;
     float run  = compute_free_run(mx, my, dx, dy, far);
     float room = run >= far ? 1.0f : run / far;
-    float w    = wall_logic_units(wall_cache_width()) - (own_hitbox + BORDER_PAD);
-    float h    = wall_logic_units(wall_cache_height()) - (own_hitbox + BORDER_PAD);
+    float w = wall_logic_units(wall_cache_width()) - (own_hitbox + BORDER_PAD);
+    float h = wall_logic_units(wall_cache_height()) - (own_hitbox + BORDER_PAD);
     float mx_step = dx * self_speed, my_step = dy * self_speed;
     float step_time[SIM_STEPS + 1];
     float step_x[SIM_STEPS + 1];

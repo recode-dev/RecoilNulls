@@ -181,8 +181,10 @@ float wall_pull(float mx, float my, float dx, float dy, float radius)
         blocked +=
             wall_cell_blocked_wide(mx + dx * d, my + dy * d, radius) ? 1 : 0;
     }
-    float pin_x  = static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
-    float pin_y  = static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
+    float pin_x =
+        static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
+    float pin_y =
+        static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
     int   pin_ix = (int) (pin_x + (pin_x < 0.0f ? -0.5f : 0.5f));
     int   pin_iy = (int) (pin_y + (pin_y < 0.0f ? -0.5f : 0.5f));
     float room   = (float) game_distance(0, 0, pin_ix, pin_iy) / reach;
