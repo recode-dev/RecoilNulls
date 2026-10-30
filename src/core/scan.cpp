@@ -379,11 +379,11 @@ void poll_for_game(int tick)
                    dispatch_get_main_queue(),
                    ^{ poll_for_game(tick + 1); });
 }
-uintptr_t base      = 0;
+uintptr_t      base           = 0;
 static int32_t own_team_value = -1;
-float     own_speed = 720.0f;
-uint32_t  own_hp    = 0;
-uint64_t  us()
+float          own_speed      = 720.0f;
+uint32_t       own_hp         = 0;
+uint64_t       us()
 {
     return static_cast<uint64_t>(g_get_monotonic_time());
 }
