@@ -132,9 +132,9 @@ void dir_from_angle(float radians, float& ox, float& oy)
 }
 }  // namespace
 
-int   in_move = 0;
+int   in_move     = 0;
 float dodge_dir_x = 1.0f, dodge_dir_y = 0.0f;
-int   enemy_n = 0;
+int   enemy_n            = 0;
 float enemy_x[ENEMY_MAX] = {0};
 float enemy_y[ENEMY_MAX] = {0};
 float enemy_d[ENEMY_MAX] = {0};
@@ -267,12 +267,12 @@ Proj* find_projectile_entry(int32_t pid)
 void init_projectile_state(
     Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
 {
-    st->pid   = pid;
-    st->seen  = now;
-    st->data  = dataPtr;
-    st->x     = px;
-    st->y     = py;
-    st->speed = 0.0f;
+    st->pid            = pid;
+    st->seen           = now;
+    st->data           = dataPtr;
+    st->x              = px;
+    st->y              = py;
+    st->speed          = 0.0f;
     int32_t dataRadius = projectile_radius(dataPtr);
     st->rad =
         dataRadius > 0 ? static_cast<float>(dataRadius) : PROJECTILE_RADIUS;

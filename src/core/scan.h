@@ -55,7 +55,7 @@ static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
     }
     return YES;
 }
-extern int gum_live;
+extern int         gum_live;
 static inline BOOL addr_readable(uintptr_t address, size_t length)
 {
     vm_prot_t flags = 0;
