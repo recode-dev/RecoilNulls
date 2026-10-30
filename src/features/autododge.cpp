@@ -15,23 +15,26 @@ static float fast_len(float x, float y)
         game_distance(0, 0, static_cast<int>(x), static_cast<int>(y)));
 }
 
+// The engine has no standalone Vector2::normalize in this build (it is
+// inlined), so the per-mille direction is computed here: (x, y) becomes a
+// vector of length `scale`.
 void vector_normalize(int* x, int* y, int scale)
 {
-    static uintptr_t slot = 0;
-    int              v[2] = {0, 0};
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICVECTOR2__NORMALIZE);
-    }
-    if (!slot || !x || !y)
+    if (!x || !y)
     {
         return;
     }
-    v[0] = *x;
-    v[1] = *y;
-    reinterpret_cast<void (*)(int*, int)>(slot)(v, scale);
-    *x = v[0];
-    *y = v[1];
+    const double  vx  = static_cast<double>(*x);
+    const double  vy  = static_cast<double>(*y);
+    const double  len = std::sqrt(vx * vx + vy * vy);
+    if (len < 1e-6)
+    {
+        *x = 0;
+        *y = 0;
+        return;
+    }
+    *x = static_cast<int>(std::lround(vx * static_cast<double>(scale) / len));
+    *y = static_cast<int>(std::lround(vy * static_cast<double>(scale) / len));
 }
 
 }
