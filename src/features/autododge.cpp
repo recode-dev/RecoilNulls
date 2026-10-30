@@ -165,7 +165,7 @@ void init_projectile_state(
     st->uy             = 0.0f;
 }
 static void character_entry(
-    const uint8_t* obj, uintptr_t dataPtr, int32_t own_gid, float mx, float my)
+    const uint8_t* obj, int32_t own_gid, float mx, float my)
 {
     int32_t hp, gid, xi, yi;
     memcpy(&hp, obj + 0xc4, sizeof(hp));
@@ -352,7 +352,7 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         }
         if (char_vt && obj_rva[i] == char_vt)
         {
-            character_entry(obj, dataPtr, own_gid, mx, my);
+            character_entry(obj, own_gid, mx, my);
             continue;
         }
         if (!data_is_projectile(dataPtr)) continue;
