@@ -23,12 +23,12 @@ inline constexpr uint64_t LOGICCHARACTER__Y                   = 0x34ULL;
 inline constexpr uint64_t LOGICGAMEOBJECTDATA__TEAM           = 0x40ULL;
 inline constexpr uint64_t LOGICCHARACTER__ATTACKANGLE         = 0xb4ULL;
 inline constexpr uint64_t LOGICCHARACTER__HITPOINTS           = 0xc4ULL;
-inline constexpr uint64_t LOGICCHARACTER__DATACOLLISIONRADIUS = 0x2acULL;
+inline constexpr uint64_t LOGICCHARACTER__GETCOLLISIONRADIUS = 0x9913e8ULL;
 inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS =
     0x30cULL;
 inline constexpr uint64_t LOGICCHARACTER__CHARGEUPMODE = 0x310ULL;
 
-inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED = 0x124ULL;
+inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED = 0x9cd834ULL;
 
 inline constexpr uint64_t  LOGICTILE__DATA                        = 0x0ULL;
 inline constexpr uint64_t  LOGICTILE__PATHFINDERMASK              = 0x10ULL;
@@ -79,7 +79,7 @@ inline constexpr uint64_t LOGICTILEMAP__LOGICTOTILE             = 0x943028ULL;
 inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE           = 0xff3b18ULL;
 inline constexpr uint64_t LOGICMATH__SQRT                       = 0xbd000cULL;
 inline constexpr uint64_t LOGICMATH__GETDISTANCESQUARETOLINE    = 0xbd0424ULL;
-inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS        = 0xa2d7f8ULL;
+inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS        = 0x9cd894ULL;
 inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETX           = 0xa23afcULL;
 inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETY           = 0xa23b04ULL;
 inline constexpr uint64_t LOGICVECTOR2__GETANGLE                = 0xbd0824ULL;

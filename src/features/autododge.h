@@ -52,6 +52,9 @@ extern float         ad_enemy_d[AD_ENEMY_MAX];
 extern int           ad_enemy_charge_ms[AD_ENEMY_MAX];
 extern int           ad_enemy_charge_mode[AD_ENEMY_MAX];
 extern int           ad_enemy_aim[AD_ENEMY_MAX];
+int32_t              projectile_radius(uintptr_t data);
+int32_t              projectile_speed(uintptr_t data);
+int32_t              character_collision_radius(uintptr_t data);
 void                 reset_autododge_state();
 void                 update_autododge();
 namespace ad

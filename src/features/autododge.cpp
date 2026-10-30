@@ -84,20 +84,6 @@ float math_distance_to_line(
     return static_cast<float>(math_sqrt(sq));
 }
 
-int32_t projectile_radius(uintptr_t data)
-{
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICPROJECTILEDATA__GETRADIUS);
-    }
-    if (!slot || !data)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
-}
-
 int32_t object_x(uintptr_t object)
 {
     static uintptr_t slot = 0;
@@ -252,6 +238,48 @@ int ad_angle_between(int a, int b)
         d -= 360;
     }
     return d < 0 ? -d : d;
+}
+
+int32_t projectile_radius(uintptr_t data)
+{
+    static uintptr_t slot = 0;
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICPROJECTILEDATA__GETRADIUS);
+    }
+    if (!slot || !data)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
+}
+
+int32_t projectile_speed(uintptr_t data)
+{
+    static uintptr_t slot = 0;
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICPROJECTILEDATA__GETSPEED);
+    }
+    if (!slot || !data)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
+}
+
+int32_t character_collision_radius(uintptr_t data)
+{
+    static uintptr_t slot = 0;
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICCHARACTER__GETCOLLISIONRADIUS);
+    }
+    if (!slot || !data)
+    {
+        return 0;
+    }
+    return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
 }
 
 namespace ad
@@ -449,10 +477,8 @@ static void add_projectile_threat(const uint8_t* obj,
         (float) game_distance((int) st->x, (int) st->y, (int) px, (int) py);
     ad_proj_sample++;
     if (step > 1.0f) ad_proj_move++;
-    int32_t dataSpeed = 0;
-    if (st->data &&
-        read_int(st->data + LOGICPROJECTILEDATA__SPEED, &dataSpeed) &&
-        dataSpeed > 50 && dataSpeed < 20000)
+    int32_t dataSpeed = projectile_speed(st->data);
+    if (dataSpeed > 50 && dataSpeed < 20000)
     {
         if (step > 0.5f)
         {
@@ -948,10 +974,7 @@ static void learn_own_hitbox()
     if (!read_ptr(own_elem + LOGICGAMEOBJECT__DATA, &data) || !data ||
         !pointer_plausible((uintptr_t) data))
         return;
-    if (!read_bytes((uintptr_t) data + LOGICCHARACTER__DATACOLLISIONRADIUS,
-                    &r,
-                    sizeof(r)))
-        return;
+    r = character_collision_radius((uintptr_t) data);
     if (r <= 0) return;
     float tile = wall_logic_units(1);
     if (tile > 0.0f && (float) r >= tile) return;

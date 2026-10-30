@@ -113,6 +113,9 @@ constexpr code_entry kCodeOffsetTable[] = {
     {"LOGICMATH__SQRT", LOGICMATH__SQRT},
     {"LOGICMATH__GETDISTANCESQUARETOLINE", LOGICMATH__GETDISTANCESQUARETOLINE},
     {"LOGICPROJECTILEDATA__GETRADIUS", LOGICPROJECTILEDATA__GETRADIUS},
+    {"LOGICPROJECTILEDATA__GETSPEED", LOGICPROJECTILEDATA__GETSPEED},
+    {"LOGICCHARACTER__GETCOLLISIONRADIUS",
+     LOGICCHARACTER__GETCOLLISIONRADIUS},
     {"LOGICGAMEOBJECTCLIENT__GETX", LOGICGAMEOBJECTCLIENT__GETX},
     {"LOGICGAMEOBJECTCLIENT__GETY", LOGICGAMEOBJECTCLIENT__GETY},
     {"LOGICVECTOR2__GETANGLE", LOGICVECTOR2__GETANGLE},
@@ -278,10 +281,10 @@ void validate_projectile_speed()
     char      detail[128];
     if (!ad::find_live_projectile(&objOut, &dataOut, &px, &py)) return;
     if (!dataOut) return;
-    bool read_ok = read_int(dataOut + LOGICPROJECTILEDATA__SPEED, &speed);
+    speed = projectile_speed(dataOut);
     snprintf(detail, sizeof(detail), "speed=%d", speed);
-    check(read_ok && speed > 0 && speed < 20000,
-          "LOGICPROJECTILEDATA__SPEED",
+    check(speed > 0 && speed < 20000,
+          "LOGICPROJECTILEDATA__GETSPEED",
           detail);
 }
 }  // namespace
