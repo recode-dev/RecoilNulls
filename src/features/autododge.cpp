@@ -96,6 +96,10 @@ constexpr uint64_t SEND_MS           = ad::TICK_MS;
 constexpr int      MOVE_DELAY_TICKS  = 2;
 constexpr float    SAFETY            = 40.0f;
 constexpr float    PROJECTILE_RADIUS = 60.0f;
+constexpr int      HOLD_TICKS        = 3;
+constexpr float    SWITCH_GAIN       = 1.4f;
+constexpr float    SWITCH_ALIGN      = 0.9f;
+constexpr float    TARGET_LERP       = 0.5f;
 constexpr float    WEIGHT_STEP       = 4096.0f;
 constexpr float    WEIGHT_POS        = 900.0f;
 constexpr float    WEIGHT_AWAY       = 0.06f;
@@ -413,6 +417,10 @@ namespace
 static float    commit_x = 0.0f, commit_y = 0.0f;
 static uint64_t sent_ms = 0;
 static float    move_dx = 0.0f, move_dy = 0.0f;
+static int      hold_left = 0;
+static float    tgt_x = 0.0f, tgt_y = 0.0f;
+static int32_t  last_tx = 0, last_ty = 0;
+static int      last_valid = 0;
 static int32_t  prev_x = 0, prev_y = 0;
 
 static float compute_edge_pull(float mx, float my, float dx, float dy)
@@ -688,13 +696,24 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             better &&
             compute_free_run(mx, my, commit_x, commit_y, frame_geom.far) <
                 own_hitbox * 2.0f;
-        bool gain   = best > cur_val + own_hitbox * 0.5f;
+        bool gain   = best > cur_val + own_hitbox * SWITCH_GAIN;
         bool windup = windup_n > 0;
-        if (!(walled || windup) && !gain)
+        bool turned = (bx * commit_x + by * commit_y) < SWITCH_ALIGN;
+        bool switch_ok = walled || windup || (gain && turned && hold_left <= 0);
+        if (!switch_ok)
         {
             bx = commit_x;
             by = commit_y;
+            if (hold_left > 0) hold_left--;
         }
+        else
+        {
+            hold_left = HOLD_TICKS;
+        }
+    }
+    else
+    {
+        hold_left = HOLD_TICKS;
     }
     dodge_dir_x = bx, dodge_dir_y = by;
     commit_x = bx, commit_y = by;
@@ -705,6 +724,9 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
 static void reset_dodge_state()
 {
     dodge_dir_x = 0.0f, dodge_dir_y = 0.0f;
+    hold_left   = 0;
+    tgt_x = 0.0f, tgt_y = 0.0f;
+    last_valid = 0;
 }
 
 static void learn_character_data_vtable()
@@ -823,9 +845,24 @@ void update_autododge()
     float hi_y = hu - em > hu * 0.5f ? hu - em : hu * 0.5f;
     fx         = fminf(fmaxf(fx, lo_x), hi_x);
     fy         = fminf(fmaxf(fy, lo_y), hi_y);
-    int32_t tx = axis(fx, wall_cache_width());
-    int32_t ty = axis(fy, wall_cache_height());
-    set_client_prediction_move_to(tx, ty);
+    if (!last_valid)
+    {
+        tgt_x = fx, tgt_y = fy, last_valid = 1;
+    }
+    else
+    {
+        tgt_x += (fx - tgt_x) * TARGET_LERP;
+        tgt_y += (fy - tgt_y) * TARGET_LERP;
+    }
+    tgt_x      = fminf(fmaxf(tgt_x, lo_x), hi_x);
+    tgt_y      = fminf(fmaxf(tgt_y, lo_y), hi_y);
+    int32_t tx = axis(tgt_x, wall_cache_width());
+    int32_t ty = axis(tgt_y, wall_cache_height());
+    if (tx != last_tx || ty != last_ty)
+    {
+        set_client_prediction_move_to(tx, ty);
+        last_tx = tx, last_ty = ty;
+    }
     if (now - sent_ms >= SEND_MS)
     {
         sent_ms = now;
