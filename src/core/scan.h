@@ -131,6 +131,8 @@ void                 setup();
 void                 run_autododge();
 extern uintptr_t     scene_object;
 int                  scene_live();
+int                  game_segment_hits_circle(
+                     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
 int                  game_distance(int x1, int y1, int x2, int y2);
 int                  game_distance_sq(int x1, int y1, int x2, int y2);
 extern int           coord_ok;
