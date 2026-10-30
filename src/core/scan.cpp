@@ -545,12 +545,13 @@ void scan_world()
         ok_hp  = 0;
         own_hp = 0;
     }
-    dead   = (ok_hp && own_hp == 0) ? 1 : 0;
+    dead = (ok_hp && own_hp == 0) ? 1 : 0;
     {
         uintptr_t ownData = 0;
         int32_t   ownTeam = 0;
         team_b            = -1;
-        if (read_ptr(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
+        if (read_ptr(own +
+                         static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
                      &ownData) &&
             ownData && read_int(ownData + LOGICDATA__TEAM, &ownTeam))
         {
