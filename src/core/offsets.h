@@ -79,6 +79,7 @@ inline constexpr uint64_t LOGICTILEMAP__ISPLAYERLINEOFSIGHT     = 0x943b34ULL;
 inline constexpr uint64_t LOGICTILEMAP__LOGICTOTILE             = 0x943028ULL;
 inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE           = 0xff3b18ULL;
 inline constexpr uint64_t LOGICMATH__SQRT                       = 0xbd000cULL;
+inline constexpr uint64_t LOGICMATH__NORMALIZEANGLE180           = 0xbcfe80ULL;
 inline constexpr uint64_t LOGICMATH__GETDISTANCESQUARETOLINE    = 0xbd0424ULL;
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS        = 0x9cd894ULL;
 inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETX           = 0xa23afcULL;

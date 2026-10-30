@@ -229,18 +229,18 @@ int ad_dir_angle_deg(float x, float y)
     return vector_angle((int) (x * 1000.0f), (int) (y * 1000.0f));
 }
 
-int ad_angle_between(int a, int b)
+int ad_angle_delta(int a, int b)
 {
-    int d = (a - b) % 360;
-    if (d < 0)
+    static uintptr_t slot = 0;
+    if (!slot)
     {
-        d += 360;
+        slot = callable_at_rva(LOGICMATH__NORMALIZEANGLE180);
     }
-    if (d >= 180)
+    if (!slot)
     {
-        d -= 360;
+        return 0;
     }
-    return d < 0 ? -d : d;
+    return reinterpret_cast<int (*)(int)>(slot)(a - b);
 }
 
 int32_t projectile_radius(uintptr_t data)

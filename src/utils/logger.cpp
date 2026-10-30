@@ -113,6 +113,7 @@ constexpr code_entry kCodeOffsetTable[] = {
     {"LOGICTILEMAP__ISPLAYERLINEOFSIGHT", LOGICTILEMAP__ISPLAYERLINEOFSIGHT},
     {"LOGICMATH__SQRT", LOGICMATH__SQRT},
     {"LOGICMATH__GETDISTANCESQUARETOLINE", LOGICMATH__GETDISTANCESQUARETOLINE},
+    {"LOGICMATH__NORMALIZEANGLE180", LOGICMATH__NORMALIZEANGLE180},
     {"LOGICPROJECTILEDATA__GETRADIUS", LOGICPROJECTILEDATA__GETRADIUS},
     {"LOGICPROJECTILEDATA__GETSPEED", LOGICPROJECTILEDATA__GETSPEED},
     {"LOGICCHARACTER__GETCOLLISIONRADIUS", LOGICCHARACTER__GETCOLLISIONRADIUS},
@@ -443,7 +444,8 @@ void diag_tick()
     last_hp = static_cast<int32_t>(own_hp);
     {
         int ang = ad_dir_angle_deg(ad_dir_x, ad_dir_y);
-        if (active && ad_angle_between(ang, last_ang) > 20)
+        int delta = ad_angle_delta(ang, last_ang);
+        if (active && (delta > 20 || delta < -20))
         {
             dodge_count++;
         }

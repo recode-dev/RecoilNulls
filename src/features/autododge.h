@@ -13,7 +13,7 @@ extern int32_t       ad_target_x;
 extern int32_t       ad_target_y;
 extern int           ad_best_dir;
 int                  ad_dir_angle_deg(float x, float y);
-int                  ad_angle_between(int a, int b);
+int                  ad_angle_delta(int a, int b);
 extern int           ad_char_n;
 extern int           ad_proj_n;
 extern int           ad_enemy_n;
