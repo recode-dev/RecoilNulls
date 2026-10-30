@@ -187,7 +187,7 @@ void* read_global_ptr(uintptr_t rva)
 }
 int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
 {
-    typedef uint8_t (*pass_t)(void*, int, int, int, int, int);
+    using pass_t = uint8_t (*)(void*, int, int, int, int, int);
     static pass_t fn = nullptr;
     if (!fn)
     {
@@ -203,7 +203,7 @@ int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
 
 int game_tile_to_logic(int tile)
 {
-    typedef int (*conv_t)(int);
+    using conv_t = int (*)(int);
     static conv_t fn = nullptr;
     if (!fn)
     {
@@ -218,7 +218,7 @@ int game_tile_to_logic(int tile)
 
 int game_logic_to_tile(int unit)
 {
-    typedef int (*conv_t)(int);
+    using conv_t = int (*)(int);
     static conv_t fn = nullptr;
     if (!fn)
     {
@@ -233,7 +233,7 @@ int game_logic_to_tile(int unit)
 
 int game_distance(int x1, int y1, int x2, int y2)
 {
-    typedef int (*dist_t)(int, int, int, int);
+    using dist_t = int (*)(int, int, int, int);
     static dist_t fn = nullptr;
     if (!fn)
     {
@@ -249,7 +249,7 @@ int game_distance(int x1, int y1, int x2, int y2)
 
 int game_distance_sq(int x1, int y1, int x2, int y2)
 {
-    typedef int (*dist_t)(int, int, int, int);
+    using dist_t = int (*)(int, int, int, int);
     static dist_t fn = nullptr;
     if (!fn)
     {
@@ -266,7 +266,7 @@ int game_distance_sq(int x1, int y1, int x2, int y2)
 int game_segment_hits_circle(
     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
 {
-    typedef int (*hit_t)(int, int, int, int, int, int, int, int*);
+    using hit_t = int (*)(int, int, int, int, int, int, int, int*);
     static hit_t fn = nullptr;
     if (!fn)
     {
@@ -284,7 +284,7 @@ int game_projectile_travel_ticks(uintptr_t projectileData,
                                  int       distance,
                                  int       speed)
 {
-    typedef int (*travel_t)(uintptr_t, int, int);
+    using travel_t = int (*)(uintptr_t, int, int);
     static travel_t fn = nullptr;
     if (!fn)
     {
@@ -447,13 +447,13 @@ static void track_own_speed()
         last_pos_us = now_us;
         return;
     }
-    float dt = (float) (now_us - last_pos_us) / 1000000.0f;
+    float dt = static_cast<float>(now_us - last_pos_us) / 1000000.0f;
     if (dt < 0.06f) return;
     if (dt < 0.25f)
     {
         int   px = own_x - last_pos_x;
         int   py = own_y - last_pos_y;
-        float sp = (float) game_distance(0, 0, px, py) / dt;
+        float sp = static_cast<float>(game_distance(0, 0, px, py)) / dt;
         if (sp >= 300.0f && sp <= 6000.0f)
         {
             if (sp > own_speed)
@@ -624,7 +624,7 @@ static void               scan_frame()
     run_workload();
     uint64_t spent = us() - t0;
     workload_us_sum += spent;
-    if (spent > workload_us_max) workload_us_max = (uint32_t) spent;
+    if (spent > workload_us_max) workload_us_max = static_cast<uint32_t>(spent);
     workload_us_n++;
     inside_hook = NO;
 }

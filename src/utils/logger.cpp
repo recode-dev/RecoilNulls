@@ -24,7 +24,7 @@ const char* target_text(char* out, size_t cap)
         snprintf(out, cap, "-");
         return out;
     }
-    snprintf(out, cap, "%d,%d", (int) ad_target_x, (int) ad_target_y);
+    snprintf(out, cap, "%d,%d", static_cast<int>(ad_target_x), static_cast<int>(ad_target_y));
     return out;
 }
 
@@ -177,8 +177,8 @@ void validate_code_offsets()
         snprintf(detail,
                  sizeof(detail),
                  "rva=0x%llx addr=0x%llx",
-                 (unsigned long long) entry.rva,
-                 (unsigned long long) address);
+                 static_cast<unsigned long long>(entry.rva),
+                 static_cast<unsigned long long>(address));
         check(ok, entry.name, detail);
     }
 }
@@ -193,8 +193,8 @@ void validate_character_fields(uintptr_t own)
         snprintf(detail,
                  sizeof(detail),
                  "off=0x%llx value=0x%llx",
-                 (unsigned long long) entry.offset,
-                 (unsigned long long) value);
+                 static_cast<unsigned long long>(entry.offset),
+                 static_cast<unsigned long long>(value));
         check(ok, entry.name, detail);
     }
     int32_t x       = 0;
@@ -217,7 +217,7 @@ void validate_character_fields(uintptr_t own)
     snprintf(detail,
              sizeof(detail),
              "data=0x%llx team=%d",
-             (unsigned long long) data,
+             static_cast<unsigned long long>(data),
              team);
     check(team_ok, "LOGICGAMEOBJECTDATA__TEAM range", detail);
 }
@@ -231,7 +231,7 @@ void validate_tilemap_fields(uintptr_t clientPtr)
     tileMap     = reinterpret_cast<uintptr_t (*)(uintptr_t)>(tileFn)(clientPtr);
     bool map_ok = pointer_plausible(tileMap);
     snprintf(
-        detail, sizeof(detail), "map=0x%llx", (unsigned long long) tileMap);
+        detail, sizeof(detail), "map=0x%llx", static_cast<unsigned long long>(tileMap));
     check(map_ok, "LOGICBATTLEMODECLIENT__GETTILEMAP", detail);
     if (!map_ok) return;
     int32_t width  = 0;
@@ -245,7 +245,7 @@ void validate_tilemap_fields(uintptr_t clientPtr)
     uintptr_t tiles = 0;
     read_ptr(tileMap + LOGICTILEMAP__TILEARRAY, &tiles);
     snprintf(
-        detail, sizeof(detail), "tiles=0x%llx", (unsigned long long) tiles);
+        detail, sizeof(detail), "tiles=0x%llx", static_cast<unsigned long long>(tiles));
     check(pointer_plausible(tiles), "LOGICTILEMAP__TILEARRAY", detail);
 }
 
@@ -253,7 +253,7 @@ void validate_globals()
 {
     char      detail[128];
     uintptr_t slot = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
-    snprintf(detail, sizeof(detail), "slot=0x%llx", (unsigned long long) slot);
+    snprintf(detail, sizeof(detail), "slot=0x%llx", static_cast<unsigned long long>(slot));
     check(pointer_plausible(slot), "GAMESTATEMANAGER__INSTANCE", detail);
     if (!pointer_plausible(slot)) return;
     int32_t   state   = -1;
@@ -264,7 +264,7 @@ void validate_globals()
              sizeof(detail),
              "state=%d current=0x%llx",
              state,
-             (unsigned long long) current);
+             static_cast<unsigned long long>(current));
     check(state >= 0 && state < 32 && pointer_plausible(current),
           "GAMESTATEMANAGER__STATE/CURRENTSTATE",
           detail);
@@ -403,13 +403,13 @@ void diag_tick()
          own_hp,
          own_x,
          own_y,
-         (int) (own_speed + 0.5f),
+         static_cast<int>(own_speed + 0.5f),
          active ? dir_name(ad_best_dir) : "idle",
          wall_cache_width(),
          wall_cache_height(),
          dodge_count,
          hit_count,
-         (int) (ad::own_hitbox + 0.5f),
+         static_cast<int>(ad::own_hitbox + 0.5f),
          own_aim,
          target_text(target_buf, sizeof(target_buf)),
          ad_human,
@@ -444,9 +444,9 @@ void diag_tick()
                            ad_hit_y);
         for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++)
         {
-            if (len <= 0 || len >= (int) sizeof(buf) - 40) break;
+            if (len <= 0 || len >= static_cast<int>(sizeof(buf)) - 40) break;
             len += snprintf(buf + len,
-                            sizeof(buf) - (size_t) len,
+                            sizeof(buf) - static_cast<size_t>(len),
                             " | ca=%.0f ttc=%.2f r=%.0f",
                             ad_hit_ca[i],
                             ad_hit_ttc[i],

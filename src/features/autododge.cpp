@@ -20,7 +20,7 @@ int vector_dot(int ax, int ay, int bx, int by)
 
 int deg_from_rad(float r)
 {
-    return (int) (r * 57.29577951f + (r < 0.0f ? -0.5f : 0.5f));
+    return static_cast<int>(r * 57.29577951f + (r < 0.0f ? -0.5f : 0.5f));
 }
 
 int vector_angle(int x, int y)
@@ -153,8 +153,8 @@ void dir_from_angle(float radians, float& ox, float& oy)
 {
     int vx = 1024, vy = 0;
     vector_rotate(&vx, &vy, deg_from_rad(radians));
-    ox = (float) vx * (1.0f / 1024.0f);
-    oy = (float) vy * (1.0f / 1024.0f);
+    ox = static_cast<float>(vx) * (1.0f / 1024.0f);
+    oy = static_cast<float>(vy) * (1.0f / 1024.0f);
 }
 }
 int     active = 0, in_move = 0;
@@ -209,13 +209,13 @@ constexpr float    COMMIT_BONUS      = 3.0f;
 constexpr float    BORDER_PAD        = 60.0f;
 constexpr float    EDGE_ZONE         = 300.0f;
 constexpr float    WEIGHT_EDGE       = 1600.0f;
-constexpr float    TICK_MS_SEC       = (float) ad::TICK_MS * 0.001f;
-constexpr float    SIM_T             = (float) SIM_STEPS * TICK_MS_SEC;
+constexpr float    TICK_MS_SEC       = static_cast<float>(ad::TICK_MS) * 0.001f;
+constexpr float    SIM_T             = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
 
 }
 int dir_angle_deg(float x, float y)
 {
-    return vector_angle((int) (x * 1000.0f), (int) (y * 1000.0f));
+    return vector_angle(static_cast<int>(x * 1000.0f), static_cast<int>(y * 1000.0f));
 }
 
 int angle_delta(int a, int b)
@@ -347,7 +347,7 @@ void init_projectile_state(
     st->y              = py;
     st->speed          = 0.0f;
     int32_t dataRadius = projectile_radius(dataPtr);
-    st->rad       = dataRadius > 0 ? (float) dataRadius : PROJECTILE_RADIUS;
+    st->rad       = dataRadius > 0 ? static_cast<float>(dataRadius) : PROJECTILE_RADIUS;
     st->vel       = false;
     st->ux        = 0.0f;
     st->uy        = 0.0f;
@@ -393,12 +393,12 @@ static void add_character_entry(const uint8_t* obj,
     if (own_team_matches(team) || hp <= 0 || gid <= 0 || gid == own_gid) return;
     if (ad_enemy_n >= AD_ENEMY_MAX) return;
     int   k  = ad_enemy_n++;
-    float ex = (float) xi - mx, ey = (float) yi - my;
+    float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
     ad_enemy_pid[k]    = gid;
-    ad_enemy_x[k]      = (float) xi;
-    ad_enemy_y[k]      = (float) yi;
+    ad_enemy_x[k]      = static_cast<float>(xi);
+    ad_enemy_y[k]      = static_cast<float>(yi);
     ad_enemy_hp[k]     = hp;
-    ad_enemy_d[k]      = (float) game_distance(0, 0, (int) ex, (int) ey);
+    ad_enemy_d[k]      = static_cast<float>(game_distance(0, 0, static_cast<int>(ex), static_cast<int>(ey)));
     ad_enemy_aim[k]    = aim;
     int32_t charge     = 0;
     int32_t chargeMode = 0;
@@ -425,11 +425,11 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     if (w <= 0.0f || h <= 0.0f) return false;
     int32_t xi = object_x((uintptr_t) obj);
     int32_t yi = object_y((uintptr_t) obj);
-    if ((float) xi >= -300.0f && (float) yi >= -300.0f &&
-        (float) xi <= w + 300.0f && (float) yi <= h + 300.0f)
+    if (static_cast<float>(xi) >= -300.0f && static_cast<float>(yi) >= -300.0f &&
+        static_cast<float>(xi) <= w + 300.0f && static_cast<float>(yi) <= h + 300.0f)
     {
-        *px = (float) xi;
-        *py = (float) yi;
+        *px = static_cast<float>(xi);
+        *py = static_cast<float>(yi);
         return true;
     }
     return false;
@@ -449,7 +449,7 @@ static void add_projectile_threat(const uint8_t* obj,
     memcpy(&pid, obj + LOGICCHARACTER__GLOBALID, sizeof(pid));
     int32_t key = pid;
     if (key <= 0)
-        key = (int32_t) (((objPtr >> 4) ^ (objPtr >> 20)) & 0x7fffffff);
+        key = static_cast<int32_t>(((objPtr >> 4) ^ (objPtr >> 20)) & 0x7fffffff);
     if (key <= 0) return;
     ad_proj_n++;
     Proj* st = find_projectile_entry(key);
@@ -461,7 +461,7 @@ static void add_projectile_threat(const uint8_t* obj,
     st->seen     = now;
     float step_x = px - st->x, step_y = py - st->y;
     float step =
-        (float) game_distance((int) st->x, (int) st->y, (int) px, (int) py);
+        static_cast<float>(game_distance(static_cast<int>(st->x), static_cast<int>(st->y), static_cast<int>(px), static_cast<int>(py)));
     int32_t dataSpeed = projectile_speed(st->data);
     if (dataSpeed > 50 && dataSpeed < 20000)
     {
@@ -469,7 +469,7 @@ static void add_projectile_threat(const uint8_t* obj,
         {
             st->ux    = step_x / step;
             st->uy    = step_y / step;
-            st->speed = (float) dataSpeed;
+            st->speed = static_cast<float>(dataSpeed);
             st->vel   = true;
         }
     }
@@ -496,25 +496,25 @@ static void add_projectile_threat(const uint8_t* obj,
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
-    if ((float) game_distance_sq(0, 0, (int) dx, (int) dy) > zone2) return;
+    if (static_cast<float>(game_distance_sq(0, 0, static_cast<int>(dx), static_cast<int>(dy))) > zone2) return;
     if (!wall_line_of_sight_clear(px, py, mx, my)) return;
-    if (game_distance_sq(0, 0, (int) vx, (int) vy) <= 0) return;
+    if (game_distance_sq(0, 0, static_cast<int>(vx), static_cast<int>(vy)) <= 0) return;
     float   rad     = st->rad + own_hitbox + AD_SAFETY;
-    float   dist    = (float) game_distance(0, 0, (int) dx, (int) dy);
+    float   dist    = static_cast<float>(game_distance(0, 0, static_cast<int>(dx), static_cast<int>(dy)));
     int32_t arrival = game_projectile_travel_ticks(
-        st->data, (int) (dist + 0.5f), (int) (st->speed + 0.5f));
+        st->data, static_cast<int>(dist + 0.5f), static_cast<int>(st->speed + 0.5f));
     if (arrival < 1) return;
-    float tt = (float) arrival * TICK_MS_SEC;
+    float tt = static_cast<float>(arrival) * TICK_MS_SEC;
     if (tt > THREAT_HORIZON) return;
     {
         int32_t hit[2] = {0, 0};
-        if (!game_segment_hits_circle((int) px,
-                                      (int) py,
-                                      (int) (px + vx * tt),
-                                      (int) (py + vy * tt),
-                                      (int) mx,
-                                      (int) my,
-                                      (int) (rad + 0.5f),
+        if (!game_segment_hits_circle(static_cast<int>(px),
+                                      static_cast<int>(py),
+                                      static_cast<int>(px + vx * tt),
+                                      static_cast<int>(py + vy * tt),
+                                      static_cast<int>(mx),
+                                      static_cast<int>(my),
+                                      static_cast<int>(rad + 0.5f),
                                       hit))
             return;
     }
@@ -657,7 +657,7 @@ static void simulate_position(float  mx,
                               float& ax,
                               float& ay)
 {
-    constexpr float delay = (float) MOVE_DELAY_TICKS * TICK_MS_SEC;
+    constexpr float delay = static_cast<float>(MOVE_DELAY_TICKS) * TICK_MS_SEC;
     float           coast = tk < delay ? tk : delay;
     float           em    = frame_geom.em;
     ax                    = mx + move_dx * self_speed * coast;
@@ -694,7 +694,7 @@ static void prepare_direction_costs(float mx, float my)
     for (int i = 0; i < cost_enemy_count; i++)
     {
         float ex = ad_enemy_x[i] - mx, ey = ad_enemy_y[i] - my;
-        int   ux = (int) ex, uy = (int) ey;
+        int   ux = static_cast<int>(ex), uy = static_cast<int>(ey);
         cost_enemy_dist[i] = ad_enemy_d[i];
         vector_normalize(&ux, &uy, 1000);
         cost_enemy_dx[i] = ux / 1000.0f;
@@ -711,7 +711,7 @@ static void prepare_direction_costs(float mx, float my)
         if (vv >= 1e-6f)
         {
             float iv =
-                1.0f / (float) game_distance(0, 0, (int) t.vx, (int) t.vy);
+                1.0f / static_cast<float>(game_distance(0, 0, static_cast<int>(t.vx), static_cast<int>(t.vy)));
             cost_threat_ux[i]     = t.vx * iv;
             cost_threat_uy[i]     = t.vy * iv;
             cost_threat_moving[i] = 1;
@@ -801,7 +801,7 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
             float tk = step_time[k];
             float ex = t.x + t.vx * tk - step_x[k];
             float ey = t.y + t.vy * tk - step_y[k];
-            if ((float) game_distance_sq(0, 0, (int) ex, (int) ey) < r2)
+            if (static_cast<float>(game_distance_sq(0, 0, static_cast<int>(ex), static_cast<int>(ey))) < r2)
                 hit = k;
         }
         if (hit)
@@ -818,7 +818,7 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
     if (margin > 1e29f) margin = 0.0f;
     if (margin > own_hitbox * 3.0f) margin = own_hitbox * 3.0f;
     steps = survive;
-    return (float) survive * WEIGHT_STEP + margin + WEIGHT_POS * room +
+    return static_cast<float>(survive) * WEIGHT_STEP + margin + WEIGHT_POS * room +
            WEIGHT_POS * WEIGHT_AWAY * compute_nearest_away(dx, dy) -
            WEIGHT_AXIS * compute_thrust_penalty(dx, dy) -
            WEIGHT_APPROACH * compute_enemy_approach(dx, dy) -
@@ -835,7 +835,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     float best = -1e30f;
     for (int i = 0; i < DIRS; i++)
     {
-        float a  = 6.2831853f * (float) i / (float) DIRS;
+        float a  = 6.2831853f * static_cast<float>(i) / static_cast<float>(DIRS);
         float dx = 0.0f, dy = 0.0f;
         dir_from_angle(a, dx, dy);
         int   steps = 0;
@@ -855,10 +855,10 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     if (den < -1e-6f) off = 0.5f * (vm - vp) / den;
     if (off > 0.5f) off = 0.5f;
     if (off < -0.5f) off = -0.5f;
-    float a = 6.2831853f * ((float) best_i + off) / (float) DIRS;
+    float a = 6.2831853f * (static_cast<float>(best_i) + off) / static_cast<float>(DIRS);
     for (int k = -6; k <= 6; k++)
     {
-        float ra  = a + (float) k * 0.0174533f;
+        float ra  = a + static_cast<float>(k) * 0.0174533f;
         float rdx = 0.0f, rdy = 0.0f;
         dir_from_angle(ra, rdx, rdy);
         int   steps = 0;
@@ -892,7 +892,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     }
     ad_dir_x = bx, ad_dir_y = by;
     ad_best_dir =
-        (vector_angle((int) (bx * 1000.0f), (int) (by * 1000.0f)) / 45 + 8) & 7;
+        (vector_angle(static_cast<int>(bx * 1000.0f), static_cast<int>(by * 1000.0f)) / 45 + 8) & 7;
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
 }
@@ -929,8 +929,8 @@ static void learn_own_hitbox()
     r = character_collision_radius((uintptr_t) data);
     if (r <= 0) return;
     float tile = wall_logic_units(1);
-    if (tile > 0.0f && (float) r >= tile) return;
-    own_hitbox = (float) r;
+    if (tile > 0.0f && static_cast<float>(r) >= tile) return;
+    own_hitbox = static_cast<float>(r);
 }
 void reset_autododge_state()
 {
@@ -949,7 +949,7 @@ void reset_autododge_state()
     ad_human    = 0;
     ad_dir_x = 1.0f, ad_dir_y = 0.0f;
     commit_x = 0.0f, commit_y = 0.0f;
-    memset(projs, 0, sizeof(projs));
+    for (Proj& p : projs) p = Proj{};
     reset_dodge_state();
 }
 void update_autododge()
@@ -960,7 +960,7 @@ void update_autododge()
     threat_n                                         = 0;
     if (own_hp < last_hp)
     {
-        pend_dmg = (int) (last_hp - own_hp);
+        pend_dmg = static_cast<int>(last_hp - own_hp);
     }
     last_hp = own_hp;
     if (!base || !own_elem || dead || !coord_ok)
@@ -981,17 +981,17 @@ void update_autododge()
     self_speed = own_speed > 1.0f ? own_speed : 1.0f;
     cache_frame_geom();
     uint64_t now = us() / 1000;
-    float    mx = (float) own_x, my = (float) own_y;
+    float    mx = static_cast<float>(own_x), my = static_cast<float>(own_y);
     evict_stale_projectiles(now);
     collect_logic_objects(now, own_gid, mx, my);
     if (pend_dmg) report_incoming_hit(mx, my, commit_x, commit_y);
     {
-        float mvx = (float) (own_x - prev_x), mvy = (float) (own_y - prev_y);
-        float mv = (float) game_distance(0, 0, (int) mvx, (int) mvy);
+        float mvx = static_cast<float>(own_x - prev_x), mvy = static_cast<float>(own_y - prev_y);
+        float mv = static_cast<float>(game_distance(0, 0, static_cast<int>(mvx), static_cast<int>(mvy)));
         prev_x = own_x, prev_y = own_y;
         if (mv > 1.0f)
         {
-            int nx = (int) mvx, ny = (int) mvy;
+            int nx = static_cast<int>(mvx), ny = static_cast<int>(mvy);
             vector_normalize(&nx, &ny, 1000);
             move_dx = nx / 1000.0f;
             move_dy = ny / 1000.0f;
@@ -1002,10 +1002,10 @@ void update_autododge()
             move_dy = 0.0f;
         }
         if (active && mv > 15.0f &&
-            (float) vector_dot((int) mvx,
-                               (int) mvy,
-                               (int) (sent_x * 1000.0f),
-                               (int) (sent_y * 1000.0f)) < 700.0f * mv)
+            static_cast<float>(vector_dot(static_cast<int>(mvx),
+                               static_cast<int>(mvy),
+                               static_cast<int>(sent_x * 1000.0f),
+                               static_cast<int>(sent_y * 1000.0f))) < 700.0f * mv)
             human_ms = now;
     }
     ad_human = now - human_ms < HUMAN_MS ? 1 : 0;
@@ -1080,8 +1080,8 @@ void report_incoming_hit(float mx, float my, float dx, float dy)
     ad_hit_dmg              = pend_dmg;
     ad_hit_act              = active;
     ad_hit_n                = threat_n;
-    ad_hit_x                = (int) mx;
-    ad_hit_y                = (int) my;
+    ad_hit_x                = static_cast<int>(mx);
+    ad_hit_y                = static_cast<int>(my);
     ad_hit_picked           = 0;
     int used[AD_REPORT_MAX] = {-1, -1, -1};
     for (int s = 0; s < AD_REPORT_MAX; s++)
@@ -1121,7 +1121,7 @@ void fill_autododge_report(float mx, float my, float dx, float dy)
         ad_threat_ca[s]  = bc;
         ad_threat_ttc[s] = t.tt;
         ad_threat_d[s] =
-            (float) game_distance((int) t.x, (int) t.y, (int) mx, (int) my);
+            static_cast<float>(game_distance(static_cast<int>(t.x), static_cast<int>(t.y), static_cast<int>(mx), static_cast<int>(my)));
         memcpy(ad_threat_name[s], t.name, sizeof(ad_threat_name[s]));
         ad_threat_name[s][sizeof(ad_threat_name[s]) - 1] = '\0';
     }
