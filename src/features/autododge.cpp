@@ -313,11 +313,15 @@ static void add_projectile_threat(const uint8_t* obj,
 static int data_is_projectile(uintptr_t dataPtr)
 {
     uintptr_t vt = 0;
+    uintptr_t fn = 0;
     if (!dataPtr || !pointer_plausible(dataPtr)) return 0;
     if (!read_ptr(dataPtr, &vt) || vt < base) return 0;
+    // the constant is a vtable SLOT byte offset, not a function address:
+    // read the slot, then call the pointer it holds
+    if (!read_ptr(vt + LOGICDATA__ISPROJECTILE, &fn)) return 0;
+    if (!addr_executable(fn)) return 0;
     using fn_t = int (*)(uintptr_t);
-    fn_t fn    = reinterpret_cast<fn_t>(vt + LOGICDATA__ISPROJECTILE);
-    return fn(dataPtr);
+    return reinterpret_cast<fn_t>(fn)(dataPtr);
 }
 
 static uintptr_t obj_rva[COUNT_MAX];
