@@ -20,7 +20,7 @@ inline constexpr uint64_t LOGICCHARACTERDATA__GETCOLLISIONRADIUS = 0x9913e8;
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED  = 0x124;
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS = 0x130;
 // vtable slot byte offset: virtual isProjectile(), true only on projectile data
-inline constexpr uint64_t LOGICDATA__ISPROJECTILE        = 0x48;
+inline constexpr uint64_t LOGICDATA__ISPROJECTILE = 0x48;
 
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY  = 0x20;
 inline constexpr uint64_t LOGICTILEMAP__PATHFINDER = 0x60;

@@ -210,8 +210,8 @@ static uintptr_t path_finder(uintptr_t tileMap)
     }
     cached_map = 0;
     cached_pf  = 0;
-    void* pf = nullptr;
-    back     = nullptr;
+    void* pf   = nullptr;
+    back       = nullptr;
     if (!read_ptr(tileMap + LOGICTILEMAP__PATHFINDER, &pf) || !pf)
     {
         return 0;
@@ -238,15 +238,8 @@ int game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1)
     require_method(reinterpret_cast<uintptr_t>(fn));
     uintptr_t pf = path_finder(tileMap);
     if (!pf) return 0;  // map not bound yet / torn down: report blocked
-    return static_cast<int>(fn(reinterpret_cast<void*>(pf),
-                               1,
-                               x0,
-                               y0,
-                               x1,
-                               y1,
-                               0,
-                               1,
-                               0));
+    return static_cast<int>(
+        fn(reinterpret_cast<void*>(pf), 1, x0, y0, x1, y1, 0, 1, 0));
 }
 
 int game_tile_to_logic(int tile)
