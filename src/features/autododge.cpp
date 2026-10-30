@@ -708,6 +708,25 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             best = v, bx = dx, by = dy, best_steps = steps;
         }
     }
+    if (has)
+    {
+        int   cur = 0;
+        float cur_val =
+            evaluate_dodge_direction(mx, my, commit_x, commit_y, cur) +
+            own_hitbox * COMMIT_BONUS;
+        bool better = best_steps > cur;
+        bool walled =
+            better &&
+            compute_free_run(mx, my, commit_x, commit_y, frame_geom.far) <
+                own_hitbox * 2.0f;
+        bool gain   = best > cur_val + own_hitbox * 0.5f;
+        bool windup = windup_n > 0;
+        if (!(walled || windup) && !gain)
+        {
+            bx = commit_x;
+            by = commit_y;
+        }
+    }
     dodge_dir_x = bx, dodge_dir_y = by;
     commit_x = bx, commit_y = by;
     out_x = bx, out_y = by;
