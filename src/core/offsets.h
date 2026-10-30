@@ -30,7 +30,7 @@ inline constexpr uint64_t LOGICCHARACTER__CHARGEUPMODE                = 0x310;
 
 inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED  = 0x124;
 inline constexpr uint64_t LOGICPROJECTILEDATA__RADIUS = 0x130;
-inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE = 0xff3b18;
+inline constexpr uint64_t LOGICPROJECTILEDATA__ISPROJECTILE_SLOT = 0x48;
 
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY  = 0x20;
 inline constexpr uint64_t LOGICTILEMAP__PATHFINDER = 0x60;
