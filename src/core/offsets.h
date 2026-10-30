@@ -75,6 +75,7 @@ inline constexpr uint64_t CLIENTINPUTMESSAGE__CONSTRUCTOR       = 0xa95798ULL;
 inline constexpr uint64_t CLIENTINPUTMANAGER__ADDINPUT          = 0x74675cULL;
 inline constexpr uint64_t LOGICTILEMAP__ISPASSABLEPATHFINDER    = 0x942ebcULL;
 inline constexpr uint64_t LOGICTILEMAP__TILETOLOGIC             = 0x943040ULL;
+inline constexpr uint64_t LOGICTILEMAP__ISPLAYERLINEOFSIGHT      = 0x943b34ULL;
 inline constexpr uint64_t LOGICTILEMAP__LOGICTOTILE             = 0x943028ULL;
 inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE           = 0xff3b18ULL;
 inline constexpr uint64_t LOGICMATH__SQRT                       = 0xbd000cULL;

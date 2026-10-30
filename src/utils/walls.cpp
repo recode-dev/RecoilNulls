@@ -539,12 +539,21 @@ int wall_cell_blocked_wide(float x, float y, float r)
 
 int wall_line_of_sight_clear(float ax, float ay, float bx, float by)
 {
-    if (!wall_have || wall_tile_span <= 0) return 1;
-    return wall_trace_clear(static_cast<int>(ax),
-                            static_cast<int>(ay),
-                            static_cast<int>(bx),
-                            static_cast<int>(by),
-                            1);
+    static uintptr_t slot = 0;
+    if (!wall_map) return 1;
+    if (!slot) slot = callable(LOGICTILEMAP__ISPLAYERLINEOFSIGHT);
+    if (!slot) return 1;
+    typedef int (*los_t)(uintptr_t, int, int, int, int, int, int, int, int);
+    return reinterpret_cast<los_t>(slot)(wall_map,
+                                         static_cast<int>(ax),
+                                         static_cast<int>(ay),
+                                         static_cast<int>(bx),
+                                         static_cast<int>(by),
+                                         0,
+                                         0,
+                                         0,
+                                         0) &
+           1;
 }
 
 int wall_path_clear(float ax, float ay, float bx, float by)
