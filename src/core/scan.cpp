@@ -245,6 +245,15 @@ int game_tile_to_logic(int tile)
     require_method(reinterpret_cast<uintptr_t>(fn));
     return fn(tile);
 }
+int vector_length(int x, int y)
+{
+    using len_t     = int (*)(const int*);
+    static len_t fn = nullptr;
+    int          v[2] = {x, y};
+    if (!fn) fn = reinterpret_cast<len_t>(callable(LOGICVECTOR2__GETLENGTH));
+    require_method(reinterpret_cast<uintptr_t>(fn));
+    return fn(v);
+}
 int game_distance(int x1, int y1, int x2, int y2)
 {
     using dist_t     = int (*)(int, int, int, int);

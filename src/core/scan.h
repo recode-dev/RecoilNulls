@@ -135,6 +135,7 @@ int                  is_owned_by_own_team(uintptr_t obj);
 int                  game_segment_hits_circle(
                      int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
 int              game_distance(int x1, int y1, int x2, int y2);
+int              vector_length(int x, int y);
 extern int       coord_ok;
 extern int       dead;
 extern uintptr_t elem;

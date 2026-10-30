@@ -436,28 +436,24 @@ static float hit_time(const Threat& t,
                       float         to)
 {
     if (to <= from) return -1.0f;
-    float rx = px - vx * from - t.x;
-    float ry = py - vy * from - t.y;
-    float ux = vx - t.vx;
-    float uy = vy - t.vy;
-    float a  = ux * ux + uy * uy;
-    float b  = 2.0f * (rx * ux + ry * uy);
-    float c  = rx * rx + ry * ry - t.rad * t.rad;
-    if (a < 1e-6f)
+    float ux  = vx - t.vx;
+    float uy  = vy - t.vy;
+    float dur = to - from;
+    int   rx  = static_cast<int>(px - vx * from - t.x);
+    int   ry  = static_cast<int>(py - vy * from - t.y);
+    int   ex  = rx + static_cast<int>(ux * dur);
+    int   ey  = ry + static_cast<int>(uy * dur);
+    int   pt[2] = {rx, ry};
+    if (!game_segment_hits_circle(
+            rx, ry, ex, ey, 0, 0, static_cast<int>(t.rad), pt))
     {
-        if (b >= 0.0f) return -1.0f;
-        float hit = -c / b;
-        if (hit < from) hit = from;
-        return hit < to ? hit : -1.0f;
+        return -1.0f;
     }
-    float disc = b * b - 4.0f * a * c;
-    if (disc <= 0.0f) return -1.0f;
-    float root = sqrtf(disc);
-    float lo   = (-b - root) / (2.0f * a);
-    float hi   = (-b + root) / (2.0f * a);
-    if (hi <= from) return -1.0f;
-    float hit = lo < from ? from : lo;
-    return hit < to ? hit : -1.0f;
+    int speed = vector_length(static_cast<int>(ux), static_cast<int>(uy));
+    if (speed <= 0) return -1.0f;
+    float hit = from + static_cast<float>(game_distance(rx, ry, pt[0], pt[1])) /
+                           static_cast<float>(speed);
+    return hit <= to ? hit : -1.0f;
 }
 static float closest_approach(
     const Threat& t, float px, float py, float vx, float vy, float span)
@@ -476,9 +472,9 @@ static float closest_approach(
         else if (tk > span)
             tk = span;
     }
-    float cx = rx + ux * tk;
-    float cy = ry + uy * tk;
-    return sqrtf(cx * cx + cy * cy) - t.rad;
+    int cx = static_cast<int>(rx + ux * tk);
+    int cy = static_cast<int>(ry + uy * tk);
+    return static_cast<float>(vector_length(cx, cy)) - t.rad;
 }
 static float   cost_enemy_dx[ENEMY_MAX];
 static float   cost_enemy_dy[ENEMY_MAX];
