@@ -164,8 +164,8 @@ void init_projectile_state(
     st->ux             = 0.0f;
     st->uy             = 0.0f;
 }
-static void character_entry(
-    const uint8_t* obj, int32_t own_gid, float mx, float my)
+static void
+character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
 {
     int32_t hp, gid, xi, yi;
     memcpy(&hp, obj + 0xc4, sizeof(hp));

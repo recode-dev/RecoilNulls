@@ -675,5 +675,5 @@ uintptr_t controller()
 {
     return client();
 }
-uintptr_t    scene_object = 0;
-uintptr_t    elem         = 0;
+uintptr_t scene_object = 0;
+uintptr_t elem         = 0;
