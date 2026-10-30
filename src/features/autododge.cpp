@@ -436,13 +436,13 @@ static float hit_time(const Threat& t,
                       float         to)
 {
     if (to <= from) return -1.0f;
-    float ux  = vx - t.vx;
-    float uy  = vy - t.vy;
-    float dur = to - from;
-    int   rx  = static_cast<int>(px - vx * from - t.x);
-    int   ry  = static_cast<int>(py - vy * from - t.y);
-    int   ex  = rx + static_cast<int>(ux * dur);
-    int   ey  = ry + static_cast<int>(uy * dur);
+    float ux    = vx - t.vx;
+    float uy    = vy - t.vy;
+    float dur   = to - from;
+    int   rx    = static_cast<int>(px - vx * from - t.x);
+    int   ry    = static_cast<int>(py - vy * from - t.y);
+    int   ex    = rx + static_cast<int>(ux * dur);
+    int   ey    = ry + static_cast<int>(uy * dur);
     int   pt[2] = {rx, ry};
     if (!game_segment_hits_circle(
             rx, ry, ex, ey, 0, 0, static_cast<int>(t.rad), pt))

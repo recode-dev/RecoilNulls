@@ -247,8 +247,8 @@ int game_tile_to_logic(int tile)
 }
 int vector_length(int x, int y)
 {
-    using len_t     = int (*)(const int*);
-    static len_t fn = nullptr;
+    using len_t       = int (*)(const int*);
+    static len_t fn   = nullptr;
     int          v[2] = {x, y};
     if (!fn) fn = reinterpret_cast<len_t>(callable(LOGICVECTOR2__GETLENGTH));
     require_method(reinterpret_cast<uintptr_t>(fn));
