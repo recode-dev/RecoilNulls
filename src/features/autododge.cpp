@@ -376,6 +376,7 @@ static int      hold_left = 0;
 static float    tgt_x = 0.0f, tgt_y = 0.0f;
 static int32_t  last_tx = 0, last_ty = 0;
 static int      last_valid = 0;
+static float    primed_x = 0.0f, primed_y = 0.0f;
 static int32_t  prev_x = 0, prev_y = 0;
 
 static float compute_edge_pull(float mx, float my, float dx, float dy)
@@ -699,6 +700,7 @@ static void reset_dodge_state()
     hold_left = 0;
     tgt_x = 0.0f, tgt_y = 0.0f;
     last_valid = 0;
+    primed_x = 0.0f, primed_y = 0.0f;
 }
 
 static void learn_character_data_vtable()
@@ -834,6 +836,12 @@ void update_autododge()
     {
         set_client_prediction_move_to(tx, ty);
         last_tx = tx, last_ty = ty;
+    }
+    if (dodge_dir_x != primed_x || dodge_dir_y != primed_y)
+    {
+        primed_x = dodge_dir_x;
+        primed_y = dodge_dir_y;
+        (void) prime_client_prediction_path(tx, ty);
     }
     if (now - sent_ms >= SEND_MS)
     {
