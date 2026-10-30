@@ -420,20 +420,18 @@ int        obj_count = 0;
 int32_t    own_x     = 0;
 int32_t    own_y     = 0;
 int        own_ok_hp = 0;
+static uintptr_t battle_instance()
+{
+    using inst_t     = uintptr_t (*)();
+    static inst_t fn = nullptr;
+    if (!fn) fn = reinterpret_cast<inst_t>(callable(BATTLEMODE__GETINSTANCE));
+    if (!fn) return 0;
+    return fn();
+}
+
 static int battle_state()
 {
-    uintptr_t slot  = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
-    int32_t   state = -1;
-    if (!slot)
-    {
-        return -1;
-    }
-    if (!read_int(slot + static_cast<uintptr_t>(GAMESTATEMANAGER__STATE),
-                  &state))
-    {
-        return -1;
-    }
-    return state;
+    return battle_instance() ? 5 : -1;
 }
 static int32_t  last_pos_x  = 0;
 static int32_t  last_pos_y  = 0;
@@ -495,19 +493,9 @@ void scan_world()
     int32_t   x          = 0;
     int32_t   y          = 0;
     int32_t   hp         = 0;
-    uintptr_t slot       = 0;
-    void*     sceneValue = nullptr;
     if (!base) return;
     state        = battle_state();
-    slot         = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
-    scene_object = 0;
-    if (slot &&
-        read_ptr(slot + static_cast<uintptr_t>(GAMESTATEMANAGER__CURRENTSTATE),
-                 &sceneValue) &&
-        sceneValue)
-    {
-        scene_object = (uintptr_t) sceneValue;
-    }
+    scene_object = battle_instance();
     if (state != 5)
     {
         world_reset();
@@ -666,35 +654,13 @@ int coord_ok = 0;
 int dead     = 0;
 int scene_live()
 {
-    uintptr_t slot  = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
-    void*     value = nullptr;
-    int32_t   state = -1;
-    if (!scene_object || !slot)
-    {
-        return 0;
-    }
-    if (!read_int(slot + GAMESTATEMANAGER__STATE, &state) || state != 5)
-    {
-        return 0;
-    }
-    if (!read_ptr(slot + GAMESTATEMANAGER__CURRENTSTATE, &value) || !value)
-    {
-        return 0;
-    }
-    return static_cast<int>((uintptr_t) value == scene_object);
+    if (!scene_object) return 0;
+    return battle_instance() == scene_object;
 }
 uintptr_t client()
 {
-    void* clientPtr = nullptr;
-    if (!scene_object || !scene_live())
-    {
-        return 0;
-    }
-    if (!read_ptr(scene_object + GAMESTATEMANAGER__CLIENT, &clientPtr))
-    {
-        return 0;
-    }
-    return (uintptr_t) clientPtr;
+    if (!scene_live()) return 0;
+    return battle_instance();
 }
 uintptr_t controller()
 {

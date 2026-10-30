@@ -4,10 +4,6 @@
 #include <cstddef>
 #include <cstdint>
 
-inline constexpr uint64_t GAMESTATEMANAGER__INSTANCE     = 0x1123e58;
-inline constexpr uint64_t GAMESTATEMANAGER__CURRENTSTATE = 0x48;
-inline constexpr uint64_t GAMESTATEMANAGER__STATE        = 0x50;
-inline constexpr uint64_t GAMESTATEMANAGER__CLIENT       = 0x28;
 
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__INPUTMANAGER      = 0x58;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28;
@@ -24,7 +20,7 @@ inline constexpr uint64_t LOGICCHARACTERDATA__GETCOLLISIONRADIUS = 0x9913e8;
 
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED      = 0x124;
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS     = 0x130;
-inline constexpr uint64_t LOGICDATA__ISPROJECTILE_VTABLESLOT = 0x48;
+inline constexpr uint64_t LOGICDATA__ISPROJECTILEVTABLESLOT = 0x48;
 
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY  = 0x20;
 inline constexpr uint64_t LOGICTILEMAP__PATHFINDER = 0x60;
