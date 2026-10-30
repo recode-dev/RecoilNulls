@@ -35,7 +35,7 @@ void vector_normalize(int* x, int* y, int scale)
     *y = v[1];
 }
 }
-int   move     = 0;
+int   move        = 0;
 float dodge_dir_x = 1.0f, dodge_dir_y = 0.0f;
 int   enemy_n            = 0;
 float enemy_x[ENEMY_MAX] = {0};
@@ -129,7 +129,7 @@ int       threat_n = 0;
 Proj      projs[PROJ_SLOTS];
 uintptr_t char_vt    = 0;
 float     self_speed = 1.0f;
-float     hitbox = 0.0f;
+float     hitbox     = 0.0f;
 }
 namespace ad
 {
@@ -228,14 +228,14 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     return false;
 }
 static void projectile_threat(const uint8_t* obj,
-                                  uintptr_t      objPtr,
-                                  uintptr_t      dataPtr,
-                                  uint64_t       now,
-                                  float          mx,
-                                  float          my,
-                                  float          zone2,
-                                  float          px,
-                                  float          py)
+                              uintptr_t      objPtr,
+                              uintptr_t      dataPtr,
+                              uint64_t       now,
+                              float          mx,
+                              float          my,
+                              float          zone2,
+                              float          px,
+                              float          py)
 {
     int32_t pid = 0;
     memcpy(&pid, obj + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(pid));
@@ -325,7 +325,7 @@ struct VtCache
     int       verdict;
 };
 static VtCache vt_cache[64] = {};
-static int data_is_projectile(uintptr_t dataPtr)
+static int     data_is_projectile(uintptr_t dataPtr)
 {
     uintptr_t vt = 0;
     if (!dataPtr || !pointer_plausible(dataPtr)) return 0;
@@ -429,8 +429,7 @@ static float compute_free_run(float mx, float my, float dx, float dy, float far)
     for (int i = 0; i < 8 && high - low > step * 0.5f; i++)
     {
         const float mid = 0.5f * (low + high);
-        if (wall_segment_clear(
-                mx, my, mx + dx * mid, my + dy * mid, hitbox))
+        if (wall_segment_clear(mx, my, mx + dx * mid, my + dy * mid, hitbox))
         {
             low = mid;
         }
@@ -660,8 +659,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
         int   steps = 0;
         float score = evaluate_dodge_direction(mx, my, dx, dy, steps);
         if (has)
-            score +=
-                hitbox * COMMIT_BONUS * (dx * commit_x + dy * commit_y);
+            score += hitbox * COMMIT_BONUS * (dx * commit_x + dy * commit_y);
         if (score > best)
         {
             best = score, best_x = dx, best_y = dy, best_steps = steps;
@@ -742,7 +740,7 @@ void reset_autododge_state()
     proj_enemy_n = 0;
     threat_n     = 0;
     char_vt      = 0;
-    hitbox   = 0.0f;
+    hitbox       = 0.0f;
     sent_ms      = 0;
     dodge_dir_x = 1.0f, dodge_dir_y = 0.0f;
     commit_x = 0.0f, commit_y = 0.0f;

@@ -121,12 +121,12 @@ static int client_input_manager_queue_is_ready(void* manager)
 int enqueue_client_input_message(int type, int x, int y)
 {
     static uintptr_t constructor_slot = 0;
-    static uintptr_t input_slot   = 0;
+    static uintptr_t input_slot       = 0;
     int32_t          coordinate_x     = x;
     int32_t          coordinate_y     = y;
     int32_t          input_type       = type;
     uintptr_t        constructor      = 0;
-    uintptr_t        input        = 0;
+    uintptr_t        input            = 0;
     void*            battle           = nullptr;
     void*            manager          = nullptr;
     void*            message          = nullptr;
@@ -154,8 +154,7 @@ int enqueue_client_input_message(int type, int x, int y)
     }
     constructor = client_input_resolve(&constructor_slot,
                                        CLIENTINPUTMESSAGE__CONSTRUCTOR);
-    input =
-        client_input_resolve(&input_slot, CLIENTINPUTMANAGER__ADDINPUT);
+    input = client_input_resolve(&input_slot, CLIENTINPUTMANAGER__ADDINPUT);
     if (!constructor || !input)
     {
         return 0;
