@@ -231,6 +231,25 @@ constexpr float    WEIGHT_EDGE       = 1600.0f;
 constexpr float    TICK_MS_SEC       = (float) ad::TICK_MS * 0.001f;
 constexpr float    SIM_T             = (float) SIM_STEPS * TICK_MS_SEC;
 }
+int ad_dir_angle_deg(float x, float y)
+{
+    return vector_angle((int) (x * 1000.0f), (int) (y * 1000.0f));
+}
+
+int ad_angle_between(int a, int b)
+{
+    int d = (a - b) % 360;
+    if (d < 0)
+    {
+        d += 360;
+    }
+    if (d >= 180)
+    {
+        d -= 360;
+    }
+    return d < 0 ? -d : d;
+}
+
 namespace ad
 {
 Threat    threats[THREAT_MAX];

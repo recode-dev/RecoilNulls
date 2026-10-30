@@ -34,8 +34,7 @@ char     log_path[1100] = {0};
 FILE*    log_file       = nullptr;
 uint64_t last_report_us = 0;
 int32_t  last_hp        = -1;
-float    last_tx        = 1.0f;
-float    last_ty        = 0.0f;
+int      last_ang       = 0;
 int      dodge_count    = 0;
 int      hit_count      = 0;
 int      match_open     = 0;
@@ -437,21 +436,17 @@ void diag_tick()
         dodge_count = 0;
         hit_count   = 0;
         last_hp     = -1;
-        last_tx     = 1.0f;
-        last_ty     = 0.0f;
+        last_ang    = 0;
     }
     if (last_hp > 0 && static_cast<int32_t>(own_hp) < last_hp) hit_count++;
     last_hp = static_cast<int32_t>(own_hp);
-    if (active && ad_dir_x * last_tx + ad_dir_y * last_ty < 0.94f)
     {
-        dodge_count++;
-    }
-    last_tx = ad_dir_x;
-    last_ty = ad_dir_y;
-    if (!active)
-    {
-        last_tx = 1.0f;
-        last_ty = 0.0f;
+        int ang = ad_dir_angle_deg(ad_dir_x, ad_dir_y);
+        if (active && ad_angle_between(ang, last_ang) > 20)
+        {
+            dodge_count++;
+        }
+        last_ang = active ? ang : 0;
     }
     {
         static uint32_t prev_ticks = 0;
