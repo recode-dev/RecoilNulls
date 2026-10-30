@@ -357,8 +357,9 @@ static int own_team_matches(int32_t team)
 {
     if (own_team_b >= 0 && team == own_team_b) return 1;
     int32_t self_team = 0;
-    if (own_elem && character_team(reinterpret_cast<const uint8_t*>(own_elem),
-                                   &self_team) &&
+    if (own_elem &&
+        character_team(reinterpret_cast<const uint8_t*>(own_elem),
+                       &self_team) &&
         team == self_team)
         return 1;
     return 0;

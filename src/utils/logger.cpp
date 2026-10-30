@@ -209,7 +209,7 @@ void validate_character_fields(uintptr_t own)
                  hp <= 1000000;
     snprintf(detail, sizeof(detail), "hp=%d", hp);
     check(hp_ok, "LOGICCHARACTER__HITPOINTS range", detail);
-    uintptr_t data = 0;
+    uintptr_t data    = 0;
     bool      team_ok = read_ptr(own + LOGICGAMEOBJECT__DATA, &data) &&
                    read_int(data + LOGICGAMEOBJECTDATA__TEAM, &team) &&
                    team >= 0 && team <= 64;
