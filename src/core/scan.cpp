@@ -264,7 +264,6 @@ int game_distance(int x1, int y1, int x2, int y2)
     return fn(x1, y1, x2, y2);
 }
 
-
 int game_segment_hits_circle(
     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
 {
