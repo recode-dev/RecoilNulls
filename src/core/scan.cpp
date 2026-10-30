@@ -187,7 +187,7 @@ void* read_global_ptr(uintptr_t rva)
 }
 int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
 {
-    using pass_t = uint8_t (*)(void*, int, int, int, int, int);
+    using pass_t     = uint8_t (*)(void*, int, int, int, int, int);
     static pass_t fn = nullptr;
     if (!fn)
     {
@@ -203,7 +203,7 @@ int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
 
 int game_tile_to_logic(int tile)
 {
-    using conv_t = int (*)(int);
+    using conv_t     = int (*)(int);
     static conv_t fn = nullptr;
     if (!fn)
     {
@@ -218,7 +218,7 @@ int game_tile_to_logic(int tile)
 
 int game_logic_to_tile(int unit)
 {
-    using conv_t = int (*)(int);
+    using conv_t     = int (*)(int);
     static conv_t fn = nullptr;
     if (!fn)
     {
@@ -233,7 +233,7 @@ int game_logic_to_tile(int unit)
 
 int game_distance(int x1, int y1, int x2, int y2)
 {
-    using dist_t = int (*)(int, int, int, int);
+    using dist_t     = int (*)(int, int, int, int);
     static dist_t fn = nullptr;
     if (!fn)
     {
@@ -249,7 +249,7 @@ int game_distance(int x1, int y1, int x2, int y2)
 
 int game_distance_sq(int x1, int y1, int x2, int y2)
 {
-    using dist_t = int (*)(int, int, int, int);
+    using dist_t     = int (*)(int, int, int, int);
     static dist_t fn = nullptr;
     if (!fn)
     {
@@ -266,7 +266,7 @@ int game_distance_sq(int x1, int y1, int x2, int y2)
 int game_segment_hits_circle(
     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
 {
-    using hit_t = int (*)(int, int, int, int, int, int, int, int*);
+    using hit_t     = int (*)(int, int, int, int, int, int, int, int*);
     static hit_t fn = nullptr;
     if (!fn)
     {
@@ -284,7 +284,7 @@ int game_projectile_travel_ticks(uintptr_t projectileData,
                                  int       distance,
                                  int       speed)
 {
-    using travel_t = int (*)(uintptr_t, int, int);
+    using travel_t     = int (*)(uintptr_t, int, int);
     static travel_t fn = nullptr;
     if (!fn)
     {

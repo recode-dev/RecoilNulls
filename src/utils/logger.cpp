@@ -24,7 +24,11 @@ const char* target_text(char* out, size_t cap)
         snprintf(out, cap, "-");
         return out;
     }
-    snprintf(out, cap, "%d,%d", static_cast<int>(ad_target_x), static_cast<int>(ad_target_y));
+    snprintf(out,
+             cap,
+             "%d,%d",
+             static_cast<int>(ad_target_x),
+             static_cast<int>(ad_target_y));
     return out;
 }
 
@@ -230,8 +234,10 @@ void validate_tilemap_fields(uintptr_t clientPtr)
     if (!tileFn) return;
     tileMap     = reinterpret_cast<uintptr_t (*)(uintptr_t)>(tileFn)(clientPtr);
     bool map_ok = pointer_plausible(tileMap);
-    snprintf(
-        detail, sizeof(detail), "map=0x%llx", static_cast<unsigned long long>(tileMap));
+    snprintf(detail,
+             sizeof(detail),
+             "map=0x%llx",
+             static_cast<unsigned long long>(tileMap));
     check(map_ok, "LOGICBATTLEMODECLIENT__GETTILEMAP", detail);
     if (!map_ok) return;
     int32_t width  = 0;
@@ -244,8 +250,10 @@ void validate_tilemap_fields(uintptr_t clientPtr)
           detail);
     uintptr_t tiles = 0;
     read_ptr(tileMap + LOGICTILEMAP__TILEARRAY, &tiles);
-    snprintf(
-        detail, sizeof(detail), "tiles=0x%llx", static_cast<unsigned long long>(tiles));
+    snprintf(detail,
+             sizeof(detail),
+             "tiles=0x%llx",
+             static_cast<unsigned long long>(tiles));
     check(pointer_plausible(tiles), "LOGICTILEMAP__TILEARRAY", detail);
 }
 
@@ -253,7 +261,10 @@ void validate_globals()
 {
     char      detail[128];
     uintptr_t slot = (uintptr_t) read_global_ptr(GAMESTATEMANAGER__INSTANCE);
-    snprintf(detail, sizeof(detail), "slot=0x%llx", static_cast<unsigned long long>(slot));
+    snprintf(detail,
+             sizeof(detail),
+             "slot=0x%llx",
+             static_cast<unsigned long long>(slot));
     check(pointer_plausible(slot), "GAMESTATEMANAGER__INSTANCE", detail);
     if (!pointer_plausible(slot)) return;
     int32_t   state   = -1;
