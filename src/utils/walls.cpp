@@ -6,16 +6,11 @@
 #include "../core/scan.h"
 
 static uintptr_t wall_map          = 0;
-static int       wall_tiles_w      = 0;
-static int       wall_tiles_h      = 0;
 static int       wall_w            = 0;
 static int       wall_h            = 0;
 static int       wall_tile_span    = 0;
 static int       wall_subtile_span = 0;
 static int       wall_have         = 0;
-static int       wall_dirty        = 1;
-static int       wall_fail_ms      = 0;
-static uint64_t  wall_next_ms      = 0;
 
 static int wall_measure_tile_span()
 {
@@ -52,54 +47,25 @@ float wall_logic_units(int tiles)
                               game_tile_to_logic(0));
 }
 
-int wall_cell_is_passable(float x, float y)
-{
-    int subX = 0;
-    int subY = 0;
-    if (!wall_subtile_of(x, y, &subX, &subY)) return 0;
-    return game_tile_is_passable(wall_map, subX, subY) ? 1 : 0;
-}
-
-int wall_cache_width()
-{
-    return wall_w;
-}
-
-int wall_cache_height()
-{
-    return wall_h;
-}
-
-void wall_cache_drop()
-{
-    wall_map     = 0;
-    wall_tiles_w = 0;
-    wall_tiles_h = 0;
-    wall_w       = 0;
-    wall_h       = 0;
-    wall_have    = 0;
-    wall_dirty   = 1;
-    wall_fail_ms = 0;
-    wall_next_ms = 0;
-}
-
 void wall_cache_bind(uintptr_t tileMap)
 {
     void*   tileArray = nullptr;
     int32_t mapW      = 0;
     int32_t mapH      = 0;
-    if (!tileMap) return;
+    if (!tileMap)
+    {
+        wall_map  = 0;
+        wall_w    = 0;
+        wall_h    = 0;
+        wall_have = 0;
+        return;
+    }
     if (tileMap != wall_map)
     {
-        wall_map     = tileMap;
-        wall_w       = 0;
-        wall_h       = 0;
-        wall_tiles_w = 0;
-        wall_tiles_h = 0;
-        wall_have    = 0;
-        wall_dirty   = 1;
-        wall_fail_ms = 0;
-        wall_next_ms = 0;
+        wall_map  = tileMap;
+        wall_w    = 0;
+        wall_h    = 0;
+        wall_have = 0;
     }
     if (!read_int(tileMap + static_cast<uintptr_t>(LOGICTILEMAP__WIDTH),
                   &mapW) ||
@@ -119,40 +85,19 @@ void wall_cache_bind(uintptr_t tileMap)
     {
         return;
     }
-    if (mapW != wall_tiles_w || mapH != wall_tiles_h)
-    {
-        wall_tiles_w = mapW;
-        wall_tiles_h = mapH;
-        wall_have    = 0;
-        wall_dirty   = 1;
-    }
+    wall_w    = mapW;
+    wall_h    = mapH;
+    wall_have = wall_measure_tile_span();
 }
 
-int wall_cache_build()
+int wall_cache_width()
 {
-    if (!wall_map || !wall_measure_tile_span()) return 0;
-    if (wall_tiles_w <= 0 || wall_tiles_w > WALL_MAX_MAP_TILES) return 0;
-    if (wall_tiles_h <= 0 || wall_tiles_h > WALL_MAX_MAP_TILES) return 0;
-    wall_w     = wall_tiles_w;
-    wall_h     = wall_tiles_h;
-    wall_have  = 1;
-    wall_dirty = 0;
-    return 1;
+    return wall_w;
 }
 
-int wall_cache_refresh_if_stale(uint64_t now_ms)
+int wall_cache_height()
 {
-    if (!wall_dirty && now_ms < wall_next_ms) return 0;
-    if (wall_fail_ms && now_ms - wall_fail_ms < WALL_RETRY_MS) return 0;
-    if (!wall_cache_build())
-    {
-        wall_dirty   = 1;
-        wall_fail_ms = now_ms;
-        wall_next_ms = 0;
-        return 0;
-    }
-    wall_next_ms = now_ms + WALL_REFRESH_MS;
-    return 1;
+    return wall_h;
 }
 
 int wall_cell_blocked_at(float x, float y)
@@ -236,10 +181,8 @@ float wall_pull(float mx, float my, float dx, float dy, float radius)
         blocked +=
             wall_cell_blocked_wide(mx + dx * d, my + dy * d, radius) ? 1 : 0;
     }
-    float pin_x =
-        static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
-    float pin_y =
-        static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
+    float pin_x  = static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
+    float pin_y  = static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
     int   pin_ix = (int) (pin_x + (pin_x < 0.0f ? -0.5f : 0.5f));
     int   pin_iy = (int) (pin_y + (pin_y < 0.0f ? -0.5f : 0.5f));
     float room   = (float) game_distance(0, 0, pin_ix, pin_iy) / reach;

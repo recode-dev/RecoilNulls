@@ -22,8 +22,6 @@ extern __thread BOOL inside_hook;
 extern uintptr_t     addr_dataname;
 BOOL                 addr_writable(uintptr_t address, size_t length);
 BOOL                 read_bytes(uintptr_t address, void* out, size_t length);
-BOOL                 memory_readable(uintptr_t address, size_t length);
-BOOL                 memory_writable(uintptr_t address, size_t length);
 BOOL      memory_protection_flags(uintptr_t address, vm_prot_t* flags);
 void      read_cache_reset();
 BOOL      pointer_plausible(uintptr_t value);
@@ -65,7 +63,9 @@ extern uint64_t    workload_us_sum;
 extern uint32_t    workload_us_max, workload_us_n;
 static inline BOOL addr_readable(uintptr_t address, size_t length)
 {
-    return memory_readable(address, length);
+    vm_prot_t flags = 0;
+    if (!length) return NO;
+    return region_flags(address, &flags) && (flags & VM_PROT_READ) ? YES : NO;
 }
 static inline BOOL addr_executable(uintptr_t address)
 {

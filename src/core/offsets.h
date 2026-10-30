@@ -16,7 +16,6 @@ inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTS     = 0x0ULL;
 inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT = 0xcULL;
 
 inline constexpr uint64_t LOGICGAMEOBJECT__DATA              = 0x10ULL;
-inline constexpr uint64_t LOGICGAMEOBJECT__DATASCANSPAN      = 0x200;
 inline constexpr uint64_t LOGICCHARACTER__GLOBALID           = 0x8ULL;
 inline constexpr uint64_t LOGICCHARACTER__X                  = 0x30ULL;
 inline constexpr uint64_t LOGICCHARACTER__Y                  = 0x34ULL;
@@ -42,7 +41,6 @@ inline constexpr uint64_t CLIENTINPUTMESSAGE__TYPE       = 0x8ULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__X          = 0xcULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__Y          = 0x10ULL;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__SIZE       = 0x48;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__PROBESIZE  = 0x80;
 inline constexpr uint64_t CLIENTINPUT__TYPECOUNT         = 0x17;
 
 inline constexpr uint64_t BATTLEMODE__GETINSTANCE                 = 0x8c5130ULL;

@@ -10,9 +10,6 @@ static int   client_input_message_is_valid(void* memory, size_t size);
 static void* client_input_battle_instance();
 static void* client_input_manager_of_battle(void* battle);
 static int   client_input_manager_queue_is_ready(void* manager);
-static int   client_input_layout_probe(uintptr_t constructor);
-
-static int client_input_layout_confirmed = 0;
 
 uintptr_t callable_at_rva(uintptr_t rva)
 {
@@ -85,35 +82,6 @@ void* allocate_client_input_message()
     }
     memset(memory, 0, CLIENTINPUTMESSAGE__SIZE);
     return memory;
-}
-
-static int client_input_layout_probe(uintptr_t constructor)
-{
-    void*   probe        = malloc(CLIENTINPUTMESSAGE__PROBESIZE);
-    int32_t type         = 0;
-    int32_t coordinate_x = 0;
-    int32_t coordinate_y = 0;
-    int     matches      = 0;
-    if (!probe)
-    {
-        return 0;
-    }
-    memset(probe, 0, CLIENTINPUTMESSAGE__PROBESIZE);
-    reinterpret_cast<void (*)(void*, int)>(constructor)(
-        probe, ClientInputMessageTypeMove);
-    memcpy(&type,
-           static_cast<const uint8_t*>(probe) + CLIENTINPUTMESSAGE__TYPE,
-           sizeof(type));
-    memcpy(&coordinate_x,
-           static_cast<const uint8_t*>(probe) + CLIENTINPUTMESSAGE__X,
-           sizeof(coordinate_x));
-    memcpy(&coordinate_y,
-           static_cast<const uint8_t*>(probe) + CLIENTINPUTMESSAGE__Y,
-           sizeof(coordinate_y));
-    matches = type == ClientInputMessageTypeMove && coordinate_x == 0 &&
-              coordinate_y == 0;
-    free(probe);
-    return matches;
 }
 
 static void* client_input_battle_instance()
@@ -205,14 +173,6 @@ int enqueue_client_input_message(int type, int x, int y)
     if (!constructor || !add_input)
     {
         return 0;
-    }
-    if (!client_input_layout_confirmed)
-    {
-        if (!client_input_layout_probe(constructor))
-        {
-            return 0;
-        }
-        client_input_layout_confirmed = 1;
     }
     if (!client_input_manager_queue_is_ready(manager))
     {

@@ -16,8 +16,6 @@ namespace
 {
 constexpr long long LOG_MAX_BYTES = 4000000;
 constexpr uint64_t  REPORT_US     = 1000000;
-constexpr uint64_t  FAST_TRACE_US = 50000;
-constexpr uint64_t  IDLE_TRACE_US = 500000;
 
 const char* target_text(char* out, size_t cap)
 {
@@ -321,27 +319,9 @@ void maybe_validate()
 
 const char* dir_name(int dir)
 {
-    switch (dir)
-    {
-    case 0:
-        return "+x";
-    case 1:
-        return "+x+y";
-    case 2:
-        return "+y";
-    case 3:
-        return "-x+y";
-    case 4:
-        return "-x";
-    case 5:
-        return "-x-y";
-    case 6:
-        return "-y";
-    case 7:
-        return "+x-y";
-    default:
-        return "none";
-    }
+    static const char* names[] = {
+        "+x", "+x+y", "+y", "-x+y", "-x", "-x-y", "-y", "+x-y"};
+    return dir >= 0 && dir < 8 ? names[dir] : "none";
 }
 
 void diag_tick()
@@ -354,69 +334,6 @@ void diag_tick()
     if (!open_log()) return;
     maybe_validate();
     now_us = us();
-    if (base && own_elem && !dead)
-    {
-        static uint64_t last_fast = 0;
-        uint64_t        prev = __atomic_load_n(&last_fast, __ATOMIC_RELAXED);
-        bool            busy =
-            ad::threat_n || active || ad_hold_ms || ad_urgent || ad_human;
-        uint64_t period = busy ? FAST_TRACE_US : IDLE_TRACE_US;
-        bool     slot   = !prev || now_us - prev >= period;
-        if (slot && !__atomic_compare_exchange_n(&last_fast,
-                                                 &prev,
-                                                 now_us,
-                                                 false,
-                                                 __ATOMIC_RELAXED,
-                                                 __ATOMIC_RELAXED))
-            slot = false;
-        if (slot)
-        {
-            char buf[2048];
-            int  n = snprintf(buf,
-                             sizeof(buf),
-                             "[f] t=%llu p=%d,%d v=%d d=%.3f,%.3f tgt=%s n=%d "
-                              "h=%d u=%d hm=%d",
-                             (unsigned long long) (now_us / 1000),
-                             own_x,
-                             own_y,
-                             (int) (own_speed + 0.5f),
-                             ad_dir_x,
-                             ad_dir_y,
-                             target_text(target_buf, sizeof(target_buf)),
-                             ad::threat_n,
-                             ad_hold_ms,
-                             ad_urgent,
-                             ad_human);
-            for (int i = 0;
-                 i < ad::threat_n && n > 0 && n < (int) sizeof(buf) - 48;
-                 i++)
-            {
-                n += snprintf(buf + n,
-                              sizeof(buf) - (size_t) n,
-                              ";%d,%d,%d,%d,%d",
-                              (int) ad::threats[i].x,
-                              (int) ad::threats[i].y,
-                              (int) ad::threats[i].vx,
-                              (int) ad::threats[i].vy,
-                              (int) ad::threats[i].rad);
-            }
-            if (n > 0 && n < (int) sizeof(buf) - 2)
-            {
-                static char last_state[2048];
-                const char* state = strstr(buf, " p=");
-                buf[n++]          = '\n';
-                buf[n]            = '\0';
-                if (!state || strcmp(last_state, state) != 0)
-                {
-                    if (state)
-                    {
-                        snprintf(last_state, sizeof(last_state), "%s", state);
-                    }
-                    line("%s", buf);
-                }
-            }
-        }
-    }
     if (last_report_us && now_us - last_report_us < REPORT_US) return;
     last_report_us = now_us;
     if (!base || !own_elem || dead)
@@ -497,12 +414,8 @@ void diag_tick()
          own_aim,
          target_text(target_buf, sizeof(target_buf)),
          ad_human,
-         ad_proj_move,
-         ad_proj_sample,
          ad_pass_own,
          ad_windup_n);
-    ad_proj_move   = 0;
-    ad_proj_sample = 0;
     for (int i = 0; i < ad_threat_n && i < AD_REPORT_MAX; i++)
     {
         line("[t%d] %s pid=%d p=(%.0f,%.0f) v=(%.0f,%.0f) r=%.0f d=%.0f "
@@ -519,22 +432,7 @@ void diag_tick()
              ad_threat_ca[i],
              ad_threat_ttc[i]);
     }
-    if (ad_hit_dmg > 0 && !ad_hit_act && ad_hit_n == 0)
-    {
-        static uint64_t last_env_us = 0;
-        if (!last_env_us || now_us - last_env_us >= 2000000)
-        {
-            last_env_us = now_us;
-            line("[env] dmg=%d hp=%u p=(%d,%d)\n",
-                 ad_hit_dmg,
-                 own_hp,
-                 ad_hit_x,
-                 ad_hit_y);
-        }
-        ad_hit_dmg    = 0;
-        ad_hit_picked = 0;
-    }
-    else if (ad_hit_dmg > 0)
+    if (ad_hit_dmg > 0)
     {
         char buf[256];
         int  len = snprintf(buf,
@@ -545,10 +443,6 @@ void diag_tick()
                            ad_hit_n,
                            ad_hit_x,
                            ad_hit_y);
-        if (ad_hit_picked < 1 && len > 0)
-        {
-            snprintf(buf + len, sizeof(buf) - (size_t) len, " | unresolved");
-        }
         for (int i = 0; i < ad_hit_picked && i < AD_REPORT_MAX; i++)
         {
             if (len <= 0 || len >= (int) sizeof(buf) - 40) break;

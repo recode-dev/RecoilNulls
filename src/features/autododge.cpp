@@ -9,19 +9,6 @@
 
 namespace
 {
-int math_sqrt(int value)
-{
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICMATH__SQRT);
-    }
-    if (!slot)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int (*)(int)>(slot)(value);
-}
 
 int vector_dot(int ax, int ay, int bx, int by)
 {
@@ -80,11 +67,21 @@ float math_distance_to_line(
                                           static_cast<int>(by + 0.5f),
                                           static_cast<int>(px + 0.5f),
                                           static_cast<int>(py + 0.5f));
+    static uintptr_t sqrt_slot = 0;
     if (sq < 1)
     {
         sq = 1;
     }
-    return static_cast<float>(math_sqrt(sq));
+    if (!sqrt_slot)
+    {
+        sqrt_slot = callable_at_rva(LOGICMATH__SQRT);
+    }
+    if (!sqrt_slot)
+    {
+        return 0.0f;
+    }
+    return static_cast<float>(
+        reinterpret_cast<int (*)(int)>(sqrt_slot)(sq));
 }
 
 int32_t object_x(uintptr_t object)
@@ -167,7 +164,6 @@ float    ad_dir_x = 1.0f, ad_dir_y = 0.0f;
 int      ad_hold_ms = 0, ad_urgent = 0;
 int      ad_ind_n       = 0;
 int      ad_pass_own    = 0;
-uint32_t ad_proj_sample = 0, ad_proj_move = 0;
 int32_t  ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
 int      ad_best_dir = -1;
 int      ad_char_n = 0, ad_proj_n = 0, ad_enemy_n = 0, ad_threat_n = 0;
@@ -410,18 +406,13 @@ static void add_character_entry(
 
 static uintptr_t find_projectile_data_asset(uintptr_t objPtr)
 {
+    uintptr_t data = 0;
+    uintptr_t vt   = 0;
     if (!objPtr) return 0;
-    for (uintptr_t off = LOGICGAMEOBJECT__DATA;
-         off < LOGICGAMEOBJECT__DATASCANSPAN;
-         off += sizeof(uintptr_t))
-    {
-        uintptr_t v = 0, vt = 0;
-        if (!read_ptr(objPtr + off, &v)) break;
-        if (!v || !pointer_plausible(v)) continue;
-        if (!read_ptr(v, &vt) || vt < base) continue;
-        if (vt - base == LOGICPROJECTILEDATA__VTABLE) return v;
-    }
-    return 0;
+    if (!read_ptr(objPtr + LOGICGAMEOBJECT__DATA, &data)) return 0;
+    if (!data || !pointer_plausible(data)) return 0;
+    if (!read_ptr(data, &vt) || vt < base) return 0;
+    return vt - base == LOGICPROJECTILEDATA__VTABLE ? data : 0;
 }
 
 static float world_extent_x = 0.0f;
@@ -478,8 +469,6 @@ static void add_projectile_threat(const uint8_t* obj,
     float step_x = px - st->x, step_y = py - st->y;
     float step =
         (float) game_distance((int) st->x, (int) st->y, (int) px, (int) py);
-    ad_proj_sample++;
-    if (step > 1.0f) ad_proj_move++;
     int32_t dataSpeed = projectile_speed(st->data);
     if (dataSpeed > 50 && dataSpeed < 20000)
     {
@@ -634,10 +623,6 @@ static float    move_dx = 0.0f, move_dy = 0.0f;
 static uint64_t human_ms = 0;
 static int32_t  prev_x = 0, prev_y = 0;
 static uint32_t last_hp = 0;
-static float    compute_edge_margin()
-{
-    return own_hitbox + BORDER_PAD;
-}
 static float compute_edge_pull(float mx, float my, float dx, float dy)
 {
     float w    = wall_logic_units(wall_cache_width());
@@ -653,7 +638,7 @@ static float compute_edge_pull(float mx, float my, float dx, float dy)
 static float compute_free_run(float mx, float my, float dx, float dy, float far)
 {
     float run = far;
-    float em  = compute_edge_margin();
+    float em  = (own_hitbox + BORDER_PAD);
     float w   = wall_logic_units(wall_cache_width());
     float h   = wall_logic_units(wall_cache_height());
     if (dx > 1e-6f)
@@ -687,7 +672,7 @@ static void simulate_position(float  mx,
 {
     float delay = (float) MOVE_DELAY_TICKS * TICK_MS_SEC;
     float coast = tk < delay ? tk : delay;
-    float em    = compute_edge_margin();
+    float em    = (own_hitbox + BORDER_PAD);
     ax          = mx + move_dx * self_speed * coast;
     ay          = my + move_dy * self_speed * coast;
     if (tk > delay)
@@ -805,8 +790,8 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
     float far  = self_speed * SIM_T;
     float run  = compute_free_run(mx, my, dx, dy, far);
     float room = run >= far ? 1.0f : run / far;
-    float w    = wall_logic_units(wall_cache_width()) - compute_edge_margin();
-    float h    = wall_logic_units(wall_cache_height()) - compute_edge_margin();
+    float w    = wall_logic_units(wall_cache_width()) - (own_hitbox + BORDER_PAD);
+    float h    = wall_logic_units(wall_cache_height()) - (own_hitbox + BORDER_PAD);
     float mx_step = dx * self_speed, my_step = dy * self_speed;
     float step_time[SIM_STEPS + 1];
     float step_x[SIM_STEPS + 1];
@@ -1084,14 +1069,14 @@ void update_autododge()
         choose_dodge_direction(mx, my, dir_x, dir_y);
     }
     fill_autododge_report(mx, my, dir_x, dir_y);
-    ad_pass_own = wall_cell_is_passable(mx, my);
+    ad_pass_own = !wall_cell_blocked_at(mx, my);
     float fx = mx + dir_x * REACH, fy = my + dir_y * REACH;
     for (int k = 0; k < 3 && !wall_path_clear(mx, my, fx, fy); k++)
     {
         fx = mx + (fx - mx) * 0.5f;
         fy = my + (fy - my) * 0.5f;
     }
-    float em   = compute_edge_margin();
+    float em   = (own_hitbox + BORDER_PAD);
     float wu   = wall_logic_units(wall_cache_width()),
           hu   = wall_logic_units(wall_cache_height());
     float lo_x = em < wu * 0.5f ? em : wu * 0.5f;

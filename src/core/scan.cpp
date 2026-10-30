@@ -122,18 +122,6 @@ BOOL read_int(uintptr_t address, int32_t* out)
     }
     return read_bytes(address, out, 4);
 }
-BOOL writable(uintptr_t address, size_t length)
-{
-    return range_allows(address, length, GUM_PAGE_WRITE);
-}
-BOOL memory_readable(uintptr_t address, size_t length)
-{
-    return range_allows(address, length, GUM_PAGE_READ);
-}
-BOOL memory_writable(uintptr_t address, size_t length)
-{
-    return range_allows(address, length, GUM_PAGE_WRITE);
-}
 BOOL memory_protection_flags(uintptr_t address, vm_prot_t* flags)
 {
     if (!address || !flags || !gum_live)
@@ -446,7 +434,7 @@ static void     world_reset()
     scene_object = 0;
     own_team_b   = -1;
     last_pos_us  = 0;
-    wall_cache_drop();
+    wall_cache_bind(0);
     reset_autododge_state();
 }
 static void track_own_speed()
@@ -477,24 +465,6 @@ static void track_own_speed()
     last_pos_x  = own_x;
     last_pos_y  = own_y;
     last_pos_us = now_us;
-}
-static void tilemap_tick(uintptr_t clientPtr)
-{
-    static uint64_t last_us   = 0;
-    uint64_t        now_us    = us();
-    uintptr_t       tileMapFn = 0;
-    uintptr_t       tileMap   = 0;
-    if (last_us && now_us - last_us < 5000000)
-    {
-        return;
-    }
-    last_us   = now_us;
-    tileMapFn = callable(LOGICBATTLEMODECLIENT__GETTILEMAP);
-    tileMap   = tileMapFn ? call(tileMapFn, clientPtr) : 0;
-    if (pointer_plausible(tileMap))
-    {
-        wall_cache_bind(tileMap);
-    }
 }
 void scan_world()
 {
@@ -613,9 +583,11 @@ void scan_world()
     own_team_b = static_cast<int32_t>(
         call(callable(LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM), clientPtr));
     track_own_speed();
-    tilemap_tick(clientPtr);
-    wall_cache_refresh_if_stale(
-        static_cast<uint64_t>(g_get_real_time() / 1000));
+    if (clientPtr)
+    {
+        wall_cache_bind(
+            call(callable(LOGICBATTLEMODECLIENT__GETTILEMAP), clientPtr));
+    }
 }
 uint32_t workload_ticks = 0;
 void     run_workload()
