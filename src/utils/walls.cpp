@@ -183,16 +183,16 @@ int wall_segment_clear(float ax, float ay, float bx, float by, float radius)
 {
     if (!wall_have || wall_subtile_span <= 0) return 1;
     float len = sqrtf((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
-    float nx  = 0.0f, ny = 0.0f;
+    float nx = 0.0f, ny = 0.0f;
     if (len > 0.5f && radius > 0.0f)
     {
         nx = -(by - ay) / len * radius;
         ny = (bx - ax) / len * radius;
     }
     const float lanes[3] = {0.0f, 1.0f, -1.0f};
-    for (int i = 0; i < 3; i++)
+    for (float lane : lanes)
     {
-        float ox = nx * lanes[i], oy = ny * lanes[i];
+        float ox = nx * lane, oy = ny * lane;
         if (!game_path_clear(wall_map,
                              wall_grid_x(ax + ox),
                              wall_grid_y(ay + oy),

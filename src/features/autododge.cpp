@@ -406,8 +406,7 @@ static float compute_free_run(float mx, float my, float dx, float dy, float far)
     else if (dy < -1e-6f)
         run = fminf(run, (em - my) / dy);
     if (run <= 0.0f) return 0.0f;
-    if (wall_segment_clear(
-            mx, my, mx + dx * run, my + dy * run, own_hitbox))
+    if (wall_segment_clear(mx, my, mx + dx * run, my + dy * run, own_hitbox))
     {
         return run;
     }
@@ -431,12 +430,12 @@ static float compute_free_run(float mx, float my, float dx, float dy, float far)
 }
 
 static float hit_time(const Threat& t,
-                      float        px,
-                      float        py,
-                      float        vx,
-                      float        vy,
-                      float        from,
-                      float        to)
+                      float         px,
+                      float         py,
+                      float         vx,
+                      float         vy,
+                      float         from,
+                      float         to)
 {
     if (to <= from) return -1.0f;
     float rx = px - vx * from - t.x;
@@ -580,17 +579,17 @@ static float compute_thrust_penalty(float dx, float dy)
 static float
 evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
 {
-    const float far   = frame_geom.far;
-    float       run   = compute_free_run(mx, my, dx, dy, far);
-    float       room  = run >= far ? 1.0f : run / far;
-    const float delay = static_cast<float>(MOVE_DELAY_TICKS) * TICK_MS_SEC;
-    const float coast = delay < SIM_T ? delay : SIM_T;
-    float       vdx   = dx * self_speed;
-    float       vdy   = dy * self_speed;
-    float       vcx   = move_dx * self_speed;
-    float       vcy   = move_dy * self_speed;
-    float       bx    = mx + vcx * coast;
-    float       by    = my + vcy * coast;
+    const float far     = frame_geom.far;
+    float       run     = compute_free_run(mx, my, dx, dy, far);
+    float       room    = run >= far ? 1.0f : run / far;
+    const float delay   = static_cast<float>(MOVE_DELAY_TICKS) * TICK_MS_SEC;
+    const float coast   = delay < SIM_T ? delay : SIM_T;
+    float       vdx     = dx * self_speed;
+    float       vdy     = dy * self_speed;
+    float       vcx     = move_dx * self_speed;
+    float       vcy     = move_dy * self_speed;
+    float       bx      = mx + vcx * coast;
+    float       by      = my + vcy * coast;
     float       margin  = 1e30f;
     int         survive = SIM_STEPS + 1;
     for (int i = 0; i < threat_n; i++)

@@ -31,8 +31,7 @@ BOOL      read_ptr(uintptr_t address, uintptr_t* out);
 void*     read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 int       game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY);
-int       game_path_clear(
-          uintptr_t tileMap, int x0, int y0, int x1, int y1);
+int       game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1);
 int       game_tile_to_logic(int tile);
 int       game_projectile_travel_ticks(uintptr_t projectileData,
                                        int       distance,

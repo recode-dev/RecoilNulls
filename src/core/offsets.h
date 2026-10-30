@@ -30,8 +30,8 @@ inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE = 0xff3b18;
 
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY  = 0x20;
 inline constexpr uint64_t LOGICTILEMAP__PATHFINDER = 0x60;
-inline constexpr uint64_t LOGICTILEMAP__WIDTH  = 0xc4;
-inline constexpr uint64_t LOGICTILEMAP__HEIGHT = 0xc8;
+inline constexpr uint64_t LOGICTILEMAP__WIDTH      = 0xc4;
+inline constexpr uint64_t LOGICTILEMAP__HEIGHT     = 0xc8;
 
 inline constexpr uint64_t LOGICPATHFINDER__TILEMAP     = 0x10;
 inline constexpr uint64_t LOGICPATHFINDER__ISCLEARPATH = 0xafb06c;
