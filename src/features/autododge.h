@@ -8,7 +8,6 @@ extern int           enemy_n;
 extern float         enemy_x[ENEMY_MAX];
 extern float         enemy_y[ENEMY_MAX];
 extern float         enemy_d[ENEMY_MAX];
-extern int           windup_n;
 int32_t              projectile_radius(uintptr_t data);
 int32_t              projectile_speed(uintptr_t data);
 int32_t              character_collision_radius(uintptr_t data);

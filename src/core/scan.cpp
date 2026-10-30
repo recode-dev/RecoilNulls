@@ -577,8 +577,10 @@ void scan_world()
         return;
     }
     own_elem = own;
-    if (read_int(own + static_cast<uintptr_t>(LOGICCHARACTER__X), &x) &&
-        read_int(own + static_cast<uintptr_t>(LOGICCHARACTER__Y), &y))
+    if (read_int(
+            own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETX), &x) &&
+        read_int(
+            own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETY), &y))
     {
         own_x    = x;
         own_y    = y;

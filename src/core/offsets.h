@@ -15,21 +15,16 @@ inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28;
 inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTS     = 0x0;
 inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT = 0xc;
 
-inline constexpr uint64_t LOGICGAMEOBJECT__DATA    = 0x10;
-inline constexpr uint64_t LOGICCHARACTER__GLOBALID = 0x8;
-inline constexpr uint64_t LOGICCHARACTER__X        = 0x30;
-inline constexpr uint64_t LOGICCHARACTER__Y        = 0x34;
+inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETDATA     = 0x10;
+inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETGLOBALID = 0x8;
+inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETX        = 0x30;
+inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETY        = 0x34;
 
-inline constexpr uint64_t LOGICCHARACTER__GETCOLLISIONRADIUS         = 0x9913e8;
-inline constexpr uint64_t LOGICCHARACTER__MOVETOWITHCLIENTPREDICTION = 0x9fe350;
-inline constexpr uint64_t LOGICCHARACTER__PREDICTIONTICKSTART        = 0x28;
-inline constexpr uint64_t LOGICCHARACTER__PREDICTIONTICKEND          = 0x2c;
-inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS = 0x30c;
-inline constexpr uint64_t LOGICCHARACTER__CHARGEUPMODE                = 0x310;
+inline constexpr uint64_t LOGICCHARACTERDATA__GETCOLLISIONRADIUS = 0x9913e8;
 
-inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED             = 0x124;
-inline constexpr uint64_t LOGICPROJECTILEDATA__RADIUS            = 0x130;
-inline constexpr uint64_t LOGICPROJECTILEDATA__ISPROJECTILE_SLOT = 0x48;
+inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED      = 0x124;
+inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS     = 0x130;
+inline constexpr uint64_t LOGICDATA__ISPROJECTILE_VTABLESLOT = 0x48;
 
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY  = 0x20;
 inline constexpr uint64_t LOGICTILEMAP__PATHFINDER = 0x60;
@@ -45,13 +40,13 @@ inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETOWNCHARACTER  = 0xac3934;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM = 0xa7f47c;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO =
     0xac3a58;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__CONSTRUCTOR       = 0xa95798;
-inline constexpr uint64_t CLIENTINPUTMANAGER__ADDINPUT          = 0x74675c;
-inline constexpr uint64_t LOGICTILEMAP__ISPASSABLEPATHFINDER    = 0x942ebc;
-inline constexpr uint64_t LOGICTILEMAP__TILETOLOGIC             = 0x943040;
-inline constexpr uint64_t LOGICTILEMAP__ISPLAYERLINEOFSIGHT     = 0x943b34;
-inline constexpr uint64_t LOGICVECTOR2__NORMALIZE               = 0xbd0794;
-inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN = 0xaf6838;
+inline constexpr uint64_t CLIENTINPUTMESSAGE__CONSTRUCTOR        = 0xa95798;
+inline constexpr uint64_t CLIENTINPUTMANAGER__ADDINPUT           = 0x74675c;
+inline constexpr uint64_t LOGICTILEMAP__ISPASSABLEPATHFINDER     = 0x942ebc;
+inline constexpr uint64_t LOGICTILEMAP__TILETOLOGIC              = 0x943040;
+inline constexpr uint64_t LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR = 0x943b34;
+inline constexpr uint64_t LOGICVECTOR2__NORMALIZE                = 0xbd0794;
+inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN  = 0xaf6838;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE =
     0xaf53c4;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN =

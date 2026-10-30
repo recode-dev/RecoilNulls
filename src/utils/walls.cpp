@@ -140,7 +140,7 @@ int wall_line_of_sight_clear(float ax, float ay, float bx, float by)
 {
     static uintptr_t slot = 0;
     if (!wall_map) return 1;
-    if (!slot) slot = callable(LOGICTILEMAP__ISPLAYERLINEOFSIGHT);
+    if (!slot) slot = callable(LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR);
     if (!slot) return 1;
     using los_t = int (*)(uintptr_t, int, int, int, int, int, int, int, int);
     return reinterpret_cast<los_t>(slot)(wall_map,

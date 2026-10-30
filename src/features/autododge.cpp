@@ -42,7 +42,6 @@ int   enemy_n            = 0;
 float enemy_x[ENEMY_MAX] = {0};
 float enemy_y[ENEMY_MAX] = {0};
 float enemy_d[ENEMY_MAX] = {0};
-int   windup_n           = 0;
 
 namespace
 {
@@ -78,7 +77,7 @@ int32_t projectile_radius(uintptr_t data)
 {
     int32_t radius = 0;
     if (!data) return 0;
-    if (!read_int(data + LOGICPROJECTILEDATA__RADIUS, &radius)) return 0;
+    if (!read_int(data + LOGICPROJECTILEDATA__GETRADIUS, &radius)) return 0;
     return radius;
 }
 
@@ -86,7 +85,7 @@ int32_t projectile_speed(uintptr_t data)
 {
     int32_t speed = 0;
     if (!data) return 0;
-    if (!read_int(data + LOGICPROJECTILEDATA__SPEED, &speed)) return 0;
+    if (!read_int(data + LOGICPROJECTILEDATA__GETSPEED, &speed)) return 0;
     return speed;
 }
 
@@ -95,7 +94,7 @@ int32_t character_collision_radius(uintptr_t data)
     static uintptr_t slot = 0;
     if (!slot)
     {
-        slot = callable_at_rva(LOGICCHARACTER__GETCOLLISIONRADIUS);
+        slot = callable_at_rva(LOGICCHARACTERDATA__GETCOLLISIONRADIUS);
     }
     if (!slot || !data)
     {
@@ -176,7 +175,6 @@ static int own_team_matches(int32_t team)
 }
 
 static void add_character_entry(const uint8_t* obj,
-                                uintptr_t      objPtr,
                                 uintptr_t      dataPtr,
                                 int32_t        own_gid,
                                 float          mx,
@@ -185,21 +183,16 @@ static void add_character_entry(const uint8_t* obj,
     int32_t team, hp, gid, xi, yi;
     if (!object_team(dataPtr, &team)) return;
     memcpy(&hp, obj + 0xc4, sizeof(hp));
-    memcpy(&gid, obj + LOGICCHARACTER__GLOBALID, sizeof(gid));
-    memcpy(&xi, obj + LOGICCHARACTER__X, sizeof(xi));
-    memcpy(&yi, obj + LOGICCHARACTER__Y, sizeof(yi));
+    memcpy(&gid, obj + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(gid));
+    memcpy(&xi, obj + LOGICGAMEOBJECTCLIENT__GETX, sizeof(xi));
+    memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
     if (own_team_matches(team) || hp <= 0 || gid <= 0 || gid == own_gid) return;
     if (enemy_n >= ENEMY_MAX) return;
     int   k  = enemy_n++;
     float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
-    enemy_x[k]         = static_cast<float>(xi);
-    enemy_y[k]         = static_cast<float>(yi);
-    enemy_d[k]         = fast_len(ex, ey);
-    int32_t charge     = 0;
-    int32_t chargeMode = 0;
-    read_int(objPtr + LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS, &charge);
-    read_int(objPtr + LOGICCHARACTER__CHARGEUPMODE, &chargeMode);
-    if (chargeMode == 1 && charge > 0 && enemy_d[k] <= CLOSE_R) windup_n++;
+    enemy_x[k] = static_cast<float>(xi);
+    enemy_y[k] = static_cast<float>(yi);
+    enemy_d[k] = fast_len(ex, ey);
 }
 
 static float world_extent_x = 0.0f;
@@ -219,8 +212,8 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     if (w <= 0.0f || h <= 0.0f) return false;
     int32_t xi = 0;
     int32_t yi = 0;
-    memcpy(&xi, obj + LOGICCHARACTER__X, sizeof(xi));
-    memcpy(&yi, obj + LOGICCHARACTER__Y, sizeof(yi));
+    memcpy(&xi, obj + LOGICGAMEOBJECTCLIENT__GETX, sizeof(xi));
+    memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
     if (static_cast<float>(xi) >= -300.0f &&
         static_cast<float>(yi) >= -300.0f &&
         static_cast<float>(xi) <= w + 300.0f &&
@@ -244,7 +237,7 @@ static void add_projectile_threat(const uint8_t* obj,
                                   float          py)
 {
     int32_t pid = 0;
-    memcpy(&pid, obj + LOGICCHARACTER__GLOBALID, sizeof(pid));
+    memcpy(&pid, obj + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(pid));
     int32_t key = pid;
     if (key <= 0)
         key =
@@ -327,7 +320,7 @@ static int data_is_projectile(uintptr_t dataPtr)
     if (!read_ptr(dataPtr, &vt) || vt < base) return 0;
     using fn_t = int (*)(uintptr_t);
     fn_t fn =
-        reinterpret_cast<fn_t>(vt + LOGICPROJECTILEDATA__ISPROJECTILE_SLOT);
+        reinterpret_cast<fn_t>(vt + LOGICDATA__ISPROJECTILE_VTABLESLOT);
     return fn(dataPtr);
 }
 
@@ -345,7 +338,7 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         if (!obj_valid[i]) continue;
         const uint8_t* obj     = obj_block[i];
         uintptr_t      dataPtr = 0;
-        memcpy(&dataPtr, obj + LOGICGAMEOBJECT__DATA, sizeof(dataPtr));
+        memcpy(&dataPtr, obj + LOGICGAMEOBJECTCLIENT__GETDATA, sizeof(dataPtr));
         uintptr_t vt = 0;
         if (dataPtr && pointer_plausible(dataPtr) && read_ptr(dataPtr, &vt) &&
             vt >= base)
@@ -354,7 +347,7 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         }
         if (char_vt && obj_rva[i] == char_vt)
         {
-            add_character_entry(obj, obj_snapshot[i], dataPtr, own_gid, mx, my);
+            add_character_entry(obj, dataPtr, own_gid, mx, my);
             continue;
         }
         if (!data_is_projectile(dataPtr)) continue;
@@ -382,7 +375,6 @@ static int      hold_left = 0;
 static float    tgt_x = 0.0f, tgt_y = 0.0f;
 static int32_t  last_tx = 0, last_ty = 0;
 static int      last_valid = 0;
-static float    primed_x = 0.0f, primed_y = 0.0f;
 static int32_t  prev_x = 0, prev_y = 0;
 
 static float compute_edge_pull(float mx, float my, float dx, float dy)
@@ -633,22 +625,28 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     prepare_direction_costs(mx, my);
     float cand_x[64];
     float cand_y[64];
-    int   n = 0;
-    for (int i = 0; i < threat_n && n + 3 < 64; i++)
+    int   candidate_count = 0;
+    for (int i = 0; i < threat_n && candidate_count + 3 < 64; i++)
     {
         const Threat& t = threats[i];
-        cand_x[n] = mx - t.x, cand_y[n] = my - t.y, n++;
-        cand_x[n] = -t.vy, cand_y[n] = t.vx, n++;
-        cand_x[n] = t.vy, cand_y[n] = -t.vx, n++;
+        cand_x[candidate_count] = mx - t.x;
+        cand_y[candidate_count] = my - t.y;
+        candidate_count++;
+        cand_x[candidate_count] = -t.vy, cand_y[candidate_count] = t.vx;
+        candidate_count++;
+        cand_x[candidate_count] = t.vy, cand_y[candidate_count] = -t.vx;
+        candidate_count++;
     }
-    if (has && n < 64)
+    if (has && candidate_count < 64)
     {
-        cand_x[n] = commit_x, cand_y[n] = commit_y, n++;
+        cand_x[candidate_count] = commit_x;
+        cand_y[candidate_count] = commit_y;
+        candidate_count++;
     }
-    float best = -1e30f;
-    float bx = 0.0f, by = 0.0f;
+    float best       = -1e30f;
+    float best_x     = 0.0f, best_y = 0.0f;
     int   best_steps = 0;
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < candidate_count; i++)
     {
         float dx = cand_x[i], dy = cand_y[i];
         float len = static_cast<float>(
@@ -656,33 +654,33 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
         if (len < 1.0f) continue;
         dx /= len, dy /= len;
         int   steps = 0;
-        float v     = evaluate_dodge_direction(mx, my, dx, dy, steps);
+        float score = evaluate_dodge_direction(mx, my, dx, dy, steps);
         if (has)
-            v += own_hitbox * COMMIT_BONUS * (dx * commit_x + dy * commit_y);
-        if (v > best)
+            score +=
+                own_hitbox * COMMIT_BONUS * (dx * commit_x + dy * commit_y);
+        if (score > best)
         {
-            best = v, bx = dx, by = dy, best_steps = steps;
+            best = score, best_x = dx, best_y = dy, best_steps = steps;
         }
     }
     if (has)
     {
-        int   cur = 0;
-        float cur_val =
-            evaluate_dodge_direction(mx, my, commit_x, commit_y, cur) +
-            own_hitbox * COMMIT_BONUS;
-        bool better = best_steps > cur;
+        int   current_steps = 0;
+        float current_value = evaluate_dodge_direction(
+                                  mx, my, commit_x, commit_y, current_steps) +
+                              own_hitbox * COMMIT_BONUS;
+        bool better = best_steps > current_steps;
         bool walled =
             better &&
             compute_free_run(mx, my, commit_x, commit_y, frame_geom.far) <
                 own_hitbox * 2.0f;
-        bool gain      = best > cur_val + own_hitbox * SWITCH_GAIN;
-        bool windup    = windup_n > 0;
-        bool turned    = (bx * commit_x + by * commit_y) < SWITCH_ALIGN;
-        bool switch_ok = walled || windup || (gain && turned && hold_left <= 0);
+        bool gain   = best > current_value + own_hitbox * SWITCH_GAIN;
+        bool turned = (best_x * commit_x + best_y * commit_y) < SWITCH_ALIGN;
+        bool switch_ok = walled || (gain && turned && hold_left <= 0);
         if (!switch_ok)
         {
-            bx = commit_x;
-            by = commit_y;
+            best_x = commit_x;
+            best_y = commit_y;
             if (hold_left > 0) hold_left--;
         }
         else
@@ -694,9 +692,9 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     {
         hold_left = HOLD_TICKS;
     }
-    dodge_dir_x = bx, dodge_dir_y = by;
-    commit_x = bx, commit_y = by;
-    out_x = bx, out_y = by;
+    dodge_dir_x = best_x, dodge_dir_y = best_y;
+    commit_x = best_x, commit_y = best_y;
+    out_x = best_x, out_y = best_y;
 }
 }
 
@@ -706,7 +704,6 @@ static void reset_dodge_state()
     hold_left = 0;
     tgt_x = 0.0f, tgt_y = 0.0f;
     last_valid = 0;
-    primed_x = 0.0f, primed_y = 0.0f;
 }
 
 static void learn_character_data_vtable()
@@ -714,7 +711,7 @@ static void learn_character_data_vtable()
     void* data = nullptr;
     void* vt   = nullptr;
     if (char_vt || !base || !own_elem) return;
-    if (!read_ptr(own_elem + LOGICGAMEOBJECT__DATA, &data) || !data ||
+    if (!read_ptr(own_elem + LOGICGAMEOBJECTCLIENT__GETDATA, &data) || !data ||
         !pointer_plausible((uintptr_t) data))
         return;
     if (!read_ptr((uintptr_t) data, &vt) || !vt) return;
@@ -727,7 +724,7 @@ static void learn_own_hitbox()
     void*   data = nullptr;
     int32_t r    = 0;
     if (!base || !own_elem) return;
-    if (!read_ptr(own_elem + LOGICGAMEOBJECT__DATA, &data) || !data ||
+    if (!read_ptr(own_elem + LOGICGAMEOBJECTCLIENT__GETDATA, &data) || !data ||
         !pointer_plausible((uintptr_t) data))
         return;
     r = character_collision_radius((uintptr_t) data);
@@ -740,7 +737,6 @@ static void learn_own_hitbox()
 void reset_autododge_state()
 {
     enemy_n     = 0;
-    windup_n    = 0;
     threat_n    = 0;
     char_vt     = 0;
     own_hitbox  = 0.0f;
@@ -755,7 +751,6 @@ void reset_autododge_state()
 void update_autododge()
 {
     enemy_n  = 0;
-    windup_n = 0;
     threat_n = 0;
     if (!base || !own_elem || dead || !coord_ok)
     {
@@ -771,7 +766,7 @@ void update_autododge()
         return;
     }
     int32_t own_gid = 0;
-    read_int(own_elem + LOGICCHARACTER__GLOBALID, &own_gid);
+    read_int(own_elem + LOGICGAMEOBJECTCLIENT__GETGLOBALID, &own_gid);
     self_speed = own_speed > 1.0f ? own_speed : 1.0f;
     cache_frame_geom();
     uint64_t now = us() / 1000;
@@ -796,7 +791,7 @@ void update_autododge()
             move_dy = 0.0f;
         }
     }
-    if (!threat_n && !windup_n)
+    if (!threat_n)
     {
         reset_dodge_state();
         return;
@@ -841,12 +836,6 @@ void update_autododge()
     {
         set_client_prediction_move_to(tx, ty);
         last_tx = tx, last_ty = ty;
-    }
-    if (dodge_dir_x != primed_x || dodge_dir_y != primed_y)
-    {
-        primed_x = dodge_dir_x;
-        primed_y = dodge_dir_y;
-        (void) prime_client_prediction_path(tx, ty);
     }
     if (now - sent_ms >= SEND_MS)
     {
