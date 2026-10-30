@@ -545,13 +545,13 @@ void scan_world()
         own_hp = 0;
     }
     dead = (ok_hp && own_hp == 0) ? 1 : 0;
-    }
-    track_own_speed();
-    if (clientPtr)
-    {
-        wall_cache_bind(
-            call(callable(LOGICBATTLEMODECLIENT__GETTILEMAP), clientPtr));
-    }
+}
+track_own_speed();
+if (clientPtr)
+{
+    wall_cache_bind(
+        call(callable(LOGICBATTLEMODECLIENT__GETTILEMAP), clientPtr));
+}
 }
 void workload()
 {
@@ -632,7 +632,8 @@ int is_owned_by_own_team(uintptr_t obj)
     int32_t   own_team = 0;
     int32_t   team     = 0;
     if (!battle) return 0;
-    if (!read_int(battle + static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__OWNTEAM),
+    if (!read_int(battle +
+                      static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__OWNTEAM),
                   &own_team))
     {
         return 0;
@@ -675,5 +676,5 @@ uintptr_t controller()
 {
     return client();
 }
-uintptr_t scene_object = 0;
+uintptr_t    scene_object = 0;
 intuintptr_t elem         = 0;
