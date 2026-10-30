@@ -5,19 +5,13 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-
 namespace
 {
-
 static float fast_len(float x, float y)
 {
     return static_cast<float>(
         game_distance(0, 0, static_cast<int>(x), static_cast<int>(y)));
 }
-
-// The engine has no standalone Vector2::normalize in this build (it is
-// inlined), so the per-mille direction is computed here: (x, y) becomes a
-// vector of length `scale`.
 void vector_normalize(int* x, int* y, int scale)
 {
     if (!x || !y)
@@ -36,16 +30,13 @@ void vector_normalize(int* x, int* y, int scale)
     *x = static_cast<int>(std::lround(vx * static_cast<double>(scale) / len));
     *y = static_cast<int>(std::lround(vy * static_cast<double>(scale) / len));
 }
-
 }
-
 int   in_move     = 0;
 float dodge_dir_x = 1.0f, dodge_dir_y = 0.0f;
 int   enemy_n            = 0;
 float enemy_x[ENEMY_MAX] = {0};
 float enemy_y[ENEMY_MAX] = {0};
 float enemy_d[ENEMY_MAX] = {0};
-
 namespace
 {
 constexpr float    REACH            = 300.0f;
@@ -73,9 +64,7 @@ constexpr float    EDGE_ZONE        = 300.0f;
 constexpr float    WEIGHT_EDGE      = 1600.0f;
 constexpr float    TICK_MS_SEC      = static_cast<float>(ad::TICK_MS) * 0.001f;
 constexpr float    SIM_T = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
-
 }
-
 int32_t projectile_radius(uintptr_t data)
 {
     int32_t radius = 0;
@@ -83,7 +72,6 @@ int32_t projectile_radius(uintptr_t data)
     if (!read_int(data + LOGICPROJECTILEDATA__GETRADIUS, &radius)) return 0;
     return radius;
 }
-
 int32_t projectile_speed(uintptr_t data)
 {
     int32_t speed = 0;
@@ -91,7 +79,6 @@ int32_t projectile_speed(uintptr_t data)
     if (!read_int(data + LOGICPROJECTILEDATA__GETSPEED, &speed)) return 0;
     return speed;
 }
-
 int32_t character_collision_radius(uintptr_t data)
 {
     static uintptr_t slot = 0;
@@ -105,7 +92,6 @@ int32_t character_collision_radius(uintptr_t data)
     }
     return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
 }
-
 namespace ad
 {
 struct FrameGeom
@@ -113,7 +99,6 @@ struct FrameGeom
     float w, h, em, step, far;
 };
 static FrameGeom frame_geom;
-
 static void cache_frame_geom()
 {
     frame_geom.w    = wall_logic_units(wall_cache_width());
@@ -122,7 +107,6 @@ static void cache_frame_geom()
     frame_geom.em   = own_hitbox + BORDER_PAD;
     frame_geom.far  = self_speed * SIM_T;
 }
-
 Threat    threats[THREAT_MAX];
 int       threat_n = 0;
 Proj      projs[PROJ_SLOTS];
@@ -130,7 +114,6 @@ uintptr_t char_vt    = 0;
 float     self_speed = 1.0f;
 float     own_hitbox = 0.0f;
 }
-
 namespace ad
 {
 Proj* find_projectile_entry(int32_t pid)
@@ -149,7 +132,6 @@ Proj* find_projectile_entry(int32_t pid)
     }
     return spare ? spare : stale;
 }
-
 void init_projectile_state(
     Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
 {
@@ -165,18 +147,15 @@ void init_projectile_state(
     st->ux             = 0.0f;
     st->uy             = 0.0f;
 }
-
 static int object_team(uintptr_t data, int32_t* out)
 {
     if (!pointer_plausible(data)) return 0;
     return read_int(data + 0x40, out) ? 1 : 0;
 }
-
 static int own_team_matches(int32_t team)
 {
     return static_cast<int>(own_team_b >= 0 && team == own_team_b);
 }
-
 static void add_character_entry(
     const uint8_t* obj, uintptr_t dataPtr, int32_t own_gid, float mx, float my)
 {
@@ -194,17 +173,14 @@ static void add_character_entry(
     enemy_y[k] = static_cast<float>(yi);
     enemy_d[k] = fast_len(ex, ey);
 }
-
 static float world_extent_x = 0.0f;
 static float world_extent_y = 0.0f;
-
 static void refresh_world_extents()
 {
     float unit     = wall_logic_units(1);
     world_extent_x = static_cast<float>(wall_cache_width()) * unit;
     world_extent_y = static_cast<float>(wall_cache_height()) * unit;
 }
-
 static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
 {
     float w = world_extent_x;
@@ -225,7 +201,6 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     }
     return false;
 }
-
 static void add_projectile_threat(const uint8_t* obj,
                                   uintptr_t      objPtr,
                                   uintptr_t      dataPtr,
@@ -312,23 +287,18 @@ static void add_projectile_threat(const uint8_t* obj,
     t.rad = rad;
     t.tt  = tt;
 }
-
 static int data_is_projectile(uintptr_t dataPtr)
 {
     uintptr_t vt = 0;
     uintptr_t fn = 0;
     if (!dataPtr || !pointer_plausible(dataPtr)) return 0;
     if (!read_ptr(dataPtr, &vt) || vt < base) return 0;
-    // the constant is a vtable SLOT byte offset, not a function address:
-    // read the slot, then call the pointer it holds
     if (!read_ptr(vt + LOGICDATA__ISPROJECTILE, &fn)) return 0;
     if (!addr_executable(fn)) return 0;
     using fn_t = int (*)(uintptr_t);
     return reinterpret_cast<fn_t>(fn)(dataPtr);
 }
-
 static uintptr_t obj_rva[COUNT_MAX];
-
 void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
 {
     refresh_world_extents();
@@ -360,14 +330,12 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
             obj, obj_snapshot[i], dataPtr, now, mx, my, zone2, px, py);
     }
 }
-
 void evict_stale_projectiles(uint64_t now)
 {
     for (auto& proj : projs)
         if (proj.pid && now - proj.seen > PROJ_TTL_MS) proj.pid = 0;
 }
 }
-
 using namespace ad;
 namespace
 {
@@ -379,7 +347,6 @@ static float    tgt_x = 0.0f, tgt_y = 0.0f;
 static int32_t  last_tx = 0, last_ty = 0;
 static int      last_valid = 0;
 static int32_t  prev_x = 0, prev_y = 0;
-
 static float compute_edge_pull(float mx, float my, float dx, float dy)
 {
     float w    = frame_geom.w;
@@ -392,7 +359,6 @@ static float compute_edge_pull(float mx, float my, float dx, float dy)
     if (my > h - zone) pen += dy * (my - (h - zone)) / zone;
     return pen;
 }
-
 static float compute_free_run(float mx, float my, float dx, float dy, float far)
 {
     float run = far;
@@ -430,7 +396,6 @@ static float compute_free_run(float mx, float my, float dx, float dy, float far)
     }
     return low;
 }
-
 static float hit_time(const Threat& t,
                       float         px,
                       float         py,
@@ -463,7 +428,6 @@ static float hit_time(const Threat& t,
     float hit = lo < from ? from : lo;
     return hit < to ? hit : -1.0f;
 }
-
 static float closest_approach(
     const Threat& t, float px, float py, float vx, float vy, float span)
 {
@@ -485,19 +449,16 @@ static float closest_approach(
     float cy = ry + uy * tk;
     return sqrtf(cx * cx + cy * cy) - t.rad;
 }
-
 static float cost_enemy_dx[ENEMY_MAX];
 static float cost_enemy_dy[ENEMY_MAX];
 static float cost_enemy_dist[ENEMY_MAX];
 static int   cost_enemy_count = 0;
-
 static float   cost_threat_rx[THREAT_MAX];
 static float   cost_threat_ry[THREAT_MAX];
 static float   cost_threat_ux[THREAT_MAX];
 static float   cost_threat_uy[THREAT_MAX];
 static uint8_t cost_threat_moving[THREAT_MAX];
 static int     cost_threat_count = 0;
-
 static void prepare_direction_costs(float mx, float my)
 {
     cost_enemy_count = enemy_n < ENEMY_MAX ? enemy_n : ENEMY_MAX;
@@ -532,7 +493,6 @@ static void prepare_direction_costs(float mx, float my)
         }
     }
 }
-
 static float compute_nearest_away(float dx, float dy)
 {
     float best = 1e30f, dot = 0.0f;
@@ -545,7 +505,6 @@ static float compute_nearest_away(float dx, float dy)
     }
     return best < 1e29f ? -dot : 0.0f;
 }
-
 static float compute_enemy_approach(float dx, float dy)
 {
     float worst = 0.0f;
@@ -561,7 +520,6 @@ static float compute_enemy_approach(float dx, float dy)
     }
     return worst;
 }
-
 static float compute_thrust_penalty(float dx, float dy)
 {
     float worst = 0.0f;
@@ -577,7 +535,6 @@ static float compute_thrust_penalty(float dx, float dy)
     }
     return worst;
 }
-
 static float
 evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
 {
@@ -620,7 +577,6 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
            WEIGHT_EDGE * compute_edge_pull(mx, my, dx, dy) -
            own_hitbox * wall_pull(mx, my, dx, dy, own_hitbox);
 }
-
 static void
 choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
 {
@@ -700,7 +656,6 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     out_x = best_x, out_y = best_y;
 }
 }
-
 static void reset_dodge_state()
 {
     dodge_dir_x = 0.0f, dodge_dir_y = 0.0f;
@@ -708,7 +663,6 @@ static void reset_dodge_state()
     tgt_x = 0.0f, tgt_y = 0.0f;
     last_valid = 0;
 }
-
 static void learn_character_data_vtable()
 {
     void* data = nullptr;
@@ -721,7 +675,6 @@ static void learn_character_data_vtable()
     if (data_is_projectile((uintptr_t) data)) return;
     char_vt = (uintptr_t) vt - base;
 }
-
 static void learn_own_hitbox()
 {
     void*   data = nullptr;
@@ -736,7 +689,6 @@ static void learn_own_hitbox()
     if (tile > 0.0f && static_cast<float>(r) >= tile) return;
     own_hitbox = static_cast<float>(r);
 }
-
 void reset_autododge_state()
 {
     enemy_n     = 0;
@@ -750,7 +702,6 @@ void reset_autododge_state()
         p = Proj{};
     reset_dodge_state();
 }
-
 void update_autododge()
 {
     enemy_n  = 0;

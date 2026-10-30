@@ -1,16 +1,12 @@
 #include "commands.h"
-
 #include <cstdlib>
 #include <cstring>
-
 #include "offsets.h"
 #include "scan.h"
-
 static int   client_input_message_is_valid(void* memory, size_t size);
 static void* client_input_battle_instance();
 static void* client_input_manager_of_battle(void* battle);
 static int   client_input_manager_queue_is_ready(void* manager);
-
 uintptr_t callable_at_rva(uintptr_t rva)
 {
     if (!base || !rva)
@@ -23,7 +19,6 @@ uintptr_t callable_at_rva(uintptr_t rva)
     }
     return base + rva;
 }
-
 static int client_input_function_is_callable(uintptr_t address)
 {
     if (!address)
@@ -36,7 +31,6 @@ static int client_input_function_is_callable(uintptr_t address)
     }
     return addr_executable(address) ? 1 : 0;
 }
-
 static uintptr_t client_input_resolve(uintptr_t* slot, uintptr_t rva)
 {
     if (!*slot)
@@ -49,7 +43,6 @@ static uintptr_t client_input_resolve(uintptr_t* slot, uintptr_t rva)
     }
     return *slot;
 }
-
 static int client_input_message_is_valid(void* memory, size_t size)
 {
     uintptr_t address = reinterpret_cast<uintptr_t>(memory);
@@ -71,7 +64,6 @@ static int client_input_message_is_valid(void* memory, size_t size)
     }
     return 1;
 }
-
 void* allocate_client_input_message()
 {
     void* memory = malloc(0x48);
@@ -83,7 +75,6 @@ void* allocate_client_input_message()
     memset(memory, 0, 0x48);
     return memory;
 }
-
 static void* client_input_battle_instance()
 {
     static uintptr_t slot = 0;
@@ -94,7 +85,6 @@ static void* client_input_battle_instance()
     }
     return reinterpret_cast<void* (*) ()>(function)();
 }
-
 static void* client_input_manager_of_battle(void* battle)
 {
     void* manager = nullptr;
@@ -114,7 +104,6 @@ static void* client_input_manager_of_battle(void* battle)
     }
     return manager;
 }
-
 static int client_input_manager_queue_is_ready(void* manager)
 {
     void* queue = nullptr;
@@ -129,7 +118,6 @@ static int client_input_manager_queue_is_ready(void* manager)
     }
     return 1;
 }
-
 int enqueue_client_input_message(int type, int x, int y)
 {
     static uintptr_t constructor_slot = 0;
@@ -198,7 +186,6 @@ int enqueue_client_input_message(int type, int x, int y)
     reinterpret_cast<void (*)(void*, void*)>(add_input)(manager, message);
     return 1;
 }
-
 int enqueue_move_input_with_type(int x, int y, int type)
 {
     if (!enqueue_client_input_message(type, x, y))
@@ -211,12 +198,10 @@ int enqueue_move_input_with_type(int x, int y, int type)
     }
     return 1;
 }
-
 int enqueue_move_input(int x, int y)
 {
     return enqueue_move_input_with_type(x, y, ClientInputMessageTypeMove);
 }
-
 int set_client_prediction_move_to(int x, int y)
 {
     static uintptr_t slot              = 0;

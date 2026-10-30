@@ -99,12 +99,10 @@ static void require_method(uintptr_t fn)
 {
     if (!fn) __builtin_trap();
 }
-
 static void require_object(uintptr_t value)
 {
     if (!value) __builtin_trap();
 }
-
 BOOL pointer_plausible(uintptr_t value)
 {
     if (value < 0x100000000ULL || value >= 0x00007fffffffffffULL)
@@ -192,16 +190,12 @@ int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
     require_object(tileMap);
     return fn(reinterpret_cast<void*>(tileMap), 1, cellX, cellY, 0, 0);
 }
-
 static uintptr_t path_finder(uintptr_t tileMap)
 {
     static uintptr_t cached_map = 0;
     static uintptr_t cached_pf  = 0;
     void*            back       = nullptr;
     if (!tileMap) return 0;
-    // a cache hit is only good while the pathfinder still points back at this
-    // very tilemap: heap addresses are recycled when a battle is torn down,
-    // and a stale pathfinder has a null tilemap slot (crash at [+0xc4])
     if (tileMap == cached_map && cached_pf &&
         read_ptr(cached_pf + LOGICPATHFINDER__TILEMAP, &back) &&
         back == reinterpret_cast<void*>(tileMap))
@@ -226,7 +220,6 @@ static uintptr_t path_finder(uintptr_t tileMap)
     cached_pf  = reinterpret_cast<uintptr_t>(pf);
     return cached_pf;
 }
-
 int game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1)
 {
     using clear_t = uint32_t (*)(void*, int, int, int, int, int, int, int, int);
@@ -237,11 +230,10 @@ int game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1)
     }
     require_method(reinterpret_cast<uintptr_t>(fn));
     uintptr_t pf = path_finder(tileMap);
-    if (!pf) return 0;  // map not bound yet / torn down: report blocked
+    if (!pf) return 0;
     return static_cast<int>(
         fn(reinterpret_cast<void*>(pf), 1, x0, y0, x1, y1, 0, 1, 0));
 }
-
 int game_tile_to_logic(int tile)
 {
     using conv_t     = int (*)(int);
@@ -253,7 +245,6 @@ int game_tile_to_logic(int tile)
     require_method(reinterpret_cast<uintptr_t>(fn));
     return fn(tile);
 }
-
 int game_distance(int x1, int y1, int x2, int y2)
 {
     using dist_t     = int (*)(int, int, int, int);
@@ -266,7 +257,6 @@ int game_distance(int x1, int y1, int x2, int y2)
     require_method(reinterpret_cast<uintptr_t>(fn));
     return fn(x1, y1, x2, y2);
 }
-
 int game_segment_hits_circle(
     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
 {
@@ -280,7 +270,6 @@ int game_segment_hits_circle(
     require_method(reinterpret_cast<uintptr_t>(fn));
     return fn(x1, y1, x2, y2, cx, cy, radius, out);
 }
-
 int game_projectile_travel_ticks(uintptr_t projectileData,
                                  int       distance,
                                  int       speed)
@@ -296,7 +285,6 @@ int game_projectile_travel_ticks(uintptr_t projectileData,
     require_object(projectileData);
     return fn(projectileData, distance, speed);
 }
-
 uintptr_t callable(uintptr_t rva)
 {
     if (!base || !rva)
@@ -410,7 +398,6 @@ static uintptr_t battle_instance()
     if (!fn) return 0;
     return fn();
 }
-
 static int32_t  last_pos_x  = 0;
 static int32_t  last_pos_y  = 0;
 static uint64_t last_pos_us = 0;
@@ -637,8 +624,6 @@ uintptr_t client()
 {
     void* value = nullptr;
     if (!scene_object || !scene_live()) return 0;
-    // scene + 0x28 holds the LogicBattleModeClient; the client itself carries
-    // the game object manager at its own +0x28
     if (!read_ptr(scene_object +
                       static_cast<uintptr_t>(LOGICBATTLEMODE__CLIENT),
                   &value) ||

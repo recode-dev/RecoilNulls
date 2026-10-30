@@ -1,17 +1,13 @@
 #include "walls.h"
-
 #include <cmath>
-
 #include "../core/offsets.h"
 #include "../core/scan.h"
-
 static uintptr_t wall_map          = 0;
 static int       wall_w            = 0;
 static int       wall_h            = 0;
 static int       wall_tile_span    = 0;
 static int       wall_subtile_span = 0;
 static int       wall_have         = 0;
-
 static int wall_measure_tile_span()
 {
     int span = game_tile_to_logic(1) - game_tile_to_logic(0);
@@ -21,7 +17,6 @@ static int wall_measure_tile_span()
     wall_subtile_span = span / WALL_SUBTILES_PER_TILE;
     return 1;
 }
-
 static int wall_subtile_of(float x, float y, int* outX, int* outY)
 {
     int subX = 0;
@@ -39,14 +34,12 @@ static int wall_subtile_of(float x, float y, int* outX, int* outY)
     if (outY) *outY = subY;
     return 1;
 }
-
 float wall_logic_units(int tiles)
 {
     if (wall_tile_span > 0) return static_cast<float>(tiles * wall_tile_span);
     return static_cast<float>(game_tile_to_logic(tiles) -
                               game_tile_to_logic(0));
 }
-
 void wall_cache_bind(uintptr_t tileMap)
 {
     void*   tileArray = nullptr;
@@ -89,17 +82,14 @@ void wall_cache_bind(uintptr_t tileMap)
     wall_h    = mapH;
     wall_have = wall_measure_tile_span();
 }
-
 int wall_cache_width()
 {
     return wall_w;
 }
-
 int wall_cache_height()
 {
     return wall_h;
 }
-
 int wall_cell_blocked_at(float x, float y)
 {
     int subX = 0;
@@ -107,7 +97,6 @@ int wall_cell_blocked_at(float x, float y)
     if (!wall_subtile_of(x, y, &subX, &subY)) return 0;
     return game_tile_is_passable(wall_map, subX, subY) ? 0 : 1;
 }
-
 int wall_cell_blocked_wide(float x, float y, float r)
 {
     int lowX  = 0;
@@ -135,7 +124,6 @@ int wall_cell_blocked_wide(float x, float y, float r)
     }
     return 0;
 }
-
 int wall_line_of_sight_clear(float ax, float ay, float bx, float by)
 {
     static uintptr_t slot = 0;
@@ -154,13 +142,11 @@ int wall_line_of_sight_clear(float ax, float ay, float bx, float by)
                                          0) &
            1;
 }
-
 int wall_path_clear(float ax, float ay, float bx, float by)
 {
     if (!wall_have) return 1;
     return wall_line_of_sight_clear(ax, ay, bx, by);
 }
-
 static int wall_grid_x(float x)
 {
     int limit = wall_w * WALL_SUBTILES_PER_TILE - 1;
@@ -169,7 +155,6 @@ static int wall_grid_x(float x)
     if (cell > limit) return limit;
     return cell;
 }
-
 static int wall_grid_y(float y)
 {
     int limit = wall_h * WALL_SUBTILES_PER_TILE - 1;
@@ -178,7 +163,6 @@ static int wall_grid_y(float y)
     if (cell > limit) return limit;
     return cell;
 }
-
 int wall_segment_clear(float ax, float ay, float bx, float by, float radius)
 {
     if (!wall_have || wall_subtile_span <= 0) return 1;
@@ -205,7 +189,6 @@ int wall_segment_clear(float ax, float ay, float bx, float by, float radius)
     }
     return 1;
 }
-
 int32_t axis(float v, int tiles)
 {
     float limit = wall_logic_units(tiles) - 1.0f;
@@ -213,7 +196,6 @@ int32_t axis(float v, int tiles)
     if (v > limit) return static_cast<int32_t>(limit);
     return static_cast<int32_t>(roundf(v));
 }
-
 float wall_pull(float mx, float my, float dx, float dy, float radius)
 {
     constexpr int WALL_PROBES = 3;
