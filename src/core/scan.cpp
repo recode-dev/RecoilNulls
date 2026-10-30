@@ -545,7 +545,6 @@ void scan_world()
         own_hp = 0;
     }
     dead = (ok_hp && own_hp == 0) ? 1 : 0;
-}
 track_own_speed();
 if (clientPtr)
 {
