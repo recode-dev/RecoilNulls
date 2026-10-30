@@ -639,7 +639,8 @@ uintptr_t client()
     if (!scene_object || !scene_live()) return 0;
     // scene + 0x28 holds the LogicBattleModeClient; the client itself carries
     // the game object manager at its own +0x28
-    if (!read_ptr(scene_object + static_cast<uintptr_t>(LOGICBATTLEMODE__CLIENT),
+    if (!read_ptr(scene_object +
+                      static_cast<uintptr_t>(LOGICBATTLEMODE__CLIENT),
                   &value) ||
         !value)
     {
