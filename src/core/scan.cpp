@@ -5,17 +5,14 @@
 #include <cstdint>
 #include <cmath>
 #include <cstring>
-#include <cstdio>
 #include "../features/autododge.h"
 #include "../utils/walls.h"
 #include "offsets.h"
 #include "scan.h"
-#include "scstring.h"
 #include <frida-gum.h>
 const char*               image_name       = "Nulls Brawl";
 BOOL                      setup_done       = NO;
 __thread BOOL             inside_hook      = NO;
-uintptr_t                 addr_dataname    = 0;
 inline constexpr int      PAGE_CACHE_SLOTS = 256;
 static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
 static __thread uint8_t   page_cache_prot[PAGE_CACHE_SLOTS];
@@ -589,13 +586,10 @@ void scan_world()
             call(callable(LOGICBATTLEMODECLIENT__GETTILEMAP), clientPtr));
     }
 }
-uint32_t workload_ticks = 0;
-void     run_workload()
+void run_workload()
 {
-    workload_ticks++;
     scan_world();
     run_autododge();
-    diag_tick();
 }
 void run_autododge()
 {
@@ -607,11 +601,8 @@ void run_autododge()
     update_autododge();
     in_move = 0;
 }
-static constexpr uint64_t TICK_US         = 50000;
-static constexpr uint64_t SCAN_PERIOD_US  = TICK_US / 6;
-uint64_t                  workload_us_sum = 0;
-uint32_t                  workload_us_max = 0;
-uint32_t                  workload_us_n   = 0;
+static constexpr uint64_t TICK_US        = 50000;
+static constexpr uint64_t SCAN_PERIOD_US = TICK_US / 6;
 static void               scan_frame()
 {
     if (inside_hook)
@@ -620,12 +611,7 @@ static void               scan_frame()
     }
     inside_hook = YES;
     read_cache_reset();
-    uint64_t t0 = us();
     run_workload();
-    uint64_t spent = us() - t0;
-    workload_us_sum += spent;
-    if (spent > workload_us_max) workload_us_max = static_cast<uint32_t>(spent);
-    workload_us_n++;
     inside_hook = NO;
 }
 static dispatch_source_t scan_timer = nullptr;
@@ -654,18 +640,8 @@ void setup()
     {
         return;
     }
-    resolve_addresses();
     start_scan_timer();
-    diag_tick();
     setup_done = YES;
-}
-void resolve_addresses()
-{
-    if (!base)
-    {
-        return;
-    }
-    addr_dataname = callable(LOGICDATA__GETNAME);
 }
 int coord_ok = 0;
 int dead     = 0;

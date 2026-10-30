@@ -1,52 +1,14 @@
 #ifndef FEATURES_AUTODODGE_AUTODODGE_H
 #define FEATURES_AUTODODGE_AUTODODGE_H
 #include <cstdint>
-inline constexpr int AD_REPORT_MAX = 3;
-inline constexpr int AD_ENEMY_MAX  = 4;
+inline constexpr int ENEMY_MAX = 4;
 extern int           in_move;
-extern int           active;
-extern int           ad_human;
-extern int           ad_pass_own;
-extern float         ad_dir_x, ad_dir_y;
-extern int32_t       ad_target_x;
-extern int32_t       ad_target_y;
-extern int           ad_best_dir;
-int                  dir_angle_deg(float x, float y);
-int                  angle_delta(int a, int b);
-extern int           ad_char_n;
-extern int           ad_proj_n;
-extern int           ad_enemy_n;
-extern int           ad_threat_n;
-extern int           ad_threat_pid[AD_REPORT_MAX];
-extern float         ad_threat_x[AD_REPORT_MAX];
-extern float         ad_threat_y[AD_REPORT_MAX];
-extern float         ad_threat_vx[AD_REPORT_MAX];
-extern float         ad_threat_vy[AD_REPORT_MAX];
-extern float         ad_threat_r[AD_REPORT_MAX];
-extern float         ad_threat_d[AD_REPORT_MAX];
-extern float         ad_threat_ttc[AD_REPORT_MAX];
-extern char          ad_threat_name[AD_REPORT_MAX][40];
-extern int           ad_hit_dmg, ad_hit_act, ad_hit_n, ad_hit_x, ad_hit_y;
-extern int           ad_hit_picked;
-extern float         ad_hit_ca[AD_REPORT_MAX];
-extern float         ad_hit_ttc[AD_REPORT_MAX];
-extern float         ad_hit_r[AD_REPORT_MAX];
-extern float         ad_threat_ca[AD_REPORT_MAX];
-extern int32_t       ad_pj_pid[AD_REPORT_MAX];
-extern float         ad_pj_x[AD_REPORT_MAX];
-extern float         ad_pj_y[AD_REPORT_MAX];
-extern float         ad_pj_vx[AD_REPORT_MAX];
-extern float         ad_pj_vy[AD_REPORT_MAX];
-extern float         ad_pj_sp[AD_REPORT_MAX];
-extern float         ad_pj_r[AD_REPORT_MAX];
-extern int           ad_pj_vel[AD_REPORT_MAX];
-extern int           ad_windup_n;
-extern int           ad_enemy_pid[AD_ENEMY_MAX];
-extern float         ad_enemy_x[AD_ENEMY_MAX];
-extern float         ad_enemy_y[AD_ENEMY_MAX];
-extern int           ad_enemy_hp[AD_ENEMY_MAX];
-extern float         ad_enemy_d[AD_ENEMY_MAX];
-extern int           ad_enemy_aim[AD_ENEMY_MAX];
+extern float         dodge_dir_x, dodge_dir_y;
+extern int           enemy_n;
+extern float         enemy_x[ENEMY_MAX];
+extern float         enemy_y[ENEMY_MAX];
+extern float         enemy_d[ENEMY_MAX];
+extern int           windup_n;
 int32_t              projectile_radius(uintptr_t data);
 int32_t              projectile_speed(uintptr_t data);
 int32_t              character_collision_radius(uintptr_t data);
@@ -64,7 +26,6 @@ struct Threat
 {
     float   x, y, vx, vy, rad, tt;
     int32_t pid;
-    char    name[40];
 };
 struct Proj
 {
@@ -73,23 +34,13 @@ struct Proj
     uintptr_t data;
     float     x, y, ux, uy, speed, rad;
     bool      vel;
-    char      name[40];
 };
 extern Threat    threats[THREAT_MAX];
 extern int       threat_n;
 extern Proj      projs[PROJ_SLOTS];
 extern uintptr_t char_vt;
 extern float     self_speed;
-extern int       pend_dmg;
 void             evict_stale_projectiles(uint64_t now);
-int              find_live_projectile(uintptr_t* objOut,
-                                      uintptr_t* dataOut,
-                                      float*     px,
-                                      float*     py);
 void  collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my);
-float compute_threat_clearance(
-    float mx, float my, float dx, float dy, const Threat& t);
-void report_incoming_hit(float mx, float my, float dx, float dy);
-void fill_autododge_report(float mx, float my, float dx, float dy);
-}
+}  // namespace ad
 #endif

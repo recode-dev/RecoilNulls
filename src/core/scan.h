@@ -19,7 +19,6 @@ extern uintptr_t     base;
 extern const char*   image_name;
 extern BOOL          setup_done;
 extern __thread BOOL inside_hook;
-extern uintptr_t     addr_dataname;
 BOOL                 addr_writable(uintptr_t address, size_t length);
 BOOL                 read_bytes(uintptr_t address, void* out, size_t length);
 BOOL      memory_protection_flags(uintptr_t address, vm_prot_t* flags);
@@ -56,10 +55,7 @@ static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
     }
     return YES;
 }
-extern int         gum_live;
-extern uint32_t    workload_ticks;
-extern uint64_t    workload_us_sum;
-extern uint32_t    workload_us_max, workload_us_n;
+extern int gum_live;
 static inline BOOL addr_readable(uintptr_t address, size_t length)
 {
     vm_prot_t flags = 0;
@@ -134,7 +130,6 @@ void                 scan_world();
 void                 run_workload();
 void                 setup();
 void                 run_autododge();
-void                 diag_tick();
 extern uintptr_t     scene_object;
 int                  scene_live();
 int                  game_distance(int x1, int y1, int x2, int y2);
@@ -144,7 +139,6 @@ int                  game_segment_hits_circle(
 extern int       coord_ok;
 extern int       dead;
 extern uintptr_t own_elem;
-void             resolve_addresses();
 uintptr_t        client();
 uintptr_t        controller();
 extern int       own_team_b;
