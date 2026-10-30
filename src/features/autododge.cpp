@@ -320,8 +320,18 @@ static void add_projectile_threat(const uint8_t* obj,
     t.tt  = tt;
 }
 
+static int data_is_projectile(uintptr_t dataPtr)
+{
+    uintptr_t vt = 0;
+    if (!dataPtr || !pointer_plausible(dataPtr)) return 0;
+    if (!read_ptr(dataPtr, &vt) || vt < base) return 0;
+    using fn_t = int (*)(uintptr_t);
+    fn_t fn =
+        reinterpret_cast<fn_t>(vt + LOGICPROJECTILEDATA__ISPROJECTILE_SLOT);
+    return fn(dataPtr);
+}
+
 static uintptr_t obj_rva[COUNT_MAX];
-static int       data_is_projectile(uintptr_t dataPtr);
 
 void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
 {
@@ -699,16 +709,6 @@ static void reset_dodge_state()
     primed_x = 0.0f, primed_y = 0.0f;
 }
 
-static int data_is_projectile(uintptr_t dataPtr)
-{
-    uintptr_t vt = 0;
-    if (!dataPtr || !pointer_plausible(dataPtr)) return 0;
-    if (!read_ptr(dataPtr, &vt) || vt < base) return 0;
-    using fn_t = int (*)(uintptr_t);
-    fn_t fn =
-        reinterpret_cast<fn_t>(vt + LOGICPROJECTILEDATA__ISPROJECTILE_SLOT);
-    return fn(dataPtr);
-}
 
 static void learn_character_data_vtable()
 {
