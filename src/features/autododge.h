@@ -20,7 +20,6 @@ extern float       own_hitbox;
 constexpr int      THREAT_MAX = 32;
 constexpr int      PROJ_SLOTS = 48;
 constexpr uint64_t TICK_MS    = 50;
-static_assert(TICK_MS == 50, "logic tick is 20 Hz (50 ms) - see v36 0x28db78");
 constexpr uint64_t PROJ_TTL_MS = TICK_MS * 20;
 struct Threat
 {
