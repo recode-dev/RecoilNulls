@@ -174,11 +174,8 @@ static int own_team_matches(int32_t team)
     return static_cast<int>(own_team_b >= 0 && team == own_team_b);
 }
 
-static void add_character_entry(const uint8_t* obj,
-                                uintptr_t      dataPtr,
-                                int32_t        own_gid,
-                                float          mx,
-                                float          my)
+static void add_character_entry(
+    const uint8_t* obj, uintptr_t dataPtr, int32_t own_gid, float mx, float my)
 {
     int32_t team, hp, gid, xi, yi;
     if (!object_team(dataPtr, &team)) return;
@@ -319,8 +316,7 @@ static int data_is_projectile(uintptr_t dataPtr)
     if (!dataPtr || !pointer_plausible(dataPtr)) return 0;
     if (!read_ptr(dataPtr, &vt) || vt < base) return 0;
     using fn_t = int (*)(uintptr_t);
-    fn_t fn =
-        reinterpret_cast<fn_t>(vt + LOGICDATA__ISPROJECTILE_VTABLESLOT);
+    fn_t fn = reinterpret_cast<fn_t>(vt + LOGICDATA__ISPROJECTILE_VTABLESLOT);
     return fn(dataPtr);
 }
 
@@ -628,7 +624,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     int   candidate_count = 0;
     for (int i = 0; i < threat_n && candidate_count + 3 < 64; i++)
     {
-        const Threat& t = threats[i];
+        const Threat& t         = threats[i];
         cand_x[candidate_count] = mx - t.x;
         cand_y[candidate_count] = my - t.y;
         candidate_count++;
@@ -643,8 +639,8 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
         cand_y[candidate_count] = commit_y;
         candidate_count++;
     }
-    float best       = -1e30f;
-    float best_x     = 0.0f, best_y = 0.0f;
+    float best   = -1e30f;
+    float best_x = 0.0f, best_y = 0.0f;
     int   best_steps = 0;
     for (int i = 0; i < candidate_count; i++)
     {
@@ -674,8 +670,8 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             better &&
             compute_free_run(mx, my, commit_x, commit_y, frame_geom.far) <
                 own_hitbox * 2.0f;
-        bool gain   = best > current_value + own_hitbox * SWITCH_GAIN;
-        bool turned = (best_x * commit_x + best_y * commit_y) < SWITCH_ALIGN;
+        bool gain      = best > current_value + own_hitbox * SWITCH_GAIN;
+        bool turned    = (best_x * commit_x + best_y * commit_y) < SWITCH_ALIGN;
         bool switch_ok = walled || (gain && turned && hold_left <= 0);
         if (!switch_ok)
         {
