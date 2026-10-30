@@ -142,30 +142,18 @@ constexpr float    SIM_T = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
 
 int32_t projectile_radius(uintptr_t data)
 {
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICPROJECTILEDATA__GETRADIUS);
-    }
-    if (!slot || !data)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
+    int32_t radius = 0;
+    if (!data) return 0;
+    if (!read_int(data + LOGICPROJECTILEDATA__RADIUS, &radius)) return 0;
+    return radius;
 }
 
 int32_t projectile_speed(uintptr_t data)
 {
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICPROJECTILEDATA__GETSPEED);
-    }
-    if (!slot || !data)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
+    int32_t speed = 0;
+    if (!data) return 0;
+    if (!read_int(data + LOGICPROJECTILEDATA__SPEED, &speed)) return 0;
+    return speed;
 }
 
 int32_t character_collision_radius(uintptr_t data)

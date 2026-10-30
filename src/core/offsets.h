@@ -24,9 +24,9 @@ inline constexpr uint64_t LOGICCHARACTER__GETCOLLISIONRADIUS = 0x9913e8;
 inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS = 0x30c;
 inline constexpr uint64_t LOGICCHARACTER__CHARGEUPMODE                = 0x310;
 
-inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED  = 0x9cd834;
-inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS = 0x9cd894;
-inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE    = 0xff3b18;
+inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED  = 0x124;
+inline constexpr uint64_t LOGICPROJECTILEDATA__RADIUS = 0x130;
+inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE = 0xff3b18;
 
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY = 0x20;
 inline constexpr uint64_t LOGICTILEMAP__WIDTH     = 0xc4;
