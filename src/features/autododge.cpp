@@ -121,7 +121,6 @@ int   windup_n           = 0;
 namespace
 {
 constexpr float    REACH             = 300.0f;
-constexpr int      DIRS              = 16;
 constexpr int      SIM_STEPS         = 32;
 constexpr float    ZONE_FAR          = 5000.0f;
 constexpr uint64_t SEND_MS           = ad::TICK_MS;
@@ -674,67 +673,39 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
 static void
 choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
 {
-    bool  has = commit_x != 0.0f || commit_y != 0.0f;
-    float val[DIRS];
+    bool has = commit_x != 0.0f || commit_y != 0.0f;
     prepare_direction_costs(mx, my);
-    int   best_i = 0, best_steps = 0;
-    float best = -1e30f;
-    for (int i = 0; i < DIRS; i++)
+    float cand_x[64];
+    float cand_y[64];
+    int   n = 0;
+    for (int i = 0; i < threat_n && n + 3 < 64; i++)
     {
-        float a = 6.2831853f * static_cast<float>(i) / static_cast<float>(DIRS);
-        float dx = 0.0f, dy = 0.0f;
-        dir_from_angle(a, dx, dy);
+        const Threat& t = threats[i];
+        cand_x[n] = mx - t.x, cand_y[n] = my - t.y, n++;
+        cand_x[n] = -t.vy, cand_y[n] = t.vx, n++;
+        cand_x[n] = t.vy, cand_y[n] = -t.vx, n++;
+    }
+    if (has && n < 64)
+    {
+        cand_x[n] = commit_x, cand_y[n] = commit_y, n++;
+    }
+    float best       = -1e30f;
+    float bx         = 0.0f, by = 0.0f;
+    int   best_steps = 0;
+    for (int i = 0; i < n; i++)
+    {
+        float dx  = cand_x[i], dy = cand_y[i];
+        float len = static_cast<float>(
+            game_distance(0, 0, static_cast<int>(dx), static_cast<int>(dy)));
+        if (len < 1.0f) continue;
+        dx /= len, dy /= len;
         int   steps = 0;
         float v     = evaluate_dodge_direction(mx, my, dx, dy, steps);
         if (has)
             v += own_hitbox * COMMIT_BONUS * (dx * commit_x + dy * commit_y);
-        val[i] = v;
         if (v > best)
         {
-            best = v, best_i = i, best_steps = steps;
-        }
-    }
-    float vm  = val[(best_i + DIRS - 1) % DIRS];
-    float vp  = val[(best_i + 1) % DIRS];
-    float den = vm - 2.0f * best + vp;
-    float off = 0.0f;
-    if (den < -1e-6f) off = 0.5f * (vm - vp) / den;
-    if (off > 0.5f) off = 0.5f;
-    if (off < -0.5f) off = -0.5f;
-    float a = 6.2831853f * (static_cast<float>(best_i) + off) /
-              static_cast<float>(DIRS);
-    for (int k = -6; k <= 6; k++)
-    {
-        float ra  = a + static_cast<float>(k) * 0.0174533f;
-        float rdx = 0.0f, rdy = 0.0f;
-        dir_from_angle(ra, rdx, rdy);
-        int   steps = 0;
-        float v     = evaluate_dodge_direction(mx, my, rdx, rdy, steps);
-        if (has)
-            v += own_hitbox * COMMIT_BONUS * (rdx * commit_x + rdy * commit_y);
-        if (v > best)
-        {
-            best = v, a = ra, best_steps = steps;
-        }
-    }
-    float bx = 0.0f, by = 0.0f;
-    dir_from_angle(a, bx, by);
-    if (has)
-    {
-        int   cur = 0;
-        float cur_val =
-            evaluate_dodge_direction(mx, my, commit_x, commit_y, cur) +
-            own_hitbox * COMMIT_BONUS;
-        bool better = best_steps > cur;
-        bool walled =
-            better &&
-            compute_free_run(mx, my, commit_x, commit_y, frame_geom.far) <
-                own_hitbox * 2.0f;
-        bool gain   = best > cur_val + own_hitbox * 0.5f;
-        bool windup = windup_n > 0;
-        if (!(walled || windup) && !gain)
-        {
-            bx = commit_x, by = commit_y;
+            best = v, bx = dx, by = dy, best_steps = steps;
         }
     }
     dodge_dir_x = bx, dodge_dir_y = by;
