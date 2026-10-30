@@ -72,15 +72,15 @@ int wall_cache_height()
 
 void wall_cache_drop()
 {
-    wall_map      = 0;
-    wall_tiles_w  = 0;
-    wall_tiles_h  = 0;
-    wall_w        = 0;
-    wall_h        = 0;
-    wall_have     = 0;
-    wall_dirty    = 1;
-    wall_fail_ms  = 0;
-    wall_next_ms  = 0;
+    wall_map     = 0;
+    wall_tiles_w = 0;
+    wall_tiles_h = 0;
+    wall_w       = 0;
+    wall_h       = 0;
+    wall_have    = 0;
+    wall_dirty   = 1;
+    wall_fail_ms = 0;
+    wall_next_ms = 0;
 }
 
 void wall_cache_bind(uintptr_t tileMap)
@@ -236,8 +236,10 @@ float wall_pull(float mx, float my, float dx, float dy, float radius)
         blocked +=
             wall_cell_blocked_wide(mx + dx * d, my + dy * d, radius) ? 1 : 0;
     }
-    float pin_x  = static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
-    float pin_y  = static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
+    float pin_x =
+        static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
+    float pin_y =
+        static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
     int   pin_ix = (int) (pin_x + (pin_x < 0.0f ? -0.5f : 0.5f));
     int   pin_iy = (int) (pin_y + (pin_y < 0.0f ? -0.5f : 0.5f));
     float room   = (float) game_distance(0, 0, pin_ix, pin_iy) / reach;
