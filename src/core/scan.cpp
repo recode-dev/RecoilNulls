@@ -11,10 +11,10 @@
 #include "scan.h"
 #include <frida-gum.h>
 constexpr uintptr_t       kCharacterHitpoints = 0xc4;
-const char*               image_name       = "Nulls Brawl";
-BOOL                      setup_done       = NO;
-__thread BOOL             inside_hook      = NO;
-inline constexpr int      PAGE_CACHE_SLOTS = 256;
+const char*               image_name          = "Nulls Brawl";
+BOOL                      setup_done          = NO;
+__thread BOOL             inside_hook         = NO;
+inline constexpr int      PAGE_CACHE_SLOTS    = 256;
 static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
 static __thread uint8_t   page_cache_prot[PAGE_CACHE_SLOTS];
 static guint              memory_page_size()

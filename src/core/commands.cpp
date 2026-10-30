@@ -132,8 +132,7 @@ static int client_input_manager_queue_is_ready(void* manager)
     {
         return 0;
     }
-    if (!read_ptr(reinterpret_cast<uintptr_t>(manager) +
-                      kClientInputQueue,
+    if (!read_ptr(reinterpret_cast<uintptr_t>(manager) + kClientInputQueue,
                   &queue) ||
         !queue)
     {

@@ -144,29 +144,29 @@ namespace
 {
 constexpr uintptr_t kGameObjectDataTeam = 0x40;
 constexpr uintptr_t kCharacterHitpoints = 0xc4;
-constexpr float    REACH             = 300.0f;
-constexpr int      DIRS              = 16;
-constexpr int      SIM_STEPS         = 32;
-constexpr float    ZONE_FAR          = 5000.0f;
-constexpr uint64_t SEND_MS           = ad::TICK_MS;
-constexpr int      MOVE_DELAY_TICKS  = 2;
-constexpr float    SAFETY            = 40.0f;
-constexpr float    PROJECTILE_RADIUS = 60.0f;
-constexpr float    WEIGHT_STEP       = 4096.0f;
-constexpr float    WEIGHT_POS        = 900.0f;
-constexpr float    WEIGHT_AWAY       = 0.06f;
-constexpr float    WEIGHT_AXIS       = 2600.0f;
-constexpr float    AXIS_INTO         = 0.35f;
-constexpr float    WEIGHT_APPROACH   = 2000.0f;
-constexpr float    APPROACH_R        = 2400.0f;
-constexpr float    THREAT_HORIZON    = 0.6f;
-constexpr float    CLOSE_R           = 1200.0f;
-constexpr float    COMMIT_BONUS      = 3.0f;
-constexpr float    BORDER_PAD        = 60.0f;
-constexpr float    EDGE_ZONE         = 300.0f;
-constexpr float    WEIGHT_EDGE       = 1600.0f;
-constexpr float    TICK_MS_SEC       = static_cast<float>(ad::TICK_MS) * 0.001f;
-constexpr float    SIM_T = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
+constexpr float     REACH               = 300.0f;
+constexpr int       DIRS                = 16;
+constexpr int       SIM_STEPS           = 32;
+constexpr float     ZONE_FAR            = 5000.0f;
+constexpr uint64_t  SEND_MS             = ad::TICK_MS;
+constexpr int       MOVE_DELAY_TICKS    = 2;
+constexpr float     SAFETY              = 40.0f;
+constexpr float     PROJECTILE_RADIUS   = 60.0f;
+constexpr float     WEIGHT_STEP         = 4096.0f;
+constexpr float     WEIGHT_POS          = 900.0f;
+constexpr float     WEIGHT_AWAY         = 0.06f;
+constexpr float     WEIGHT_AXIS         = 2600.0f;
+constexpr float     AXIS_INTO           = 0.35f;
+constexpr float     WEIGHT_APPROACH     = 2000.0f;
+constexpr float     APPROACH_R          = 2400.0f;
+constexpr float     THREAT_HORIZON      = 0.6f;
+constexpr float     CLOSE_R             = 1200.0f;
+constexpr float     COMMIT_BONUS        = 3.0f;
+constexpr float     BORDER_PAD          = 60.0f;
+constexpr float     EDGE_ZONE           = 300.0f;
+constexpr float     WEIGHT_EDGE         = 1600.0f;
+constexpr float     TICK_MS_SEC = static_cast<float>(ad::TICK_MS) * 0.001f;
+constexpr float     SIM_T       = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
 
 }  // namespace
 
