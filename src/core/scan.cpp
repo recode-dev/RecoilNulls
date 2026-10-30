@@ -412,7 +412,6 @@ static void     world_reset()
     coord_ok     = 0;
     obj_count    = 0;
     scene_object = 0;
-    team_b       = -1;
     last_pos_us  = 0;
     wall_cache_bind(0);
     reset_autododge_state();
@@ -546,17 +545,6 @@ void scan_world()
         own_hp = 0;
     }
     dead = (ok_hp && own_hp == 0) ? 1 : 0;
-    {
-        uintptr_t ownData = 0;
-        int32_t   ownTeam = 0;
-        team_b            = -1;
-        if (read_ptr(own +
-                         static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
-                     &ownData) &&
-            ownData && read_int(ownData + LOGICDATA__TEAM, &ownTeam))
-        {
-            team_b = ownTeam;
-        }
     }
     track_own_speed();
     if (clientPtr)
@@ -637,6 +625,27 @@ static uintptr_t game_state_manager()
     return reinterpret_cast<uintptr_t>(value);
 }
 
+int is_owned_by_own_team(uintptr_t obj)
+{
+    uintptr_t battle   = client();
+    uintptr_t data     = 0;
+    int32_t   own_team = 0;
+    int32_t   team     = 0;
+    if (!battle) return 0;
+    if (!read_int(battle + static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__OWNTEAM),
+                  &own_team))
+    {
+        return 0;
+    }
+    if (!read_ptr(obj + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
+                  &data) ||
+        !data)
+    {
+        return 0;
+    }
+    if (!read_int(data + LOGICDATA__TEAM, &team)) return 0;
+    return team == own_team;
+}
 int scene_live()
 {
     using state_t      = int (*)(uintptr_t, int);
@@ -667,5 +676,4 @@ uintptr_t controller()
     return client();
 }
 uintptr_t scene_object = 0;
-int       team_b       = -1;
-uintptr_t elem         = 0;
+intuintptr_t elem         = 0;

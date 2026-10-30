@@ -164,27 +164,17 @@ void init_projectile_state(
     st->ux             = 0.0f;
     st->uy             = 0.0f;
 }
-static int object_team(uintptr_t data, int32_t* out)
-{
-    if (!pointer_plausible(data)) return 0;
-    return read_int(data + LOGICDATA__TEAM, out) ? 1 : 0;
-}
-static int team_matches(int32_t team)
-{
-    return static_cast<int>(team_b >= 0 && team == team_b);
-}
 static void character_entry(
     const uint8_t* obj, uintptr_t dataPtr, int32_t own_gid, float mx, float my)
 {
-    int32_t team, hp, gid, xi, yi;
-    if (!object_team(dataPtr, &team)) return;
+    int32_t hp, gid, xi, yi;
     memcpy(&hp, obj + 0xc4, sizeof(hp));
     memcpy(&gid, obj + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(gid));
     memcpy(&xi, obj + LOGICGAMEOBJECTCLIENT__GETX, sizeof(xi));
     memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
     float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
-    if (team_matches(team))
+    if (is_owned_by_own_team(obj))
     {
         if (ally_n >= ALLY_MAX) return;
         int k     = ally_n++;
@@ -269,10 +259,7 @@ static void projectile_threat(const uint8_t* obj,
         st->vel = false;
     }
     st->x = px, st->y = py;
-    int32_t team = 0;
-    if (!object_team(dataPtr, &team)) return;
-    st->team = team;
-    if (team_matches(team))
+    if (is_owned_by_own_team(obj))
     {
         proj_own_n++;
         return;
