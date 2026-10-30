@@ -6,6 +6,7 @@ inline constexpr uint64_t LOGICGAMESTATEMANAGER__INSTANCE          = 0x1123e58;
 inline constexpr uint64_t LOGICGAMESTATEMANAGER__ISSTATE           = 0x8ce9e8;
 inline constexpr uint64_t LOGICVECTOR2__NORMALIZE                  = 0xbd0794;
 inline constexpr uint64_t GAMESTATE__BATTLE                        = 5;
+inline constexpr uint64_t LOGICDATA__TEAM                      = 0x40;
 inline constexpr uint64_t LOGICBATTLEMODE__CLIENT                  = 0x28;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__INPUTMANAGER      = 0x58;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28;

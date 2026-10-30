@@ -41,6 +41,12 @@ int   enemy_n            = 0;
 float enemy_x[ENEMY_MAX] = {0};
 float enemy_y[ENEMY_MAX] = {0};
 float enemy_d[ENEMY_MAX] = {0};
+int   ally_n             = 0;
+float ally_x[ALLY_MAX]   = {0};
+float ally_y[ALLY_MAX]   = {0};
+float ally_d[ALLY_MAX]   = {0};
+int   proj_own_n         = 0;
+int   proj_enemy_n       = 0;
 namespace
 {
 constexpr int      SIM_STEPS        = 32;
@@ -161,7 +167,7 @@ void init_projectile_state(
 static int object_team(uintptr_t data, int32_t* out)
 {
     if (!pointer_plausible(data)) return 0;
-    return read_int(data + 0x40, out) ? 1 : 0;
+    return read_int(data + LOGICDATA__TEAM, out) ? 1 : 0;
 }
 static int own_team_matches(int32_t team)
 {
@@ -176,10 +182,19 @@ static void add_character_entry(
     memcpy(&gid, obj + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(gid));
     memcpy(&xi, obj + LOGICGAMEOBJECTCLIENT__GETX, sizeof(xi));
     memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
-    if (own_team_matches(team) || hp <= 0 || gid <= 0 || gid == own_gid) return;
-    if (enemy_n >= ENEMY_MAX) return;
-    int   k  = enemy_n++;
+    if (hp <= 0 || gid <= 0 || gid == own_gid) return;
     float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
+    if (own_team_matches(team))
+    {
+        if (ally_n >= ALLY_MAX) return;
+        int k      = ally_n++;
+        ally_x[k]  = static_cast<float>(xi);
+        ally_y[k]  = static_cast<float>(yi);
+        ally_d[k]  = fast_len(ex, ey);
+        return;
+    }
+    if (enemy_n >= ENEMY_MAX) return;
+    int k      = enemy_n++;
     enemy_x[k] = static_cast<float>(xi);
     enemy_y[k] = static_cast<float>(yi);
     enemy_d[k] = fast_len(ex, ey);
@@ -256,7 +271,13 @@ static void add_projectile_threat(const uint8_t* obj,
     st->x = px, st->y = py;
     int32_t team = 0;
     if (!object_team(dataPtr, &team)) return;
-    if (own_team_matches(team)) return;
+    st->team = team;
+    if (own_team_matches(team))
+    {
+        proj_own_n++;
+        return;
+    }
+    proj_enemy_n++;
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
@@ -703,6 +724,9 @@ static void learn_own_hitbox()
 void reset_autododge_state()
 {
     enemy_n     = 0;
+    ally_n      = 0;
+    proj_own_n  = 0;
+    proj_enemy_n = 0;
     threat_n    = 0;
     char_vt     = 0;
     own_hitbox  = 0.0f;
@@ -715,8 +739,11 @@ void reset_autododge_state()
 }
 void update_autododge()
 {
-    enemy_n  = 0;
-    threat_n = 0;
+    enemy_n      = 0;
+    ally_n       = 0;
+    proj_own_n   = 0;
+    proj_enemy_n = 0;
+    threat_n     = 0;
     if (!base || !own_elem || dead || !coord_ok)
     {
         reset_dodge_state();
