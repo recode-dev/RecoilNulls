@@ -650,8 +650,8 @@ static float compute_free_run(float mx, float my, float dx, float dy, float far)
         run = fminf(run, (h - em - my) / dy);
     else if (dy < -1e-6f)
         run = fminf(run, (em - my) / dy);
-    const float step = frame_geom.step;
-    const int steps = step > 0.0f ? (int) (run / step) : 0;
+    const float step  = frame_geom.step;
+    const int   steps = step > 0.0f ? (int) (run / step) : 0;
     for (int i = 1; i <= steps; i++)
     {
         const float d = step * (float) i;
