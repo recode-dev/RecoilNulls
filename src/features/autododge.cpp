@@ -651,8 +651,10 @@ static float compute_free_run(float mx, float my, float dx, float dy, float far)
     else if (dy < -1e-6f)
         run = fminf(run, (em - my) / dy);
     const float step = frame_geom.step;
-    for (float d = step; d < run; d += step)
+    const int steps = step > 0.0f ? (int) (run / step) : 0;
+    for (int i = 1; i <= steps; i++)
     {
+        const float d = step * (float) i;
         if (wall_cell_blocked_wide(mx + dx * d, my + dy * d, own_hitbox))
         {
             run = d;
