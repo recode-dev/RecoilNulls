@@ -644,7 +644,7 @@ int is_owned_by_own_team(uintptr_t obj)
         return 0;
     }
     if (!read_int(data + LOGICDATA__TEAM, &team)) return 0;
-    return team == own_team;
+    return static_cast<int>(team == own_team);
 }
 int scene_live()
 {
