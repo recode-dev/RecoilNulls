@@ -325,15 +325,15 @@ Proj* find_projectile_entry(int32_t pid)
 {
     Proj* spare = nullptr;
     Proj* stale = &projs[0];
-    for (int i = 0; i < PROJ_SLOTS; i++)
+    for (auto& proj : projs)
     {
-        if (projs[i].pid == pid) return &projs[i];
-        if (projs[i].pid == 0)
+        if (proj.pid == pid) return &proj;
+        if (proj.pid == 0)
         {
-            if (!spare) spare = &projs[i];
+            if (!spare) spare = &proj;
             continue;
         }
-        if (projs[i].seen < stale->seen) stale = &projs[i];
+        if (proj.seen < stale->seen) stale = &proj;
     }
     return spare ? spare : stale;
 }
@@ -374,7 +374,7 @@ static int object_team(uintptr_t data, int32_t* out)
 static int own_team_matches(int32_t team)
 {
     if (own_team_b >= 0 && team == own_team_b) return 1;
-    return own_team_valid && team == own_team_value;
+    return static_cast<int>((own_team_valid != 0) && team == own_team_value);
 }
 
 static void add_character_entry(const uint8_t* obj,
@@ -609,8 +609,8 @@ int find_live_projectile(uintptr_t* objOut,
 
 void evict_stale_projectiles(uint64_t now)
 {
-    for (int i = 0; i < PROJ_SLOTS; i++)
-        if (projs[i].pid && now - projs[i].seen > PROJ_TTL_MS) projs[i].pid = 0;
+    for (auto& proj : projs)
+        if (proj.pid && now - proj.seen > PROJ_TTL_MS) proj.pid = 0;
 }
 }
 
@@ -1052,7 +1052,7 @@ void update_autododge()
         choose_dodge_direction(mx, my, dir_x, dir_y);
     }
     fill_autododge_report(mx, my, dir_x, dir_y);
-    ad_pass_own = !wall_cell_blocked_at(mx, my);
+    ad_pass_own = static_cast<int>(wall_cell_blocked_at(mx, my)) == 0;
     float fx = mx + dir_x * REACH, fy = my + dir_y * REACH;
     for (int k = 0; k < 3 && !wall_path_clear(mx, my, fx, fy); k++)
     {

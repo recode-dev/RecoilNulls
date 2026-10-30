@@ -404,7 +404,7 @@ void diag_tick()
     line("[m] hz=%lu wl=%lu/%lu objs=%d ch=%d pr=%d en=%d hp=%u p=(%d,%d) v=%d "
          "dir=%s map=%dx%d dodge=%d hit=%d hb=%d fd=%d tgt=%s "
          "hu=%d pm=%u/%u pt=%d wu=%d\n",
-         static_cast<unsigned long>(hz),
+         hz,
          static_cast<unsigned long>(wl_avg),
          static_cast<unsigned long>(wl_max),
          obj_count,

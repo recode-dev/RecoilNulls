@@ -686,7 +686,7 @@ int scene_live()
     {
         return 0;
     }
-    return (uintptr_t) value == scene_object;
+    return static_cast<int>((uintptr_t) value == scene_object);
 }
 uintptr_t client()
 {
