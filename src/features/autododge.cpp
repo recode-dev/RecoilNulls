@@ -696,9 +696,9 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             better &&
             compute_free_run(mx, my, commit_x, commit_y, frame_geom.far) <
                 own_hitbox * 2.0f;
-        bool gain   = best > cur_val + own_hitbox * SWITCH_GAIN;
-        bool windup = windup_n > 0;
-        bool turned = (bx * commit_x + by * commit_y) < SWITCH_ALIGN;
+        bool gain      = best > cur_val + own_hitbox * SWITCH_GAIN;
+        bool windup    = windup_n > 0;
+        bool turned    = (bx * commit_x + by * commit_y) < SWITCH_ALIGN;
         bool switch_ok = walled || windup || (gain && turned && hold_left <= 0);
         if (!switch_ok)
         {
@@ -724,7 +724,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
 static void reset_dodge_state()
 {
     dodge_dir_x = 0.0f, dodge_dir_y = 0.0f;
-    hold_left   = 0;
+    hold_left = 0;
     tgt_x = 0.0f, tgt_y = 0.0f;
     last_valid = 0;
 }
