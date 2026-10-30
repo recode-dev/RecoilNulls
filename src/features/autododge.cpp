@@ -312,13 +312,8 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     return false;
 }
 
-static bool segment_hits_circle(float x1,
-                               float y1,
-                               float x2,
-                               float y2,
-                               float cx,
-                               float cy,
-                               float r)
+static bool segment_hits_circle(
+    float x1, float y1, float x2, float y2, float cx, float cy, float r)
 {
     float dx   = x2 - x1;
     float dy   = y2 - y1;
@@ -379,16 +374,12 @@ static int32_t projectile_tick_at(
     return best;
 }
 
-static float projectile_impact_time(uintptr_t objPtr,
-                                    float     px,
-                                    float     py,
-                                    float     mx,
-                                    float     my,
-                                    float     hit_r)
+static float projectile_impact_time(
+    uintptr_t objPtr, float px, float py, float mx, float my, float hit_r)
 {
     int32_t first = 0, last = 0;
     if (!projectile_window(objPtr, &first, &last)) return 0.0f;
-    int32_t tick = projectile_tick_at(objPtr, first, last, px, py);
+    int32_t   tick    = projectile_tick_at(objPtr, first, last, px, py);
     const int horizon = static_cast<int>(THREAT_HORIZON / TICK_MS_SEC);
     float     last_x  = px;
     float     last_y  = py;

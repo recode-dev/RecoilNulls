@@ -257,7 +257,7 @@ int game_projectile_pos_at_tick(uintptr_t object, int tick, int* out)
     out[0] = 0x7fffffff;
     out[1] = 0x7fffffff;
     fn(object, tick, out);
-    return out[0] != 0x7fffffff && out[1] != 0x7fffffff;
+    return static_cast<int>(out[0] != 0x7fffffff && out[1] != 0x7fffffff);
 }
 
 uintptr_t callable(uintptr_t rva)
