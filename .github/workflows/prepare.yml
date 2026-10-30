@@ -9,6 +9,80 @@ permissions:
   contents: write
   actions: write
 
+env:
+  FRIDA_VERSION: 17.24.3
+  # clang-tidy configuration lives here on purpose: one source of truth for CI,
+  # no .clang-tidy file that can drift out of sync with the workflow.
+  CLANG_TIDY_CONFIG: |
+    Checks: >
+      -*,
+      bugprone-*,
+      performance-*,
+      clang-analyzer-*,
+      modernize-*,
+      cppcoreguidelines-*,
+      readability-*,
+      -bugprone-easily-swappable-parameters,
+      -bugprone-reserved-identifier,
+      -bugprone-narrowing-conversions,
+      -bugprone-implicit-widening-of-multiplication-result,
+      -bugprone-incorrect-roundings,
+      -bugprone-signed-bitwise,
+      -bugprone-multi-level-implicit-pointer-conversion,
+      -bugprone-float-loop-counter,
+      -bugprone-macro-parentheses,
+      -cppcoreguidelines-avoid-magic-numbers,
+      -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+      -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+      -cppcoreguidelines-pro-bounds-constant-array-index,
+      -cppcoreguidelines-avoid-c-arrays,
+      -cppcoreguidelines-pro-type-reinterpret-cast,
+      -cppcoreguidelines-pro-type-cstyle-cast,
+      -cppcoreguidelines-pro-type-vararg,
+      -cppcoreguidelines-pro-type-union-access,
+      -cppcoreguidelines-pro-type-const-cast,
+      -cppcoreguidelines-avoid-non-const-global-variables,
+      -cppcoreguidelines-avoid-do-while,
+      -cppcoreguidelines-owning-memory,
+      -cppcoreguidelines-macro-usage,
+      -cppcoreguidelines-init-variables,
+      -cppcoreguidelines-narrowing-conversions,
+      -modernize-use-trailing-return-type,
+      -modernize-avoid-c-arrays,
+      -modernize-use-auto,
+      -modernize-avoid-c-style-cast,
+      -modernize-avoid-variadic-functions,
+      -readability-braces-around-statements,
+      -readability-math-missing-parentheses,
+      -readability-static-definition-in-anonymous-namespace,
+      -readability-isolate-declaration,
+      -readability-use-std-min-max,
+      -readability-magic-numbers,
+      -readability-identifier-length,
+      -readability-identifier-naming,
+      -readability-uppercase-literal-suffix,
+      -readability-else-after-return,
+      -readability-function-cognitive-complexity,
+      -readability-avoid-nested-conditional-operator,
+      -readability-convert-member-functions-to-static,
+      -readability-make-member-function-const,
+      -performance-no-int-to-ptr,
+      -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+    WarningsAsErrors: ''
+    HeaderFilterRegex: '(^|/)src/.*\.(h|hpp)$'
+    FormatStyle: none
+    CheckOptions:
+      - key: readability-implicit-bool-conversion.AllowIntegerConditions
+        value: 1
+      - key: readability-implicit-bool-conversion.AllowPointerConditions
+        value: 1
+      - key: readability-function-size.StatementThreshold
+        value: 800
+      - key: modernize-loop-convert.MinConfidence
+        value: reasonable
+      - key: cppcoreguidelines-explicit-virtual-functions.IgnoreDestructors
+        value: 1
+
 concurrency:
   group: prepare-${{ github.ref }}
   cancel-in-progress: true
@@ -17,7 +91,7 @@ jobs:
   prepare:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -33,6 +107,95 @@ jobs:
           git ls-files -z |
             { grep -zE '(^|/)(core|\.DS_Store|Thumbs\.db)$|\.(orig|rej|bak|swp)$|~$' || true; } |
             xargs -0 -r git rm -q --
+
+      - name: Cache
+        uses: actions/cache@v6
+        with:
+          path: ~/theos
+          key: theos-${{ runner.os }}-v6
+
+      - name: Gum
+        run: |
+          set -euo pipefail
+          dir="vendor/frida-gum"
+          if [ -f "$dir/frida-gum.h" ] || [ -f "$dir/include/frida-gum.h" ]; then
+            echo "using committed devkit"
+            exit 0
+          fi
+          mkdir -p "$dir"
+          curl -fsSL -o /tmp/gum.tar.xz \
+            "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-gum-devkit-${FRIDA_VERSION}-ios-arm64.tar.xz"
+          tar -xJf /tmp/gum.tar.xz -C "$dir"
+
+      - name: Theos
+        run: |
+          set -euo pipefail
+          export THEOS="$HOME/theos"
+          if [ -f "$THEOS/makefiles/common.mk" ] && [ -n "$(ls -A "$THEOS/toolchain/linux/iphone" 2>/dev/null)" ]; then
+            echo "using cached theos"
+            exit 0
+          fi
+          curl -fsSL -o /tmp/theos-install https://raw.githubusercontent.com/theos/theos/master/bin/install-theos
+          sed -i 's/\blibxml2\b/libxml2-16/' /tmp/theos-install
+          bash /tmp/theos-install </dev/null
+          lib="$(dpkg -L libxml2-16 | grep 'libxml2\.so\.16$' | head -1)"
+          [ -n "$lib" ] && sudo ln -sf "$lib" "$(dirname "$lib")/libxml2.so.2"
+
+      - name: Config
+        run: |
+          set -euo pipefail
+          if ! command -v clang-tidy >/dev/null 2>&1; then
+            pip install --quiet clang-tidy || {
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq clang-tidy
+            }
+          fi
+          clang-tidy --version
+          clang-tidy --verify-config --config="$CLANG_TIDY_CONFIG"
+
+      - name: Tidy
+        run: |
+          set -euo pipefail
+          export THEOS="$HOME/theos"
+          SDK="$(ls -d "$THEOS"/sdks/iPhoneOS*.sdk 2>/dev/null | head -1 || true)"
+          if [ -z "$SDK" ]; then
+            echo "no iPhoneOS sdk in $THEOS/sdks; skipping tidy"
+            exit 0
+          fi
+          GUM="$(dirname "$(ls vendor/frida-gum/frida-gum.h vendor/frida-gum/include/frida-gum.h 2>/dev/null | head -1)")"
+          python3 - "$SDK" "$GUM" <<'PY'
+          import json, os, subprocess, sys
+          sdk, gum = sys.argv[1], sys.argv[2]
+          files = [f for f in subprocess.check_output(["git", "ls-files", "src/*.cpp"]).decode().split()
+                   if f.endswith(".cpp")]
+          entries = [{"directory": os.getcwd(),
+                      "file": name,
+                      "command": ("clang++ -std=c++17 -fblocks -fobjc-arc -x objective-c++ "
+                                  f"-isysroot {sdk} -target arm64-apple-ios14.0 "
+                                  f"-I{gum} -Isrc -Isrc/core -Isrc/features -Isrc/utils -c {name}")}
+                     for name in files]
+          json.dump(entries, open("compile_commands.json", "w"), indent=1)
+          print("tus:", len(entries))
+          PY
+          git ls-files 'src/*.cpp' | xargs -r clang-tidy -p . --config="$CLANG_TIDY_CONFIG" --fix --quiet
+          rm -f compile_commands.json
+
+      - name: Verify
+        run: |
+          set -euo pipefail
+          export THEOS="$HOME/theos"
+          if git diff --quiet -- src; then
+            echo "tidy produced no changes"
+            exit 0
+          fi
+          if make -j"$(( $(nproc) + 1 ))" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1 >/tmp/build.log 2>&1; then
+            echo "tidy result compiles"
+            exit 0
+          fi
+          echo "tidy result does not compile; keeping only formatting"
+          tail -40 /tmp/build.log || true
+          git checkout -- src
+          rm -rf .theos
 
       - name: Format
         run: |
@@ -68,8 +231,7 @@ jobs:
             FixNamespaceComments: false,
             ReflowComments: true}'
           files() {
-            git ls-files -z -- 'src/*.c' 'src/*.cpp' 'src/*.h' 'src/*.hpp' \
-              'tools/*.c' 'tools/*.cpp' 'tools/*.h' 'tools/*.hpp'
+            git ls-files -z -- 'src/*.c' 'src/*.cpp' 'src/*.h' 'src/*.hpp'
           }
           # Format, strip trailing whitespace, ensure a final newline.
           files | xargs -0 -r clang-format -i -style="$style"
@@ -99,7 +261,7 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git commit -m "chore(prepare): format and clean"
+          git commit -m "chore(prepare): tidy, format and clean"
           git pull --rebase origin "$BRANCH"
           git push origin "HEAD:$BRANCH"
           echo "changed=true" >> "$GITHUB_OUTPUT"
