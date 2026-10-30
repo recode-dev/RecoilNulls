@@ -4,6 +4,10 @@
 #include <cstddef>
 #include <cstdint>
 
+// BattleMode::getInstance() resolves to GameStateManager::getCurrentState()
+// (*(gsm + 0x48)), i.e. the scene. The client hangs off the scene at +0x28.
+inline constexpr uint64_t LOGICBATTLEMODE__CLIENT = 0x28;
+
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__INPUTMANAGER      = 0x58;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28;
 
