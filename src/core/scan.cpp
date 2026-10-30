@@ -624,6 +624,36 @@ int scene_live()
 {
     return battle_instance() != 0 ? 1 : 0;
 }
+int is_owned_by_own_team(uintptr_t obj)
+{
+    uintptr_t scene  = battle_instance();
+    uintptr_t data   = 0;
+    void*     client = nullptr;
+    int32_t   own    = 0;
+    int32_t   team   = 0;
+    if (!scene) return 0;
+    if (!read_ptr(scene + static_cast<uintptr_t>(LOGICBATTLEMODE__CLIENT),
+                  &client) ||
+        !client)
+    {
+        return 0;
+    }
+    if (!read_int(reinterpret_cast<uintptr_t>(client) +
+                      static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__OWNTEAM),
+                  &own))
+    {
+        return 0;
+    }
+    if (!read_ptr(obj + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
+                  &data) ||
+        !data)
+    {
+        return 0;
+    }
+    if (!read_int(data + static_cast<uintptr_t>(LOGICDATA__TEAM), &team))
+        return 0;
+    return team == own ? 1 : 0;
+}
 uintptr_t client()
 {
     void* value = nullptr;
