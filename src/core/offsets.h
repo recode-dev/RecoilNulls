@@ -15,14 +15,14 @@ inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28ULL;
 inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTS     = 0x0ULL;
 inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT = 0xcULL;
 
-inline constexpr uint64_t LOGICGAMEOBJECT__DATA               = 0x10ULL;
-inline constexpr uint64_t LOGICGAMEOBJECT__DATASCANSPAN       = 0x200;
-inline constexpr uint64_t LOGICCHARACTER__GLOBALID            = 0x8ULL;
-inline constexpr uint64_t LOGICCHARACTER__X                   = 0x30ULL;
-inline constexpr uint64_t LOGICCHARACTER__Y                   = 0x34ULL;
-inline constexpr uint64_t LOGICGAMEOBJECTDATA__TEAM           = 0x40ULL;
-inline constexpr uint64_t LOGICCHARACTER__ATTACKANGLE         = 0xb4ULL;
-inline constexpr uint64_t LOGICCHARACTER__HITPOINTS           = 0xc4ULL;
+inline constexpr uint64_t LOGICGAMEOBJECT__DATA              = 0x10ULL;
+inline constexpr uint64_t LOGICGAMEOBJECT__DATASCANSPAN      = 0x200;
+inline constexpr uint64_t LOGICCHARACTER__GLOBALID           = 0x8ULL;
+inline constexpr uint64_t LOGICCHARACTER__X                  = 0x30ULL;
+inline constexpr uint64_t LOGICCHARACTER__Y                  = 0x34ULL;
+inline constexpr uint64_t LOGICGAMEOBJECTDATA__TEAM          = 0x40ULL;
+inline constexpr uint64_t LOGICCHARACTER__ATTACKANGLE        = 0xb4ULL;
+inline constexpr uint64_t LOGICCHARACTER__HITPOINTS          = 0xc4ULL;
 inline constexpr uint64_t LOGICCHARACTER__GETCOLLISIONRADIUS = 0x9913e8ULL;
 inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS =
     0x30cULL;
