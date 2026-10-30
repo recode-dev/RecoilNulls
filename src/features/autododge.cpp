@@ -869,7 +869,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             best = v, a = ra, best_steps = steps;
         }
     }
-    float    bx = 0.0f, by = 0.0f;
+    float bx = 0.0f, by = 0.0f;
     dir_from_angle(a, bx, by);
     uint64_t now = us() / 1000;
     ad_urgent    = 0;
