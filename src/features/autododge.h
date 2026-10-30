@@ -3,7 +3,7 @@
 #include <cstdint>
 inline constexpr int ENEMY_MAX = 4;
 inline constexpr int ALLY_MAX  = 8;
-extern int           in_move;
+extern int           move;
 extern float         dodge_dir_x, dodge_dir_y;
 extern int           enemy_n;
 extern float         enemy_x[ENEMY_MAX];
@@ -22,7 +22,7 @@ void                 reset_autododge_state();
 void                 update_autododge();
 namespace ad
 {
-extern float       own_hitbox;
+extern float       hitbox;
 constexpr int      THREAT_MAX  = 32;
 constexpr int      PROJ_SLOTS  = 48;
 constexpr uint64_t TICK_MS     = 50;

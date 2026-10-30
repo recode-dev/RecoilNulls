@@ -377,19 +377,19 @@ uint64_t  us()
 {
     return static_cast<uint64_t>(g_get_monotonic_time());
 }
-using fn_self_t = uintptr_t (*)(uintptr_t);
+using self_t = uintptr_t (*)(uintptr_t);
 static uintptr_t call(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !base || fn < base || fn >= base + 0x2000000 || !self) return 0;
-    return ((fn_self_t) fn)(self);
+    return ((self_t) fn)(self);
 }
-uintptr_t        obj_snapshot[COUNT_MAX];
-uint8_t          obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
-uint8_t          obj_valid[COUNT_MAX];
+uintptr_t        snapshot[COUNT_MAX];
+uint8_t          block[COUNT_MAX][OBJ_BLOCK_SIZE];
+uint8_t          valid[COUNT_MAX];
 int              obj_count = 0;
 int32_t          own_x     = 0;
 int32_t          own_y     = 0;
-int              own_ok_hp = 0;
+int              ok_hp = 0;
 static uintptr_t battle_instance()
 {
     using inst_t     = uintptr_t (*)();
@@ -403,16 +403,16 @@ static int32_t  last_pos_y  = 0;
 static uint64_t last_pos_us = 0;
 static void     world_reset()
 {
-    own_elem     = 0;
+    elem     = 0;
     own_x        = 0;
     own_y        = 0;
     own_hp       = 0;
-    own_ok_hp    = 0;
+    ok_hp    = 0;
     dead         = 1;
     coord_ok     = 0;
     obj_count    = 0;
     scene_object = 0;
-    own_team_b   = -1;
+    team_b   = -1;
     last_pos_us  = 0;
     wall_cache_bind(0);
     reset_autododge_state();
@@ -498,7 +498,7 @@ void scan_world()
     array = (uintptr_t) value;
     if (count > COUNT_MAX) count = COUNT_MAX;
     if (!read_bytes(array,
-                    obj_snapshot,
+                    snapshot,
                     static_cast<size_t>(count) * sizeof(uintptr_t)))
     {
         world_reset();
@@ -507,9 +507,9 @@ void scan_world()
     obj_count = count;
     for (int i = 0; i < count; i++)
     {
-        uintptr_t objPtr = obj_snapshot[i];
-        obj_valid[i]     = (objPtr && pointer_plausible(objPtr) &&
-                        read_bytes(objPtr, obj_block[i], OBJ_BLOCK_SIZE))
+        uintptr_t objPtr = snapshot[i];
+        valid[i]     = (objPtr && pointer_plausible(objPtr) &&
+                        read_bytes(objPtr, block[i], OBJ_BLOCK_SIZE))
                                ? 1
                                : 0;
     }
@@ -520,14 +520,14 @@ void scan_world()
     }
     if (!own)
     {
-        own_elem  = 0;
-        own_ok_hp = 0;
+        elem  = 0;
+        ok_hp = 0;
         own_hp    = 0;
         dead      = 1;
         coord_ok  = 0;
         return;
     }
-    own_elem = own;
+    elem = own;
     if (read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETX),
                  &x) &&
         read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETY), &y))
@@ -538,16 +538,16 @@ void scan_world()
     }
     if (read_int(own + 0xc4, &hp) && hp >= 0 && hp < 1000000)
     {
-        own_ok_hp = 1;
+        ok_hp = 1;
         own_hp    = static_cast<uint32_t>(hp);
     }
     else
     {
-        own_ok_hp = 0;
+        ok_hp = 0;
         own_hp    = 0;
     }
-    dead       = (own_ok_hp && own_hp == 0) ? 1 : 0;
-    own_team_b = static_cast<int32_t>(
+    dead       = (ok_hp && own_hp == 0) ? 1 : 0;
+    team_b = static_cast<int32_t>(
         call(callable(LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM), clientPtr));
     track_own_speed();
     if (clientPtr)
@@ -556,20 +556,20 @@ void scan_world()
             call(callable(LOGICBATTLEMODECLIENT__GETTILEMAP), clientPtr));
     }
 }
-void run_workload()
+void workload()
 {
     scan_world();
     run_autododge();
 }
 void run_autododge()
 {
-    if (in_move)
+    if (move)
     {
         return;
     }
-    in_move = 1;
+    move = 1;
     update_autododge();
-    in_move = 0;
+    move = 0;
 }
 static constexpr uint64_t TICK_US        = 50000;
 static constexpr uint64_t SCAN_PERIOD_US = TICK_US / 6;
@@ -581,7 +581,7 @@ static void               scan_frame()
     }
     inside_hook = YES;
     read_cache_reset();
-    run_workload();
+    workload();
     inside_hook = NO;
 }
 static dispatch_source_t scan_timer = nullptr;
@@ -630,12 +630,12 @@ static uintptr_t game_state_manager()
 
 int scene_live()
 {
-    using is_state_t      = int (*)(uintptr_t, int);
-    static is_state_t fn  = nullptr;
+    using state_t      = int (*)(uintptr_t, int);
+    static state_t fn  = nullptr;
     uintptr_t         gsm = game_state_manager();
     if (!gsm) return 0;
     if (!fn)
-        fn = reinterpret_cast<is_state_t>(
+        fn = reinterpret_cast<state_t>(
             callable(LOGICGAMESTATEMANAGER__ISSTATE));
     if (!fn) return 0;
     return fn(gsm, static_cast<int>(GAMESTATE__BATTLE));
@@ -658,5 +658,5 @@ uintptr_t controller()
     return client();
 }
 uintptr_t scene_object = 0;
-int       own_team_b   = -1;
-uintptr_t own_elem     = 0;
+int       team_b   = -1;
+uintptr_t elem     = 0;

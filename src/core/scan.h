@@ -115,18 +115,18 @@ static inline BOOL object_plausible(void* object)
 }
 inline constexpr int COUNT_MAX        = 512;
 inline constexpr int OBJECT_COUNT_MAX = 512;
-extern uintptr_t     obj_snapshot[COUNT_MAX];
-extern uint8_t       obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
-extern uint8_t       obj_valid[COUNT_MAX];
+extern uintptr_t     snapshot[COUNT_MAX];
+extern uint8_t       block[COUNT_MAX][OBJ_BLOCK_SIZE];
+extern uint8_t       valid[COUNT_MAX];
 extern int           obj_count;
 extern uint32_t      own_hp;
 extern float         own_speed;
 extern int32_t       own_x;
 extern int32_t       own_y;
-extern int           own_ok_hp;
+extern int           ok_hp;
 uint64_t             us();
 void                 scan_world();
-void                 run_workload();
+void                 workload();
 void                 setup();
 void                 run_autododge();
 extern uintptr_t     scene_object;
@@ -136,8 +136,8 @@ int                  game_segment_hits_circle(
 int              game_distance(int x1, int y1, int x2, int y2);
 extern int       coord_ok;
 extern int       dead;
-extern uintptr_t own_elem;
+extern uintptr_t elem;
 uintptr_t        client();
 uintptr_t        controller();
-extern int       own_team_b;
+extern int       team_b;
 #endif

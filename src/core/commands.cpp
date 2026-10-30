@@ -121,12 +121,12 @@ static int client_input_manager_queue_is_ready(void* manager)
 int enqueue_client_input_message(int type, int x, int y)
 {
     static uintptr_t constructor_slot = 0;
-    static uintptr_t add_input_slot   = 0;
+    static uintptr_t input_slot   = 0;
     int32_t          coordinate_x     = x;
     int32_t          coordinate_y     = y;
     int32_t          input_type       = type;
     uintptr_t        constructor      = 0;
-    uintptr_t        add_input        = 0;
+    uintptr_t        input        = 0;
     void*            battle           = nullptr;
     void*            manager          = nullptr;
     void*            message          = nullptr;
@@ -154,9 +154,9 @@ int enqueue_client_input_message(int type, int x, int y)
     }
     constructor = client_input_resolve(&constructor_slot,
                                        CLIENTINPUTMESSAGE__CONSTRUCTOR);
-    add_input =
-        client_input_resolve(&add_input_slot, CLIENTINPUTMANAGER__ADDINPUT);
-    if (!constructor || !add_input)
+    input =
+        client_input_resolve(&input_slot, CLIENTINPUTMANAGER__ADDINPUT);
+    if (!constructor || !input)
     {
         return 0;
     }
@@ -183,7 +183,7 @@ int enqueue_client_input_message(int type, int x, int y)
         free(message);
         return 0;
     }
-    reinterpret_cast<void (*)(void*, void*)>(add_input)(manager, message);
+    reinterpret_cast<void (*)(void*, void*)>(input)(manager, message);
     return 1;
 }
 int enqueue_move_input_with_type(int x, int y, int type)
@@ -194,7 +194,7 @@ int enqueue_move_input_with_type(int x, int y, int type)
     }
     if (type == ClientInputMessageTypeMove)
     {
-        (void) set_client_prediction_move_to(x, y);
+        (void) client_prediction_move_to(x, y);
     }
     return 1;
 }
@@ -202,7 +202,7 @@ int enqueue_move_input(int x, int y)
 {
     return enqueue_move_input_with_type(x, y, ClientInputMessageTypeMove);
 }
-int set_client_prediction_move_to(int x, int y)
+int client_prediction_move_to(int x, int y)
 {
     static uintptr_t slot              = 0;
     uintptr_t        function          = 0;
