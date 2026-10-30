@@ -620,52 +620,9 @@ void setup()
 }
 int              coord_ok = 0;
 int              dead     = 0;
-static uintptr_t game_state_manager()
-{
-    void* value = nullptr;
-    if (!read_ptr(base +
-                      static_cast<uintptr_t>(LOGICGAMESTATEMANAGER__INSTANCE),
-                  &value) ||
-        !value)
-    {
-        return 0;
-    }
-    return reinterpret_cast<uintptr_t>(value);
-}
-
-int is_owned_by_own_team(uintptr_t obj)
-{
-    uintptr_t battle   = client();
-    uintptr_t data     = 0;
-    int32_t   own_team = 0;
-    int32_t   team     = 0;
-    if (!battle) return 0;
-    if (!read_int(battle +
-                      static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__OWNTEAM),
-                  &own_team))
-    {
-        return 0;
-    }
-    if (!read_ptr(obj + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
-                  &data) ||
-        !data)
-    {
-        return 0;
-    }
-    if (!read_int(data + LOGICDATA__TEAM, &team)) return 0;
-    return static_cast<int>(team == own_team);
-}
 int scene_live()
 {
-    using state_t      = int (*)(uintptr_t, int);
-    static state_t fn  = nullptr;
-    uintptr_t      gsm = game_state_manager();
-    if (!gsm) return 0;
-    if (!fn)
-        fn =
-            reinterpret_cast<state_t>(callable(LOGICGAMESTATEMANAGER__ISSTATE));
-    if (!fn) return 0;
-    return fn(gsm, static_cast<int>(GAMESTATE__BATTLE));
+    return battle_instance() != 0 ? 1 : 0;
 }
 uintptr_t client()
 {
