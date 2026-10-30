@@ -48,6 +48,8 @@ inline constexpr uint64_t LOGICMATH__GETDISTANCESQUARETOLINE    = 0xbd0424;
 inline constexpr uint64_t LOGICVECTOR2__NORMALIZE               = 0xbd0794;
 inline constexpr uint64_t LOGICVECTOR2__ROTATE                  = 0xbd08f0;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN = 0xaf6838;
+inline constexpr uint64_t LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE =
+    0xaf53c4;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN =
     0xaf7198;
 inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTRAVELTICKS = 0xa3192c;

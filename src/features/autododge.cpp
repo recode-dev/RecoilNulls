@@ -11,26 +11,10 @@ namespace
 
 static float fast_len(float x, float y)
 {
-    return sqrtf(x * x + y * y);
+    return static_cast<float>(
+        game_distance(0, 0, static_cast<int>(x), static_cast<int>(y)));
 }
 
-static bool
-aim_hit(float x1, float y1, float x2, float y2, float cx, float cy, float r)
-{
-    float dx   = x2 - x1;
-    float dy   = y2 - y1;
-    float len2 = dx * dx + dy * dy;
-    float t    = 0.0f;
-    if (len2 > 0.0f)
-    {
-        t = ((cx - x1) * dx + (cy - y1) * dy) / len2;
-        if (t < 0.0f) t = 0.0f;
-        if (t > 1.0f) t = 1.0f;
-    }
-    float ox = x1 + dx * t - cx;
-    float oy = y1 + dy * t - cy;
-    return ox * ox + oy * oy <= r * r;
-}
 
 int deg_from_rad(float r)
 {
@@ -384,7 +368,16 @@ static void add_projectile_threat(const uint8_t* obj,
     float tt = static_cast<float>(arrival) * TICK_MS_SEC;
     if (tt > THREAT_HORIZON) return;
     {
-        if (!aim_hit(px, py, px + vx * tt, py + vy * tt, mx, my, rad)) return;
+        int32_t hit[2] = {0, 0};
+        if (!game_segment_hits_circle(static_cast<int>(px),
+                                      static_cast<int>(py),
+                                      static_cast<int>(px + vx * tt),
+                                      static_cast<int>(py + vy * tt),
+                                      static_cast<int>(mx),
+                                      static_cast<int>(my),
+                                      static_cast<int>(rad + 0.5f),
+                                      hit))
+            return;
     }
     for (int k = 0; k < threat_n; k++)
     {
