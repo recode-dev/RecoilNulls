@@ -5,3 +5,5 @@ out/
 *.dylib
 .build-tools/
 vendor/
+dumps/
+inbox/
