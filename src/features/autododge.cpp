@@ -14,8 +14,8 @@ static float fast_len(float x, float y)
 }
 void vector_normalize(int* x, int* y, int scale)
 {
-    using normalize_t    = void (*)(int*, int);
-    static normalize_t fn = nullptr;
+    using normalize_t       = void (*)(int*, int);
+    static normalize_t fn   = nullptr;
     int                v[2] = {0, 0};
     if (!x || !y)
     {

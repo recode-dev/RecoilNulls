@@ -613,12 +613,13 @@ void setup()
     start_scan_timer();
     setup_done = YES;
 }
-int coord_ok = 0;
-int dead     = 0;
+int              coord_ok = 0;
+int              dead     = 0;
 static uintptr_t game_state_manager()
 {
     void* value = nullptr;
-    if (!read_ptr(base + static_cast<uintptr_t>(LOGICGAMESTATEMANAGER__INSTANCE),
+    if (!read_ptr(base +
+                      static_cast<uintptr_t>(LOGICGAMESTATEMANAGER__INSTANCE),
                   &value) ||
         !value)
     {
@@ -629,12 +630,13 @@ static uintptr_t game_state_manager()
 
 int scene_live()
 {
-    using is_state_t = int (*)(uintptr_t, int);
-    static is_state_t fn = nullptr;
+    using is_state_t      = int (*)(uintptr_t, int);
+    static is_state_t fn  = nullptr;
     uintptr_t         gsm = game_state_manager();
     if (!gsm) return 0;
-    if (!fn) fn = reinterpret_cast<is_state_t>(
-        callable(LOGICGAMESTATEMANAGER__ISSTATE));
+    if (!fn)
+        fn = reinterpret_cast<is_state_t>(
+            callable(LOGICGAMESTATEMANAGER__ISSTATE));
     if (!fn) return 0;
     return fn(gsm, static_cast<int>(GAMESTATE__BATTLE));
 }
