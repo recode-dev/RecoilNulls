@@ -29,7 +29,6 @@ inline constexpr uint64_t LOGICPATHFINDER__ISCLEARPATH             = 0xafb06c;
 inline constexpr uint64_t BATTLEMODE__GETINSTANCE                  = 0x8c5130;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETTILEMAP        = 0x991440;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETOWNCHARACTER   = 0xac3934;
-inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM  = 0xa7f47c;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO =
     0xac3a58;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__CONSTRUCTOR        = 0xa95798;

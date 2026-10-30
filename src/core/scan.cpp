@@ -546,8 +546,17 @@ void scan_world()
         own_hp = 0;
     }
     dead   = (ok_hp && own_hp == 0) ? 1 : 0;
-    team_b = static_cast<int32_t>(
-        call(callable(LOGICBATTLEMODECLIENT__GETOWNPLAYERTEAM), clientPtr));
+    {
+        uintptr_t ownData = 0;
+        int32_t   ownTeam = 0;
+        team_b            = -1;
+        if (read_ptr(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
+                     &ownData) &&
+            ownData && read_int(ownData + LOGICDATA__TEAM, &ownTeam))
+        {
+            team_b = ownTeam;
+        }
+    }
     track_own_speed();
     if (clientPtr)
     {
