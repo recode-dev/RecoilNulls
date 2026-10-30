@@ -43,12 +43,9 @@ float enemy_y[ENEMY_MAX] = {0};
 float enemy_d[ENEMY_MAX] = {0};
 namespace
 {
-constexpr float    REACH            = 300.0f;
 constexpr int      SIM_STEPS        = 32;
-constexpr float    ZONE_FAR         = 5000.0f;
 constexpr uint64_t SEND_MS          = ad::TICK_MS;
 constexpr int      MOVE_DELAY_TICKS = 2;
-constexpr float    SAFETY           = 40.0f;
 constexpr int      HOLD_TICKS       = 3;
 constexpr float    SWITCH_GAIN      = 1.4f;
 constexpr float    SWITCH_ALIGN     = 0.9f;
@@ -59,15 +56,25 @@ constexpr float    WEIGHT_AWAY      = 0.06f;
 constexpr float    WEIGHT_AXIS      = 2600.0f;
 constexpr float    AXIS_INTO        = 0.35f;
 constexpr float    WEIGHT_APPROACH  = 2000.0f;
-constexpr float    APPROACH_R       = 2400.0f;
-constexpr float    THREAT_HORIZON   = 0.6f;
-constexpr float    CLOSE_R          = 1200.0f;
 constexpr float    COMMIT_BONUS     = 3.0f;
-constexpr float    BORDER_PAD       = 60.0f;
-constexpr float    EDGE_ZONE        = 300.0f;
 constexpr float    WEIGHT_EDGE      = 1600.0f;
 constexpr float    TICK_MS_SEC      = static_cast<float>(ad::TICK_MS) * 0.001f;
 constexpr float    SIM_T = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
+struct Span
+{
+    float tile, reach, edge, pad, close, approach, far;
+};
+static Span span = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+static void cache_span()
+{
+    span.tile     = wall_logic_units(1);
+    span.reach    = span.tile;
+    span.edge     = span.tile;
+    span.pad      = span.tile * 0.2f;
+    span.close    = span.tile * 4.0f;
+    span.approach = span.tile * 8.0f;
+    span.far      = span.tile * 16.0f;
+}
 }
 int32_t projectile_radius(uintptr_t data)
 {
@@ -107,8 +114,8 @@ static void      cache_frame_geom()
 {
     frame_geom.w    = wall_logic_units(wall_cache_width());
     frame_geom.h    = wall_logic_units(wall_cache_height());
-    frame_geom.step = wall_logic_units(1);
-    frame_geom.em   = own_hitbox + BORDER_PAD;
+    frame_geom.step = span.tile;
+    frame_geom.em   = own_hitbox + span.pad;
     frame_geom.far  = self_speed * SIM_T;
 }
 Threat    threats[THREAT_MAX];
@@ -256,7 +263,7 @@ static void add_projectile_threat(const uint8_t* obj,
     if (dx * dx + dy * dy > zone2) return;
     if (!wall_line_of_sight_clear(px, py, mx, my)) return;
     if (vx * vx + vy * vy <= 0.0f) return;
-    float   rad  = st->rad + own_hitbox + SAFETY;
+    float   rad  = st->rad + own_hitbox;
     float   dist = fast_len(dx, dy);
     int32_t arrival =
         game_projectile_travel_ticks(st->data,
@@ -264,7 +271,7 @@ static void add_projectile_threat(const uint8_t* obj,
                                      static_cast<int>(st->speed + 0.5f));
     if (arrival < 1) return;
     float tt = static_cast<float>(arrival) * TICK_MS_SEC;
-    if (tt > THREAT_HORIZON) return;
+    if (tt > SIM_T) return;
     {
         int32_t hit[2] = {0, 0};
         if (!game_segment_hits_circle(static_cast<int>(px),
@@ -306,8 +313,8 @@ static uintptr_t obj_rva[COUNT_MAX];
 void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
 {
     refresh_world_extents();
-    float zone = self_speed * 6.0f;
-    if (zone < ZONE_FAR) zone = ZONE_FAR;
+    cache_span();
+    float zone = span.far;
     float zone2 = zone * zone;
     for (int i = 0; i < obj_count; i++)
     {
@@ -355,7 +362,7 @@ static float    compute_edge_pull(float mx, float my, float dx, float dy)
 {
     float w    = frame_geom.w;
     float h    = frame_geom.h;
-    float zone = own_hitbox + EDGE_ZONE;
+    float zone = own_hitbox + span.edge;
     float pen  = 0.0f;
     if (mx < zone) pen -= dx * (zone - mx) / zone;
     if (mx > w - zone) pen += dx * (mx - (w - zone)) / zone;
@@ -515,11 +522,11 @@ static float compute_enemy_approach(float dx, float dy)
     for (int i = 0; i < cost_enemy_count; i++)
     {
         float d = cost_enemy_dist[i];
-        if (d < 1.0f || d > APPROACH_R) continue;
+        if (d < 1.0f || d > span.approach) continue;
         float dot = dx * cost_enemy_dx[i] + dy * cost_enemy_dy[i];
         if (dot <= 0.0f) continue;
-        float p = dot * (1.0f - d / APPROACH_R);
-        if (d < CLOSE_R && dot > 0.5f) p = 3.0f;
+        float p = dot * (1.0f - d / span.approach);
+        if (d < span.close && dot > 0.5f) p = 3.0f;
         if (p > worst) worst = p;
     }
     return worst;
@@ -726,6 +733,7 @@ void update_autododge()
     int32_t own_gid = 0;
     read_int(own_elem + LOGICGAMEOBJECTCLIENT__GETGLOBALID, &own_gid);
     self_speed = own_speed > 1.0f ? own_speed : 1.0f;
+    cache_span();
     cache_frame_geom();
     uint64_t now = us() / 1000;
     float    mx = static_cast<float>(own_x), my = static_cast<float>(own_y);
@@ -763,7 +771,7 @@ void update_autododge()
     {
         choose_dodge_direction(mx, my, dir_x, dir_y);
     }
-    float fx = mx + dir_x * REACH, fy = my + dir_y * REACH;
+    float fx = mx + dir_x * span.reach, fy = my + dir_y * span.reach;
     for (int k = 0; k < 3 && !wall_path_clear(mx, my, fx, fy); k++)
     {
         fx = mx + (fx - mx) * 0.5f;

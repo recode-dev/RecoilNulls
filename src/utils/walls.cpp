@@ -5,7 +5,6 @@
 static uintptr_t wall_map          = 0;
 static int       wall_w            = 0;
 static int       wall_h            = 0;
-static int       wall_tile_span    = 0;
 static int       wall_subtile_span = 0;
 static int       wall_have         = 0;
 static int       wall_measure_tile_span()
@@ -13,7 +12,6 @@ static int       wall_measure_tile_span()
     int span = game_tile_to_logic(1) - game_tile_to_logic(0);
     if (span <= 0) return 0;
     if (span % WALL_SUBTILES_PER_TILE) return 0;
-    wall_tile_span    = span;
     wall_subtile_span = span / WALL_SUBTILES_PER_TILE;
     return 1;
 }
@@ -36,7 +34,6 @@ static int wall_subtile_of(float x, float y, int* outX, int* outY)
 }
 float wall_logic_units(int tiles)
 {
-    if (wall_tile_span > 0) return static_cast<float>(tiles * wall_tile_span);
     return static_cast<float>(game_tile_to_logic(tiles) -
                               game_tile_to_logic(0));
 }
