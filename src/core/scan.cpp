@@ -528,10 +528,12 @@ void scan_world()
         {
             uintptr_t ownData = 0;
             int32_t   team    = 0;
-            if (read_ptr(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
+            if (read_ptr(own + static_cast<uintptr_t>(
+                                   LOGICGAMEOBJECTCLIENT__GETDATA),
                          &ownData) &&
                 ownData &&
-                read_int(ownData + static_cast<uintptr_t>(LOGICDATA__TEAM), &team))
+                read_int(ownData + static_cast<uintptr_t>(LOGICDATA__TEAM),
+                         &team))
             {
                 own_team_value = team;
             }
