@@ -213,12 +213,12 @@ constexpr float    TICK_MS_SEC       = (float) ad::TICK_MS * 0.001f;
 constexpr float    SIM_T             = (float) SIM_STEPS * TICK_MS_SEC;
 
 }
-int ad_dir_angle_deg(float x, float y)
+int dir_angle_deg(float x, float y)
 {
     return vector_angle((int) (x * 1000.0f), (int) (y * 1000.0f));
 }
 
-int ad_angle_delta(int a, int b)
+int angle_delta(int a, int b)
 {
     static uintptr_t slot = 0;
     if (!slot)

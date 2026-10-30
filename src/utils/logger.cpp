@@ -360,8 +360,8 @@ void diag_tick()
     if (last_hp > 0 && static_cast<int32_t>(own_hp) < last_hp) hit_count++;
     last_hp = static_cast<int32_t>(own_hp);
     {
-        int ang   = ad_dir_angle_deg(ad_dir_x, ad_dir_y);
-        int delta = ad_angle_delta(ang, last_ang);
+        int ang   = dir_angle_deg(ad_dir_x, ad_dir_y);
+        int delta = angle_delta(ang, last_ang);
         if (active && (delta > 20 || delta < -20))
         {
             dodge_count++;
