@@ -174,7 +174,7 @@ character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
     memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
     float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
-    if (is_owned_by_own_team(obj))
+    if (is_owned_by_own_team(reinterpret_cast<uintptr_t>(obj)))
     {
         if (ally_n >= ALLY_MAX) return;
         int k     = ally_n++;
@@ -259,7 +259,7 @@ static void projectile_threat(const uint8_t* obj,
         st->vel = false;
     }
     st->x = px, st->y = py;
-    if (is_owned_by_own_team(obj))
+    if (is_owned_by_own_team(reinterpret_cast<uintptr_t>(obj)))
     {
         proj_own_n++;
         return;
