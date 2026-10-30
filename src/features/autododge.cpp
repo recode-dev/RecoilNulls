@@ -187,10 +187,10 @@ static void add_character_entry(
     if (own_team_matches(team))
     {
         if (ally_n >= ALLY_MAX) return;
-        int k      = ally_n++;
-        ally_x[k]  = static_cast<float>(xi);
-        ally_y[k]  = static_cast<float>(yi);
-        ally_d[k]  = fast_len(ex, ey);
+        int k     = ally_n++;
+        ally_x[k] = static_cast<float>(xi);
+        ally_y[k] = static_cast<float>(yi);
+        ally_d[k] = fast_len(ex, ey);
         return;
     }
     if (enemy_n >= ENEMY_MAX) return;
@@ -723,14 +723,14 @@ static void learn_own_hitbox()
 }
 void reset_autododge_state()
 {
-    enemy_n     = 0;
-    ally_n      = 0;
-    proj_own_n  = 0;
+    enemy_n      = 0;
+    ally_n       = 0;
+    proj_own_n   = 0;
     proj_enemy_n = 0;
-    threat_n    = 0;
-    char_vt     = 0;
-    own_hitbox  = 0.0f;
-    sent_ms     = 0;
+    threat_n     = 0;
+    char_vt      = 0;
+    own_hitbox   = 0.0f;
+    sent_ms      = 0;
     dodge_dir_x = 1.0f, dodge_dir_y = 0.0f;
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
