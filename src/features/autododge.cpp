@@ -15,7 +15,6 @@ static float fast_len(float x, float y)
         game_distance(0, 0, static_cast<int>(x), static_cast<int>(y)));
 }
 
-
 int math_distance_square_to_line(int ax, int ay, int bx, int by, int px, int py)
 {
     static uintptr_t slot = 0;
@@ -77,7 +76,6 @@ void vector_normalize(int* x, int* y, int scale)
     *x = v[0];
     *y = v[1];
 }
-
 
 }
 
