@@ -49,11 +49,11 @@ static int       wall_have    = 0;
 static uintptr_t wall_map     = 0;
 static int       wall_dirty   = 1;
 static uint64_t  wall_fail_ms = 0;
-int              wall_cache_w(void)
+int              wall_cache_w()
 {
     return wall_w;
 }
-int wall_cache_h(void)
+int wall_cache_h()
 {
     return wall_h;
 }
@@ -100,7 +100,7 @@ void wall_bind(uintptr_t tileMap)
         wall_have  = 0;
     }
 }
-int wall_ready(void)
+int wall_ready()
 {
     return wall_have;
 }
@@ -142,7 +142,7 @@ int walls_near(float x, float y, float radius, float* out, int max)
     }
     return n;
 }
-int wall_build(void)
+int wall_build()
 {
     int width  = 0;
     int height = 0;

@@ -6,7 +6,7 @@
 extern "C"
 {
 #endif
-    typedef void (*objc_body_t)(void);
+    using objc_body_t = void (*)(void);
     int objc_arm(uintptr_t   imageBase,
                  const char* clsName,
                  const char* selName,

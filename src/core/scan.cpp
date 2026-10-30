@@ -4,11 +4,11 @@
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #include <mach/vm_map.h>
-#include <math.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #if __has_include(<ptrauth.h>)
 #include <ptrauth.h>
 #endif
@@ -388,7 +388,9 @@ BOOL valid_header(uintptr_t imageBase)
     {
         return NO;
     }
-    struct mach_header_64 header;
+    struct mach_header_64 header
+    {
+    };
     if (!pointer_plausible(imageBase))
     {
         return NO;
@@ -421,7 +423,7 @@ BOOL valid_header(uintptr_t imageBase)
 }
 static BOOL contains_ci(const char* haystack, const char* needle)
 {
-    const char* p = NULL;
+    const char* p = nullptr;
     if (!haystack || !needle || !needle[0])
     {
         return NO;
@@ -557,7 +559,7 @@ BOOL              segment_range(const char* name, uintptr_t* lo, uintptr_t* hi)
     }
     return NO;
 }
-void image_span_refresh(void)
+void image_span_refresh()
 {
     if (!base || !addr_readable(base, sizeof(struct mach_header_64)))
     {
@@ -847,7 +849,7 @@ int       collect(uintptr_t mgrPtr, obj_t* out, int capacity)
     {
         return 0;
     }
-    if (!read_int((uintptr_t) mgrPtr + MGR_COUNT_OFF, &count))
+    if (!read_int(mgrPtr + MGR_COUNT_OFF, &count))
     {
         return 0;
     }
@@ -936,7 +938,7 @@ int       collect(uintptr_t mgrPtr, obj_t* out, int capacity)
     }
     return usable;
 }
-uint64_t us(void)
+uint64_t us()
 {
     static mach_timebase_info_data_t tb;
     static int                       ready = 0;
@@ -1000,7 +1002,7 @@ BOOL start_boundary(const uint8_t* bytes, size_t offset)
     }
     return NO;
 }
-void load_function_starts(void)
+void load_function_starts()
 {
     if (starts || !base)
     {
@@ -1081,8 +1083,11 @@ int32_t           pub_count    = 0;
 uintptr_t         tick_object  = 0;
 uintptr_t         tick_array   = 0;
 int32_t           tick_count   = 0;
-void              publish(
-                 uintptr_t object, uintptr_t array, int32_t count, int32_t, const char*)
+void              publish(uintptr_t object,
+                          uintptr_t array,
+                          int32_t   count,
+                          int32_t /*unused*/,
+                          const char* /*unused*/)
 {
     __sync_synchronize();
     seq++;
@@ -1134,7 +1139,7 @@ int snapshot(uintptr_t* objectOut, uintptr_t* arrayOut, int32_t* countOut)
     }
     return 0;
 }
-void tick_begin(void)
+void tick_begin()
 {
     uintptr_t o = 0;
     uintptr_t a = 0;
@@ -1172,7 +1177,7 @@ static uint32_t site_hash(uintptr_t address)
     }
     return hash;
 }
-void slot_hooks_install(void)
+void slot_hooks_install()
 {
     hook_t specs[34];
     int    i = 0;
@@ -1196,7 +1201,7 @@ void slot_hooks_install(void)
 }
 const int object_slots[3] = {2, 3, 4};
 int       pub_logs        = 0;
-void      slot_pump(void)
+void      slot_pump()
 {
     int first = -1;
     for (int i = 0; i < 34; i++)
@@ -1779,7 +1784,7 @@ const hook_t slot_specs[34] = {
     {SLOT_NONE, (void*) slot_repl_32, 0},
     {RVA_BATTLESCREEN__UPDATEMOVEMENT, (void*) slot_repl_33, 0},
 };
-int state_tick(void)
+int state_tick()
 {
     uintptr_t slot        = (uintptr_t) read_global_ptr(STATE_RVA);
     int32_t   state       = -1;
@@ -1910,7 +1915,7 @@ int state_tick(void)
     }
     return 1;
 }
-void start_timer(void)
+void start_timer()
 {
     if (scan_timer)
     {
@@ -1938,9 +1943,9 @@ void start_timer(void)
     scan_timer = timer;
 }
 uint64_t ticks_b = 0;
-typedef uintptr_t (*fn1)(uintptr_t);
-typedef int32_t (*fn1i)(uintptr_t);
-typedef float (*fn1f)(uintptr_t);
+using fn1        = uintptr_t (*)(uintptr_t);
+using fn1i       = int32_t (*)(uintptr_t);
+using fn1f       = float (*)(uintptr_t);
 static uintptr_t call1(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self) return 0;
@@ -1981,7 +1986,7 @@ int32_t    own_y             = 0;
 int32_t    own_index_v       = -1;
 int        own_ok_hp         = 0;
 dbg_t      dbg;
-static int battle_state(void)
+static int battle_state()
 {
     uintptr_t slot  = (uintptr_t) read_global_ptr(STATE_RVA);
     int32_t   state = -1;
@@ -1995,7 +2000,7 @@ static int battle_state(void)
     }
     return state;
 }
-static void world_reset(void)
+static void world_reset()
 {
     own_elem          = 0;
     own_elem_scan     = 0;
@@ -2009,7 +2014,7 @@ static void world_reset(void)
     manager_array_ptr = 0;
     manager_count_v   = 0;
 }
-void scan_world(void)
+void scan_world()
 {
     uintptr_t clientPtr = 0;
     uintptr_t own       = 0;
@@ -2149,7 +2154,7 @@ void scan_world(void)
     dbg.stage         = 6;
     ticks_a++;
 }
-void run_workload(void)
+void run_workload()
 {
     tick_begin();
     wall_maybe_refresh((uint64_t) (CFAbsoluteTimeGetCurrent() * 1000.0));
@@ -2157,7 +2162,7 @@ void run_workload(void)
     scan_world();
     run_autododge();
 }
-void run_autododge(void)
+void run_autododge()
 {
     if (in_move)
     {
@@ -2169,7 +2174,7 @@ void run_autododge(void)
 }
 static uint64_t          work_us   = 0;
 static dispatch_source_t hot_timer = nullptr;
-static void              objc_body(void)
+static void              objc_body()
 {
     uint64_t now = 0;
     if (inside_hook)
@@ -2186,7 +2191,7 @@ static void              objc_body(void)
     run_workload();
     inside_hook = NO;
 }
-static void start_hot_timer(void)
+static void start_hot_timer()
 {
     dispatch_queue_t  queue    = nullptr;
     dispatch_source_t timer    = nullptr;
@@ -2208,7 +2213,7 @@ static void start_hot_timer(void)
     dispatch_resume(timer);
     hot_timer = timer;
 }
-void setup(void)
+void setup()
 {
     if (setup_done)
     {
@@ -2467,7 +2472,7 @@ int container_score(uintptr_t container)
     score += posOk * POS_BONUS + posDistinct * DIST_BONUS;
     return score;
 }
-void resolve_addresses(void)
+void resolve_addresses()
 {
     if (!base)
     {
@@ -2496,7 +2501,7 @@ void resolve_addresses(void)
         addr_battlescreen = 0;
     }
 }
-void locate_battle_mode(void)
+void locate_battle_mode()
 {
     if (mode_strong)
     {
@@ -2578,7 +2583,10 @@ uint8_t   proj_bytes[0x100];
 int       proj_have      = 0;
 int       proj_dumps     = 0;
 uint64_t  proj_diff_logs = 0;
-void      proj_track(uintptr_t elem, uintptr_t, int32_t, int32_t)
+void      proj_track(uintptr_t elem,
+                     uintptr_t /*unused*/,
+                     int32_t /*unused*/,
+                     int32_t /*unused*/)
 {
     uint8_t now[0x100];
     int     i;
@@ -2672,7 +2680,7 @@ uintptr_t hop(uintptr_t imageBase, int* whyOut)
     }
     return (uintptr_t) q;
 }
-int scene_live(void)
+int scene_live()
 {
     uintptr_t slot  = (uintptr_t) read_global_ptr(STATE_RVA);
     void*     value = nullptr;
@@ -2689,34 +2697,34 @@ int scene_live(void)
     {
         return 0;
     }
-    return (uintptr_t) value == scene_object;
+    return static_cast<int>((uintptr_t) value == scene_object);
 }
-uintptr_t client(void)
+uintptr_t client()
 {
     void* clientPtr = nullptr;
     if (!scene_object || !scene_live())
     {
         return 0;
     }
-    if (!read_ptr((uintptr_t) scene_object + CLIENT_OFF, &clientPtr))
+    if (!read_ptr(scene_object + CLIENT_OFF, &clientPtr))
     {
         return 0;
     }
     return (uintptr_t) clientPtr;
 }
 static int proj_read_name(uintptr_t data, char* dst, int cap);
-typedef struct
+using range_entry_t = struct
 {
     char  name[64];
     float range;
-} range_entry_t;
+};
 #define RANGE_MAP_MAX 32
 #define HARVEST_MAX   32
 static range_entry_t range_map[RANGE_MAP_MAX];
 static int           range_map_n = 0;
 static uintptr_t     harvested[HARVEST_MAX];
 static int           harvested_n = 0;
-static void          range_map_reset(void)
+static void          range_map_reset()
 {
     range_map_n = 0;
     harvested_n = 0;
@@ -2886,11 +2894,11 @@ float range_for_proj(uintptr_t projData, int32_t ownerIdx)
     harvest_character(chr);
     return range_lookup(name);
 }
-int range_map_size(void)
+int range_map_size()
 {
     return range_map_n;
 }
-float own_cast_range(void)
+float own_cast_range()
 {
     static float    cached = 0.0f;
     static uint64_t stamp  = 0;
@@ -3145,7 +3153,7 @@ int proj_scan(uintptr_t    mgrPtr,
                 ownerIdx >= 0 && ownerIdx < 64)
             {
                 pteam   = ownerTeam[ownerIdx];
-                settled = pteam >= 0;
+                settled = static_cast<int>(pteam >= 0);
             }
             if (!settled && read_int((uintptr_t) element + teamOff, &pteam) &&
                 pteam >= 0 && pteam <= 7)
@@ -3355,7 +3363,7 @@ int ctrl_bounds(uintptr_t imageBase, int32_t* wOut, int32_t* hOut)
     }
     return bounds_try(imageBase, wOut, hOut);
 }
-uintptr_t controller(void)
+uintptr_t controller()
 {
     uintptr_t clientPtr = client();
     int32_t   cw        = 0;
@@ -3433,11 +3441,11 @@ const char* header_reason(uintptr_t mgrPtr, int32_t* countOut, int32_t* capOut)
     }
     return nullptr;
 }
-uintptr_t coord_x_off(void)
+uintptr_t coord_x_off()
 {
     return OBJ_X_OFF;
 }
-uintptr_t coord_y_off(void)
+uintptr_t coord_y_off()
 {
     return OBJ_Y_OFF;
 }
@@ -3688,9 +3696,9 @@ int       ascii_word(uintptr_t address)
     {
         return 0;
     }
-    for (int i = 0; i < 8; i++)
+    for (unsigned char byte : bytes)
     {
-        if (bytes[i] >= 0x20 && bytes[i] <= 0x7e)
+        if (byte >= 0x20 && byte <= 0x7e)
         {
             printable++;
         }
@@ -3702,9 +3710,9 @@ int word_ascii(uint64_t value)
     uint8_t bytes[8];
     int     printable = 0;
     memcpy(bytes, &value, sizeof(bytes));
-    for (int i = 0; i < 8; i++)
+    for (unsigned char byte : bytes)
     {
-        if (bytes[i] >= 0x20 && bytes[i] <= 0x7e)
+        if (byte >= 0x20 && byte <= 0x7e)
         {
             printable++;
         }

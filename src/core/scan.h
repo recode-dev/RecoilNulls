@@ -14,25 +14,25 @@
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
 #include <string.h>
-typedef struct
+using objhit_t = struct
 {
     int32_t gid;
     int32_t team;
     int     dead;
-} objhit_t;
-typedef uint64_t (*slot_fn_t)(void*    a0,
-                              uint64_t a1,
-                              uint64_t a2,
-                              uint64_t a3,
-                              uint64_t a4,
-                              uint64_t a5,
-                              uint64_t a6,
-                              uint64_t a7);
-typedef struct
+};
+using slot_fn_t = uint64_t (*)(void*    a0,
+                               uint64_t a1,
+                               uint64_t a2,
+                               uint64_t a3,
+                               uint64_t a4,
+                               uint64_t a5,
+                               uint64_t a6,
+                               uint64_t a7);
+using trail_t   = struct
 {
     int32_t count;
-} trail_t;
-typedef struct
+};
+using obj_t = struct
 {
     uintptr_t object;
     int32_t   gid;
@@ -44,7 +44,7 @@ typedef struct
     int32_t   typeWord;
     uint8_t   dead;
     uint8_t   activeFlag;
-} obj_t;
+};
 #include <CoreFoundation/CFDate.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
@@ -77,9 +77,9 @@ extern uintptr_t         addr_projradius;
 extern uintptr_t         addr_projbeam;
 extern uintptr_t         addr_castrange;
 float                    call1f(uintptr_t fn, uintptr_t self);
-float                    own_cast_range(void);
+float                    own_cast_range();
 float                    range_for_proj(uintptr_t projData, int32_t ownerIdx);
-int                      range_map_size(void);
+int                      range_map_size();
 extern volatile int      at;
 extern int               sig_ticks;
 extern uintptr_t         sig_last;
@@ -114,7 +114,7 @@ BOOL        text_section(uintptr_t* address, uint64_t* size);
 BOOL        valid_header(uintptr_t imageBase);
 BOOL        find_game_image(uintptr_t* out_base);
 BOOL        segment_range(const char* name, uintptr_t* lo, uintptr_t* hi);
-void        image_span_refresh(void);
+void        image_span_refresh();
 const char* image_segment_name(uintptr_t value);
 BOOL        vtable_shaped(uintptr_t value);
 BOOL        heap_resident(uintptr_t value);
@@ -407,7 +407,7 @@ extern int32_t   own_x;
 extern int32_t   own_y;
 extern int32_t   own_index_v;
 extern int       own_ok_hp;
-typedef struct
+using dbg_t = struct
 {
     int   stage;
     int   hazards;
@@ -433,20 +433,20 @@ typedef struct
     float thvy[6];
     float thrad[6];
     char  note[64];
-} dbg_t;
+};
 extern dbg_t   dbg;
 extern int     logs_a;
 extern int     seeded;
 extern int32_t last_x_a;
 extern int32_t last_y_a;
 int            collect(uintptr_t mgrPtr, obj_t* out, int capacity);
-uint64_t       us(void);
+uint64_t       us();
 #define COORD_SOFT      0
 #define AREA_RADIUS_MIN 1
 #define AREA_RADIUS_MAX 6000
 #define AREA_TIME_MIN   1
 #define AREA_TIME_MAX   60000
-void load_function_starts(void);
+void load_function_starts();
 BOOL start_boundary(const uint8_t* bytes, size_t offset);
 BOOL start_word(uint32_t word);
 #include "hook.h"
@@ -475,8 +475,8 @@ void                      publish(uintptr_t   object,
                                   int32_t     count,
                                   int32_t     cap,
                                   const char* why);
-void                      slot_hooks_install(void);
-void                      slot_pump(void);
+void                      slot_hooks_install();
+void                      slot_pump();
 uint64_t                  slot_repl_0(void*    a0,
                                       uint64_t a1,
                                       uint64_t a2,
@@ -750,7 +750,7 @@ uint64_t                  slot_repl_9(void*    a0,
                                       uint64_t a6,
                                       uint64_t a7);
 int  snapshot(uintptr_t* objectOut, uintptr_t* arrayOut, int32_t* countOut);
-void tick_begin(void);
+void tick_begin();
 extern uintptr_t slot_object[34];
 extern uintptr_t slot_arg[34];
 extern uint64_t  slot_hits[34];
@@ -759,17 +759,17 @@ extern int       battle_active;
 extern int       battle_last_tick;
 extern int       hb_sig_prev;
 extern uint64_t  ticks_b;
-void             start_timer(void);
-int              state_tick(void);
-void             scan_world(void);
-void             run_workload(void);
-void             setup(void);
-void             run_autododge(void);
+void             start_timer();
+int              state_tick();
+void             scan_world();
+void             run_workload();
+void             setup();
+void             run_autododge();
 #define WIRE_OWNER       1
 #define HOPCHOSEN_DIRECT 2
 #define ARRAY_VOTE_LOGS  8
 extern uintptr_t scene_object;
-int              scene_live(void);
+int              scene_live();
 extern int       prev_state;
 extern uintptr_t own_ptr_a;
 extern int       hop_chosen;
@@ -796,7 +796,7 @@ extern uint64_t  proj_diff_logs;
 extern uintptr_t own_elem;
 extern int32_t   own_gid;
 extern int       no_source_passes;
-typedef struct
+using proj_death_t = struct
 {
     const char* name;
     float       angle;
@@ -804,17 +804,17 @@ typedef struct
     int32_t     spawnY;
     int32_t     x;
     int32_t     y;
-} proj_death_t;
-typedef struct
+};
+using hazard_t = struct
 {
     float       x;
     float       y;
     float       radius;
     const char* name;
-} hazard_t;
+};
 #define WORK_GAP_US     200
 #define HOT_INTERVAL_US 2000
-typedef struct
+using proj_t = struct
 {
     uintptr_t   elem;
     uintptr_t   classRva;
@@ -843,7 +843,7 @@ typedef struct
     int32_t     spawnAreaRadius;
     int32_t     spawnAreaActiveTime;
     int32_t     castRange;
-} proj_t;
+};
 extern proj_t       projs[16];
 extern proj_death_t proj_deaths[16];
 extern int          proj_death_n;
@@ -854,21 +854,21 @@ int                 container_header(uintptr_t  object,
                                      int32_t*   capOut);
 int32_t             gid(uintptr_t element, int32_t* offOut);
 int                 container_score(uintptr_t container);
-void                resolve_addresses(void);
-void                locate_battle_mode(void);
+void                resolve_addresses();
+void                locate_battle_mode();
 void                gidless_scan(uintptr_t mgrPtr);
 void proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
 uintptr_t   hop(uintptr_t base, int* whyOut);
-uintptr_t   client(void);
+uintptr_t   client();
 void        state_note(int state);
 int         proj_scan(uintptr_t    mgrPtr,
                       int32_t      count,
                       const obj_t* rosterArr,
                       int          rosterUsable);
-uintptr_t   controller(void);
+uintptr_t   controller();
 const char* header_reason(uintptr_t mgrPtr, int32_t* countOut, int32_t* capOut);
-uintptr_t   coord_x_off(void);
-uintptr_t   coord_y_off(void);
+uintptr_t   coord_x_off();
+uintptr_t   coord_y_off();
 int         ctrl_bounds(uintptr_t base, int32_t* wOut, int32_t* hOut);
 extern int  cand_changes[3];
 extern int  cand_frame[3];

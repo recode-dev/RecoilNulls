@@ -1,6 +1,6 @@
 #include "crypto.h"
-#include <stdint.h>
-#include <string.h>
+#include <cstdint>
+#include <cstring>
 static const uint32_t SHA_K[64] = {
     0x428a2f98UL, 0x71374491UL, 0xb5c0fbcfUL, 0xe9b5dba5UL, 0x3956c25bUL,
     0x59f111f1UL, 0x923f82a4UL, 0xab1c5ed5UL, 0xd807aa98UL, 0x12835b01UL,
@@ -23,13 +23,13 @@ static const uint32_t SHA_IV[8] = {0x6a09e667UL,
                                    0x9b05688cUL,
                                    0x1f83d9abUL,
                                    0x5be0cd19UL};
-typedef struct
+using sha_ctx_t                 = struct
 {
     uint32_t h[8];
     uint8_t  buf[64];
     uint64_t bits;
     size_t   n;
-} sha_ctx_t;
+};
 static uint32_t ror(uint32_t v, int s)
 {
     return (v >> s) | (v << (32 - s));

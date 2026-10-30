@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
-#include <stdint.h>
-#include <stdio.h>
+#include <cstdint>
+#include <cstdio>
 #include <vector>
 static struct
 {
@@ -80,7 +80,7 @@ static void                           buildRing()
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
         float a = (float) M_PI * 2.0f * (float) i / (float) TUNE.DIR_COUNT;
-        g_ring.push_back(V2(cosf(a), sinf(a)));
+        g_ring.emplace_back(cosf(a), sinf(a));
     }
     g_headingIdx = -1;
 }
@@ -155,10 +155,10 @@ static int32_t call1i_local(uintptr_t fn, uintptr_t self)
     uintptr_t rva    = (fn >= base) ? (fn - base) : fn;
     uintptr_t target = callable(rva);
     if (!target) return 0;
-    typedef int32_t (*fn_t)(uintptr_t);
+    using fn_t = int32_t (*)(uintptr_t);
     return ((fn_t) target)(self);
 }
-void autododge(void)
+void autododge()
 {
     if (!base || !own_elem || dead)
     {
@@ -365,7 +365,7 @@ void autododge(void)
                 }
                 bool blob = !state.isBeam && !state.isIndirect &&
                             state.speed > 0 && state.speed < 1600;
-                Threat t;
+                Threat t{};
                 t.x   = px;
                 t.y   = py;
                 t.vx  = blob ? 0 : state.dirX * state.speed;
@@ -518,7 +518,7 @@ void autododge(void)
              stayClear,
              chosenScore);
 }
-void autododge_reset(void)
+void autododge_reset()
 {
     g_proj_cache.clear();
     clearHeading();

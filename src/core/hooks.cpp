@@ -1,6 +1,6 @@
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
 
 extern "C"
 {
@@ -21,7 +21,7 @@ int hooks_install(uintptr_t     imageBase,
     {
         for (i = 0; i < count; i++)
         {
-            originals[i] = NULL;
+            originals[i] = nullptr;
         }
     }
     return 0;

@@ -1,120 +1,126 @@
 #ifndef OFFSETS_H
 #define OFFSETS_H
-#define SC_LEN_OFF                                  0x4ULL
-#define SC_DATA_OFF                                 0x8ULL
-#define PROJ_ANGLE_OFF                              0x1d4ULL
-#define PROJ_ISTHROWER_OFF                          0xb8ULL
-#define PROJ_DATA_NAME_OFF                          0x58ULL
-#define RVA_BATTLEMODE_GETINSTANCE                  0x8c5130ULL
-#define RVA_BATTLESCREEN__UPDATEMOVEMENT            0x7a60f4ULL
-#define RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER   0xac3934ULL
-#define RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM  0xa7f47cULL
-#define RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX 0x9cda04ULL
-#define RVA_LOGICBATTLEMODECLIENT_GETTILEMAP        0x991440ULL
-#define RVA_LOGICGAMEOBJECTCLIENT_GETDATA           0x117050ULL
-#define RVA_LOGICGAMEOBJECTCLIENT_GETGLOBALID       0x46464cULL
-#define RVA_LOGICCHARACTERDATA_GETSPEED             0x9911ecULL
-#define RVA_LOGICCHARACTERDATA_GETCOLLISIONRADIUS   0x9913e8ULL
-#define RVA_LOGICPROJECTILEDATA_GETSPEED            0x8cee94ULL
-#define RVA_LOGICPROJECTILEDATA_GETRADIUS           0x860d88ULL
-#define RVA_LOGICSKILLDATA_GETCASTRANGE             0x9de9ccULL
-#define RVA_LOGICCHARACTERCLIENT_GETWEAPONSKILL     0x9fc440ULL
-#define RVA_LOGICSKILLDATA_GETPROJECTILEDATA        0x9e84a8ULL
+enum
+{
+    SC_LEN_OFF                                  = 0x4ULL,
+    SC_DATA_OFF                                 = 0x8ULL,
+    PROJ_ANGLE_OFF                              = 0x1d4ULL,
+    PROJ_ISTHROWER_OFF                          = 0xb8ULL,
+    PROJ_DATA_NAME_OFF                          = 0x58ULL,
+    RVA_BATTLEMODE_GETINSTANCE                  = 0x8c5130ULL,
+    RVA_BATTLESCREEN__UPDATEMOVEMENT            = 0x7a60f4ULL,
+    RVA_LOGICBATTLEMODECLIENT_GETOWNCHARACTER   = 0xac3934ULL,
+    RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERTEAM  = 0xa7f47cULL,
+    RVA_LOGICBATTLEMODECLIENT_GETOWNPLAYERINDEX = 0x9cda04ULL,
+    RVA_LOGICBATTLEMODECLIENT_GETTILEMAP        = 0x991440ULL,
+    RVA_LOGICGAMEOBJECTCLIENT_GETDATA           = 0x117050ULL,
+    RVA_LOGICGAMEOBJECTCLIENT_GETGLOBALID       = 0x46464cULL,
+    RVA_LOGICCHARACTERDATA_GETSPEED             = 0x9911ecULL,
+    RVA_LOGICCHARACTERDATA_GETCOLLISIONRADIUS   = 0x9913e8ULL,
+    RVA_LOGICPROJECTILEDATA_GETSPEED            = 0x8cee94ULL,
+    RVA_LOGICPROJECTILEDATA_GETRADIUS           = 0x860d88ULL,
+    RVA_LOGICSKILLDATA_GETCASTRANGE             = 0x9de9ccULL,
+    RVA_LOGICCHARACTERCLIENT_GETWEAPONSKILL     = 0x9fc440ULL,
+    RVA_LOGICSKILLDATA_GETPROJECTILEDATA        = 0x9e84a8ULL
+};
 
-#define CASTING_RANGE_SCALE            100.0f
-#define PROJ_INDEX_MAX                 4
-#define RVA_LOGICPROJECTILEDATA_ISBEAM 0x9b6448ULL
-#define RVA_LOGICGAMEOBJECTCLIENT_GETX 0xa23afcULL
-#define RVA_LOGICGAMEOBJECTCLIENT_GETY 0xa23b04ULL
-#define MODE_MANAGER_OFF               0x28ULL
-#define MGR_ARRAY_OFF                  0x0ULL
-#define MGR_COUNT_OFF                  0xcULL
-#define MGR_CAP_OFF                    0x8ULL
-#define DC_RVA_LO                      0xf74000ULL
-#define OBJ_GLOBALID_OFF               0x8ULL
-#define MOVE_RVA                       0xac3a58ULL
-#define ALLOC_RVA                      0x00d8da2cULL
-#define MSGCTOR_RVA                    0x00a95798ULL
-#define CI_MGR_QUEUE_OFF               0x20ULL
-#define ADDINPUT_RVA                   0x74675cULL
-#define MGR_OFF                        0x58ULL
-#define TYPE_OFF                       0x08ULL
-#define X_OFF                          0x0cULL
-#define Y_OFF                          0x10ULL
-#define ALLOC_GOT_RVA                  0x00f78180ULL
-#define OWN_INNER_OFF                  0x28ULL
-#define BOX_PTR_OFF                    0xf8ULL
-#define CLIENT_OFF                     0x28ULL
-#define OBJ_TEAM_OFF                   0x40ULL
-#define OBJ_OWNERINDEX_OFF             0x3cULL
-#define OBJ_DEADFLAG_OFF               0xd0ULL
-#define BOUNDS_X_OFF                   0xccULL
-#define BOUNDS_Y_OFF                   0xd0ULL
-#define CTRL_MODE_OFF                  0x918ULL
-#define OBJ_X_OFF                      0x30ULL
-#define OBJ_Y_OFF                      0x34ULL
-#define OBJ_ACTIVEFLAG_OFF             0x1e8ULL
-#define OBJ_HP_OFF                     0xc4ULL
-#define PROJDATA_SPEED_OFF             0x6cULL
-#define PROJDATA_RADIUS_OFF            0x74ULL
-#define TYPE_SLOT_OFF                  0x28ULL
-#define OWNIDX_OFF                     0xe0ULL
-#define OWNTEAM_OFF                    0xe4ULL
-#define STATE_RVA                      0x1123e58ULL
-#define STATE_ENUM_OFF                 0x50ULL
-#define SCENE_OFF                      0x48ULL
-#define CLIENT_HOP_OFF                 0x28ULL
-#define ELEM_DEF_OFF                   0x10ULL
-#define TILEMAP_W_OFF                  0xc4ULL
-#define TILEMAP_H_OFF                  0xc8ULL
-#define TILEMAP_ARRAY_OFF              0x20ULL
-#define TILE_PTR_STRIDE                0x8ULL
-#define TILE_TYPE_MOVE_OFF             0x56ULL
-#define CI_TYPE_TABLE_RVA              0x00e1bd30ULL
-#define CI_TABLE_TYPES                 0x17ULL
-#define CI_TYPE_FALLBACK_RVA           0x00e1bc28ULL
-#define CI_HASH_INNER_MASK_RVA         0x00e1bbd0ULL
-#define CI_HASH_OUTER_MASK_RVA         0x00e1bbf0ULL
-#define BM_HASH_ENABLED_OFF            0x70ULL
-#define BM_HASH_KEY_OFF                0x60ULL
-#define CI_TOKEN_OFF                   0x34UL
-#define CI_TOKEN_READ_OFF              0x4UL
-#define IMAGE_TEXT_WINDOW              0x4000ULL
-#define CLASS_PROJ_RVA                 0x000ff57b0ULL
-#define VTABLE_PROJ_DATA_RVA           0x000ff3b18ULL
-#define DC_RVA_SIZE                    0xd4000ULL
-#define IMAGE_SPAN                     0x1164000ULL
-#define HEAP_REGION_MAX_SIZE           0x100000000ULL
-#define SLOT_NONE                      0ULL
-#define SLOT_RVA_0                     0x00ad4ed0ULL
-#define SLOT_RVA_1                     0x00ad521cULL
-#define SLOT_RVA_5                     0x00c33690ULL
-#define SLOT_RVA_11                    0x008c7fbcULL
-#define SLOT_RVA_13                    0x00bcfbe8ULL
-#define SLOT_RVA_14                    0x00bcfc28ULL
-#define SLOT_RVA_16                    0x008c6150ULL
-#define SLOT_RVA_17                    0x00ac3f20ULL
-#define SLOT_RVA_18                    0x00746898ULL
-#define SLOT_RVA_19                    0x00b8ae88ULL
-#define SLOT_RVA_20                    0x00b8ac7cULL
-#define SLOT_RVA_23                    0x00b85fe0ULL
-#define SLOT_RVA_24                    0x00b867d8ULL
-#define SLOT_RVA_28                    0x008c7f9cULL
-#define SLOT_RVA_29                    0x008c7facULL
-#define SLOT_RVA_30                    0x00b898e8ULL
-#define SLOT_RVA_31                    0x00b89c10ULL
-#define TYPE_SLOT_RVA_0                0x0014c81cULL
-#define TYPE_SLOT_RVA_1                0x00a31768ULL
-#define TYPE_SLOT_RVA_2                0x009f4ec8ULL
-#define TYPE_SLOT_RVA_3                0x00314ca0ULL
-#define TYPE_SLOT_RVA_4                0x00490b54ULL
-#define TYPE_SLOT_RVA_5                0x0086f494ULL
-#define TYPE_SLOT_RVA_6                0x00370688ULL
-#define TYPE_SLOT_RVA_8                0x00490d94ULL
-#define OFF_PROJECTILEDATA_RADIUS      0x130
-#define OFF_PROJECTILEDATA_ISBEAM      0x1d9
-#define OFF_PROJECTILEDATA_SPAWNAREA   0x178
-#define OFF_AREAEFFECT_RADIUS          0x154
-#define OFF_AREAEFFECT_TIMEMS          0x14c
-#define OFF_CLIENTINPUT_SKILLDATA      0x40
+#define CASTING_RANGE_SCALE 100.0f
+enum
+{
+    PROJ_INDEX_MAX                 = 4,
+    RVA_LOGICPROJECTILEDATA_ISBEAM = 0x9b6448ULL,
+    RVA_LOGICGAMEOBJECTCLIENT_GETX = 0xa23afcULL,
+    RVA_LOGICGAMEOBJECTCLIENT_GETY = 0xa23b04ULL,
+    MODE_MANAGER_OFF               = 0x28ULL,
+    MGR_ARRAY_OFF                  = 0x0ULL,
+    MGR_COUNT_OFF                  = 0xcULL,
+    MGR_CAP_OFF                    = 0x8ULL,
+    DC_RVA_LO                      = 0xf74000ULL,
+    OBJ_GLOBALID_OFF               = 0x8ULL,
+    MOVE_RVA                       = 0xac3a58ULL,
+    ALLOC_RVA                      = 0x00d8da2cULL,
+    MSGCTOR_RVA                    = 0x00a95798ULL,
+    CI_MGR_QUEUE_OFF               = 0x20ULL,
+    ADDINPUT_RVA                   = 0x74675cULL,
+    MGR_OFF                        = 0x58ULL,
+    TYPE_OFF                       = 0x08ULL,
+    X_OFF                          = 0x0cULL,
+    Y_OFF                          = 0x10ULL,
+    ALLOC_GOT_RVA                  = 0x00f78180ULL,
+    OWN_INNER_OFF                  = 0x28ULL,
+    BOX_PTR_OFF                    = 0xf8ULL,
+    CLIENT_OFF                     = 0x28ULL,
+    OBJ_TEAM_OFF                   = 0x40ULL,
+    OBJ_OWNERINDEX_OFF             = 0x3cULL,
+    OBJ_DEADFLAG_OFF               = 0xd0ULL,
+    BOUNDS_X_OFF                   = 0xccULL,
+    BOUNDS_Y_OFF                   = 0xd0ULL,
+    CTRL_MODE_OFF                  = 0x918ULL,
+    OBJ_X_OFF                      = 0x30ULL,
+    OBJ_Y_OFF                      = 0x34ULL,
+    OBJ_ACTIVEFLAG_OFF             = 0x1e8ULL,
+    OBJ_HP_OFF                     = 0xc4ULL,
+    PROJDATA_SPEED_OFF             = 0x6cULL,
+    PROJDATA_RADIUS_OFF            = 0x74ULL,
+    TYPE_SLOT_OFF                  = 0x28ULL,
+    OWNIDX_OFF                     = 0xe0ULL,
+    OWNTEAM_OFF                    = 0xe4ULL,
+    STATE_RVA                      = 0x1123e58ULL,
+    STATE_ENUM_OFF                 = 0x50ULL,
+    SCENE_OFF                      = 0x48ULL,
+    CLIENT_HOP_OFF                 = 0x28ULL,
+    ELEM_DEF_OFF                   = 0x10ULL,
+    TILEMAP_W_OFF                  = 0xc4ULL,
+    TILEMAP_H_OFF                  = 0xc8ULL,
+    TILEMAP_ARRAY_OFF              = 0x20ULL,
+    TILE_PTR_STRIDE                = 0x8ULL,
+    TILE_TYPE_MOVE_OFF             = 0x56ULL,
+    CI_TYPE_TABLE_RVA              = 0x00e1bd30ULL,
+    CI_TABLE_TYPES                 = 0x17ULL,
+    CI_TYPE_FALLBACK_RVA           = 0x00e1bc28ULL,
+    CI_HASH_INNER_MASK_RVA         = 0x00e1bbd0ULL,
+    CI_HASH_OUTER_MASK_RVA         = 0x00e1bbf0ULL,
+    BM_HASH_ENABLED_OFF            = 0x70ULL,
+    BM_HASH_KEY_OFF                = 0x60ULL,
+    CI_TOKEN_OFF                   = 0x34UL,
+    CI_TOKEN_READ_OFF              = 0x4UL,
+    IMAGE_TEXT_WINDOW              = 0x4000ULL,
+    CLASS_PROJ_RVA                 = 0x000ff57b0ULL,
+    VTABLE_PROJ_DATA_RVA           = 0x000ff3b18ULL,
+    DC_RVA_SIZE                    = 0xd4000ULL,
+    IMAGE_SPAN                     = 0x1164000ULL,
+    HEAP_REGION_MAX_SIZE           = 0x100000000ULL,
+    SLOT_NONE                      = 0ULL,
+    SLOT_RVA_0                     = 0x00ad4ed0ULL,
+    SLOT_RVA_1                     = 0x00ad521cULL,
+    SLOT_RVA_5                     = 0x00c33690ULL,
+    SLOT_RVA_11                    = 0x008c7fbcULL,
+    SLOT_RVA_13                    = 0x00bcfbe8ULL,
+    SLOT_RVA_14                    = 0x00bcfc28ULL,
+    SLOT_RVA_16                    = 0x008c6150ULL,
+    SLOT_RVA_17                    = 0x00ac3f20ULL,
+    SLOT_RVA_18                    = 0x00746898ULL,
+    SLOT_RVA_19                    = 0x00b8ae88ULL,
+    SLOT_RVA_20                    = 0x00b8ac7cULL,
+    SLOT_RVA_23                    = 0x00b85fe0ULL,
+    SLOT_RVA_24                    = 0x00b867d8ULL,
+    SLOT_RVA_28                    = 0x008c7f9cULL,
+    SLOT_RVA_29                    = 0x008c7facULL,
+    SLOT_RVA_30                    = 0x00b898e8ULL,
+    SLOT_RVA_31                    = 0x00b89c10ULL,
+    TYPE_SLOT_RVA_0                = 0x0014c81cULL,
+    TYPE_SLOT_RVA_1                = 0x00a31768ULL,
+    TYPE_SLOT_RVA_2                = 0x009f4ec8ULL,
+    TYPE_SLOT_RVA_3                = 0x00314ca0ULL,
+    TYPE_SLOT_RVA_4                = 0x00490b54ULL,
+    TYPE_SLOT_RVA_5                = 0x0086f494ULL,
+    TYPE_SLOT_RVA_6                = 0x00370688ULL,
+    TYPE_SLOT_RVA_8                = 0x00490d94ULL,
+    OFF_PROJECTILEDATA_RADIUS      = 0x130,
+    OFF_PROJECTILEDATA_ISBEAM      = 0x1d9,
+    OFF_PROJECTILEDATA_SPAWNAREA   = 0x178,
+    OFF_AREAEFFECT_RADIUS          = 0x154,
+    OFF_AREAEFFECT_TIMEMS          = 0x14c,
+    OFF_CLIENTINPUT_SKILLDATA      = 0x40
+};
 #endif

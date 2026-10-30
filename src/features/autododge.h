@@ -9,6 +9,6 @@ extern int          cand_now[3];
 extern int          cand_seen;
 extern int32_t      prev_x;
 extern int32_t      prev_y;
-void                autododge(void);
-void                autododge_reset(void);
+void                autododge();
+void                autododge_reset();
 #endif
