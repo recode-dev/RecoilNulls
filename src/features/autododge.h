@@ -17,9 +17,9 @@ void                 update_autododge();
 namespace ad
 {
 extern float       own_hitbox;
-constexpr int      THREAT_MAX = 32;
-constexpr int      PROJ_SLOTS = 48;
-constexpr uint64_t TICK_MS    = 50;
+constexpr int      THREAT_MAX  = 32;
+constexpr int      PROJ_SLOTS  = 48;
+constexpr uint64_t TICK_MS     = 50;
 constexpr uint64_t PROJ_TTL_MS = TICK_MS * 20;
 struct Threat
 {
