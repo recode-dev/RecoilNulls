@@ -524,6 +524,18 @@ void scan_world()
         uintptr_t ownFn   = callable(LOGICBATTLEMODECLIENT__GETOWNCHARACTER);
         uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
         own = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
+        if (own)
+        {
+            uintptr_t ownData = 0;
+            int32_t   team    = 0;
+            if (read_ptr(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
+                         &ownData) &&
+                ownData &&
+                read_int(ownData + static_cast<uintptr_t>(LOGICDATA__TEAM), &team))
+            {
+                own_team_value = team;
+            }
+        }
     }
     if (!own)
     {
@@ -626,24 +638,9 @@ int scene_live()
 }
 int is_owned_by_own_team(uintptr_t obj)
 {
-    uintptr_t scene  = battle_instance();
-    uintptr_t data   = 0;
-    void*     client = nullptr;
-    int32_t   own    = 0;
-    int32_t   team   = 0;
-    if (!scene) return 0;
-    if (!read_ptr(scene + static_cast<uintptr_t>(LOGICBATTLEMODE__CLIENT),
-                  &client) ||
-        !client)
-    {
-        return 0;
-    }
-    if (!read_int(reinterpret_cast<uintptr_t>(client) +
-                      static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__OWNTEAM),
-                  &own))
-    {
-        return 0;
-    }
+    uintptr_t data = 0;
+    int32_t   team = 0;
+    if (own_team_value < 0) return 0;
     if (!read_ptr(obj + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
                   &data) ||
         !data)
@@ -652,7 +649,7 @@ int is_owned_by_own_team(uintptr_t obj)
     }
     if (!read_int(data + static_cast<uintptr_t>(LOGICDATA__TEAM), &team))
         return 0;
-    return team == own ? 1 : 0;
+    return team == own_team_value ? 1 : 0;
 }
 uintptr_t client()
 {
