@@ -1052,7 +1052,7 @@ void update_autododge()
         choose_dodge_direction(mx, my, dir_x, dir_y);
     }
     fill_autododge_report(mx, my, dir_x, dir_y);
-    ad_pass_own = static_cast<int>(wall_cell_blocked_at(mx, my)) == 0;
+    ad_pass_own = static_cast<int>(wall_cell_blocked_at(mx, my) == 0);
     float fx = mx + dir_x * REACH, fy = my + dir_y * REACH;
     for (int k = 0; k < 3 && !wall_path_clear(mx, my, fx, fy); k++)
     {
