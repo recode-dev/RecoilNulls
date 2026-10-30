@@ -168,12 +168,17 @@ jobs:
                       "file": name,
                       "command": ("clang++ -std=c++17 -fblocks -fobjc-arc -x objective-c++ "
                                   f"-isysroot {sdk} -target arm64-apple-ios14.0 "
-                                  f"-I{gum} -Isrc -Isrc/core -Isrc/features -Isrc/utils -c {name}")}
+                                  f"-I{gum} -Isrc -Isrc/core -Isrc/tools -Isrc/features -Isrc/utils -c {name}")}
                      for name in files]
           json.dump(entries, open("compile_commands.json", "w"), indent=1)
           print("tus:", len(entries))
           PY
-          git ls-files 'src/*.cpp' | xargs -r clang-tidy -p . --config="$CLANG_TIDY_CONFIG" --fix --quiet
+          # A TU that fails to parse (e.g. an older devkit on some branch) must
+          # not take the whole job down; the Verify step below is the gate that
+          # actually compiles the result.
+          if ! git ls-files 'src/*.cpp' | xargs -r clang-tidy -p . --config="$CLANG_TIDY_CONFIG" --fix --quiet; then
+            echo "clang-tidy reported diagnostics that are not fixable; continuing"
+          fi
           rm -f compile_commands.json
 
       - name: Verify
