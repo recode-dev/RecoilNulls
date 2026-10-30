@@ -23,9 +23,8 @@ inline constexpr uint64_t LOGICGAMEOBJECTDATA__TEAM          = 0x40;
 inline constexpr uint64_t LOGICCHARACTER__ATTACKANGLE        = 0xb4;
 inline constexpr uint64_t LOGICCHARACTER__HITPOINTS          = 0xc4;
 inline constexpr uint64_t LOGICCHARACTER__GETCOLLISIONRADIUS = 0x9913e8;
-inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS =
-    0x30c;
-inline constexpr uint64_t LOGICCHARACTER__CHARGEUPMODE = 0x310;
+inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS = 0x30c;
+inline constexpr uint64_t LOGICCHARACTER__CHARGEUPMODE                = 0x310;
 
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED = 0x9cd834;
 
