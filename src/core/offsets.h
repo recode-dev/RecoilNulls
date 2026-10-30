@@ -20,16 +20,15 @@ inline constexpr uint64_t LOGICCHARACTER__GLOBALID = 0x8;
 inline constexpr uint64_t LOGICCHARACTER__X        = 0x30;
 inline constexpr uint64_t LOGICCHARACTER__Y        = 0x34;
 
-inline constexpr uint64_t LOGICCHARACTER__GETCOLLISIONRADIUS = 0x9913e8;
-inline constexpr uint64_t LOGICCHARACTER__MOVETOWITHCLIENTPREDICTION =
-    0x9fe350;
+inline constexpr uint64_t LOGICCHARACTER__GETCOLLISIONRADIUS         = 0x9913e8;
+inline constexpr uint64_t LOGICCHARACTER__MOVETOWITHCLIENTPREDICTION = 0x9fe350;
 inline constexpr uint64_t LOGICCHARACTER__PREDICTIONTICKSTART        = 0x28;
 inline constexpr uint64_t LOGICCHARACTER__PREDICTIONTICKEND          = 0x2c;
 inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS = 0x30c;
 inline constexpr uint64_t LOGICCHARACTER__CHARGEUPMODE                = 0x310;
 
-inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED  = 0x124;
-inline constexpr uint64_t LOGICPROJECTILEDATA__RADIUS = 0x130;
+inline constexpr uint64_t LOGICPROJECTILEDATA__SPEED             = 0x124;
+inline constexpr uint64_t LOGICPROJECTILEDATA__RADIUS            = 0x130;
 inline constexpr uint64_t LOGICPROJECTILEDATA__ISPROJECTILE_SLOT = 0x48;
 
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY  = 0x20;
