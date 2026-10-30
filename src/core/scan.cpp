@@ -463,8 +463,8 @@ static void track_own_speed()
     if (dt < 0.06f) return;
     if (dt < 0.25f)
     {
-        int px = own_x - last_pos_x;
-        int py = own_y - last_pos_y;
+        int   px = own_x - last_pos_x;
+        int   py = own_y - last_pos_y;
         float sp = (float) game_distance(0, 0, px, py) / dt;
         if (sp >= 300.0f && sp <= 6000.0f)
         {

@@ -140,13 +140,13 @@ extern uintptr_t     scene_object;
 int                  scene_live();
 int                  game_distance(int x1, int y1, int x2, int y2);
 int                  game_distance_sq(int x1, int y1, int x2, int y2);
-int game_segment_hits_circle(
-    int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
-extern int           coord_ok;
-extern int           dead;
-extern uintptr_t     own_elem;
-void                 resolve_addresses();
-uintptr_t            client();
-uintptr_t            controller();
-extern int           own_team_b;
+int                  game_segment_hits_circle(
+                     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
+extern int       coord_ok;
+extern int       dead;
+extern uintptr_t own_elem;
+void             resolve_addresses();
+uintptr_t        client();
+uintptr_t        controller();
+extern int       own_team_b;
 #endif
