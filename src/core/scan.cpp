@@ -649,7 +649,7 @@ int dead     = 0;
 int scene_live()
 {
     if (!scene_object) return 0;
-    return battle_instance() == scene_object;
+    return static_cast<int>(battle_instance() == scene_object);
 }
 uintptr_t client()
 {
