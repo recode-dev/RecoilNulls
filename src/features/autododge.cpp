@@ -15,10 +15,6 @@ static float fast_len(float x, float y)
         game_distance(0, 0, static_cast<int>(x), static_cast<int>(y)));
 }
 
-int deg_from_rad(float r)
-{
-    return static_cast<int>(r * 57.29577951f + (r < 0.0f ? -0.5f : 0.5f));
-}
 
 int math_distance_square_to_line(int ax, int ay, int bx, int by, int px, int py)
 {
@@ -82,32 +78,7 @@ void vector_normalize(int* x, int* y, int scale)
     *y = v[1];
 }
 
-void vector_rotate(int* x, int* y, int degrees)
-{
-    static uintptr_t slot = 0;
-    int              v[2] = {0, 0};
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICVECTOR2__ROTATE);
-    }
-    if (!slot || !x || !y)
-    {
-        return;
-    }
-    v[0] = *x;
-    v[1] = *y;
-    reinterpret_cast<void (*)(int*, int)>(slot)(v, degrees);
-    *x = v[0];
-    *y = v[1];
-}
 
-void dir_from_angle(float radians, float& ox, float& oy)
-{
-    int vx = 1024, vy = 0;
-    vector_rotate(&vx, &vy, deg_from_rad(radians));
-    ox = static_cast<float>(vx) * (1.0f / 1024.0f);
-    oy = static_cast<float>(vy) * (1.0f / 1024.0f);
-}
 }
 
 int   in_move     = 0;
