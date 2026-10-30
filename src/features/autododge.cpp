@@ -689,12 +689,12 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     {
         cand_x[n] = commit_x, cand_y[n] = commit_y, n++;
     }
-    float best       = -1e30f;
-    float bx         = 0.0f, by = 0.0f;
+    float best = -1e30f;
+    float bx = 0.0f, by = 0.0f;
     int   best_steps = 0;
     for (int i = 0; i < n; i++)
     {
-        float dx  = cand_x[i], dy = cand_y[i];
+        float dx = cand_x[i], dy = cand_y[i];
         float len = static_cast<float>(
             game_distance(0, 0, static_cast<int>(dx), static_cast<int>(dy)));
         if (len < 1.0f) continue;
