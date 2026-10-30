@@ -545,12 +545,12 @@ void scan_world()
         own_hp = 0;
     }
     dead = (ok_hp && own_hp == 0) ? 1 : 0;
-track_own_speed();
-if (clientPtr)
-{
-    wall_cache_bind(
-        call(callable(LOGICBATTLEMODECLIENT__GETTILEMAP), clientPtr));
-}
+    track_own_speed();
+    if (clientPtr)
+    {
+        wall_cache_bind(
+            call(callable(LOGICBATTLEMODECLIENT__GETTILEMAP), clientPtr));
+    }
 }
 void workload()
 {
