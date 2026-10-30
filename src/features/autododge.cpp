@@ -24,9 +24,9 @@ void vector_normalize(int* x, int* y, int scale)
     {
         return;
     }
-    const double  vx  = static_cast<double>(*x);
-    const double  vy  = static_cast<double>(*y);
-    const double  len = std::sqrt(vx * vx + vy * vy);
+    const double vx  = static_cast<double>(*x);
+    const double vy  = static_cast<double>(*y);
+    const double len = std::sqrt(vx * vx + vy * vy);
     if (len < 1e-6)
     {
         *x = 0;
