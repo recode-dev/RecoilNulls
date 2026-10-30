@@ -197,22 +197,30 @@ static uintptr_t path_finder(uintptr_t tileMap)
 {
     static uintptr_t cached_map = 0;
     static uintptr_t cached_pf  = 0;
-    if (tileMap == cached_map && cached_pf)
+    void*            back       = nullptr;
+    if (!tileMap) return 0;
+    // a cache hit is only good while the pathfinder still points back at this
+    // very tilemap: heap addresses are recycled when a battle is torn down,
+    // and a stale pathfinder has a null tilemap slot (crash at [+0xc4])
+    if (tileMap == cached_map && cached_pf &&
+        read_ptr(cached_pf + LOGICPATHFINDER__TILEMAP, &back) &&
+        back == reinterpret_cast<void*>(tileMap))
     {
         return cached_pf;
     }
-    require_object(tileMap);
-    void* pf   = nullptr;
-    void* back = nullptr;
+    cached_map = 0;
+    cached_pf  = 0;
+    void* pf = nullptr;
+    back     = nullptr;
     if (!read_ptr(tileMap + LOGICTILEMAP__PATHFINDER, &pf) || !pf)
     {
-        __builtin_trap();
+        return 0;
     }
     if (!read_ptr(reinterpret_cast<uintptr_t>(pf) + LOGICPATHFINDER__TILEMAP,
                   &back) ||
         back != reinterpret_cast<void*>(tileMap))
     {
-        __builtin_trap();
+        return 0;
     }
     cached_map = tileMap;
     cached_pf  = reinterpret_cast<uintptr_t>(pf);
@@ -228,7 +236,9 @@ int game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1)
         fn = reinterpret_cast<clear_t>(callable(LOGICPATHFINDER__ISCLEARPATH));
     }
     require_method(reinterpret_cast<uintptr_t>(fn));
-    return static_cast<int>(fn(reinterpret_cast<void*>(path_finder(tileMap)),
+    uintptr_t pf = path_finder(tileMap);
+    if (!pf) return 0;  // map not bound yet / torn down: report blocked
+    return static_cast<int>(fn(reinterpret_cast<void*>(pf),
                                1,
                                x0,
                                y0,
