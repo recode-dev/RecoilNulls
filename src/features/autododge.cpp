@@ -458,10 +458,10 @@ static float hit_time(const Threat& t,
 static float closest_approach(
     const Threat& t, float px, float py, float vx, float vy, float span)
 {
-    int ax = static_cast<int>(px - t.x);
-    int ay = static_cast<int>(py - t.y);
-    int bx = ax + static_cast<int>((vx - t.vx) * span);
-    int by = ay + static_cast<int>((vy - t.vy) * span);
+    int ax    = static_cast<int>(px - t.x);
+    int ay    = static_cast<int>(py - t.y);
+    int bx    = ax + static_cast<int>((vx - t.vx) * span);
+    int by    = ay + static_cast<int>((vy - t.vy) * span);
     int pt[2] = {ax, ay};
     if (game_segment_hits_circle(
             ax, ay, bx, by, 0, 0, static_cast<int>(t.rad), pt))
