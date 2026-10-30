@@ -15,12 +15,10 @@ inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28;
 inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTS     = 0x0;
 inline constexpr uint64_t LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT = 0xc;
 
-inline constexpr uint64_t LOGICGAMEOBJECT__DATA     = 0x10;
-inline constexpr uint64_t LOGICCHARACTER__GLOBALID  = 0x8;
-inline constexpr uint64_t LOGICCHARACTER__X         = 0x30;
-inline constexpr uint64_t LOGICCHARACTER__Y         = 0x34;
-inline constexpr uint64_t LOGICGAMEOBJECTDATA__TEAM = 0x40;
-inline constexpr uint64_t LOGICCHARACTER__HITPOINTS = 0xc4;
+inline constexpr uint64_t LOGICGAMEOBJECT__DATA    = 0x10;
+inline constexpr uint64_t LOGICCHARACTER__GLOBALID = 0x8;
+inline constexpr uint64_t LOGICCHARACTER__X        = 0x30;
+inline constexpr uint64_t LOGICCHARACTER__Y        = 0x34;
 
 inline constexpr uint64_t LOGICCHARACTER__GETCOLLISIONRADIUS = 0x9913e8;
 inline constexpr uint64_t LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS = 0x30c;
@@ -33,13 +31,6 @@ inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE    = 0xff3b18;
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY = 0x20;
 inline constexpr uint64_t LOGICTILEMAP__WIDTH     = 0xc4;
 inline constexpr uint64_t LOGICTILEMAP__HEIGHT    = 0xc8;
-
-inline constexpr uint64_t CLIENTINPUTMANAGER__INPUTQUEUE = 0x20;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__TYPE       = 0x8;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__X          = 0xc;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__Y          = 0x10;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__SIZE       = 0x48;
-inline constexpr uint64_t CLIENTINPUT__TYPECOUNT         = 0x17;
 
 inline constexpr uint64_t BATTLEMODE__GETINSTANCE                 = 0x8c5130;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETTILEMAP       = 0x991440;

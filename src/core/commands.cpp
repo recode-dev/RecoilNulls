@@ -11,6 +11,16 @@ static void* client_input_battle_instance();
 static void* client_input_manager_of_battle(void* battle);
 static int   client_input_manager_queue_is_ready(void* manager);
 
+namespace
+{
+constexpr size_t    kClientInputQueue       = 0x20;
+constexpr uintptr_t kClientInputMessageType = 0x8;
+constexpr uintptr_t kClientInputMessageX    = 0xc;
+constexpr uintptr_t kClientInputMessageY    = 0x10;
+constexpr size_t    kClientInputMessageSize = 0x48;
+constexpr int       kClientInputTypeCount   = 0x17;
+}  // namespace
+
 uintptr_t callable_at_rva(uintptr_t rva)
 {
     if (!base || !rva)
@@ -74,13 +84,13 @@ static int client_input_message_is_valid(void* memory, size_t size)
 
 void* allocate_client_input_message()
 {
-    void* memory = malloc(CLIENTINPUTMESSAGE__SIZE);
-    if (!client_input_message_is_valid(memory, CLIENTINPUTMESSAGE__SIZE))
+    void* memory = malloc(kClientInputMessageSize);
+    if (!client_input_message_is_valid(memory, kClientInputMessageSize))
     {
         free(memory);
         return nullptr;
     }
-    memset(memory, 0, CLIENTINPUTMESSAGE__SIZE);
+    memset(memory, 0, kClientInputMessageSize);
     return memory;
 }
 
@@ -123,7 +133,7 @@ static int client_input_manager_queue_is_ready(void* manager)
         return 0;
     }
     if (!read_ptr(reinterpret_cast<uintptr_t>(manager) +
-                      CLIENTINPUTMANAGER__INPUTQUEUE,
+                      kClientInputQueue,
                   &queue) ||
         !queue)
     {
@@ -148,7 +158,7 @@ int enqueue_client_input_message(int type, int x, int y)
     {
         return 0;
     }
-    if (type < 0 || type >= static_cast<int>(CLIENTINPUT__TYPECOUNT))
+    if (type < 0 || type >= kClientInputTypeCount)
     {
         return 0;
     }
@@ -185,15 +195,15 @@ int enqueue_client_input_message(int type, int x, int y)
     }
     reinterpret_cast<void (*)(void*, int)>(constructor)(message, input_type);
     if (!write_bytes(reinterpret_cast<uintptr_t>(message) +
-                         CLIENTINPUTMESSAGE__TYPE,
+                         kClientInputMessageType,
                      &input_type,
                      sizeof(input_type)) ||
         !write_bytes(reinterpret_cast<uintptr_t>(message) +
-                         CLIENTINPUTMESSAGE__X,
+                         kClientInputMessageX,
                      &coordinate_x,
                      sizeof(coordinate_x)) ||
         !write_bytes(reinterpret_cast<uintptr_t>(message) +
-                         CLIENTINPUTMESSAGE__Y,
+                         kClientInputMessageY,
                      &coordinate_y,
                      sizeof(coordinate_y)))
     {
