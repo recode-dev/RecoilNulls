@@ -342,9 +342,6 @@ void init_projectile_state(
             str, SCSTRING_DEFAULT_MAX_LENGTH, st->name, sizeof(st->name));
 }
 
-// GameObject::getTeam(): *(int32_t*)(*(uintptr_t*)(obj + 0x10) + 0x40).
-// Returns 0 when the data pointer is not readable, so callers can drop the
-// object instead of classifying it with a guess.
 static int character_team(const uint8_t* obj, int32_t* out)
 {
     uintptr_t data = 0;
