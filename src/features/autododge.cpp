@@ -458,22 +458,29 @@ static float hit_time(const Threat& t,
 static float closest_approach(
     const Threat& t, float px, float py, float vx, float vy, float span)
 {
-    float rx = px - t.x;
-    float ry = py - t.y;
-    float ux = vx - t.vx;
-    float uy = vy - t.vy;
-    float a  = ux * ux + uy * uy;
-    float tk = 0.0f;
-    if (a > 1e-6f)
+    int ax = static_cast<int>(px - t.x);
+    int ay = static_cast<int>(py - t.y);
+    int dx = static_cast<int>((vx - t.vx) * span);
+    int dy = static_cast<int>((vy - t.vy) * span);
+    int cx = ax;
+    int cy = ay;
+    int len2 = dx * dx + dy * dy;
+    if (len2 != 0)
     {
-        tk = -(rx * ux + ry * uy) / a;
-        if (tk < 0.0f)
-            tk = 0.0f;
-        else if (tk > span)
-            tk = span;
+        int dot = -(ax * dx + ay * dy);
+        if (dot >= 1 && dot < len2)
+        {
+            cx = ax + static_cast<int>(
+                          static_cast<long long>(dx) * dot / len2);
+            cy = ay + static_cast<int>(
+                          static_cast<long long>(dy) * dot / len2);
+        }
+        else if (dot >= len2)
+        {
+            cx = ax + dx;
+            cy = ay + dy;
+        }
     }
-    int cx = static_cast<int>(rx + ux * tk);
-    int cy = static_cast<int>(ry + uy * tk);
     return static_cast<float>(vector_length(cx, cy)) - t.rad;
 }
 static float   cost_enemy_dx[ENEMY_MAX];
