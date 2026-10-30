@@ -32,7 +32,6 @@ void*     read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 int       game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY);
 int       game_tile_to_logic(int tile);
-int       game_logic_to_tile(int unit);
 int       game_projectile_travel_ticks(uintptr_t projectileData,
                                        int       distance,
                                        int       speed);

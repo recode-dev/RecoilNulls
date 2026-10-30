@@ -213,21 +213,6 @@ int game_tile_to_logic(int tile)
     return fn(tile);
 }
 
-int game_logic_to_tile(int unit)
-{
-    using conv_t     = int (*)(int);
-    static conv_t fn = nullptr;
-    if (!fn)
-    {
-        fn = reinterpret_cast<conv_t>(callable(LOGICTILEMAP__LOGICTOTILE));
-    }
-    if (!fn)
-    {
-        return 0;
-    }
-    return fn(unit);
-}
-
 int game_distance(int x1, int y1, int x2, int y2)
 {
     using dist_t     = int (*)(int, int, int, int);

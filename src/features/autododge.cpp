@@ -57,34 +57,6 @@ float math_distance_to_line(
     return static_cast<float>(reinterpret_cast<int (*)(int)>(sqrt_slot)(sq));
 }
 
-int32_t object_x(uintptr_t object)
-{
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICGAMEOBJECTCLIENT__GETX);
-    }
-    if (!slot || !object)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(object);
-}
-
-int32_t object_y(uintptr_t object)
-{
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICGAMEOBJECTCLIENT__GETY);
-    }
-    if (!slot || !object)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(object);
-}
-
 void vector_normalize(int* x, int* y, int scale)
 {
     static uintptr_t slot = 0;
@@ -217,8 +189,6 @@ struct FrameGeom
     float w, h, em, step, far;
 };
 static FrameGeom frame_geom;
-static int32_t   own_team_value = 0;
-static int       own_team_valid = 0;
 
 static void cache_frame_geom()
 {
@@ -227,13 +197,6 @@ static void cache_frame_geom()
     frame_geom.step = wall_logic_units(1);
     frame_geom.em   = own_hitbox + BORDER_PAD;
     frame_geom.far  = self_speed * SIM_T;
-    own_team_valid  = 0;
-    uintptr_t data  = 0;
-    if (own_elem && read_ptr(own_elem + LOGICGAMEOBJECT__DATA, &data) &&
-        pointer_plausible(data))
-    {
-        own_team_valid = read_int(data + 0x40, &own_team_value) ? 1 : 0;
-    }
 }
 
 Threat    threats[THREAT_MAX];
@@ -288,8 +251,7 @@ static int object_team(uintptr_t data, int32_t* out)
 
 static int own_team_matches(int32_t team)
 {
-    if (own_team_b >= 0 && team == own_team_b) return 1;
-    return static_cast<int>((own_team_valid != 0) && team == own_team_value);
+    return static_cast<int>(own_team_b >= 0 && team == own_team_b);
 }
 
 static void add_character_entry(const uint8_t* obj,
@@ -303,8 +265,8 @@ static void add_character_entry(const uint8_t* obj,
     if (!object_team(dataPtr, &team)) return;
     memcpy(&hp, obj + 0xc4, sizeof(hp));
     memcpy(&gid, obj + LOGICCHARACTER__GLOBALID, sizeof(gid));
-    xi = object_x((uintptr_t) obj);
-    yi = object_y((uintptr_t) obj);
+    memcpy(&xi, obj + LOGICCHARACTER__X, sizeof(xi));
+    memcpy(&yi, obj + LOGICCHARACTER__Y, sizeof(yi));
     if (own_team_matches(team) || hp <= 0 || gid <= 0 || gid == own_gid) return;
     if (enemy_n >= ENEMY_MAX) return;
     int   k  = enemy_n++;
@@ -335,8 +297,10 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     float w = world_extent_x;
     float h = world_extent_y;
     if (w <= 0.0f || h <= 0.0f) return false;
-    int32_t xi = object_x((uintptr_t) obj);
-    int32_t yi = object_y((uintptr_t) obj);
+    int32_t xi = 0;
+    int32_t yi = 0;
+    memcpy(&xi, obj + LOGICCHARACTER__X, sizeof(xi));
+    memcpy(&yi, obj + LOGICCHARACTER__Y, sizeof(yi));
     if (static_cast<float>(xi) >= -300.0f &&
         static_cast<float>(yi) >= -300.0f &&
         static_cast<float>(xi) <= w + 300.0f &&
