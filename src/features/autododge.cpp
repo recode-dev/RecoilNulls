@@ -23,23 +23,14 @@ int math_sqrt(int value)
     return reinterpret_cast<int (*)(int)>(slot)(value);
 }
 
-int math_sin(int degrees)
+int vector_dot(int ax, int ay, int bx, int by)
 {
-    static uintptr_t slot = 0;
-    if (!slot)
-    {
-        slot = callable_at_rva(LOGICMATH__SIN);
-    }
-    if (!slot)
-    {
-        return 0;
-    }
-    return reinterpret_cast<int (*)(int)>(slot)(degrees);
+    return ax * bx + ay * by;
 }
 
-int math_cos(int degrees)
+int deg_from_rad(float r)
 {
-    return math_sin(degrees + 90);
+    return (int) (r * 57.29577951f + (r < 0.0f ? -0.5f : 0.5f));
 }
 
 int vector_angle(int x, int y)
@@ -154,18 +145,31 @@ void vector_normalize(int* x, int* y, int scale)
     *y = v[1];
 }
 
-float math_sin_f(float radians)
+void vector_rotate(int* x, int* y, int degrees)
 {
-    int deg = static_cast<int>(radians * 57.29577951f +
-                               (radians < 0.0f ? -0.5f : 0.5f));
-    return static_cast<float>(math_sin(deg)) * (1.0f / 1024.0f);
+    static uintptr_t slot = 0;
+    int              v[2] = {0, 0};
+    if (!slot)
+    {
+        slot = callable_at_rva(LOGICVECTOR2__ROTATE);
+    }
+    if (!slot || !x || !y)
+    {
+        return;
+    }
+    v[0] = *x;
+    v[1] = *y;
+    reinterpret_cast<void (*)(int*, int)>(slot)(v, degrees);
+    *x = v[0];
+    *y = v[1];
 }
 
-float math_cos_f(float radians)
+void dir_from_angle(float radians, float& ox, float& oy)
 {
-    int deg = static_cast<int>(radians * 57.29577951f +
-                               (radians < 0.0f ? -0.5f : 0.5f));
-    return static_cast<float>(math_cos(deg)) * (1.0f / 1024.0f);
+    int vx = 1024, vy = 0;
+    vector_rotate(&vx, &vy, deg_from_rad(radians));
+    ox = (float) vx * (1.0f / 1024.0f);
+    oy = (float) vy * (1.0f / 1024.0f);
 }
 }
 int      active = 0, in_move = 0;
@@ -831,7 +835,8 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     for (int i = 0; i < DIRS; i++)
     {
         float a  = 6.2831853f * (float) i / (float) DIRS;
-        float dx = math_cos_f(a), dy = math_sin_f(a);
+        float dx = 0.0f, dy = 0.0f;
+        dir_from_angle(a, dx, dy);
         int   steps = 0;
         float v     = evaluate_dodge_direction(mx, my, dx, dy, steps);
         if (has)
@@ -853,7 +858,8 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     for (int k = -6; k <= 6; k++)
     {
         float ra  = a + (float) k * 0.0174533f;
-        float rdx = math_cos_f(ra), rdy = math_sin_f(ra);
+        float rdx = 0.0f, rdy = 0.0f;
+        dir_from_angle(ra, rdx, rdy);
         int   steps = 0;
         float v     = evaluate_dodge_direction(mx, my, rdx, rdy, steps);
         if (has)
@@ -863,7 +869,8 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             best = v, a = ra, best_steps = steps;
         }
     }
-    float    bx = math_cos_f(a), by = math_sin_f(a);
+    float    bx = 0.0f, by = 0.0f;
+    dir_from_angle(a, bx, by);
     uint64_t now = us() / 1000;
     ad_urgent    = 0;
     if (has)
@@ -1024,7 +1031,11 @@ void update_autododge()
             move_dx = 0.0f;
             move_dy = 0.0f;
         }
-        if (active && mv > 15.0f && (mvx * sent_x + mvy * sent_y) < 0.7f * mv)
+        if (active && mv > 15.0f &&
+            (float) vector_dot((int) mvx,
+                               (int) mvy,
+                               (int) (sent_x * 1000.0f),
+                               (int) (sent_y * 1000.0f)) < 700.0f * mv)
             human_ms = now;
     }
     ad_human = now - human_ms < HUMAN_MS ? 1 : 0;

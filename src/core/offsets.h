@@ -78,13 +78,13 @@ inline constexpr uint64_t LOGICTILEMAP__TILETOLOGIC             = 0x943040ULL;
 inline constexpr uint64_t LOGICTILEMAP__LOGICTOTILE             = 0x943028ULL;
 inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE           = 0xff3b18ULL;
 inline constexpr uint64_t LOGICMATH__SQRT                       = 0xbd000cULL;
-inline constexpr uint64_t LOGICMATH__SIN                        = 0xbcfec0ULL;
 inline constexpr uint64_t LOGICMATH__GETDISTANCESQUARETOLINE    = 0xbd0424ULL;
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS        = 0xa2d7f8ULL;
 inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETX           = 0xa23afcULL;
 inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETY           = 0xa23b04ULL;
 inline constexpr uint64_t LOGICVECTOR2__GETANGLE                = 0xbd0824ULL;
 inline constexpr uint64_t LOGICVECTOR2__NORMALIZE               = 0xbd0794ULL;
+inline constexpr uint64_t LOGICVECTOR2__ROTATE                  = 0xbd08f0ULL;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN = 0xaf6838ULL;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN =
     0xaf7198ULL;
