@@ -32,6 +32,9 @@ void*     read_global_ptr(uintptr_t rva);
 uintptr_t callable(uintptr_t rva);
 int       game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY);
 int       game_tile_to_logic(int tile);
+int       game_projectile_travel_ticks(uintptr_t projectileData,
+                                       int       distance,
+                                       int       speed);
 BOOL      find_game_image(uintptr_t* out_base);
 void      poll_for_game(int tick);
 static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
@@ -129,10 +132,11 @@ void                 run_autododge();
 extern uintptr_t     scene_object;
 int                  scene_live();
 int                  game_distance(int x1, int y1, int x2, int y2);
-int        game_projectile_pos_at_tick(uintptr_t object, int tick, int* out);
-int        game_distance_sq(int x1, int y1, int x2, int y2);
-extern int coord_ok;
-extern int dead;
+int                  game_distance_sq(int x1, int y1, int x2, int y2);
+int                  game_segment_hits_circle(
+                     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
+extern int       coord_ok;
+extern int       dead;
 extern uintptr_t own_elem;
 uintptr_t        client();
 uintptr_t        controller();

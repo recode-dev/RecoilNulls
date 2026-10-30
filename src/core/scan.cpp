@@ -245,19 +245,39 @@ int game_distance_sq(int x1, int y1, int x2, int y2)
     return fn(x1, y1, x2, y2);
 }
 
-int game_projectile_pos_at_tick(uintptr_t object, int tick, int* out)
+int game_segment_hits_circle(
+    int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
 {
-    using pos_t     = int (*)(uintptr_t, int, int*);
-    static pos_t fn = nullptr;
+    using hit_t     = int (*)(int, int, int, int, int, int, int, int*);
+    static hit_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<pos_t>(callable(LOGICPROJECTILE__GETPOSATTICK));
+        fn = reinterpret_cast<hit_t>(
+            callable(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE));
     }
-    if (!fn || !object || !out || !pointer_plausible(object)) return 0;
-    out[0] = 0x7fffffff;
-    out[1] = 0x7fffffff;
-    fn(object, tick, out);
-    return static_cast<int>(out[0] != 0x7fffffff && out[1] != 0x7fffffff);
+    if (!fn)
+    {
+        return 0;
+    }
+    return fn(x1, y1, x2, y2, cx, cy, radius, out);
+}
+
+int game_projectile_travel_ticks(uintptr_t projectileData,
+                                 int       distance,
+                                 int       speed)
+{
+    using travel_t     = int (*)(uintptr_t, int, int);
+    static travel_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<travel_t>(
+            callable(LOGICPROJECTILECLIENT__GETTRAVELTICKS));
+    }
+    if (!fn || !projectileData || distance < 1 || speed < 1)
+    {
+        return 0;
+    }
+    return fn(projectileData, distance, speed);
 }
 
 uintptr_t callable(uintptr_t rva)

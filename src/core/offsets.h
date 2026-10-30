@@ -27,9 +27,6 @@ inline constexpr uint64_t LOGICCHARACTER__CHARGEUPMODE                = 0x310;
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED  = 0x9cd834;
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS = 0x9cd894;
 inline constexpr uint64_t LOGICPROJECTILEDATA__VTABLE    = 0xff3b18;
-inline constexpr uint64_t LOGICPROJECTILE__GETPOSATTICK  = 0xa383ac;
-inline constexpr uint64_t LOGICPROJECTILE__STARTTICK     = 0x28;
-inline constexpr uint64_t LOGICPROJECTILE__ENDTICK       = 0x2c;
 
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY = 0x20;
 inline constexpr uint64_t LOGICTILEMAP__WIDTH     = 0xc4;
@@ -53,5 +50,8 @@ inline constexpr uint64_t LOGICVECTOR2__ROTATE                  = 0xbd08f0;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN = 0xaf6838;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCESQUAREDBETWEEN =
     0xaf7198;
+inline constexpr uint64_t LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE =
+    0xaf53c4;
+inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTRAVELTICKS = 0xa3192c;
 
 #endif

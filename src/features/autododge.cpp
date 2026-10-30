@@ -120,6 +120,7 @@ constexpr int      SIM_STEPS         = 32;
 constexpr float    ZONE_FAR          = 5000.0f;
 constexpr uint64_t SEND_MS           = ad::TICK_MS;
 constexpr int      MOVE_DELAY_TICKS  = 2;
+constexpr float    SAFETY            = 40.0f;
 constexpr float    PROJECTILE_RADIUS = 60.0f;
 constexpr float    WEIGHT_STEP       = 4096.0f;
 constexpr float    WEIGHT_POS        = 900.0f;
@@ -312,97 +313,6 @@ static bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     return false;
 }
 
-static bool segment_hits_circle(
-    float x1, float y1, float x2, float y2, float cx, float cy, float r)
-{
-    float dx   = x2 - x1;
-    float dy   = y2 - y1;
-    float len2 = dx * dx + dy * dy;
-    float t    = 0.0f;
-    if (len2 > 0.0f)
-    {
-        t = ((cx - x1) * dx + (cy - y1) * dy) / len2;
-        if (t < 0.0f) t = 0.0f;
-        if (t > 1.0f) t = 1.0f;
-    }
-    float ox = x1 + dx * t - cx;
-    float oy = y1 + dy * t - cy;
-    return ox * ox + oy * oy <= r * r;
-}
-
-static bool projectile_window(uintptr_t objPtr, int32_t* first, int32_t* last)
-{
-    if (!read_int(objPtr + LOGICPROJECTILE__STARTTICK, first)) return false;
-    if (!read_int(objPtr + LOGICPROJECTILE__ENDTICK, last)) return false;
-    return *last > *first && *last - *first <= 2000;
-}
-
-static int32_t projectile_tick_at(
-    uintptr_t objPtr, int32_t first, int32_t last, float px, float py)
-{
-    int a[2] = {0, 0};
-    int b[2] = {0, 0};
-    if (!game_projectile_pos_at_tick(objPtr, first, a)) return first;
-    if (!game_projectile_pos_at_tick(objPtr, last, b)) return first;
-    float ax   = static_cast<float>(b[0] - a[0]);
-    float ay   = static_cast<float>(b[1] - a[1]);
-    float len2 = ax * ax + ay * ay;
-    if (len2 < 1.0f) return first;
-    float   want   = ((px - a[0]) * ax + (py - a[1]) * ay) / len2;
-    int32_t lo     = first;
-    int32_t hi     = last;
-    int32_t best   = first;
-    float   best_d = 3.0e38f;
-    for (int i = 0; i < 11 && lo <= hi; i++)
-    {
-        int32_t mid  = lo + (hi - lo) / 2;
-        int     p[2] = {0, 0};
-        if (!game_projectile_pos_at_tick(objPtr, mid, p)) break;
-        float u = ((p[0] - a[0]) * ax + (p[1] - a[1]) * ay) / len2;
-        float d = fabsf(u - want);
-        if (d < best_d)
-        {
-            best_d = d;
-            best   = mid;
-        }
-        if (d <= 0.01f) break;
-        if (u < want)
-            lo = mid + 1;
-        else
-            hi = mid - 1;
-    }
-    return best;
-}
-
-static float projectile_impact_time(
-    uintptr_t objPtr, float px, float py, float mx, float my, float hit_r)
-{
-    int32_t first = 0, last = 0;
-    if (!projectile_window(objPtr, &first, &last)) return 0.0f;
-    int32_t   tick    = projectile_tick_at(objPtr, first, last, px, py);
-    const int horizon = static_cast<int>(THREAT_HORIZON / TICK_MS_SEC);
-    float     last_x  = px;
-    float     last_y  = py;
-    for (int k = 1; k <= horizon; k++)
-    {
-        int p[2] = {0, 0};
-        if (!game_projectile_pos_at_tick(objPtr, tick + k, p)) return 0.0f;
-        if (segment_hits_circle(last_x,
-                                last_y,
-                                static_cast<float>(p[0]),
-                                static_cast<float>(p[1]),
-                                mx,
-                                my,
-                                hit_r))
-        {
-            return static_cast<float>(k) * TICK_MS_SEC;
-        }
-        last_x = static_cast<float>(p[0]);
-        last_y = static_cast<float>(p[1]);
-    }
-    return 0.0f;
-}
-
 static void add_projectile_threat(const uint8_t* obj,
                                   uintptr_t      objPtr,
                                   uintptr_t      dataPtr,
@@ -460,12 +370,28 @@ static void add_projectile_threat(const uint8_t* obj,
     if (!wall_line_of_sight_clear(px, py, mx, my)) return;
     if (game_distance_sq(0, 0, static_cast<int>(vx), static_cast<int>(vy)) <= 0)
         return;
-    float hit_r = st->rad + own_hitbox;
-    float reach = st->speed * THREAT_HORIZON + hit_r;
-    float dist  = sqrtf(dx * dx + dy * dy);
-    if (dist > reach) return;
-    float tt = projectile_impact_time(objPtr, px, py, mx, my, hit_r);
-    if (tt <= 0.0f) return;
+    float rad  = st->rad + own_hitbox + SAFETY;
+    float dist = static_cast<float>(
+        game_distance(0, 0, static_cast<int>(dx), static_cast<int>(dy)));
+    int32_t arrival =
+        game_projectile_travel_ticks(st->data,
+                                     static_cast<int>(dist + 0.5f),
+                                     static_cast<int>(st->speed + 0.5f));
+    if (arrival < 1) return;
+    float tt = static_cast<float>(arrival) * TICK_MS_SEC;
+    if (tt > THREAT_HORIZON) return;
+    {
+        int32_t hit[2] = {0, 0};
+        if (!game_segment_hits_circle(static_cast<int>(px),
+                                      static_cast<int>(py),
+                                      static_cast<int>(px + vx * tt),
+                                      static_cast<int>(py + vy * tt),
+                                      static_cast<int>(mx),
+                                      static_cast<int>(my),
+                                      static_cast<int>(rad + 0.5f),
+                                      hit))
+            return;
+    }
     for (int k = 0; k < threat_n; k++)
     {
         if (fabsf(threats[k].x - px) < 1.0f &&
@@ -477,7 +403,7 @@ static void add_projectile_threat(const uint8_t* obj,
     if (threat_n >= THREAT_MAX) return;
     Threat& t = threats[threat_n++];
     t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.pid = key;
-    t.rad = hit_r;
+    t.rad = rad;
     t.tt  = tt;
 }
 
