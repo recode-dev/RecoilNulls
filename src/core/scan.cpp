@@ -413,13 +413,13 @@ static uintptr_t call(uintptr_t fn, uintptr_t self)
     if (!fn || !base || fn < base || fn >= base + 0x2000000 || !self) return 0;
     return ((fn_self_t) fn)(self);
 }
-uintptr_t  obj_snapshot[COUNT_MAX];
-uint8_t    obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
-uint8_t    obj_valid[COUNT_MAX];
-int        obj_count = 0;
-int32_t    own_x     = 0;
-int32_t    own_y     = 0;
-int        own_ok_hp = 0;
+uintptr_t        obj_snapshot[COUNT_MAX];
+uint8_t          obj_block[COUNT_MAX][OBJ_BLOCK_SIZE];
+uint8_t          obj_valid[COUNT_MAX];
+int              obj_count = 0;
+int32_t          own_x     = 0;
+int32_t          own_y     = 0;
+int              own_ok_hp = 0;
 static uintptr_t battle_instance()
 {
     using inst_t     = uintptr_t (*)();
@@ -479,15 +479,15 @@ static void track_own_speed()
 }
 void scan_world()
 {
-    void*     value      = nullptr;
-    uintptr_t clientPtr  = 0;
-    uintptr_t mgrPtr     = 0;
-    uintptr_t array      = 0;
-    uintptr_t own        = 0;
-    int32_t   count      = 0;
-    int32_t   x          = 0;
-    int32_t   y          = 0;
-    int32_t   hp         = 0;
+    void*     value     = nullptr;
+    uintptr_t clientPtr = 0;
+    uintptr_t mgrPtr    = 0;
+    uintptr_t array     = 0;
+    uintptr_t own       = 0;
+    int32_t   count     = 0;
+    int32_t   x         = 0;
+    int32_t   y         = 0;
+    int32_t   hp        = 0;
     if (!base) return;
     scene_object = battle_instance();
     if (!scene_object)

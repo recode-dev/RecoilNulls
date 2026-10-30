@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <cstdint>
 
-
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__INPUTMANAGER      = 0x58;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28;
 
@@ -18,8 +17,8 @@ inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__GETY        = 0x34;
 
 inline constexpr uint64_t LOGICCHARACTERDATA__GETCOLLISIONRADIUS = 0x9913e8;
 
-inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED      = 0x124;
-inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS     = 0x130;
+inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED     = 0x124;
+inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS    = 0x130;
 inline constexpr uint64_t LOGICDATA__ISPROJECTILEVTABLESLOT = 0x48;
 
 inline constexpr uint64_t LOGICTILEMAP__TILEARRAY  = 0x20;
