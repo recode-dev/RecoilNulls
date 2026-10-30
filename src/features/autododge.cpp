@@ -174,8 +174,8 @@ int32_t ad_pj_pid[AD_REPORT_MAX]          = {0};
 float   ad_pj_x[AD_REPORT_MAX] = {0}, ad_pj_y[AD_REPORT_MAX] = {0};
 float   ad_pj_vx[AD_REPORT_MAX] = {0}, ad_pj_vy[AD_REPORT_MAX] = {0};
 float   ad_pj_sp[AD_REPORT_MAX] = {0}, ad_pj_r[AD_REPORT_MAX] = {0};
-int     ad_pj_vel[AD_REPORT_MAX]           = {0};
-int     ad_windup_n                        = 0;
+int     ad_pj_vel[AD_REPORT_MAX] = {0};
+int     ad_windup_n              = 0;
 int   ad_hit_dmg = 0, ad_hit_act = 0, ad_hit_n = 0, ad_hit_x = 0, ad_hit_y = 0;
 int   ad_hit_picked            = 0;
 float ad_hit_ca[AD_REPORT_MAX] = {0}, ad_hit_ttc[AD_REPORT_MAX] = {0};
@@ -404,7 +404,8 @@ static void add_character_entry(const uint8_t* obj,
     int32_t chargeMode = 0;
     read_int(objPtr + LOGICCHARACTER__CURRENTCHARGEUPMILLISECONDS, &charge);
     read_int(objPtr + LOGICCHARACTER__CHARGEUPMODE, &chargeMode);
-    if (chargeMode == 1 && charge > 0 && ad_enemy_d[k] <= CLOSE_R) ad_windup_n++;
+    if (chargeMode == 1 && charge > 0 && ad_enemy_d[k] <= CLOSE_R)
+        ad_windup_n++;
 }
 
 static float world_extent_x = 0.0f;
@@ -498,7 +499,7 @@ static void add_projectile_threat(const uint8_t* obj,
     if ((float) game_distance_sq(0, 0, (int) dx, (int) dy) > zone2) return;
     if (!wall_line_of_sight_clear(px, py, mx, my)) return;
     if (game_distance_sq(0, 0, (int) vx, (int) vy) <= 0) return;
-    float rad = st->rad + own_hitbox + AD_SAFETY;
+    float   rad     = st->rad + own_hitbox + AD_SAFETY;
     float   dist    = (float) game_distance(0, 0, (int) dx, (int) dy);
     int32_t arrival = game_projectile_travel_ticks(
         st->data, (int) (dist + 0.5f), (int) (st->speed + 0.5f));
@@ -560,8 +561,7 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         }
         if (char_vt && obj_rva[i] == char_vt)
         {
-            add_character_entry(
-                obj, obj_snapshot[i], dataPtr, own_gid, mx, my);
+            add_character_entry(obj, obj_snapshot[i], dataPtr, own_gid, mx, my);
             continue;
         }
         if (obj_rva[i] != LOGICPROJECTILEDATA__VTABLE) continue;
@@ -660,8 +660,8 @@ static void simulate_position(float  mx,
     constexpr float delay = (float) MOVE_DELAY_TICKS * TICK_MS_SEC;
     float           coast = tk < delay ? tk : delay;
     float           em    = frame_geom.em;
-    ax          = mx + move_dx * self_speed * coast;
-    ay          = my + move_dy * self_speed * coast;
+    ax                    = mx + move_dx * self_speed * coast;
+    ay                    = my + move_dy * self_speed * coast;
     if (tk > delay)
     {
         ax += dx * self_speed * (tk - delay);
@@ -770,12 +770,12 @@ static float compute_thrust_penalty(float dx, float dy)
 static float
 evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
 {
-    const float far  = frame_geom.far;
-    float       run  = compute_free_run(mx, my, dx, dy, far);
-    float       room = run >= far ? 1.0f : run / far;
-    float       w    = frame_geom.w - frame_geom.em;
-    float       h    = frame_geom.h - frame_geom.em;
-    float mx_step = dx * self_speed, my_step = dy * self_speed;
+    const float  far     = frame_geom.far;
+    float        run     = compute_free_run(mx, my, dx, dy, far);
+    float        room    = run >= far ? 1.0f : run / far;
+    float        w       = frame_geom.w - frame_geom.em;
+    float        h       = frame_geom.h - frame_geom.em;
+    float        mx_step = dx * self_speed, my_step = dy * self_speed;
     static float step_time[SIM_STEPS + 1];
     float        step_x[SIM_STEPS + 1];
     float        step_y[SIM_STEPS + 1];
@@ -879,9 +879,10 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
             evaluate_dodge_direction(mx, my, commit_x, commit_y, cur) +
             own_hitbox * COMMIT_BONUS;
         bool better = best_steps > cur;
-        bool walled = better &&
-                      compute_free_run(mx, my, commit_x, commit_y, frame_geom.far) <
-                          own_hitbox * 2.0f;
+        bool walled =
+            better &&
+            compute_free_run(mx, my, commit_x, commit_y, frame_geom.far) <
+                own_hitbox * 2.0f;
         bool gain   = best > cur_val + own_hitbox * 0.5f;
         bool windup = ad_windup_n > 0;
         if (!(walled || windup) && !gain)
@@ -901,7 +902,7 @@ static void reset_dodge_state()
 {
     ad_target_x = INT32_MAX, ad_target_y = INT32_MAX;
     ad_dir_x = 0.0f, ad_dir_y = 0.0f;
-    active   = 0;
+    active = 0;
 }
 
 static void learn_character_data_vtable()
@@ -977,7 +978,7 @@ void update_autododge()
     }
     int32_t own_gid = 0;
     read_int(own_elem + LOGICCHARACTER__GLOBALID, &own_gid);
-    self_speed   = own_speed > 1.0f ? own_speed : 1.0f;
+    self_speed = own_speed > 1.0f ? own_speed : 1.0f;
     cache_frame_geom();
     uint64_t now = us() / 1000;
     float    mx = (float) own_x, my = (float) own_y;
@@ -1030,8 +1031,8 @@ void update_autododge()
         fx = mx + (fx - mx) * 0.5f;
         fy = my + (fy - my) * 0.5f;
     }
-    float em   = frame_geom.em;
-    float wu   = frame_geom.w, hu = frame_geom.h;
+    float em = frame_geom.em;
+    float wu = frame_geom.w, hu = frame_geom.h;
     float lo_x = em < wu * 0.5f ? em : wu * 0.5f;
     float hi_x = wu - em > wu * 0.5f ? wu - em : wu * 0.5f;
     float lo_y = em < hu * 0.5f ? em : hu * 0.5f;
