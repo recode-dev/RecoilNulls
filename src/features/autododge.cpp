@@ -99,7 +99,7 @@ struct FrameGeom
     float w, h, em, step, far;
 };
 static FrameGeom frame_geom;
-static void cache_frame_geom()
+static void      cache_frame_geom()
 {
     frame_geom.w    = wall_logic_units(wall_cache_width());
     frame_geom.h    = wall_logic_units(wall_cache_height());
@@ -175,7 +175,7 @@ static void add_character_entry(
 }
 static float world_extent_x = 0.0f;
 static float world_extent_y = 0.0f;
-static void refresh_world_extents()
+static void  refresh_world_extents()
 {
     float unit     = wall_logic_units(1);
     world_extent_x = static_cast<float>(wall_cache_width()) * unit;
@@ -347,7 +347,7 @@ static float    tgt_x = 0.0f, tgt_y = 0.0f;
 static int32_t  last_tx = 0, last_ty = 0;
 static int      last_valid = 0;
 static int32_t  prev_x = 0, prev_y = 0;
-static float compute_edge_pull(float mx, float my, float dx, float dy)
+static float    compute_edge_pull(float mx, float my, float dx, float dy)
 {
     float w    = frame_geom.w;
     float h    = frame_geom.h;
@@ -449,17 +449,17 @@ static float closest_approach(
     float cy = ry + uy * tk;
     return sqrtf(cx * cx + cy * cy) - t.rad;
 }
-static float cost_enemy_dx[ENEMY_MAX];
-static float cost_enemy_dy[ENEMY_MAX];
-static float cost_enemy_dist[ENEMY_MAX];
-static int   cost_enemy_count = 0;
+static float   cost_enemy_dx[ENEMY_MAX];
+static float   cost_enemy_dy[ENEMY_MAX];
+static float   cost_enemy_dist[ENEMY_MAX];
+static int     cost_enemy_count = 0;
 static float   cost_threat_rx[THREAT_MAX];
 static float   cost_threat_ry[THREAT_MAX];
 static float   cost_threat_ux[THREAT_MAX];
 static float   cost_threat_uy[THREAT_MAX];
 static uint8_t cost_threat_moving[THREAT_MAX];
 static int     cost_threat_count = 0;
-static void prepare_direction_costs(float mx, float my)
+static void    prepare_direction_costs(float mx, float my)
 {
     cost_enemy_count = enemy_n < ENEMY_MAX ? enemy_n : ENEMY_MAX;
     for (int i = 0; i < cost_enemy_count; i++)

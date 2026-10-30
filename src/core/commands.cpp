@@ -7,7 +7,7 @@ static int   client_input_message_is_valid(void* memory, size_t size);
 static void* client_input_battle_instance();
 static void* client_input_manager_of_battle(void* battle);
 static int   client_input_manager_queue_is_ready(void* manager);
-uintptr_t callable_at_rva(uintptr_t rva)
+uintptr_t    callable_at_rva(uintptr_t rva)
 {
     if (!base || !rva)
     {

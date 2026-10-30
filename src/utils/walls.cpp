@@ -8,7 +8,7 @@ static int       wall_h            = 0;
 static int       wall_tile_span    = 0;
 static int       wall_subtile_span = 0;
 static int       wall_have         = 0;
-static int wall_measure_tile_span()
+static int       wall_measure_tile_span()
 {
     int span = game_tile_to_logic(1) - game_tile_to_logic(0);
     if (span <= 0) return 0;
