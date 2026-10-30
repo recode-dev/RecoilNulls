@@ -357,7 +357,7 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
             add_character_entry(obj, obj_snapshot[i], dataPtr, own_gid, mx, my);
             continue;
         }
-        if (!data_is_projectile(static_cast<uintptr_t>(dataPtr))) continue;
+        if (!data_is_projectile(dataPtr)) continue;
         float px = 0.0f, py = 0.0f;
         if (!read_projectile_position(obj, &px, &py)) continue;
         add_projectile_threat(
@@ -708,7 +708,6 @@ static void reset_dodge_state()
     last_valid = 0;
     primed_x = 0.0f, primed_y = 0.0f;
 }
-
 
 static void learn_character_data_vtable()
 {
