@@ -292,6 +292,28 @@ bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     return false;
 }
 
+// v36: LogicSkillData::getProjectile() = *(this + 0x58) — single LogicProjectileData*.
+// v69 field proven by find_offsets (score 1.000): 0x9b4e14 ldr x0,[x0,#0x58];ret.
+bool skill_projectile_is(uintptr_t sd, uintptr_t dataPtr)
+{
+    uintptr_t proj = 0;
+    return read_ptr(sd + LOGICSKILLDATA__PROJECTILE, &proj) && proj == dataPtr;
+}
+
+int32_t skill_casting_range_or_zero(uintptr_t sd)
+{
+    int32_t tiles = game_skill_casting_range(sd);
+    return tiles >= 1 && tiles <= 30 ? tiles : 0;
+}
+
+void learn_skill_range(uintptr_t sd, uintptr_t dataPtr)
+{
+    int32_t tiles = skill_casting_range_or_zero(sd);
+    if (!tiles) return;
+    float rad = static_cast<float>(projectile_radius(dataPtr));
+    learn_flight_range(dataPtr, static_cast<float>(tiles + 1) * 100.0f + 2.0f * rad);
+}
+
 void resolve_flight_range(uintptr_t dataPtr)
 {
     if (!dataPtr) return;
@@ -303,21 +325,29 @@ void resolve_flight_range(uintptr_t dataPtr)
             uintptr_t sd = s ? game_character_ulti_skill(enemy_data[i])
                              : game_character_weapon_skill(enemy_data[i]);
             if (!sd || !pointer_plausible(sd)) continue;
-            int32_t   count = 0;
-            uintptr_t arr   = 0;
-            read_int(sd + LOGICSKILLDATA__PROJECTILECOUNT, &count);
-            read_ptr(sd + LOGICSKILLDATA__PROJECTILES, &arr);
-            if (count < 1 || count > 8 || !arr || !pointer_plausible(arr)) continue;
-            for (int p = 0; p < count; p++)
-            {
-                uintptr_t proj = 0;
-                if (!read_ptr(arr + p * 8, &proj) || proj != dataPtr) continue;
-                int32_t tiles = game_skill_casting_range(sd);
-                if (tiles < 1 || tiles > 30) continue;
-                float rad = static_cast<float>(projectile_radius(dataPtr));
-                learn_flight_range(dataPtr, static_cast<float>(tiles + 1) * 100.0f + 2.0f * rad);
-                return;
-            }
+            if (!skill_projectile_is(sd, dataPtr)) continue;
+            learn_skill_range(sd, dataPtr);
+            if (learned_flight_range(dataPtr) > 0.0f) return;
+        }
+    }
+}
+
+// Pre-cast ranges from enemy weapon/ulti skills so the FIRST shot of each
+// projectile type already has a known flight range.
+void warm_flight_ranges()
+{
+    int lim = enemy_data_n < ENEMY_MAX ? enemy_data_n : ENEMY_MAX;
+    for (int i = 0; i < lim; i++)
+    {
+        for (int s = 0; s < 2; s++)
+        {
+            uintptr_t sd = s ? game_character_ulti_skill(enemy_data[i])
+                             : game_character_weapon_skill(enemy_data[i]);
+            if (!sd || !pointer_plausible(sd)) continue;
+            uintptr_t proj = 0;
+            if (!read_ptr(sd + LOGICSKILLDATA__PROJECTILE, &proj) || !proj) continue;
+            if (learned_flight_range(proj) > 0.0f) continue;
+            learn_skill_range(sd, proj);
         }
     }
 }
@@ -390,8 +420,7 @@ void projectile_threat(const uint8_t* obj,
         remain = limit + st->speed * 0.05f - st->flown;
         if (remain < dist) return;
     }
-    else if (dist > span.close)
-        return;
+    // Unknown range: no gate — assume the shot reaches us and dodge.
     int32_t arrival = game_projectile_travel_ticks(
         dataPtr, static_cast<int>(remain + 0.5f), static_cast<int>(st->speed + 0.5f));
     if (arrival < 1) return;
@@ -894,6 +923,7 @@ void update_autododge()
     float    mx = static_cast<float>(own_x), my = static_cast<float>(own_y);
     evict_stale_projectiles(now);
     collect_logic_objects(now, own_gid, mx, my);
+    warm_flight_ranges();
     {
         float mvx = static_cast<float>(own_x - prev_x), mvy = static_cast<float>(own_y - prev_y);
         float mv = fast_len(mvx, mvy);
