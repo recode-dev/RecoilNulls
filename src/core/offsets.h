@@ -31,7 +31,7 @@ inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETTILEMAP        = 0x991440;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GETOWNCHARACTER   = 0xac3934;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO =
     0xac3a58;
-inline constexpr uint64_t CLIENTINPUTMESSAGE__CONSTRUCTOR        = 0xa95798;
+inline constexpr uint64_t CLIENTINPUTMESSAGE__CONSTRUCTOR        = 0xa95bb0;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__TYPE               = 0x8;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__X                  = 0xc;
 inline constexpr uint64_t CLIENTINPUTMESSAGE__Y                  = 0x10;
