@@ -77,11 +77,8 @@ BOOL addr_writable(uintptr_t address, size_t length)
 }
 void read_cache_reset()
 {
-    for (int i = 0; i < PAGE_CACHE_SLOTS; i++)
-    {
-        page_cache_key[i]  = 0;
-        page_cache_prot[i] = 0;
-    }
+    memset(page_cache_key, 0, sizeof(page_cache_key));
+    memset(page_cache_prot, 0, sizeof(page_cache_prot));
 }
 BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
@@ -381,6 +378,8 @@ void poll_for_game(int tick)
                    ^{ poll_for_game(tick + 1); });
 }
 uintptr_t      base           = 0;
+uintptr_t      client_cached  = 0;
+const uint8_t* own_block      = nullptr;
 static int32_t own_team_value = -1;
 float          own_speed      = 720.0f;
 uint32_t       own_hp         = 0;
@@ -415,16 +414,18 @@ static int32_t  last_pos_y  = 0;
 static uint64_t last_pos_us = 0;
 static void     world_reset()
 {
-    elem         = 0;
-    own_x        = 0;
-    own_y        = 0;
-    own_hp       = 0;
-    ok_hp        = 0;
-    dead         = 1;
-    coord_ok     = 0;
-    obj_count    = 0;
-    scene_object = 0;
-    last_pos_us  = 0;
+    elem          = 0;
+    own_x         = 0;
+    own_y         = 0;
+    own_hp        = 0;
+    ok_hp         = 0;
+    dead          = 1;
+    coord_ok      = 0;
+    obj_count     = 0;
+    scene_object  = 0;
+    client_cached = 0;
+    own_block     = nullptr;
+    last_pos_us   = 0;
     wall_cache_bind(0);
     reset_autododge_state();
 }
@@ -465,8 +466,6 @@ void scan_world()
     uintptr_t array     = 0;
     uintptr_t own       = 0;
     int32_t   count     = 0;
-    int32_t   x         = 0;
-    int32_t   y         = 0;
     int32_t   hp        = 0;
     if (!base) return;
     scene_object = battle_instance();
@@ -484,6 +483,7 @@ void scan_world()
         return;
     }
     clientPtr = reinterpret_cast<uintptr_t>(value);
+    client_cached = clientPtr;
     if (!read_ptr(clientPtr + static_cast<uintptr_t>(
                                   LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER),
                   &value) ||
@@ -556,13 +556,26 @@ void scan_world()
         return;
     }
     elem = own;
-    if (read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETX),
-                 &x) &&
-        read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETY), &y))
+    own_block = nullptr;
+    for (int i = 0; i < count; i++)
     {
-        own_x    = x;
-        own_y    = y;
-        coord_ok = 1;
+        if (snapshot[i] == own)
+        {
+            own_block = block[i];
+            break;
+        }
+    }
+    {
+        int32_t xy[2] = {0, 0};
+        if (read_bytes(own + static_cast<uintptr_t>(
+                                     LOGICGAMEOBJECTCLIENT__GETX),
+                       xy,
+                       sizeof(xy)))
+        {
+            own_x    = xy[0];
+            own_y    = xy[1];
+            coord_ok = 1;
+        }
     }
     if (read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__HP),
                  &hp) &&
@@ -646,10 +659,6 @@ void setup()
 }
 int coord_ok = 0;
 int dead     = 0;
-int scene_live()
-{
-    return battle_instance() != 0 ? 1 : 0;
-}
 int is_owned_team_data(uintptr_t data)
 {
     int32_t team = 0;
@@ -675,16 +684,7 @@ int is_owned_by_own_team(uintptr_t obj)
 }
 uintptr_t client()
 {
-    void* value = nullptr;
-    if (!scene_object || !scene_live()) return 0;
-    if (!read_ptr(scene_object +
-                      static_cast<uintptr_t>(LOGICBATTLEMODE__CLIENT),
-                  &value) ||
-        !value)
-    {
-        return 0;
-    }
-    return reinterpret_cast<uintptr_t>(value);
+    return client_cached;
 }
 uintptr_t controller()
 {

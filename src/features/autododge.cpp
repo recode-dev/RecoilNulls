@@ -7,6 +7,18 @@
 #include <cstring>
 namespace
 {
+int segment_bbox_misses_circle(int x1, int y1, int x2, int y2,
+                               int cx, int cy, int r)
+{
+    int lox = x1 < x2 ? x1 : x2;
+    int hix = x1 < x2 ? x2 : x1;
+    int loy = y1 < y2 ? y1 : y2;
+    int hiy = y1 < y2 ? y2 : y1;
+    return hix < cx - r || lox > cx + r || hiy < cy - r || loy > cy + r;
+}
+}
+namespace
+{
 static float fast_len(float x, float y)
 {
     return static_cast<float>(
@@ -280,14 +292,17 @@ static void projectile_threat(const uint8_t* obj,
     float tt = static_cast<float>(arrival) * TICK_MS_SEC;
     if (tt > SIM_T) return;
     {
+        int32_t sx1  = static_cast<int>(px);
+        int32_t sy1  = static_cast<int>(py);
+        int32_t sx2  = static_cast<int>(px + vx * tt);
+        int32_t sy2  = static_cast<int>(py + vy * tt);
+        int32_t scx  = static_cast<int>(mx);
+        int32_t scy  = static_cast<int>(my);
+        int32_t srad = static_cast<int>(rad + 0.5f);
         int32_t hit[2] = {0, 0};
-        if (!game_segment_hits_circle(static_cast<int>(px),
-                                      static_cast<int>(py),
-                                      static_cast<int>(px + vx * tt),
-                                      static_cast<int>(py + vy * tt),
-                                      static_cast<int>(mx),
-                                      static_cast<int>(my),
-                                      static_cast<int>(rad + 0.5f),
+        if (segment_bbox_misses_circle(sx1, sy1, sx2, sy2, scx, scy, srad))
+            return;
+        if (!game_segment_hits_circle(sx1, sy1, sx2, sy2, scx, scy, srad,
                                       hit))
             return;
     }
@@ -442,8 +457,12 @@ static float hit_time(const Threat& t,
     int   ex    = rx + static_cast<int>(ux * dur);
     int   ey    = ry + static_cast<int>(uy * dur);
     int   pt[2] = {rx, ry};
-    if (!game_segment_hits_circle(
-            rx, ry, ex, ey, 0, 0, static_cast<int>(t.rad), pt))
+    int   tr    = static_cast<int>(t.rad);
+    if (segment_bbox_misses_circle(rx, ry, ex, ey, 0, 0, tr))
+    {
+        return -1.0f;
+    }
+    if (!game_segment_hits_circle(rx, ry, ex, ey, 0, 0, tr, pt))
     {
         return -1.0f;
     }
@@ -461,8 +480,12 @@ static float closest_approach(
     int bx    = ax + static_cast<int>((vx - t.vx) * span);
     int by    = ay + static_cast<int>((vy - t.vy) * span);
     int pt[2] = {ax, ay};
-    if (game_segment_hits_circle(
-            ax, ay, bx, by, 0, 0, static_cast<int>(t.rad), pt))
+    int tr    = static_cast<int>(t.rad);
+    if (segment_bbox_misses_circle(ax, ay, bx, by, 0, 0, tr))
+    {
+        return 1.0e30f;
+    }
+    if (game_segment_hits_circle(ax, ay, bx, by, 0, 0, tr, pt))
     {
         return 0.0f;
     }
@@ -744,7 +767,11 @@ void update_autododge()
         return;
     }
     int32_t own_gid = 0;
-    read_int(elem + LOGICGAMEOBJECTCLIENT__GETGLOBALID, &own_gid);
+    if (own_block)
+        memcpy(&own_gid, own_block + LOGICGAMEOBJECTCLIENT__GETGLOBALID,
+               sizeof(own_gid));
+    else
+        read_int(elem + LOGICGAMEOBJECTCLIENT__GETGLOBALID, &own_gid);
     self_speed = own_speed > 1.0f ? own_speed : 1.0f;
     cache_span();
     cache_frame_geom();

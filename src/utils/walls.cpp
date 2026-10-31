@@ -7,6 +7,116 @@ static int       wall_w            = 0;
 static int       wall_h            = 0;
 static int       wall_subtile_span = 0;
 static int       wall_have         = 0;
+namespace
+{
+constexpr int TILE_MEMO_SLOTS = 512;
+struct TileMemo
+{
+    int32_t x;
+    int32_t y;
+    uint8_t blocked;
+    uint8_t pad;
+    int32_t stamp;
+};
+static TileMemo tile_memo[TILE_MEMO_SLOTS];
+constexpr int PATH_MEMO_SLOTS = 256;
+struct PathMemo
+{
+    int32_t x0;
+    int32_t y0;
+    int32_t x1;
+    int32_t y1;
+    uint8_t clear;
+    uint8_t pad;
+    int32_t stamp;
+};
+static PathMemo path_memo[PATH_MEMO_SLOTS];
+constexpr int LOS_MEMO_SLOTS = 128;
+struct LosMemo
+{
+    int32_t ax;
+    int32_t ay;
+    int32_t bx;
+    int32_t by;
+    uint8_t clear;
+    uint8_t pad;
+    int32_t stamp;
+};
+static LosMemo los_memo[LOS_MEMO_SLOTS];
+uint32_t memo_mix(uint32_t a, uint32_t b)
+{
+    uint32_t h = a * 0x9E3779B1u;
+    h ^= b * 0x85EBCA77u;
+    h ^= h >> 13;
+    return h;
+}
+int tile_blocked_cached(int32_t x, int32_t y)
+{
+    int32_t stamp = static_cast<int32_t>(frame_index);
+    TileMemo& e   = tile_memo[memo_mix(static_cast<uint32_t>(x),
+                                       static_cast<uint32_t>(y)) &
+                                    (TILE_MEMO_SLOTS - 1)];
+    if (e.stamp == stamp && e.x == x && e.y == y)
+    {
+        return e.blocked;
+    }
+    int blocked = game_tile_is_passable(wall_map, x, y) ? 0 : 1;
+    e.x       = x;
+    e.y       = y;
+    e.blocked = static_cast<uint8_t>(blocked);
+    e.stamp   = stamp;
+    return blocked;
+}
+int path_clear_cached(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+{
+    int32_t stamp = static_cast<int32_t>(frame_index);
+    PathMemo& e   = path_memo[(memo_mix(static_cast<uint32_t>(x0),
+                                         static_cast<uint32_t>(y0)) ^
+                               memo_mix(static_cast<uint32_t>(x1),
+                                        static_cast<uint32_t>(y1))) &
+                              (PATH_MEMO_SLOTS - 1)];
+    if (e.stamp == stamp && e.x0 == x0 && e.y0 == y0 && e.x1 == x1 &&
+        e.y1 == y1)
+    {
+        return e.clear;
+    }
+    int clear = game_path_clear(wall_map, x0, y0, x1, y1) ? 1 : 0;
+    e.x0    = x0;
+    e.y0    = y0;
+    e.x1    = x1;
+    e.y1    = y1;
+    e.clear = static_cast<uint8_t>(clear);
+    e.stamp = stamp;
+    return clear;
+}
+int los_clear_cached(int32_t ax, int32_t ay, int32_t bx, int32_t by)
+{
+    using los_t = int (*)(uintptr_t, int, int, int, int, int, int, int, int);
+    static uintptr_t slot = 0;
+    int32_t          stamp = static_cast<int32_t>(frame_index);
+    LosMemo&         e     = los_memo[(memo_mix(static_cast<uint32_t>(ax),
+                                                 static_cast<uint32_t>(ay)) ^
+                                       memo_mix(static_cast<uint32_t>(bx),
+                                                static_cast<uint32_t>(by))) &
+                                      (LOS_MEMO_SLOTS - 1)];
+    if (e.stamp == stamp && e.ax == ax && e.ay == ay && e.bx == bx &&
+        e.by == by)
+    {
+        return e.clear;
+    }
+    if (!slot) slot = callable(LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR);
+    if (!slot) return 1;
+    int clear =
+        reinterpret_cast<los_t>(slot)(wall_map, ax, ay, bx, by, 0, 0, 0, 0) & 1;
+    e.ax    = ax;
+    e.ay    = ay;
+    e.bx    = bx;
+    e.by    = by;
+    e.clear = static_cast<uint8_t>(clear);
+    e.stamp = stamp;
+    return clear;
+}
+}
 static int       wall_measure_tile_span()
 {
     int span = game_tile_to_logic(1) - game_tile_to_logic(0);
@@ -100,7 +210,7 @@ int wall_cell_blocked_at(float x, float y)
     int subX = 0;
     int subY = 0;
     if (!wall_subtile_of(x, y, &subX, &subY)) return 0;
-    return game_tile_is_passable(wall_map, subX, subY) ? 0 : 1;
+    return tile_blocked_cached(subX, subY);
 }
 int wall_cell_blocked_wide(float x, float y, float r)
 {
@@ -124,28 +234,18 @@ int wall_cell_blocked_wide(float x, float y, float r)
     {
         for (int sx = lowX; sx <= highX; sx++)
         {
-            if (!game_tile_is_passable(wall_map, sx, sy)) return 1;
+            if (tile_blocked_cached(sx, sy)) return 1;
         }
     }
     return 0;
 }
 int wall_line_of_sight_clear(float ax, float ay, float bx, float by)
 {
-    static uintptr_t slot = 0;
     if (!wall_map) return 1;
-    if (!slot) slot = callable(LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR);
-    if (!slot) return 1;
-    using los_t = int (*)(uintptr_t, int, int, int, int, int, int, int, int);
-    return reinterpret_cast<los_t>(slot)(wall_map,
-                                         static_cast<int>(ax),
-                                         static_cast<int>(ay),
-                                         static_cast<int>(bx),
-                                         static_cast<int>(by),
-                                         0,
-                                         0,
-                                         0,
-                                         0) &
-           1;
+    return los_clear_cached(static_cast<int32_t>(ax),
+                            static_cast<int32_t>(ay),
+                            static_cast<int32_t>(bx),
+                            static_cast<int32_t>(by));
 }
 int wall_path_clear(float ax, float ay, float bx, float by)
 {
@@ -182,11 +282,10 @@ int wall_segment_clear(float ax, float ay, float bx, float by, float radius)
     for (float lane : lanes)
     {
         float ox = nx * lane, oy = ny * lane;
-        if (!game_path_clear(wall_map,
-                             wall_grid_x(ax + ox),
-                             wall_grid_y(ay + oy),
-                             wall_grid_x(bx + ox),
-                             wall_grid_y(by + oy)))
+        if (!path_clear_cached(wall_grid_x(ax + ox),
+                               wall_grid_y(ay + oy),
+                               wall_grid_x(bx + ox),
+                               wall_grid_y(by + oy)))
         {
             return 0;
         }

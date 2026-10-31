@@ -60,7 +60,6 @@ static int pending_push(int type, int x, int y, int predict)
     return 1;
 }
 static int   client_input_message_is_valid(void* memory, size_t size);
-static void* client_input_battle_instance();
 static void* client_input_manager_of_battle(void* battle);
 static int   client_input_manager_queue_is_ready(void* manager);
 uintptr_t    callable_at_rva(uintptr_t rva)
@@ -131,16 +130,6 @@ void* allocate_client_input_message()
     memset(memory, 0, CLIENTINPUTMESSAGE__SIZE);
     return memory;
 }
-static void* client_input_battle_instance()
-{
-    static uintptr_t slot = 0;
-    uintptr_t function = client_input_resolve(&slot, BATTLEMODE__GETINSTANCE);
-    if (!function)
-    {
-        return nullptr;
-    }
-    return reinterpret_cast<void* (*) ()>(function)();
-}
 static void* client_input_manager_of_battle(void* battle)
 {
     void* manager = nullptr;
@@ -200,7 +189,7 @@ static int client_input_enqueue_locked(int type, int x, int y)
     {
         return 0;
     }
-    battle = client_input_battle_instance();
+    battle = reinterpret_cast<void*>(scene_object);
     if (!object_plausible(battle))
     {
         return 0;
