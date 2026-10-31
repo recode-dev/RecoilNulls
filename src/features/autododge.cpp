@@ -50,7 +50,6 @@ int   proj_enemy_n       = 0;
 namespace
 {
 constexpr int      SIM_STEPS        = 32;
-constexpr uint64_t SEND_MS          = ad::TICK_MS;
 constexpr int      MOVE_DELAY_TICKS = 2;
 constexpr int      HOLD_TICKS       = 3;
 constexpr float    SWITCH_GAIN      = 1.4f;
@@ -371,7 +370,7 @@ using namespace ad;
 namespace
 {
 static float    commit_x = 0.0f, commit_y = 0.0f;
-static uint64_t sent_ms = 0;
+static uint64_t sent_frame = 0;
 static float    move_dx = 0.0f, move_dy = 0.0f;
 static int      hold_left = 0;
 static float    tgt_x = 0.0f, tgt_y = 0.0f;
@@ -717,7 +716,7 @@ void reset_autododge_state()
     threat_n     = 0;
     char_vt      = 0;
     hitbox       = 0.0f;
-    sent_ms      = 0;
+    sent_frame   = 0;
     dodge_dir_x = 1.0f, dodge_dir_y = 0.0f;
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
@@ -817,9 +816,9 @@ void update_autododge()
         client_prediction_move_to(tx, ty);
         last_tx = tx, last_ty = ty;
     }
-    if (now - sent_ms >= SEND_MS)
+    if (sent_frame != frame_index)
     {
-        sent_ms = now;
+        sent_frame = frame_index;
         enqueue_move_input(tx, ty);
     }
 }

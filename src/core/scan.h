@@ -125,6 +125,7 @@ extern int32_t       own_x;
 extern int32_t       own_y;
 extern int           ok_hp;
 uint64_t             us();
+extern uint64_t      frame_index;
 void                 scan_world();
 void                 workload();
 void                 setup();
