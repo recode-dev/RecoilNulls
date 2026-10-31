@@ -41,11 +41,5 @@ inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTRAVELTICKS            = 0xa
 inline constexpr uint64_t LOGICCHARACTERDATA__GETWEAPONSKILL               = 0x9df18c;
 inline constexpr uint64_t LOGICCHARACTERDATA__GETULTISKILL                 = 0x9df194;
 inline constexpr uint64_t LOGICSKILLDATA__GETCASTINGRANGETILES             = 0x9de9cc;
-// LogicSkillData::getProjectile() = single LogicProjectileData* at +0x58.
-// Proven: v36 ref 0x490584 `return *(this+0x58)` (decompiled, symbolized);
-// v69 twin 0x9b4e14 `ldr x0,[x0,#0x58]; ret` byte-identical, score 1.000.
-// NOT an array: v69 0x9debb8 is another class' indexed accessor; there is no
-// LogicSkillData::getProjectile(int) and no count field. Old 0x58-array +
-// 0x64-count reading was dead logic.
 inline constexpr uint64_t LOGICSKILLDATA__PROJECTILE = 0x58;
 #endif

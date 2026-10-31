@@ -292,8 +292,6 @@ bool read_projectile_position(const uint8_t* obj, float* px, float* py)
     return false;
 }
 
-// v36: LogicSkillData::getProjectile() = *(this + 0x58) — single LogicProjectileData*.
-// v69 field proven by find_offsets (score 1.000): 0x9b4e14 ldr x0,[x0,#0x58];ret.
 bool skill_projectile_is(uintptr_t sd, uintptr_t dataPtr)
 {
     uintptr_t proj = 0;
@@ -332,8 +330,6 @@ void resolve_flight_range(uintptr_t dataPtr)
     }
 }
 
-// Pre-cast ranges from enemy weapon/ulti skills so the FIRST shot of each
-// projectile type already has a known flight range.
 void warm_flight_ranges()
 {
     int lim = enemy_data_n < ENEMY_MAX ? enemy_data_n : ENEMY_MAX;
@@ -420,7 +416,6 @@ void projectile_threat(const uint8_t* obj,
         remain = limit + st->speed * 0.05f - st->flown;
         if (remain < dist) return;
     }
-    // Unknown range: no gate — assume the shot reaches us and dodge.
     int32_t arrival = game_projectile_travel_ticks(
         dataPtr, static_cast<int>(remain + 0.5f), static_cast<int>(st->speed + 0.5f));
     if (arrival < 1) return;
