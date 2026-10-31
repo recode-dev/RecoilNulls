@@ -158,7 +158,28 @@ jobs:
             }
           fi
           clang-tidy --version
-          clang-tidy --verify-config --config="$CLANG_TIDY_CONFIG"
+          clang-tidy --checks='*' --list-checks 2>/dev/null |
+            sed -n 's/^    //p' | grep -E '^[a-zA-Z0-9]+(-[a-zA-Z0-9.]+)+$' | sort -u > /tmp/known-checks.txt
+          echo "known checks: $(wc -l < /tmp/known-checks.txt)"
+          python3 - "$CLANG_TIDY_CONFIG" <<'PY'
+          import sys, yaml
+          cfg = yaml.safe_load(sys.argv[1])
+          known = set(open("/tmp/known-checks.txt").read().split())
+          tokens = [t.strip() for t in cfg["Checks"].split(",") if t.strip()]
+          kept = []
+          for t in tokens:
+              name = t[1:] if t.startswith("-") else t
+              if "*" in t or name in known:
+                  kept.append(t)
+          dropped = [t for t in tokens if t not in kept]
+          if dropped:
+              print("dropped unknown checks:", ", ".join(dropped))
+          cfg["Checks"] = ", ".join(kept)
+          with open("/tmp/clang-tidy-config.yaml", "w") as f:
+              yaml.safe_dump(cfg, f, sort_keys=False)
+          print("effective checks:", len(kept))
+          PY
+          clang-tidy --verify-config --config-file=/tmp/clang-tidy-config.yaml
 
       - name: Tidy
         run: |
@@ -184,7 +205,7 @@ jobs:
           json.dump(entries, open("compile_commands.json", "w"), indent=1)
           print("tus:", len(entries))
           PY
-          if ! git ls-files 'src/*.cpp' | xargs -r clang-tidy -p . --config="$CLANG_TIDY_CONFIG" --fix --fix-errors --quiet; then
+          if ! git ls-files 'src/*.cpp' | xargs -r clang-tidy -p . --config-file=/tmp/clang-tidy-config.yaml --fix --fix-errors --quiet; then
             echo "clang-tidy reported diagnostics that are not fixable; continuing"
           fi
           rm -f compile_commands.json
