@@ -93,12 +93,12 @@ struct Threat
 
 struct Proj
 {
-    uint64_t seen;
-    uint64_t move_ms;
-    int32_t  pid;
-    float    x, y, ux, uy, speed, rad, flown;
+    uint64_t  seen;
+    uint64_t  move_ms;
+    int32_t   pid;
+    float     x, y, ux, uy, speed, rad, flown;
     uintptr_t data;
-    bool     vel;
+    bool      vel;
 };
 
 Threat    threats[THREAT_MAX];
@@ -202,9 +202,9 @@ uint32_t   range_next = 0;
 float learned_flight_range(uintptr_t data)
 {
     if (!data) return 0.0f;
-    for (int i = 0; i < RANGE_SLOTS; i++)
+    for (auto& i : range_learn)
     {
-        if (range_learn[i].data == data) return range_learn[i].range;
+        if (i.data == data) return i.range;
     }
     return 0.0f;
 }
@@ -214,11 +214,11 @@ void learn_flight_range(uintptr_t data, float flown)
     if (!data || !std::isfinite(flown)) return;
     float tile = wall_logic_units(1);
     if (tile <= 0.0f || flown < tile) return;
-    for (int i = 0; i < RANGE_SLOTS; i++)
+    for (auto& i : range_learn)
     {
-        if (range_learn[i].data == data)
+        if (i.data == data)
         {
-            if (flown > range_learn[i].range) range_learn[i].range = flown;
+            if (flown > i.range) i.range = flown;
             return;
         }
     }
@@ -301,11 +301,11 @@ void projectile_threat(const uint8_t* obj,
     {
         if (step > 0.5f)
         {
-            st->ux      = step_x / step;
-            st->uy      = step_y / step;
-            st->speed   = static_cast<float>(dataSpeed);
-            st->vel     = true;
-            st->flown  += step;
+            st->ux    = step_x / step;
+            st->uy    = step_y / step;
+            st->speed = static_cast<float>(dataSpeed);
+            st->vel   = true;
+            st->flown += step;
             st->move_ms = now;
         }
         else if (st->vel && now - st->move_ms >= 200)
@@ -327,8 +327,8 @@ void projectile_threat(const uint8_t* obj,
     if (dx * vx + dy * vy <= 0.0f) return;
     if (dx * dx + dy * dy > zone2) return;
     if (!wall_line_of_sight_clear(px, py, mx, my)) return;
-    float rad  = st->rad + hitbox;
-    float dist = fast_len(dx, dy);
+    float rad    = st->rad + hitbox;
+    float dist   = fast_len(dx, dy);
     float remain = dist;
     float limit  = learned_flight_range(dataPtr);
     if (limit > 0.0f)
