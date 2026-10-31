@@ -115,14 +115,45 @@ int32_t character_collision_radius(uintptr_t data)
     return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
 }
 static float weapons_range = 0.0f;
+struct ProjRange
+{
+    uintptr_t pd;
+    float     range;
+};
+static ProjRange proj_ranges[48] = {};
+static void record_proj_range(uintptr_t pd, float range)
+{
+    if (!pd || range <= 0.0f) return;
+    for (ProjRange& r : proj_ranges)
+    {
+        if (r.pd == pd)
+        {
+            if (range > r.range) r.range = range;
+            return;
+        }
+        if (!r.pd)
+        {
+            r.pd    = pd;
+            r.range = range;
+            return;
+        }
+    }
+}
+static float lookup_proj_range(uintptr_t pd)
+{
+    for (const ProjRange& r : proj_ranges)
+        if (r.pd == pd) return r.range;
+    return 0.0f;
+}
 static float enemy_weapon_range(uintptr_t charObj)
 {
     using proj_t  = uintptr_t (*)(uintptr_t, int32_t);
     using range_t = int32_t (*)(uintptr_t, int32_t, uintptr_t, uintptr_t);
     static proj_t  fn_proj  = nullptr;
     static range_t fn_range = nullptr;
-    uintptr_t      vec, sc, sd, pd, svt;
+    uintptr_t      vec, slot, sd, vt, f0, pd;
     int32_t        n;
+    float          best = 0.0f;
     if (!charObj) return 0.0f;
     if (!fn_proj)
         fn_proj = reinterpret_cast<proj_t>(
@@ -137,15 +168,27 @@ static float enemy_weapon_range(uintptr_t charObj)
     n = 0;
     if (!read_int(charObj + LOGICCHARACTERCLIENT__SKILLCOUNT, &n) || n <= 0)
         return 0.0f;
-    sc = 0;
-    if (!read_ptr(vec, &sc) || !sc || !pointer_plausible(sc)) return 0.0f;
-    sd = 0;
-    if (!read_ptr(sc, &sd) || !sd || !pointer_plausible(sd)) return 0.0f;
-    svt = 0;
-    if (!read_ptr(sd, &svt) || !addr_executable(svt)) return 0.0f;
-    pd = fn_proj(sd, 0);
-    if (!pd || !pointer_plausible(pd)) return 0.0f;
-    return static_cast<float>(fn_range(sd, 0, charObj, pd));
+    if (n > 8) n = 8;
+    for (int32_t i = 0; i < n; i++)
+    {
+        slot = 0;
+        if (!read_ptr(vec + static_cast<uintptr_t>(i) * 8, &slot) || !slot ||
+            !pointer_plausible(slot))
+            continue;
+        sd = 0;
+        if (!read_ptr(slot, &sd) || !sd || !pointer_plausible(sd)) continue;
+        vt = 0;
+        if (!read_ptr(sd, &vt) || !pointer_plausible(vt)) continue;
+        f0 = 0;
+        if (!read_ptr(vt, &f0) || !addr_executable(f0)) continue;
+        pd = fn_proj(sd, 0);
+        if (!pd || !pointer_plausible(pd)) continue;
+        float wr = static_cast<float>(fn_range(sd, 0, charObj, pd));
+        if (wr <= 0.0f) continue;
+        record_proj_range(pd, wr);
+        if (wr > best) best = wr;
+    }
+    return best;
 }
 namespace ad
 {
@@ -197,7 +240,8 @@ void init_projectile_state(
     st->y              = py;
     st->sx             = px;
     st->sy             = py;
-    st->range          = weapons_range;
+    st->range          = lookup_proj_range(dataPtr);
+    if (st->range <= 0.0f) st->range = weapons_range;
     st->speed          = 0.0f;
     int32_t dataRadius = projectile_radius(dataPtr);
     st->rad            = static_cast<float>(dataRadius);
@@ -317,13 +361,23 @@ static void projectile_threat(const uint8_t* obj,
     if (arrival < 1) return;
     float tt = static_cast<float>(arrival) * TICK_MS_SEC;
     if (tt > SIM_T) return;
+    {
+        float pr = lookup_proj_range(st->data);
+        if (pr > 0.0f)
+            st->range = pr;
+        else if (st->range <= 0.0f)
+            st->range = weapons_range;
+    }
     if (st->range > 0.0f)
     {
         float travelled = fast_len(px - st->sx, py - st->sy);
-        float remain    = st->range - travelled;
-        if (remain <= 0.0f) return;
-        float t_end = remain / st->speed;
-        if (t_end < tt) tt = t_end;
+        if (travelled >= st->range) return;
+        float ex   = st->sx + st->ux * st->range;
+        float ey   = st->sy + st->uy * st->range;
+        float left = (ex - px) * st->ux + (ey - py) * st->uy;
+        if (left <= 0.0f) return;
+        float seg = st->speed * tt;
+        if (left < seg) tt = left / st->speed;
     }
     {
         int32_t sx1    = static_cast<int>(px);
@@ -766,6 +820,7 @@ void reset_autododge_state()
     hitbox        = 0.0f;
     sent_frame    = 0;
     weapons_range = 0.0f;
+    for (ProjRange& r : proj_ranges) r = ProjRange{};
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
         p = Proj{};
