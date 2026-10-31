@@ -94,8 +94,10 @@ struct Threat
 struct Proj
 {
     uint64_t seen;
+    uint64_t move_ms;
     int32_t  pid;
-    float    x, y, ux, uy, speed, rad;
+    float    x, y, ux, uy, speed, rad, flown;
+    uintptr_t data;
     bool     vel;
 };
 
@@ -172,15 +174,58 @@ Proj* find_projectile_entry(int32_t pid)
 void init_projectile_state(
     Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
 {
-    st->pid   = pid;
-    st->seen  = now;
-    st->x     = px;
-    st->y     = py;
-    st->speed = 0.0f;
-    st->rad   = static_cast<float>(projectile_radius(dataPtr));
-    st->vel   = false;
-    st->ux    = 0.0f;
-    st->uy    = 0.0f;
+    st->pid     = pid;
+    st->seen    = now;
+    st->move_ms = now;
+    st->data    = dataPtr;
+    st->x       = px;
+    st->y       = py;
+    st->speed   = 0.0f;
+    st->rad     = static_cast<float>(projectile_radius(dataPtr));
+    st->flown   = 0.0f;
+    st->vel     = false;
+    st->ux      = 0.0f;
+    st->uy      = 0.0f;
+}
+
+constexpr int RANGE_SLOTS = 32;
+
+struct RangeLearn
+{
+    uintptr_t data;
+    float     range;
+};
+
+RangeLearn range_learn[RANGE_SLOTS];
+uint32_t   range_next = 0;
+
+float learned_flight_range(uintptr_t data)
+{
+    if (!data) return 0.0f;
+    for (int i = 0; i < RANGE_SLOTS; i++)
+    {
+        if (range_learn[i].data == data) return range_learn[i].range;
+    }
+    return 0.0f;
+}
+
+void learn_flight_range(uintptr_t data, float flown)
+{
+    if (!data || !std::isfinite(flown)) return;
+    float tile = wall_logic_units(1);
+    if (tile <= 0.0f || flown < tile) return;
+    for (int i = 0; i < RANGE_SLOTS; i++)
+    {
+        if (range_learn[i].data == data)
+        {
+            if (flown > range_learn[i].range) range_learn[i].range = flown;
+            return;
+        }
+    }
+    RangeLearn& slot = range_learn[range_next % RANGE_SLOTS];
+    range_next++;
+    slot.data  = data;
+    slot.range = flown;
 }
 
 void character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
@@ -256,10 +301,17 @@ void projectile_threat(const uint8_t* obj,
     {
         if (step > 0.5f)
         {
-            st->ux    = step_x / step;
-            st->uy    = step_y / step;
-            st->speed = static_cast<float>(dataSpeed);
-            st->vel   = true;
+            st->ux      = step_x / step;
+            st->uy      = step_y / step;
+            st->speed   = static_cast<float>(dataSpeed);
+            st->vel     = true;
+            st->flown  += step;
+            st->move_ms = now;
+        }
+        else if (st->vel && now - st->move_ms >= 200)
+        {
+            learn_flight_range(st->data, st->flown);
+            st->vel = false;
         }
     }
     else
@@ -271,15 +323,25 @@ void projectile_threat(const uint8_t* obj,
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
+    if (vx * vx + vy * vy <= 0.0f) return;
+    if (dx * vx + dy * vy <= 0.0f) return;
     if (dx * dx + dy * dy > zone2) return;
     if (!wall_line_of_sight_clear(px, py, mx, my)) return;
-    if (vx * vx + vy * vy <= 0.0f) return;
-    float   rad     = st->rad + hitbox;
-    float   dist    = fast_len(dx, dy);
+    float rad  = st->rad + hitbox;
+    float dist = fast_len(dx, dy);
+    float remain = dist;
+    float limit  = learned_flight_range(dataPtr);
+    if (limit > 0.0f)
+    {
+        remain = limit + st->speed * 0.25f - st->flown;
+        if (remain < dist) return;
+    }
     int32_t arrival = game_projectile_travel_ticks(
-        dataPtr, static_cast<int>(dist + 0.5f), static_cast<int>(st->speed + 0.5f));
+        dataPtr, static_cast<int>(remain + 0.5f), static_cast<int>(st->speed + 0.5f));
     if (arrival < 1) return;
     float tt = static_cast<float>(arrival) * TICK_MS_SEC;
+    float ft = remain / st->speed;
+    if (ft < tt) tt = ft;
     if (tt > SIM_T) return;
     {
         int32_t sx1    = static_cast<int>(px);
@@ -365,7 +427,13 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
 void evict_stale_projectiles(uint64_t now)
 {
     for (auto& proj : projs)
-        if (proj.pid && now - proj.seen > PROJ_TTL_MS) proj.pid = 0;
+    {
+        if (proj.pid && now - proj.seen > PROJ_TTL_MS)
+        {
+            learn_flight_range(proj.data, proj.flown);
+            proj.pid = 0;
+        }
+    }
 }
 
 float    commit_x = 0.0f, commit_y = 0.0f;
@@ -727,6 +795,9 @@ void reset_autododge_state()
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
         p = Proj{};
+    for (RangeLearn& rl : range_learn)
+        rl = RangeLearn{};
+    range_next = 0;
     reset_dodge_state();
 }
 
