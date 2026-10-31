@@ -47,5 +47,5 @@ inline constexpr uint64_t LOGICSKILLDATA__GETCASTINGRANGETILES             = 0x9
 // NOT an array: v69 0x9debb8 is another class' indexed accessor; there is no
 // LogicSkillData::getProjectile(int) and no count field. Old 0x58-array +
 // 0x64-count reading was dead logic.
-inline constexpr uint64_t LOGICSKILLDATA__PROJECTILE                       = 0x58;
+inline constexpr uint64_t LOGICSKILLDATA__PROJECTILE = 0x58;
 #endif
