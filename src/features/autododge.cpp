@@ -248,7 +248,7 @@ void projectile_threat(const uint8_t* obj,
     {
         init_projectile_state(st, key, dataPtr, px, py, now);
     }
-    st->seen = now;
+    st->seen   = now;
     int32_t tx = 0, ty = 0, eta = 0;
     memcpy(&tx, obj + LOGICPROJECTILECLIENT__GETTARGETX, sizeof(tx));
     memcpy(&ty, obj + LOGICPROJECTILECLIENT__GETTARGETY, sizeof(ty));
@@ -288,8 +288,8 @@ void projectile_threat(const uint8_t* obj,
         float rad = st->rad + hitbox;
         for (int k = 0; k < threat_n; k++)
         {
-            if (threats[k].vx == 0.0f && threats[k].vy == 0.0f &&
-                fabsf(threats[k].x - lx) < 1.0f && fabsf(threats[k].y - ly) < 1.0f)
+            if (threats[k].vx == 0.0f && threats[k].vy == 0.0f && fabsf(threats[k].x - lx) < 1.0f &&
+                fabsf(threats[k].y - ly) < 1.0f)
                 return;
         }
         if (threat_n >= THREAT_MAX) return;
