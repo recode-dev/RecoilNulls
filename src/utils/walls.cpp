@@ -154,8 +154,8 @@ float wall_logic_units(int tiles)
 }
 void wall_cache_bind(uintptr_t tileMap)
 {
-    int32_t mapW      = 0;
-    int32_t mapH      = 0;
+    int32_t mapW = 0;
+    int32_t mapH = 0;
     if (!tileMap)
     {
         wall_map  = 0;

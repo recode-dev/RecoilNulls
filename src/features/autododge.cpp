@@ -48,11 +48,11 @@ void vector_normalize(int* x, int* y, int scale)
     *y = v[1];
 }
 }
-int   move                = 0;
-int   enemy_n             = 0;
-float enemy_x[ENEMY_MAX]  = {0};
-float enemy_y[ENEMY_MAX]  = {0};
-float enemy_d[ENEMY_MAX]  = {0};
+int   move               = 0;
+int   enemy_n            = 0;
+float enemy_x[ENEMY_MAX] = {0};
+float enemy_y[ENEMY_MAX] = {0};
+float enemy_d[ENEMY_MAX] = {0};
 namespace
 {
 constexpr int   SIM_STEPS        = 32;
@@ -709,11 +709,11 @@ static void learn_own_hitbox()
 }
 void reset_autododge_state()
 {
-    enemy_n      = 0;
-    threat_n     = 0;
-    char_vt      = 0;
-    hitbox       = 0.0f;
-    sent_frame   = 0;
+    enemy_n    = 0;
+    threat_n   = 0;
+    char_vt    = 0;
+    hitbox     = 0.0f;
+    sent_frame = 0;
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
         p = Proj{};
@@ -721,8 +721,8 @@ void reset_autododge_state()
 }
 void update_autododge()
 {
-    enemy_n      = 0;
-    threat_n     = 0;
+    enemy_n  = 0;
+    threat_n = 0;
     if (!base || !elem || dead || !coord_ok)
     {
         reset_dodge_state();
