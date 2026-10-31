@@ -7,6 +7,7 @@
 #include <cstring>
 #include "../features/autododge.h"
 #include "../utils/walls.h"
+#include "commands.h"
 #include "offsets.h"
 #include "scan.h"
 #include <frida-gum.h>
@@ -607,6 +608,7 @@ static void               scan_frame()
     inside_hook = YES;
     read_cache_reset();
     workload();
+    commands_flush();
     inside_hook = NO;
 }
 static dispatch_source_t scan_timer = nullptr;

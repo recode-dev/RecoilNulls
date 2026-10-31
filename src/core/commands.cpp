@@ -19,6 +19,44 @@ struct CommandGuard
     }
 };
 }
+inline constexpr int PendingCommandMax = 16;
+struct PendingCommand
+{
+    int type;
+    int x;
+    int y;
+    int predict;
+};
+static PendingCommand pending_command[PendingCommandMax];
+static int            pending_count = 0;
+static int            pending_is_move(const PendingCommand& command)
+{
+    return command.type < 0 || command.type == ClientInputMessageTypeMove;
+}
+static int pending_push(int type, int x, int y, int predict)
+{
+    if (pending_count)
+    {
+        PendingCommand& tail = pending_command[pending_count - 1];
+        if (pending_is_move(tail) && tail.type == type)
+        {
+            tail.x       = x;
+            tail.y       = y;
+            tail.predict = tail.predict || predict;
+            return 1;
+        }
+    }
+    if (pending_count >= PendingCommandMax)
+    {
+        return 0;
+    }
+    PendingCommand& slot = pending_command[pending_count++];
+    slot.type            = type;
+    slot.x               = x;
+    slot.y               = y;
+    slot.predict         = predict;
+    return 1;
+}
 static int   client_input_message_is_valid(void* memory, size_t size);
 static void* client_input_battle_instance();
 static void* client_input_manager_of_battle(void* battle);
@@ -225,23 +263,49 @@ static int client_prediction_locked(int x, int y)
         controller_object, x, y, ClientInputMessagePredictionFlag);
     return 1;
 }
+void commands_flush()
+{
+    CommandGuard guard;
+    for (int i = 0; i < pending_count; i++)
+    {
+        const PendingCommand& command = pending_command[i];
+        if (command.type >= 0)
+        {
+            (void) client_input_enqueue_locked(
+                command.type, command.x, command.y);
+        }
+        if (command.predict)
+        {
+            (void) client_prediction_locked(command.x, command.y);
+        }
+    }
+    pending_count = 0;
+}
 int enqueue_client_input_message(int type, int x, int y)
 {
     CommandGuard guard;
-    return client_input_enqueue_locked(type, x, y);
+    if (type < 0 || type >= 0x17)
+    {
+        return 0;
+    }
+    if (!coord_ok || dead)
+    {
+        return 0;
+    }
+    return pending_push(type, x, y, 0);
 }
 int enqueue_move_input_with_type(int x, int y, int type)
 {
     CommandGuard guard;
-    if (!client_input_enqueue_locked(type, x, y))
+    if (type < 0 || type >= 0x17)
     {
         return 0;
     }
-    if (type == ClientInputMessageTypeMove)
+    if (!coord_ok || dead)
     {
-        (void) client_prediction_locked(x, y);
+        return 0;
     }
-    return 1;
+    return pending_push(type, x, y, type == ClientInputMessageTypeMove ? 1 : 0);
 }
 int enqueue_move_input(int x, int y)
 {
@@ -250,5 +314,9 @@ int enqueue_move_input(int x, int y)
 int client_prediction_move_to(int x, int y)
 {
     CommandGuard guard;
-    return client_prediction_locked(x, y);
+    if (!coord_ok)
+    {
+        return 0;
+    }
+    return pending_push(-1, x, y, 1);
 }
