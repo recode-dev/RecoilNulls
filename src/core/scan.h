@@ -6,9 +6,6 @@
 #ifndef NSEC_PER_SEC
 #define NSEC_PER_SEC 1000000000ULL
 #endif
-#ifndef NSEC_PER_MSEC
-#define NSEC_PER_MSEC 1000000ULL
-#endif
 #ifndef NSEC_PER_USEC
 #define NSEC_PER_USEC 1000ULL
 #endif
@@ -132,7 +129,6 @@ void                  workload();
 void                  setup();
 void                  run_autododge();
 extern uintptr_t      scene_object;
-int                   is_owned_by_own_team(uintptr_t obj);
 int                   is_owned_team_object(uintptr_t obj);
 int                   game_segment_hits_circle(
                       int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
@@ -143,5 +139,4 @@ extern int       dead;
 extern uintptr_t elem;
 uintptr_t        client();
 uintptr_t        controller();
-extern int       team_b;
 #endif

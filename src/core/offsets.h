@@ -4,7 +4,6 @@
 #include <cstdint>
 inline constexpr uint64_t LOGICVECTOR2__GETLENGTH                  = 0xbd0740;
 inline constexpr uint64_t LOGICVECTOR2__NORMALIZE                  = 0xbd0794;
-inline constexpr uint64_t LOGICBATTLEMODECLIENT__OWNTEAM           = 0xe4;
 inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__TEAM              = 0x40;
 inline constexpr uint64_t LOGICBATTLEMODE__CLIENT                  = 0x28;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__INPUTMANAGER      = 0x58;
@@ -20,7 +19,6 @@ inline constexpr uint64_t LOGICCHARACTERDATA__GETCOLLISIONRADIUS   = 0x9913e8;
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETSPEED            = 0x124;
 inline constexpr uint64_t LOGICPROJECTILEDATA__GETRADIUS           = 0x130;
 inline constexpr uint64_t LOGICDATA__ISPROJECTILE                  = 0x48;
-inline constexpr uint64_t LOGICTILEMAP__TILEARRAY                  = 0x20;
 inline constexpr uint64_t LOGICTILEMAP__PATHFINDER                 = 0x60;
 inline constexpr uint64_t LOGICTILEMAP__WIDTH                      = 0xc4;
 inline constexpr uint64_t LOGICTILEMAP__HEIGHT                     = 0xc8;

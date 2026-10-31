@@ -154,7 +154,6 @@ float wall_logic_units(int tiles)
 }
 void wall_cache_bind(uintptr_t tileMap)
 {
-    void*   tileArray = nullptr;
     int32_t mapW      = 0;
     int32_t mapH      = 0;
     if (!tileMap)
@@ -182,12 +181,6 @@ void wall_cache_bind(uintptr_t tileMap)
     if (!read_int(tileMap + static_cast<uintptr_t>(LOGICTILEMAP__HEIGHT),
                   &mapH) ||
         mapH <= 0 || mapH > WALL_MAX_MAP_TILES)
-    {
-        return;
-    }
-    if (!read_ptr(tileMap + static_cast<uintptr_t>(LOGICTILEMAP__TILEARRAY),
-                  &tileArray) ||
-        !tileArray)
     {
         return;
     }

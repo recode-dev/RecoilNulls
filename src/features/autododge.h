@@ -2,19 +2,11 @@
 #define FEATURES_AUTODODGE_AUTODODGE_H
 #include <cstdint>
 inline constexpr int ENEMY_MAX = 4;
-inline constexpr int ALLY_MAX  = 8;
 extern int           move;
-extern float         dodge_dir_x, dodge_dir_y;
 extern int           enemy_n;
 extern float         enemy_x[ENEMY_MAX];
 extern float         enemy_y[ENEMY_MAX];
 extern float         enemy_d[ENEMY_MAX];
-extern int           ally_n;
-extern float         ally_x[ALLY_MAX];
-extern float         ally_y[ALLY_MAX];
-extern float         ally_d[ALLY_MAX];
-extern int           proj_own_n;
-extern int           proj_enemy_n;
 int32_t              projectile_radius(uintptr_t data);
 int32_t              projectile_speed(uintptr_t data);
 int32_t              character_collision_radius(uintptr_t data);
@@ -29,7 +21,7 @@ constexpr uint64_t TICK_MS     = 50;
 constexpr uint64_t PROJ_TTL_MS = TICK_MS * 20;
 struct Threat
 {
-    float   x, y, vx, vy, rad, tt;
+    float   x, y, vx, vy, rad;
     int32_t pid;
 };
 struct Proj

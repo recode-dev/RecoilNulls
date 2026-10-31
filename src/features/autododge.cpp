@@ -48,18 +48,11 @@ void vector_normalize(int* x, int* y, int scale)
     *y = v[1];
 }
 }
-int   move        = 0;
-float dodge_dir_x = 1.0f, dodge_dir_y = 0.0f;
-int   enemy_n            = 0;
-float enemy_x[ENEMY_MAX] = {0};
-float enemy_y[ENEMY_MAX] = {0};
-float enemy_d[ENEMY_MAX] = {0};
-int   ally_n             = 0;
-float ally_x[ALLY_MAX]   = {0};
-float ally_y[ALLY_MAX]   = {0};
-float ally_d[ALLY_MAX]   = {0};
-int   proj_own_n         = 0;
-int   proj_enemy_n       = 0;
+int   move                = 0;
+int   enemy_n             = 0;
+float enemy_x[ENEMY_MAX]  = {0};
+float enemy_y[ENEMY_MAX]  = {0};
+float enemy_d[ENEMY_MAX]  = {0};
 namespace
 {
 constexpr int   SIM_STEPS        = 32;
@@ -186,15 +179,7 @@ character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
     memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
     float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
-    if (is_owned_team_object(reinterpret_cast<uintptr_t>(obj)))
-    {
-        if (ally_n >= ALLY_MAX) return;
-        int k     = ally_n++;
-        ally_x[k] = static_cast<float>(xi);
-        ally_y[k] = static_cast<float>(yi);
-        ally_d[k] = fast_len(ex, ey);
-        return;
-    }
+    if (is_owned_team_object(reinterpret_cast<uintptr_t>(obj))) return;
     if (enemy_n >= ENEMY_MAX) return;
     int k      = enemy_n++;
     enemy_x[k] = static_cast<float>(xi);
@@ -271,12 +256,7 @@ static void projectile_threat(const uint8_t* obj,
         st->vel = false;
     }
     st->x = px, st->y = py;
-    if (is_owned_team_object(objPtr))
-    {
-        proj_own_n++;
-        return;
-    }
-    proj_enemy_n++;
+    if (is_owned_team_object(objPtr)) return;
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
@@ -318,7 +298,6 @@ static void projectile_threat(const uint8_t* obj,
     Threat& t = threats[threat_n++];
     t.x = px, t.y = py, t.vx = vx, t.vy = vy, t.pid = key;
     t.rad = rad;
-    t.tt  = tt;
 }
 struct VtCache
 {
@@ -692,14 +671,12 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     {
         hold_left = HOLD_TICKS;
     }
-    dodge_dir_x = best_x, dodge_dir_y = best_y;
     commit_x = best_x, commit_y = best_y;
     out_x = best_x, out_y = best_y;
 }
 }
 static void reset_dodge_state()
 {
-    dodge_dir_x = 0.0f, dodge_dir_y = 0.0f;
     hold_left = 0;
     tgt_x = 0.0f, tgt_y = 0.0f;
     last_valid = 0;
@@ -733,14 +710,10 @@ static void learn_own_hitbox()
 void reset_autododge_state()
 {
     enemy_n      = 0;
-    ally_n       = 0;
-    proj_own_n   = 0;
-    proj_enemy_n = 0;
     threat_n     = 0;
     char_vt      = 0;
     hitbox       = 0.0f;
     sent_frame   = 0;
-    dodge_dir_x = 1.0f, dodge_dir_y = 0.0f;
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
         p = Proj{};
@@ -749,9 +722,6 @@ void reset_autododge_state()
 void update_autododge()
 {
     enemy_n      = 0;
-    ally_n       = 0;
-    proj_own_n   = 0;
-    proj_enemy_n = 0;
     threat_n     = 0;
     if (!base || !elem || dead || !coord_ok)
     {

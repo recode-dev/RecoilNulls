@@ -540,13 +540,6 @@ void scan_world()
             {
                 own_team_value = team;
             }
-            else if (clientPtr &&
-                     read_int(clientPtr + static_cast<uintptr_t>(
-                                              LOGICBATTLEMODECLIENT__OWNTEAM),
-                              &team))
-            {
-                own_team_value = team;
-            }
         }
     }
     if (!own)
@@ -670,10 +663,6 @@ int is_owned_team_object(uintptr_t obj)
                   &team))
         return 0;
     return team == own_team_value ? 1 : 0;
-}
-int is_owned_by_own_team(uintptr_t obj)
-{
-    return is_owned_team_object(obj);
 }
 uintptr_t client()
 {

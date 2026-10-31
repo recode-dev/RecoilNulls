@@ -277,19 +277,6 @@ void commands_flush()
     }
     pending_count = 0;
 }
-int enqueue_client_input_message(int type, int x, int y)
-{
-    CommandGuard guard;
-    if (type < 0 || type >= ClientInputMessageTypeMax)
-    {
-        return 0;
-    }
-    if (!coord_ok || dead)
-    {
-        return 0;
-    }
-    return pending_push(type, x, y, 0);
-}
 int enqueue_move_input_with_type(int x, int y, int type)
 {
     CommandGuard guard;
