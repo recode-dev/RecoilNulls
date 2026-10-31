@@ -41,5 +41,5 @@ inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTRAVELTICKS            = 0xa
 inline constexpr uint64_t LOGICCHARACTERDATA__GETWEAPONSKILL               = 0x9df18c;
 inline constexpr uint64_t LOGICCHARACTERDATA__GETULTISKILL                 = 0x9df194;
 inline constexpr uint64_t LOGICSKILLDATA__GETCASTINGRANGETILES             = 0x9de9cc;
-inline constexpr uint64_t LOGICSKILLDATA__PROJECTILE = 0x58;
+inline constexpr uint64_t LOGICSKILLDATA__PROJECTILE                       = 0x58;
 #endif
