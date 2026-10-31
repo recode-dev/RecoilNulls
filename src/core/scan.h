@@ -4,36 +4,35 @@
 #include <cstdint>
 #define OBJ_BLOCK_SIZE 0xe0
 #ifndef NSEC_PER_SEC
-#define NSEC_PER_SEC 1000000000ULL
+#    define NSEC_PER_SEC 1000000000ULL
 #endif
 #ifndef NSEC_PER_USEC
-#define NSEC_PER_USEC 1000ULL
+#    define NSEC_PER_USEC 1000ULL
 #endif
 #include <mach/mach.h>
 #include <frida-gum.h>
 extern uintptr_t     base;
 extern const char*   image_name;
-extern BOOL          setup_done;
-extern __thread BOOL inside_hook;
-BOOL                 addr_writable(uintptr_t address, size_t length);
-BOOL                 read_bytes(uintptr_t address, void* out, size_t length);
-BOOL      memory_protection_flags(uintptr_t address, vm_prot_t* flags);
-void      read_cache_reset();
-BOOL      pointer_plausible(uintptr_t value);
-BOOL      read_int(uintptr_t address, int32_t* out);
-BOOL      write_bytes(uintptr_t address, const void* src, size_t length);
-BOOL      read_ptr(uintptr_t address, void** out);
-BOOL      read_ptr(uintptr_t address, uintptr_t* out);
-uintptr_t callable(uintptr_t rva);
-int       game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY);
-int       game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1);
-int       game_tile_to_logic(int tile);
-int       game_projectile_travel_ticks(uintptr_t projectileData,
-                                       int       distance,
-                                       int       speed);
-BOOL      find_game_image(uintptr_t* out_base);
-void      poll_for_game(int tick);
-static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
+extern bool          setup_done;
+extern __thread bool inside_hook;
+bool                 addr_writable(uintptr_t address, size_t length);
+bool                 read_bytes(uintptr_t address, void* out, size_t length);
+bool                 memory_protection_flags(uintptr_t address, vm_prot_t* flags);
+void                 read_cache_reset();
+bool                 pointer_plausible(uintptr_t value);
+bool                 read_int(uintptr_t address, int32_t* out);
+bool                 write_bytes(uintptr_t address, const void* src, size_t length);
+bool                 read_ptr(uintptr_t address, void** out);
+bool                 read_ptr(uintptr_t address, uintptr_t* out);
+uintptr_t            callable(uintptr_t rva);
+int                  game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY);
+int                  game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1);
+int                  game_tile_to_logic(int tile);
+int  game_projectile_travel_ticks(uintptr_t projectileData, int distance, int speed);
+bool find_game_image(uintptr_t* out_base);
+void poll_for_game(int tick);
+
+static inline bool region_flags(uintptr_t address, vm_prot_t* flags)
 {
     vm_prot_t protection = 0;
     if (flags)
@@ -42,73 +41,78 @@ static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
     }
     if (!memory_protection_flags(address, &protection))
     {
-        return NO;
+        return false;
     }
     if (flags)
     {
         *flags = protection;
     }
-    return YES;
+    return true;
 }
-extern int         gum_live;
-static inline BOOL addr_readable(uintptr_t address, size_t length)
+
+extern int gum_live;
+
+static inline bool addr_readable(uintptr_t address, size_t length)
 {
     vm_prot_t flags = 0;
-    if (!length) return NO;
-    return region_flags(address, &flags) && (flags & VM_PROT_READ) ? YES : NO;
+    if (!length) return false;
+    return region_flags(address, &flags) && (flags & VM_PROT_READ);
 }
-static inline BOOL addr_executable(uintptr_t address)
+
+static inline bool addr_executable(uintptr_t address)
 {
     vm_prot_t flags = 0;
     if (!region_flags(address, &flags))
     {
-        return NO;
+        return false;
     }
-    return (flags & VM_PROT_EXECUTE) ? YES : NO;
+    return (flags & VM_PROT_EXECUTE) != 0;
 }
-static inline BOOL object_plausible(void* object)
+
+static inline bool object_plausible(void* object)
 {
     if (!object)
     {
-        return NO;
+        return false;
     }
     uintptr_t address = (uintptr_t) object;
     if (base && address < base)
     {
-        return NO;
+        return false;
     }
     if (address & 7)
     {
-        return NO;
+        return false;
     }
     if (!addr_readable(address, sizeof(void*)))
     {
-        return NO;
+        return false;
     }
     uintptr_t vtable = 0;
     if (!read_bytes(address, &vtable, sizeof(vtable)))
     {
-        return NO;
+        return false;
     }
     if (!vtable)
     {
-        return NO;
+        return false;
     }
     if (!addr_readable(vtable, sizeof(void*)))
     {
-        return NO;
+        return false;
     }
     uintptr_t firstEntry = 0;
     if (!read_bytes(vtable, &firstEntry, sizeof(firstEntry)))
     {
-        return NO;
+        return false;
     }
     if (!firstEntry)
     {
-        return NO;
+        return false;
     }
     return addr_executable(firstEntry);
 }
+
 inline constexpr int  COUNT_MAX = 512;
 extern uintptr_t      snapshot[COUNT_MAX];
 extern uint8_t        block[COUNT_MAX][OBJ_BLOCK_SIZE];
@@ -128,8 +132,7 @@ void                  setup();
 void                  run_autododge();
 extern uintptr_t      scene_object;
 int                   is_owned_team_object(const uint8_t* obj);
-int                   game_segment_hits_circle(
-                      int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
+int game_segment_hits_circle(int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
 extern int       coord_ok;
 extern int       dead;
 extern uintptr_t elem;

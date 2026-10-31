@@ -11,73 +11,86 @@ permissions:
 
 env:
   FRIDA_VERSION: 17.24.3
-  # clang-tidy configuration lives here on purpose: one source of truth for CI,
-  # no .clang-tidy file that can drift out of sync with the workflow.
   CLANG_TIDY_CONFIG: |
     Checks: >
       -*,
       bugprone-*,
-      performance-*,
       clang-analyzer-*,
-      modernize-*,
+      concurrency-thread-canceltype-asynchronous,
       cppcoreguidelines-*,
+      misc-*,
+      modernize-*,
+      performance-*,
       readability-*,
       -bugprone-easily-swappable-parameters,
-      -bugprone-reserved-identifier,
-      -bugprone-narrowing-conversions,
+      -bugprone-exception-escape,
       -bugprone-implicit-widening-of-multiplication-result,
       -bugprone-incorrect-roundings,
       -bugprone-multi-level-implicit-pointer-conversion,
-      -bugprone-macro-parentheses,
+      -bugprone-narrowing-conversions,
+      -bugprone-reserved-identifier,
+      -bugprone-signed-bitwise,
+      -cppcoreguidelines-avoid-c-arrays,
+      -cppcoreguidelines-avoid-do-while,
       -cppcoreguidelines-avoid-magic-numbers,
-      -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+      -cppcoreguidelines-avoid-non-const-global-variables,
+      -cppcoreguidelines-macro-usage,
+      -cppcoreguidelines-narrowing-conversions,
+      -cppcoreguidelines-no-malloc,
+      -cppcoreguidelines-non-private-member-variables-in-classes,
+      -cppcoreguidelines-owning-memory,
       -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
       -cppcoreguidelines-pro-bounds-constant-array-index,
-      -cppcoreguidelines-avoid-c-arrays,
-      -cppcoreguidelines-pro-type-reinterpret-cast,
-      -cppcoreguidelines-pro-type-cstyle-cast,
-      -cppcoreguidelines-pro-type-vararg,
-      -cppcoreguidelines-pro-type-union-access,
+      -cppcoreguidelines-pro-bounds-pointer-arithmetic,
       -cppcoreguidelines-pro-type-const-cast,
-      -cppcoreguidelines-avoid-non-const-global-variables,
-      -cppcoreguidelines-avoid-do-while,
-      -cppcoreguidelines-owning-memory,
-      -cppcoreguidelines-macro-usage,
-      -cppcoreguidelines-init-variables,
-      -cppcoreguidelines-narrowing-conversions,
-      -modernize-use-trailing-return-type,
+      -cppcoreguidelines-pro-type-cstyle-cast,
+      -cppcoreguidelines-pro-type-member-init,
+      -cppcoreguidelines-pro-type-reinterpret-cast,
+      -cppcoreguidelines-pro-type-union-access,
+      -cppcoreguidelines-pro-type-vararg,
+      -cppcoreguidelines-special-member-functions,
+      -misc-const-correctness,
+      -misc-definitions-in-headers,
+      -misc-include-cleaner,
+      -misc-non-private-member-variables-in-classes,
+      -misc-use-internal-linkage,
       -modernize-avoid-c-arrays,
+      -modernize-avoid-c-style-cast,
       -modernize-use-auto,
+      -modernize-use-nodiscard,
+      -modernize-use-trailing-return-type,
+      -performance-no-int-to-ptr,
+      -readability-avoid-nested-conditional-operator,
       -readability-braces-around-statements,
-      -readability-math-missing-parentheses,
-      -readability-static-definition-in-anonymous-namespace,
-      -readability-isolate-declaration,
-      -readability-use-std-min-max,
-      -readability-magic-numbers,
-      -readability-identifier-length,
-      -readability-identifier-naming,
-      -readability-uppercase-literal-suffix,
+      -readability-convert-member-functions-to-static,
       -readability-else-after-return,
       -readability-function-cognitive-complexity,
-      -readability-avoid-nested-conditional-operator,
-      -readability-convert-member-functions-to-static,
+      -readability-identifier-length,
+      -readability-identifier-naming,
+      -readability-isolate-declaration,
+      -readability-implicit-bool-conversion,
+      -readability-magic-numbers,
       -readability-make-member-function-const,
-      -performance-no-int-to-ptr,
+      -readability-math-missing-parentheses,
+      -readability-static-definition-in-anonymous-namespace,
+      -readability-uppercase-literal-suffix,
+      -readability-use-std-min-max,
+      -misc-use-anonymous-namespace,
       -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
     WarningsAsErrors: ''
     HeaderFilterRegex: '(^|/)src/.*\.(h|hpp)$'
     FormatStyle: none
     CheckOptions:
-      - key: readability-implicit-bool-conversion.AllowIntegerConditions
-        value: 1
-      - key: readability-implicit-bool-conversion.AllowPointerConditions
-        value: 1
       - key: readability-function-size.StatementThreshold
-        value: 800
+        value: '800'
+      - key: readability-function-size.LineThreshold
+        value: '800'
+      - key: readability-function-size.NestingThreshold
+        value: '25'
       - key: modernize-loop-convert.MinConfidence
         value: reasonable
       - key: cppcoreguidelines-explicit-virtual-functions.IgnoreDestructors
-        value: 1
+        value: '1'
 
 concurrency:
   group: prepare-${{ github.ref }}
@@ -87,7 +100,7 @@ jobs:
   prepare:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -98,8 +111,6 @@ jobs:
       - name: Clean junk
         run: |
           set -euo pipefail
-          # Only tracked files matching known junk patterns are removed.
-          # grep exits 1 when nothing matches; that is not an error here.
           git ls-files -z |
             { grep -zE '(^|/)(core|\.DS_Store|Thumbs\.db)$|\.(orig|rej|bak|swp)$|~$' || true; } |
             xargs -0 -r git rm -q --
@@ -166,17 +177,14 @@ jobs:
                    if f.endswith(".cpp")]
           entries = [{"directory": os.getcwd(),
                       "file": name,
-                      "command": ("clang++ -std=c++17 -fblocks -fobjc-arc -x objective-c++ "
+                      "command": ("clang++ -std=c++17 -fblocks -x c++ "
                                   f"-isysroot {sdk} -target arm64-apple-ios14.0 "
-                                  f"-I{gum} -Isrc -Isrc/core -Isrc/tools -Isrc/features -Isrc/utils -c {name}")}
+                                  f"-I{gum} -I{gum}/include -Isrc -Isrc/core -Isrc/tools -Isrc/features -Isrc/utils -c {name}")}
                      for name in files]
           json.dump(entries, open("compile_commands.json", "w"), indent=1)
           print("tus:", len(entries))
           PY
-          # A TU that fails to parse (e.g. an older devkit on some branch) must
-          # not take the whole job down; the Verify step below is the gate that
-          # actually compiles the result.
-          if ! git ls-files 'src/*.cpp' | xargs -r clang-tidy -p . --config="$CLANG_TIDY_CONFIG" --fix --quiet; then
+          if ! git ls-files 'src/*.cpp' | xargs -r clang-tidy -p . --config="$CLANG_TIDY_CONFIG" --fix --fix-errors --quiet; then
             echo "clang-tidy reported diagnostics that are not fixable; continuing"
           fi
           rm -f compile_commands.json
@@ -185,35 +193,41 @@ jobs:
         run: |
           set -euo pipefail
           export THEOS="$HOME/theos"
-          if git diff --quiet -- src; then
-            echo "tidy produced no changes"
+          jobs="$(( $(nproc) + 1 ))"
+          if make -j"$jobs" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1 >/tmp/build.log 2>&1; then
+            echo "build gate passed"
             exit 0
           fi
-          if make -j"$(( $(nproc) + 1 ))" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1 >/tmp/build.log 2>&1; then
-            echo "tidy result compiles"
-            exit 0
-          fi
-          echo "tidy result does not compile; keeping only formatting"
+          echo "build failed; checking whether the branch compiles without tidy fixes"
           tail -40 /tmp/build.log || true
           git checkout -- src
           rm -rf .theos
+          if make -j"$jobs" ARCHS=arm64 DEBUG=0 FINALPACKAGE=1 >/tmp/build.log 2>&1; then
+            echo "branch compiles without tidy fixes; dropping them"
+            exit 0
+          fi
+          echo "branch does not compile as committed"
+          tail -40 /tmp/build.log || true
+          exit 1
 
       - name: Format
         run: |
           set -euo pipefail
           style='{BasedOnStyle: LLVM, Language: Cpp, Standard: c++17,
-            IndentWidth: 4, TabWidth: 4, ContinuationIndentWidth: 4, UseTab: Never,
-            ColumnLimit: 80,
+            IndentWidth: 4, TabWidth: 4, UseTab: Never, ContinuationIndentWidth: 4,
+            ColumnLimit: 100,
             BreakBeforeBraces: Allman,
-            BraceWrapping: {AfterClass: true, AfterControlStatement: Always, AfterEnum: true, AfterFunction: true, AfterNamespace: true, AfterStruct: true, AfterUnion: true, AfterExternBlock: true, BeforeCatch: true, BeforeElse: true, IndentBraces: false, SplitEmptyFunction: true, SplitEmptyRecord: true, SplitEmptyNamespace: true},
+            BraceWrapping: {AfterClass: true, AfterControlStatement: Always, AfterEnum: true, AfterFunction: true, AfterNamespace: true, AfterObjCDeclaration: true, AfterStruct: true, AfterUnion: true, AfterExternBlock: true, BeforeCatch: true, BeforeElse: true, IndentBraces: false, SplitEmptyFunction: true, SplitEmptyRecord: true, SplitEmptyNamespace: true},
             AllowShortIfStatementsOnASingleLine: WithoutElse,
             AllowShortBlocksOnASingleLine: Empty,
             AllowShortFunctionsOnASingleLine: None,
             AllowShortLambdasOnASingleLine: None,
             AllowShortLoopsOnASingleLine: false,
             AllowShortCaseLabelsOnASingleLine: false,
+            AllowShortEnumsOnASingleLine: false,
             BreakBeforeTernaryOperators: true,
             BreakBeforeBinaryOperators: None,
+            BreakStringLiterals: true,
             BinPackArguments: false,
             BinPackParameters: false,
             AlignAfterOpenBracket: Align,
@@ -224,17 +238,30 @@ jobs:
             AlignOperands: Align,
             AlignTrailingComments: true,
             PointerAlignment: Left,
+            DerivePointerAlignment: false,
             SpaceAfterCStyleCast: true,
+            SpaceAfterLogicalNot: false,
             SpaceBeforeParens: ControlStatements,
+            SpaceBeforeRangeBasedForLoopColon: true,
+            SpaceInEmptyBlock: false,
+            SpaceInEmptyParentheses: false,
             SpacesBeforeTrailingComments: 2,
             Cpp11BracedListStyle: true,
             SortIncludes: false,
             FixNamespaceComments: false,
-            ReflowComments: true}'
+            ReflowComments: true,
+            IndentPPDirectives: AfterHash,
+            IndentCaseLabels: false,
+            IndentCaseBlocks: false,
+            NamespaceIndentation: None,
+            CompactNamespaces: false,
+            MaxEmptyLinesToKeep: 1,
+            KeepEmptyLinesAtTheStartOfBlocks: false,
+            SeparateDefinitionBlocks: Always,
+            LambdaBodyIndentation: OuterScope}'
           files() {
             git ls-files -z -- 'src/*.c' 'src/*.cpp' 'src/*.h' 'src/*.hpp'
           }
-          # Format, strip trailing whitespace, ensure a final newline.
           files | xargs -0 -r clang-format -i -style="$style"
           files | xargs -0 -r sed -i -e 's/[[:space:]]\+$//'
           files | while IFS= read -r -d '' f; do
@@ -256,7 +283,6 @@ jobs:
           fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          # Tracked changes only (modifications and removals); never untracked files.
           git add -u
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
