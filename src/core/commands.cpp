@@ -1,8 +1,24 @@
 #include "commands.h"
 #include <cstdlib>
 #include <cstring>
+#include <pthread.h>
 #include "offsets.h"
 #include "scan.h"
+static pthread_mutex_t command_lock = PTHREAD_MUTEX_INITIALIZER;
+namespace
+{
+struct CommandGuard
+{
+    CommandGuard()
+    {
+        pthread_mutex_lock(&command_lock);
+    }
+    ~CommandGuard()
+    {
+        pthread_mutex_unlock(&command_lock);
+    }
+};
+}
 static int   client_input_message_is_valid(void* memory, size_t size);
 static void* client_input_battle_instance();
 static void* client_input_manager_of_battle(void* battle);
@@ -118,7 +134,7 @@ static int client_input_manager_queue_is_ready(void* manager)
     }
     return 1;
 }
-int enqueue_client_input_message(int type, int x, int y)
+static int client_input_enqueue_locked(int type, int x, int y)
 {
     static uintptr_t constructor_slot = 0;
     static uintptr_t input_slot       = 0;
@@ -138,7 +154,7 @@ int enqueue_client_input_message(int type, int x, int y)
     {
         return 0;
     }
-    if (!scene_object || !scene_live())
+    if (!scene_object)
     {
         return 0;
     }
@@ -185,23 +201,7 @@ int enqueue_client_input_message(int type, int x, int y)
     reinterpret_cast<void (*)(void*, void*)>(input)(manager, message);
     return 1;
 }
-int enqueue_move_input_with_type(int x, int y, int type)
-{
-    if (!enqueue_client_input_message(type, x, y))
-    {
-        return 0;
-    }
-    if (type == ClientInputMessageTypeMove)
-    {
-        (void) client_prediction_move_to(x, y);
-    }
-    return 1;
-}
-int enqueue_move_input(int x, int y)
-{
-    return enqueue_move_input_with_type(x, y, ClientInputMessageTypeMove);
-}
-int client_prediction_move_to(int x, int y)
+static int client_prediction_locked(int x, int y)
 {
     static uintptr_t slot              = 0;
     uintptr_t        function          = 0;
@@ -224,4 +224,31 @@ int client_prediction_move_to(int x, int y)
     reinterpret_cast<void (*)(uintptr_t, int, int, int)>(function)(
         controller_object, x, y, ClientInputMessagePredictionFlag);
     return 1;
+}
+int enqueue_client_input_message(int type, int x, int y)
+{
+    CommandGuard guard;
+    return client_input_enqueue_locked(type, x, y);
+}
+int enqueue_move_input_with_type(int x, int y, int type)
+{
+    CommandGuard guard;
+    if (!client_input_enqueue_locked(type, x, y))
+    {
+        return 0;
+    }
+    if (type == ClientInputMessageTypeMove)
+    {
+        (void) client_prediction_locked(x, y);
+    }
+    return 1;
+}
+int enqueue_move_input(int x, int y)
+{
+    return enqueue_move_input_with_type(x, y, ClientInputMessageTypeMove);
+}
+int client_prediction_move_to(int x, int y)
+{
+    CommandGuard guard;
+    return client_prediction_locked(x, y);
 }
