@@ -248,7 +248,7 @@ void projectile_threat(const uint8_t* obj,
     {
         init_projectile_state(st, key, dataPtr, px, py, now);
     }
-    st->seen = now;
+    st->seen       = now;
     float   step_x = px - st->x, step_y = py - st->y;
     float   step      = fast_len(step_x, step_y);
     int32_t dataSpeed = projectile_speed(dataPtr);
