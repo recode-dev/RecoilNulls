@@ -113,29 +113,29 @@ static inline BOOL object_plausible(void* object)
     }
     return addr_executable(firstEntry);
 }
-inline constexpr int COUNT_MAX        = 512;
-inline constexpr int OBJECT_COUNT_MAX = 512;
-extern uintptr_t     snapshot[COUNT_MAX];
-extern uint8_t       block[COUNT_MAX][OBJ_BLOCK_SIZE];
-extern uint8_t       valid[COUNT_MAX];
+inline constexpr int  COUNT_MAX        = 512;
+inline constexpr int  OBJECT_COUNT_MAX = 512;
+extern uintptr_t      snapshot[COUNT_MAX];
+extern uint8_t        block[COUNT_MAX][OBJ_BLOCK_SIZE];
+extern uint8_t        valid[COUNT_MAX];
 extern const uint8_t* own_block;
-extern int           obj_count;
-extern uint32_t      own_hp;
-extern float         own_speed;
-extern int32_t       own_x;
-extern int32_t       own_y;
-extern int           ok_hp;
-uint64_t             us();
-extern uint64_t      frame_index;
-void                 scan_world();
-void                 workload();
-void                 setup();
-void                 run_autododge();
-extern uintptr_t     scene_object;
-int                  is_owned_by_own_team(uintptr_t obj);
-int                  is_owned_team_data(uintptr_t data);
-int                  game_segment_hits_circle(
-                     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
+extern int            obj_count;
+extern uint32_t       own_hp;
+extern float          own_speed;
+extern int32_t        own_x;
+extern int32_t        own_y;
+extern int            ok_hp;
+uint64_t              us();
+extern uint64_t       frame_index;
+void                  scan_world();
+void                  workload();
+void                  setup();
+void                  run_autododge();
+extern uintptr_t      scene_object;
+int                   is_owned_by_own_team(uintptr_t obj);
+int                   is_owned_team_data(uintptr_t data);
+int                   game_segment_hits_circle(
+                      int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
 int              game_distance(int x1, int y1, int x2, int y2);
 int              vector_length(int x, int y);
 extern int       coord_ok;

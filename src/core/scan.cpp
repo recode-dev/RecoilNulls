@@ -482,7 +482,7 @@ void scan_world()
         world_reset();
         return;
     }
-    clientPtr = reinterpret_cast<uintptr_t>(value);
+    clientPtr     = reinterpret_cast<uintptr_t>(value);
     client_cached = clientPtr;
     if (!read_ptr(clientPtr + static_cast<uintptr_t>(
                                   LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER),
@@ -555,7 +555,7 @@ void scan_world()
         coord_ok = 0;
         return;
     }
-    elem = own;
+    elem      = own;
     own_block = nullptr;
     for (int i = 0; i < count; i++)
     {
@@ -567,8 +567,8 @@ void scan_world()
     }
     {
         int32_t xy[2] = {0, 0};
-        if (read_bytes(own + static_cast<uintptr_t>(
-                                     LOGICGAMEOBJECTCLIENT__GETX),
+        if (read_bytes(own +
+                           static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETX),
                        xy,
                        sizeof(xy)))
         {

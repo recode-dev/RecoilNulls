@@ -19,7 +19,7 @@ struct TileMemo
     int32_t stamp;
 };
 static TileMemo tile_memo[TILE_MEMO_SLOTS];
-constexpr int PATH_MEMO_SLOTS = 256;
+constexpr int   PATH_MEMO_SLOTS = 256;
 struct PathMemo
 {
     int32_t x0;
@@ -31,7 +31,7 @@ struct PathMemo
     int32_t stamp;
 };
 static PathMemo path_memo[PATH_MEMO_SLOTS];
-constexpr int LOS_MEMO_SLOTS = 128;
+constexpr int   LOS_MEMO_SLOTS = 128;
 struct LosMemo
 {
     int32_t ax;
@@ -43,7 +43,7 @@ struct LosMemo
     int32_t stamp;
 };
 static LosMemo los_memo[LOS_MEMO_SLOTS];
-uint32_t memo_mix(uint32_t a, uint32_t b)
+uint32_t       memo_mix(uint32_t a, uint32_t b)
 {
     uint32_t h = a * 0x9E3779B1u;
     h ^= b * 0x85EBCA77u;
@@ -52,53 +52,51 @@ uint32_t memo_mix(uint32_t a, uint32_t b)
 }
 int tile_blocked_cached(int32_t x, int32_t y)
 {
-    int32_t stamp = static_cast<int32_t>(frame_index);
-    TileMemo& e   = tile_memo[memo_mix(static_cast<uint32_t>(x),
-                                       static_cast<uint32_t>(y)) &
-                                    (TILE_MEMO_SLOTS - 1)];
+    int32_t   stamp = static_cast<int32_t>(frame_index);
+    TileMemo& e =
+        tile_memo[memo_mix(static_cast<uint32_t>(x), static_cast<uint32_t>(y)) &
+                  (TILE_MEMO_SLOTS - 1)];
     if (e.stamp == stamp && e.x == x && e.y == y)
     {
         return e.blocked;
     }
     int blocked = game_tile_is_passable(wall_map, x, y) ? 0 : 1;
-    e.x       = x;
-    e.y       = y;
-    e.blocked = static_cast<uint8_t>(blocked);
-    e.stamp   = stamp;
+    e.x         = x;
+    e.y         = y;
+    e.blocked   = static_cast<uint8_t>(blocked);
+    e.stamp     = stamp;
     return blocked;
 }
 int path_clear_cached(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
-    int32_t stamp = static_cast<int32_t>(frame_index);
-    PathMemo& e   = path_memo[(memo_mix(static_cast<uint32_t>(x0),
-                                         static_cast<uint32_t>(y0)) ^
-                               memo_mix(static_cast<uint32_t>(x1),
-                                        static_cast<uint32_t>(y1))) &
-                              (PATH_MEMO_SLOTS - 1)];
+    int32_t   stamp = static_cast<int32_t>(frame_index);
+    PathMemo& e     = path_memo
+        [(memo_mix(static_cast<uint32_t>(x0), static_cast<uint32_t>(y0)) ^
+          memo_mix(static_cast<uint32_t>(x1), static_cast<uint32_t>(y1))) &
+         (PATH_MEMO_SLOTS - 1)];
     if (e.stamp == stamp && e.x0 == x0 && e.y0 == y0 && e.x1 == x1 &&
         e.y1 == y1)
     {
         return e.clear;
     }
     int clear = game_path_clear(wall_map, x0, y0, x1, y1) ? 1 : 0;
-    e.x0    = x0;
-    e.y0    = y0;
-    e.x1    = x1;
-    e.y1    = y1;
-    e.clear = static_cast<uint8_t>(clear);
-    e.stamp = stamp;
+    e.x0      = x0;
+    e.y0      = y0;
+    e.x1      = x1;
+    e.y1      = y1;
+    e.clear   = static_cast<uint8_t>(clear);
+    e.stamp   = stamp;
     return clear;
 }
 int los_clear_cached(int32_t ax, int32_t ay, int32_t bx, int32_t by)
 {
     using los_t = int (*)(uintptr_t, int, int, int, int, int, int, int, int);
-    static uintptr_t slot = 0;
+    static uintptr_t slot  = 0;
     int32_t          stamp = static_cast<int32_t>(frame_index);
-    LosMemo&         e     = los_memo[(memo_mix(static_cast<uint32_t>(ax),
-                                                 static_cast<uint32_t>(ay)) ^
-                                       memo_mix(static_cast<uint32_t>(bx),
-                                                static_cast<uint32_t>(by))) &
-                                      (LOS_MEMO_SLOTS - 1)];
+    LosMemo&         e     = los_memo
+        [(memo_mix(static_cast<uint32_t>(ax), static_cast<uint32_t>(ay)) ^
+          memo_mix(static_cast<uint32_t>(bx), static_cast<uint32_t>(by))) &
+         (LOS_MEMO_SLOTS - 1)];
     if (e.stamp == stamp && e.ax == ax && e.ay == ay && e.bx == bx &&
         e.by == by)
     {
@@ -117,7 +115,7 @@ int los_clear_cached(int32_t ax, int32_t ay, int32_t bx, int32_t by)
     return clear;
 }
 }
-static int       wall_measure_tile_span()
+static int wall_measure_tile_span()
 {
     int span = game_tile_to_logic(1) - game_tile_to_logic(0);
     if (span <= 0) return 0;

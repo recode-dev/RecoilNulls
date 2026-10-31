@@ -7,14 +7,15 @@
 #include <cstring>
 namespace
 {
-int segment_bbox_misses_circle(int x1, int y1, int x2, int y2,
-                               int cx, int cy, int r)
+int segment_bbox_misses_circle(
+    int x1, int y1, int x2, int y2, int cx, int cy, int r)
 {
     int lox = x1 < x2 ? x1 : x2;
     int hix = x1 < x2 ? x2 : x1;
     int loy = y1 < y2 ? y1 : y2;
     int hiy = y1 < y2 ? y2 : y1;
-    return hix < cx - r || lox > cx + r || hiy < cy - r || loy > cy + r;
+    return static_cast<int>(hix < cx - r || lox > cx + r || hiy < cy - r ||
+                            loy > cy + r);
 }
 }
 namespace
@@ -292,18 +293,17 @@ static void projectile_threat(const uint8_t* obj,
     float tt = static_cast<float>(arrival) * TICK_MS_SEC;
     if (tt > SIM_T) return;
     {
-        int32_t sx1  = static_cast<int>(px);
-        int32_t sy1  = static_cast<int>(py);
-        int32_t sx2  = static_cast<int>(px + vx * tt);
-        int32_t sy2  = static_cast<int>(py + vy * tt);
-        int32_t scx  = static_cast<int>(mx);
-        int32_t scy  = static_cast<int>(my);
-        int32_t srad = static_cast<int>(rad + 0.5f);
+        int32_t sx1    = static_cast<int>(px);
+        int32_t sy1    = static_cast<int>(py);
+        int32_t sx2    = static_cast<int>(px + vx * tt);
+        int32_t sy2    = static_cast<int>(py + vy * tt);
+        int32_t scx    = static_cast<int>(mx);
+        int32_t scy    = static_cast<int>(my);
+        int32_t srad   = static_cast<int>(rad + 0.5f);
         int32_t hit[2] = {0, 0};
         if (segment_bbox_misses_circle(sx1, sy1, sx2, sy2, scx, scy, srad))
             return;
-        if (!game_segment_hits_circle(sx1, sy1, sx2, sy2, scx, scy, srad,
-                                      hit))
+        if (!game_segment_hits_circle(sx1, sy1, sx2, sy2, scx, scy, srad, hit))
             return;
     }
     for (int k = 0; k < threat_n; k++)
@@ -768,7 +768,8 @@ void update_autododge()
     }
     int32_t own_gid = 0;
     if (own_block)
-        memcpy(&own_gid, own_block + LOGICGAMEOBJECTCLIENT__GETGLOBALID,
+        memcpy(&own_gid,
+               own_block + LOGICGAMEOBJECTCLIENT__GETGLOBALID,
                sizeof(own_gid));
     else
         read_int(elem + LOGICGAMEOBJECTCLIENT__GETGLOBALID, &own_gid);
