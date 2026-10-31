@@ -117,26 +117,20 @@ int32_t character_collision_radius(uintptr_t data)
 static float weapons_range = 0.0f;
 static float enemy_weapon_range(uintptr_t charObj)
 {
-    using data_t  = uintptr_t (*)(uintptr_t, int32_t);
     using proj_t  = uintptr_t (*)(uintptr_t, int32_t);
     using range_t = int32_t (*)(uintptr_t, int32_t, uintptr_t, uintptr_t);
-    static data_t  fn_data  = nullptr;
     static proj_t  fn_proj  = nullptr;
     static range_t fn_range = nullptr;
-    uintptr_t      vec, sc, sd, pd;
+    uintptr_t      vec, sc, sd, pd, svt;
     int32_t        n;
-    uint8_t        flag = 0;
     if (!charObj) return 0.0f;
-    if (!fn_data)
-        fn_data = reinterpret_cast<data_t>(
-            callable_at_rva(LOGICSKILLCLIENT__GETDATA));
     if (!fn_proj)
         fn_proj = reinterpret_cast<proj_t>(
             callable_at_rva(LOGICSKILLDATA__GETPROJECTILE));
     if (!fn_range)
         fn_range = reinterpret_cast<range_t>(
             callable_at_rva(LOGICGAMEPLAYUTIL__GETEFFECTIVEWEAPONRANGE));
-    if (!fn_data || !fn_proj || !fn_range) return 0.0f;
+    if (!fn_proj || !fn_range) return 0.0f;
     if (!read_ptr(charObj + LOGICCHARACTERCLIENT__SKILLS, &vec) || !vec ||
         !pointer_plausible(vec))
         return 0.0f;
@@ -145,9 +139,10 @@ static float enemy_weapon_range(uintptr_t charObj)
         return 0.0f;
     sc = 0;
     if (!read_ptr(vec, &sc) || !sc || !pointer_plausible(sc)) return 0.0f;
-    read_bytes(charObj + LOGICCHARACTERCLIENT__SKILLFLAG, &flag, 1);
-    sd = fn_data(sc, static_cast<int32_t>(flag));
-    if (!sd || !pointer_plausible(sd)) return 0.0f;
+    sd = 0;
+    if (!read_ptr(sc, &sd) || !sd || !pointer_plausible(sd)) return 0.0f;
+    svt = 0;
+    if (!read_ptr(sd, &svt) || !addr_executable(svt)) return 0.0f;
     pd = fn_proj(sd, 0);
     if (!pd || !pointer_plausible(pd)) return 0.0f;
     return static_cast<float>(fn_range(sd, 0, charObj, pd));
