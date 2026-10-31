@@ -109,7 +109,7 @@ static inline BOOL object_plausible(void* object)
     }
     return addr_executable(firstEntry);
 }
-inline constexpr int COUNT_MAX = 512;
+inline constexpr int  COUNT_MAX = 512;
 extern uintptr_t      snapshot[COUNT_MAX];
 extern uint8_t        block[COUNT_MAX][OBJ_BLOCK_SIZE];
 extern uint8_t        valid[COUNT_MAX];

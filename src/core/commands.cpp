@@ -20,7 +20,7 @@ static int            pending_count    = 0;
 static uintptr_t      constructor_slot = 0;
 static uintptr_t      input_slot       = 0;
 static uintptr_t      predict_slot     = 0;
-static uintptr_t client_input_resolve(uintptr_t* slot, uintptr_t rva)
+static uintptr_t      client_input_resolve(uintptr_t* slot, uintptr_t rva)
 {
     if (!*slot)
     {
@@ -116,14 +116,13 @@ static void pending_push(int type, int x, int y, int predict)
     slot->done_predict = 0;
     slot->tries        = 0;
 }
-static int client_input_enqueue(
-    int       type,
-    int       x,
-    int       y,
-    void*     manager,
-    int       queue_ok,
-    uintptr_t constructor,
-    uintptr_t input)
+static int client_input_enqueue(int       type,
+                                int       x,
+                                int       y,
+                                void*     manager,
+                                int       queue_ok,
+                                uintptr_t constructor,
+                                uintptr_t input)
 {
     if (!manager || !queue_ok || !constructor || !input)
     {
@@ -135,17 +134,17 @@ static int client_input_enqueue(
         return -1;
     }
     reinterpret_cast<void (*)(void*, int)>(constructor)(message, type);
-    int32_t* fields = reinterpret_cast<int32_t*>(message);
+    int32_t* fields                      = reinterpret_cast<int32_t*>(message);
     fields[CLIENTINPUTMESSAGE__TYPE / 4] = static_cast<int32_t>(type);
     fields[CLIENTINPUTMESSAGE__X / 4]    = static_cast<int32_t>(x);
     fields[CLIENTINPUTMESSAGE__Y / 4]    = static_cast<int32_t>(y);
     reinterpret_cast<void (*)(void*, void*)>(input)(manager, message);
     return 1;
 }
-static int client_prediction_send(int        x,
-                                  int        y,
-                                  uintptr_t  function,
-                                  uintptr_t  controller_object)
+static int client_prediction_send(int       x,
+                                  int       y,
+                                  uintptr_t function,
+                                  uintptr_t controller_object)
 {
     if (!function || !controller_object)
     {
@@ -166,14 +165,14 @@ void commands_flush()
         pending_count = 0;
         return;
     }
-    void*     battle            = reinterpret_cast<void*>(scene_object);
-    uintptr_t predict_fn        = 0;
-    uintptr_t constructor       = 0;
-    uintptr_t input             = 0;
-    void*     manager           = nullptr;
-    int       queue_ok          = 0;
-    int       kept              = 0;
-    int scene_ok = scene_object && object_plausible(battle) ? 1 : 0;
+    void*     battle      = reinterpret_cast<void*>(scene_object);
+    uintptr_t predict_fn  = 0;
+    uintptr_t constructor = 0;
+    uintptr_t input       = 0;
+    void*     manager     = nullptr;
+    int       queue_ok    = 0;
+    int       kept        = 0;
+    int       scene_ok    = scene_object && object_plausible(battle) ? 1 : 0;
     if (scene_ok)
     {
         manager     = client_input_manager_of_battle(battle);

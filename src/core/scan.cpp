@@ -371,7 +371,7 @@ const uint8_t* own_block      = nullptr;
 static int32_t own_team_value = -1;
 float          own_speed      = 720.0f;
 uint32_t       own_hp         = 0;
-uint64_t us()
+uint64_t       us()
 {
     return static_cast<uint64_t>(clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)) /
            1000ULL;
@@ -383,14 +383,14 @@ static uintptr_t call(uintptr_t fn, uintptr_t self)
         return 0;
     return ((self_t) fn)(self);
 }
-uintptr_t      snapshot[COUNT_MAX];
-uint8_t        block[COUNT_MAX][OBJ_BLOCK_SIZE];
-uint8_t        valid[COUNT_MAX];
-int            obj_count   = 0;
-uint64_t       frame_index = 0;
-int32_t        own_x       = 0;
-int32_t        own_y       = 0;
-int            ok_hp       = 0;
+uintptr_t        snapshot[COUNT_MAX];
+uint8_t          block[COUNT_MAX][OBJ_BLOCK_SIZE];
+uint8_t          valid[COUNT_MAX];
+int              obj_count   = 0;
+uint64_t         frame_index = 0;
+int32_t          own_x       = 0;
+int32_t          own_y       = 0;
+int              ok_hp       = 0;
 static uintptr_t battle_instance()
 {
     using inst_t     = uintptr_t (*)();

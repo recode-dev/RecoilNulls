@@ -28,38 +28,38 @@ void vector_normalize(int* x, int* y, int scale)
     {
         return;
     }
-    float fx = static_cast<float>(*x);
-    float fy = static_cast<float>(*y);
+    float fx  = static_cast<float>(*x);
+    float fy  = static_cast<float>(*y);
     float len = sqrtf(fx * fx + fy * fy);
     if (len < 1.0f)
     {
         return;
     }
     float s = static_cast<float>(scale) / len;
-    *x = static_cast<int>(fx * s + (fx >= 0.0f ? 0.5f : -0.5f));
-    *y = static_cast<int>(fy * s + (fy >= 0.0f ? 0.5f : -0.5f));
+    *x      = static_cast<int>(fx * s + (fx >= 0.0f ? 0.5f : -0.5f));
+    *y      = static_cast<int>(fy * s + (fy >= 0.0f ? 0.5f : -0.5f));
 }
-constexpr int   ENEMY_MAX = 4;
-int   enemy_n            = 0;
-float enemy_x[ENEMY_MAX] = {0};
-float enemy_y[ENEMY_MAX] = {0};
-float enemy_d[ENEMY_MAX] = {0};
-constexpr int   SIM_STEPS        = 32;
-constexpr int   MOVE_DELAY_TICKS = 2;
-constexpr int   HOLD_TICKS       = 3;
-constexpr float SWITCH_GAIN      = 1.4f;
-constexpr float SWITCH_ALIGN     = 0.9f;
-constexpr float TARGET_LERP      = 0.5f;
-constexpr float WEIGHT_STEP      = 4096.0f;
-constexpr float WEIGHT_POS       = 900.0f;
-constexpr float WEIGHT_AWAY      = 0.06f;
-constexpr float WEIGHT_AXIS      = 2600.0f;
-constexpr float AXIS_INTO        = 0.35f;
-constexpr float WEIGHT_APPROACH  = 2000.0f;
-constexpr float COMMIT_BONUS     = 3.0f;
-constexpr float WEIGHT_EDGE      = 1600.0f;
-constexpr float TICK_MS_SEC      = 50.0f * 0.001f;
-constexpr float SIM_T            = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
+constexpr int   ENEMY_MAX          = 4;
+int             enemy_n            = 0;
+float           enemy_x[ENEMY_MAX] = {0};
+float           enemy_y[ENEMY_MAX] = {0};
+float           enemy_d[ENEMY_MAX] = {0};
+constexpr int   SIM_STEPS          = 32;
+constexpr int   MOVE_DELAY_TICKS   = 2;
+constexpr int   HOLD_TICKS         = 3;
+constexpr float SWITCH_GAIN        = 1.4f;
+constexpr float SWITCH_ALIGN       = 0.9f;
+constexpr float TARGET_LERP        = 0.5f;
+constexpr float WEIGHT_STEP        = 4096.0f;
+constexpr float WEIGHT_POS         = 900.0f;
+constexpr float WEIGHT_AWAY        = 0.06f;
+constexpr float WEIGHT_AXIS        = 2600.0f;
+constexpr float AXIS_INTO          = 0.35f;
+constexpr float WEIGHT_APPROACH    = 2000.0f;
+constexpr float COMMIT_BONUS       = 3.0f;
+constexpr float WEIGHT_EDGE        = 1600.0f;
+constexpr float TICK_MS_SEC        = 50.0f * 0.001f;
+constexpr float SIM_T = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
 struct Span
 {
     float tile, reach, edge, pad, close, approach, far;
@@ -85,10 +85,10 @@ struct Threat
 };
 struct Proj
 {
-    uint64_t  seen;
-    int32_t   pid;
-    float     x, y, ux, uy, speed, rad;
-    bool      vel;
+    uint64_t seen;
+    int32_t  pid;
+    float    x, y, ux, uy, speed, rad;
+    bool     vel;
 };
 Threat    threats[THREAT_MAX];
 int       threat_n = 0;
@@ -125,7 +125,7 @@ int32_t projectile_speed(uintptr_t data)
 }
 uintptr_t cc_data = 0;
 int32_t   cc_r    = 0;
-int32_t character_collision_radius(uintptr_t data)
+int32_t   character_collision_radius(uintptr_t data)
 {
     if (!data) return 0;
     if (data == cc_data) return cc_r;
@@ -154,15 +154,15 @@ Proj* find_projectile_entry(int32_t pid)
 void init_projectile_state(
     Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
 {
-    st->pid    = pid;
-    st->seen   = now;
-    st->x      = px;
-    st->y      = py;
-    st->speed  = 0.0f;
-    st->rad    = static_cast<float>(projectile_radius(dataPtr));
-    st->vel    = false;
-    st->ux     = 0.0f;
-    st->uy     = 0.0f;
+    st->pid   = pid;
+    st->seen  = now;
+    st->x     = px;
+    st->y     = py;
+    st->speed = 0.0f;
+    st->rad   = static_cast<float>(projectile_radius(dataPtr));
+    st->vel   = false;
+    st->ux    = 0.0f;
+    st->uy    = 0.0f;
 }
 void character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
 {
@@ -298,7 +298,7 @@ struct VtCache
     int       verdict;
 };
 VtCache vt_cache[64] = {};
-int data_is_projectile(uintptr_t dataPtr, uintptr_t vt)
+int     data_is_projectile(uintptr_t dataPtr, uintptr_t vt)
 {
     if (!dataPtr || !vt || vt < base) return 0;
     VtCache& entry = vt_cache[(vt >> 3) & 63];
@@ -359,7 +359,7 @@ float    tgt_x = 0.0f, tgt_y = 0.0f;
 int32_t  last_tx = 0, last_ty = 0;
 int      last_valid = 0;
 int32_t  prev_x = 0, prev_y = 0;
-float compute_edge_pull(float mx, float my, float dx, float dy)
+float    compute_edge_pull(float mx, float my, float dx, float dy)
 {
     float w    = frame_geom.w;
     float h    = frame_geom.h;
@@ -416,13 +416,13 @@ float hit_time(const Threat& t,
                float         to)
 {
     if (to <= from) return -1.0f;
-    float ux  = vx - t.vx;
-    float uy  = vy - t.vy;
-    float dur = to - from;
-    int   rx  = static_cast<int>(px - vx * from - t.x);
-    int   ry  = static_cast<int>(py - vy * from - t.y);
-    int   ex  = rx + static_cast<int>(ux * dur);
-    int   ey  = ry + static_cast<int>(uy * dur);
+    float ux    = vx - t.vx;
+    float uy    = vy - t.vy;
+    float dur   = to - from;
+    int   rx    = static_cast<int>(px - vx * from - t.x);
+    int   ry    = static_cast<int>(py - vy * from - t.y);
+    int   ex    = rx + static_cast<int>(ux * dur);
+    int   ey    = ry + static_cast<int>(uy * dur);
     int   pt[2] = {rx, ry};
     int   tr    = static_cast<int>(t.rad);
     if (segment_bbox_misses_circle(rx, ry, ex, ey, 0, 0, tr))
@@ -545,8 +545,8 @@ float compute_thrust_penalty(float dx, float dy)
     }
     return worst;
 }
-float
-evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
+float evaluate_dodge_direction(
+    float mx, float my, float dx, float dy, int& steps)
 {
     const float far     = frame_geom.far;
     float       run     = compute_free_run(mx, my, dx, dy, far);
@@ -587,8 +587,7 @@ evaluate_dodge_direction(float mx, float my, float dx, float dy, int& steps)
            WEIGHT_EDGE * compute_edge_pull(mx, my, dx, dy) -
            hitbox * wall_pull(mx, my, dx, dy, hitbox);
 }
-void
-choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
+void choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
 {
     bool has = commit_x != 0.0f || commit_y != 0.0f;
     prepare_direction_costs(mx, my);
@@ -666,8 +665,8 @@ void reset_dodge_state()
 {
     hold_left = 0;
     tgt_x = 0.0f, tgt_y = 0.0f;
-    last_tx = 0;
-    last_ty = 0;
+    last_tx    = 0;
+    last_ty    = 0;
     last_valid = 0;
 }
 void learn_character_data_vtable()
@@ -696,15 +695,15 @@ void learn_own_hitbox()
     if (tile > 0.0f && static_cast<float>(r) >= tile) return;
     hitbox = static_cast<float>(r);
 }
-} 
+}
 void reset_autododge_state()
 {
-    enemy_n  = 0;
-    threat_n = 0;
-    char_vt  = 0;
-    hitbox   = 0.0f;
-    cc_data  = 0;
-    cc_r     = 0;
+    enemy_n    = 0;
+    threat_n   = 0;
+    char_vt    = 0;
+    hitbox     = 0.0f;
+    cc_data    = 0;
+    cc_r       = 0;
     sent_frame = 0;
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
