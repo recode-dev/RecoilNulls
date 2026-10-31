@@ -220,7 +220,7 @@ static uintptr_t path_finder(uintptr_t tileMap)
 }
 int game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1)
 {
-    using clear_t = uint32_t (*)(void*, int, int, int, int, int, int, int, int);
+    using clear_t = uint32_t (*)(void*, int, int, int, int, int, int, int, int, int);
     static clear_t fn = nullptr;
     if (!fn)
     {
@@ -230,7 +230,7 @@ int game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1)
     uintptr_t pf = path_finder(tileMap);
     if (!pf) return 0;
     return static_cast<int>(
-        fn(reinterpret_cast<void*>(pf), 1, x0, y0, x1, y1, 0, 1, 0));
+        fn(reinterpret_cast<void*>(pf), 1, x0, y0, x1, y1, 0, 1, 0, 0));
 }
 int game_tile_to_logic(int tile)
 {

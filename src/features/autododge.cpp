@@ -178,13 +178,13 @@ character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
     memcpy(&xi, obj + LOGICGAMEOBJECTCLIENT__GETX, sizeof(xi));
     memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
-    float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
     if (is_owned_team_object(reinterpret_cast<uintptr_t>(obj))) return;
     if (enemy_n >= ENEMY_MAX) return;
     int k      = enemy_n++;
     enemy_x[k] = static_cast<float>(xi);
     enemy_y[k] = static_cast<float>(yi);
-    enemy_d[k] = fast_len(ex, ey);
+    enemy_d[k] = fast_len(static_cast<float>(xi) - mx,
+                          static_cast<float>(yi) - my);
 }
 static float world_extent_x = 0.0f;
 static float world_extent_y = 0.0f;
@@ -237,9 +237,9 @@ static void projectile_threat(const uint8_t* obj,
         init_projectile_state(st, key, dataPtr, px, py, now);
         if (st->pid != key) return;
     }
-    st->seen       = now;
-    float   step_x = px - st->x, step_y = py - st->y;
-    float   step      = fast_len(px - st->x, py - st->y);
+    st->seen = now;
+    float step_x = px - st->x, step_y = py - st->y;
+    float step   = fast_len(step_x, step_y);
     int32_t dataSpeed = projectile_speed(st->data);
     if (dataSpeed > 50 && dataSpeed < 20000)
     {
@@ -325,7 +325,6 @@ static uintptr_t obj_rva[COUNT_MAX];
 void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
 {
     refresh_world_extents();
-    cache_span();
     float zone  = span.far;
     float zone2 = zone * zone;
     for (int i = 0; i < obj_count; i++)
@@ -629,8 +628,7 @@ choose_dodge_direction(float mx, float my, float& out_x, float& out_y)
     for (int i = 0; i < candidate_count; i++)
     {
         float dx = cand_x[i], dy = cand_y[i];
-        float len = static_cast<float>(
-            game_distance(0, 0, static_cast<int>(dx), static_cast<int>(dy)));
+        float len = fast_len(dx, dy);
         if (len < 1.0f) continue;
         dx /= len, dy /= len;
         int   steps = 0;
@@ -773,15 +771,8 @@ void update_autododge()
         reset_dodge_state();
         return;
     }
-    float dir_x = 1.0f, dir_y = 0.0f;
-    if (commit_x != 0.0f || commit_y != 0.0f)
-    {
-        dir_x = commit_x, dir_y = commit_y;
-    }
-    if (threat_n)
-    {
-        choose_dodge_direction(mx, my, dir_x, dir_y);
-    }
+    float dir_x = commit_x, dir_y = commit_y;
+    choose_dodge_direction(mx, my, dir_x, dir_y);
     float fx = mx + dir_x * span.reach, fy = my + dir_y * span.reach;
     for (int k = 0; k < 3 && !wall_path_clear(mx, my, fx, fy); k++)
     {
