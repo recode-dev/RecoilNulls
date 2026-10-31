@@ -537,9 +537,9 @@ void scan_world()
             /* team is a field of the per-instance client object (+0x40),
              * mirroring GameObject::isOwnedByOwnTeam; fall back to the
              * BattleModeClient cached own-team (+0xe4) */
-            if (read_int(own + static_cast<uintptr_t>(
-                                   LOGICGAMEOBJECTCLIENT__TEAM),
-                         &team))
+            if (read_int(
+                    own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__TEAM),
+                    &team))
             {
                 own_team_value = team;
             }

@@ -2,9 +2,9 @@
 #define OFFSETS_H
 #include <cstddef>
 #include <cstdint>
-inline constexpr uint64_t LOGICVECTOR2__GETLENGTH                  = 0xbd0740;
-inline constexpr uint64_t LOGICVECTOR2__NORMALIZE                  = 0xbd0794;
-inline constexpr uint64_t LOGICBATTLEMODECLIENT__OWNTEAM           = 0xe4;
+inline constexpr uint64_t LOGICVECTOR2__GETLENGTH        = 0xbd0740;
+inline constexpr uint64_t LOGICVECTOR2__NORMALIZE        = 0xbd0794;
+inline constexpr uint64_t LOGICBATTLEMODECLIENT__OWNTEAM = 0xe4;
 // team/playerIndex live on the per-instance LogicGameObjectClient itself
 // (GameObject::isOwnedByOwnTeam: ldr x8,[x19,#0x10]; ldr w8,[x8,#0x40]; cmp;
 // v69 twin 0x4b5be0: ldp w1,w2,[x8,#0x3c] — NOT on its LogicData at +0x10)
