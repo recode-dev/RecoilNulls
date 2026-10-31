@@ -288,6 +288,51 @@ int game_projectile_travel_ticks(uintptr_t projectileData, int distance, int spe
     return fn(projectileData, distance, speed);
 }
 
+uintptr_t game_character_weapon_skill(uintptr_t charData)
+{
+    using skill_t      = uintptr_t (*)(uintptr_t);
+    static skill_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<skill_t>(callable(LOGICCHARACTERDATA__GETWEAPONSKILL));
+    }
+    if (!fn || !charData)
+    {
+        return 0;
+    }
+    return fn(charData);
+}
+
+uintptr_t game_character_ulti_skill(uintptr_t charData)
+{
+    using skill_t      = uintptr_t (*)(uintptr_t);
+    static skill_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<skill_t>(callable(LOGICCHARACTERDATA__GETULTISKILL));
+    }
+    if (!fn || !charData)
+    {
+        return 0;
+    }
+    return fn(charData);
+}
+
+int game_skill_casting_range(uintptr_t skillData)
+{
+    using range_t      = int (*)(uintptr_t);
+    static range_t fn = nullptr;
+    if (!fn)
+    {
+        fn = reinterpret_cast<range_t>(callable(LOGICSKILLDATA__GETCASTINGRANGETILES));
+    }
+    if (!fn || !skillData)
+    {
+        return 0;
+    }
+    return fn(skillData);
+}
+
 uintptr_t callable(uintptr_t rva)
 {
     if (!base || !rva)

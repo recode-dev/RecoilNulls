@@ -108,6 +108,8 @@ Proj      projs[PROJ_SLOTS];
 uintptr_t char_vt    = 0;
 float     self_speed = 1.0f;
 float     hitbox     = 0.0f;
+uintptr_t enemy_data[ENEMY_MAX] = {0};
+int       enemy_data_n          = 0;
 
 struct FrameGeom
 {
@@ -243,6 +245,22 @@ void character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
     enemy_x[k] = static_cast<float>(xi);
     enemy_y[k] = static_cast<float>(yi);
     enemy_d[k] = fast_len(static_cast<float>(xi) - mx, static_cast<float>(yi) - my);
+    uintptr_t cd = 0;
+    memcpy(&cd, obj + LOGICGAMEOBJECTCLIENT__GETDATA, sizeof(cd));
+    if (cd && pointer_plausible(cd))
+    {
+        int lim = enemy_data_n < ENEMY_MAX ? enemy_data_n : ENEMY_MAX;
+        bool have = false;
+        for (int i = 0; i < lim; i++)
+        {
+            if (enemy_data[i] == cd)
+            {
+                have = true;
+                break;
+            }
+        }
+        if (!have) enemy_data[enemy_data_n++ % ENEMY_MAX] = cd;
+    }
 }
 
 float world_extent_x = 0.0f;
@@ -272,6 +290,36 @@ bool read_projectile_position(const uint8_t* obj, float* px, float* py)
         return true;
     }
     return false;
+}
+
+void resolve_flight_range(uintptr_t dataPtr)
+{
+    if (!dataPtr) return;
+    int lim = enemy_data_n < ENEMY_MAX ? enemy_data_n : ENEMY_MAX;
+    for (int i = 0; i < lim; i++)
+    {
+        for (int s = 0; s < 2; s++)
+        {
+            uintptr_t sd = s ? game_character_ulti_skill(enemy_data[i])
+                             : game_character_weapon_skill(enemy_data[i]);
+            if (!sd || !pointer_plausible(sd)) continue;
+            int32_t   count = 0;
+            uintptr_t arr   = 0;
+            read_int(sd + LOGICSKILLDATA__PROJECTILECOUNT, &count);
+            read_ptr(sd + LOGICSKILLDATA__PROJECTILES, &arr);
+            if (count < 1 || count > 8 || !arr || !pointer_plausible(arr)) continue;
+            for (int p = 0; p < count; p++)
+            {
+                uintptr_t proj = 0;
+                if (!read_ptr(arr + p * 8, &proj) || proj != dataPtr) continue;
+                int32_t tiles = game_skill_casting_range(sd);
+                if (tiles < 1 || tiles > 30) continue;
+                float rad = static_cast<float>(projectile_radius(dataPtr));
+                learn_flight_range(dataPtr, static_cast<float>(tiles + 1) * 100.0f + 2.0f * rad);
+                return;
+            }
+        }
+    }
 }
 
 void projectile_threat(const uint8_t* obj,
@@ -332,11 +380,17 @@ void projectile_threat(const uint8_t* obj,
     float dist   = fast_len(dx, dy);
     float remain = dist;
     float limit  = learned_flight_range(dataPtr);
+    if (limit <= 0.0f)
+    {
+        resolve_flight_range(dataPtr);
+        limit = learned_flight_range(dataPtr);
+    }
     if (limit > 0.0f)
     {
         remain = limit + st->speed * 0.05f - st->flown;
         if (remain < dist) return;
     }
+    else if (dist > span.close) return;
     int32_t arrival = game_projectile_travel_ticks(
         dataPtr, static_cast<int>(remain + 0.5f), static_cast<int>(st->speed + 0.5f));
     if (arrival < 1) return;
@@ -799,6 +853,9 @@ void reset_autododge_state()
     cc_data    = 0;
     cc_r       = 0;
     sent_frame = 0;
+    enemy_data_n = 0;
+    for (uintptr_t& ed : enemy_data)
+        ed = 0;
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
         p = Proj{};

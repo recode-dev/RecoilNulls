@@ -38,4 +38,9 @@ inline constexpr uint64_t LOGICTILEMAP__TILETOLOGIC                        = 0x9
 inline constexpr uint64_t LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR           = 0x943b34;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE   = 0xaf53c4;
 inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTRAVELTICKS            = 0xa3192c;
+inline constexpr uint64_t LOGICCHARACTERDATA__GETWEAPONSKILL               = 0x9df18c;
+inline constexpr uint64_t LOGICCHARACTERDATA__GETULTISKILL                 = 0x9df194;
+inline constexpr uint64_t LOGICSKILLDATA__GETCASTINGRANGETILES             = 0x9de9cc;
+inline constexpr uint64_t LOGICSKILLDATA__PROJECTILES                      = 0x58;
+inline constexpr uint64_t LOGICSKILLDATA__PROJECTILECOUNT                  = 0x64;
 #endif
