@@ -11,7 +11,6 @@
 #endif
 #include <mach/mach.h>
 #include <frida-gum.h>
-#include <objc/runtime.h>
 extern uintptr_t     base;
 extern const char*   image_name;
 extern BOOL          setup_done;
@@ -110,8 +109,7 @@ static inline BOOL object_plausible(void* object)
     }
     return addr_executable(firstEntry);
 }
-inline constexpr int  COUNT_MAX        = 512;
-inline constexpr int  OBJECT_COUNT_MAX = 512;
+inline constexpr int COUNT_MAX = 512;
 extern uintptr_t      snapshot[COUNT_MAX];
 extern uint8_t        block[COUNT_MAX][OBJ_BLOCK_SIZE];
 extern uint8_t        valid[COUNT_MAX];
@@ -129,11 +127,9 @@ void                  workload();
 void                  setup();
 void                  run_autododge();
 extern uintptr_t      scene_object;
-int                   is_owned_team_object(uintptr_t obj);
+int                   is_owned_team_object(const uint8_t* obj);
 int                   game_segment_hits_circle(
                       int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
-int              game_distance(int x1, int y1, int x2, int y2);
-int              vector_length(int x, int y);
 extern int       coord_ok;
 extern int       dead;
 extern uintptr_t elem;

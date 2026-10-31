@@ -309,7 +309,7 @@ float wall_pull(float mx, float my, float dx, float dy, float radius)
         static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
     int   ix   = static_cast<int>(pin_x + (pin_x < 0.0f ? -0.5f : 0.5f));
     int   iy   = static_cast<int>(pin_y + (pin_y < 0.0f ? -0.5f : 0.5f));
-    float room = static_cast<float>(game_distance(0, 0, ix, iy)) / reach;
+    float room = sqrtf(static_cast<float>(ix * ix + iy * iy)) / reach;
     return static_cast<float>(blocked) / static_cast<float>(WALL_PROBES) +
            (1.0f - room);
 }

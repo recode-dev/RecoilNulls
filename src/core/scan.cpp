@@ -1,7 +1,6 @@
-#include <CoreFoundation/CFDate.h>
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
-#include <mach/mach_time.h>
+#include <time.h>
 #include <cstdint>
 #include <cmath>
 #include <cstring>
@@ -17,6 +16,9 @@ __thread BOOL             inside_hook      = NO;
 inline constexpr int      PAGE_CACHE_SLOTS = 1024;
 static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
 static __thread uint8_t   page_cache_prot[PAGE_CACHE_SLOTS];
+static __thread uint64_t  page_cache_stamp[PAGE_CACHE_SLOTS];
+static uint64_t           page_cache_epoch = 0;
+inline constexpr guint    GUM_IMAGE_LIMIT  = 0x2000000;
 static guint              memory_page_size()
 {
     static guint cached = 0;
@@ -29,17 +31,19 @@ static guint              memory_page_size()
 static GumPageProtection page_protection(uintptr_t page)
 {
     int slot = static_cast<int>((page >> 12) & (PAGE_CACHE_SLOTS - 1));
-    GumPageProtection prot = GUM_PAGE_NO_ACCESS;
-    if (page_cache_key[slot] == page)
+    if (page_cache_stamp[slot] == page_cache_epoch &&
+        page_cache_key[slot] == page)
     {
         return static_cast<GumPageProtection>(page_cache_prot[slot]);
     }
+    GumPageProtection prot = GUM_PAGE_NO_ACCESS;
     if (!gum_memory_query_protection((gconstpointer) page, &prot))
     {
         prot = GUM_PAGE_NO_ACCESS;
     }
-    page_cache_key[slot]  = page;
-    page_cache_prot[slot] = static_cast<uint8_t>(prot);
+    page_cache_key[slot]   = page;
+    page_cache_prot[slot]  = static_cast<uint8_t>(prot);
+    page_cache_stamp[slot] = page_cache_epoch;
     return prot;
 }
 static BOOL
@@ -77,8 +81,7 @@ BOOL addr_writable(uintptr_t address, size_t length)
 }
 void read_cache_reset()
 {
-    memset(page_cache_key, 0, sizeof(page_cache_key));
-    memset(page_cache_prot, 0, sizeof(page_cache_prot));
+    page_cache_epoch = frame_index ? frame_index : 1;
 }
 BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
@@ -92,14 +95,6 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     }
     __builtin_memcpy(out, reinterpret_cast<const void*>(address), length);
     return YES;
-}
-static void require_method(uintptr_t fn)
-{
-    if (!fn) __builtin_trap();
-}
-static void require_object(uintptr_t value)
-{
-    if (!value) __builtin_trap();
 }
 BOOL pointer_plausible(uintptr_t value)
 {
@@ -184,8 +179,10 @@ int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
         fn = reinterpret_cast<pass_t>(
             callable(LOGICTILEMAP__ISPASSABLEPATHFINDER));
     }
-    require_method(reinterpret_cast<uintptr_t>(fn));
-    require_object(tileMap);
+    if (!fn || !tileMap)
+    {
+        return 0;
+    }
     return fn(reinterpret_cast<void*>(tileMap), 1, cellX, cellY, 0, 0);
 }
 static uintptr_t path_finder(uintptr_t tileMap)
@@ -227,7 +224,10 @@ int game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1)
     {
         fn = reinterpret_cast<clear_t>(callable(LOGICPATHFINDER__ISCLEARPATH));
     }
-    require_method(reinterpret_cast<uintptr_t>(fn));
+    if (!fn)
+    {
+        return 0;
+    }
     uintptr_t pf = path_finder(tileMap);
     if (!pf) return 0;
     return static_cast<int>(
@@ -241,29 +241,11 @@ int game_tile_to_logic(int tile)
     {
         fn = reinterpret_cast<conv_t>(callable(LOGICTILEMAP__TILETOLOGIC));
     }
-    require_method(reinterpret_cast<uintptr_t>(fn));
-    return fn(tile);
-}
-int vector_length(int x, int y)
-{
-    using len_t       = int (*)(const int*);
-    static len_t fn   = nullptr;
-    int          v[2] = {x, y};
-    if (!fn) fn = reinterpret_cast<len_t>(callable(LOGICVECTOR2__GETLENGTH));
-    require_method(reinterpret_cast<uintptr_t>(fn));
-    return fn(v);
-}
-int game_distance(int x1, int y1, int x2, int y2)
-{
-    using dist_t     = int (*)(int, int, int, int);
-    static dist_t fn = nullptr;
     if (!fn)
     {
-        fn = reinterpret_cast<dist_t>(
-            callable(LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN));
+        return 0;
     }
-    require_method(reinterpret_cast<uintptr_t>(fn));
-    return fn(x1, y1, x2, y2);
+    return fn(tile);
 }
 int game_segment_hits_circle(
     int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out)
@@ -275,7 +257,10 @@ int game_segment_hits_circle(
         fn = reinterpret_cast<hit_t>(
             callable(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE));
     }
-    require_method(reinterpret_cast<uintptr_t>(fn));
+    if (!fn)
+    {
+        return 0;
+    }
     return fn(x1, y1, x2, y2, cx, cy, radius, out);
 }
 int game_projectile_travel_ticks(uintptr_t projectileData,
@@ -289,8 +274,10 @@ int game_projectile_travel_ticks(uintptr_t projectileData,
         fn = reinterpret_cast<travel_t>(
             callable(LOGICPROJECTILECLIENT__GETTRAVELTICKS));
     }
-    require_method(reinterpret_cast<uintptr_t>(fn));
-    require_object(projectileData);
+    if (!fn || !projectileData)
+    {
+        return 0;
+    }
     return fn(projectileData, distance, speed);
 }
 uintptr_t callable(uintptr_t rva)
@@ -300,7 +287,7 @@ uintptr_t callable(uintptr_t rva)
         return 0;
     }
     uintptr_t address = base + rva;
-    if (address < base || address >= base + 0x2000000)
+    if (address < base || address >= base + GUM_IMAGE_LIMIT)
     {
         return 0;
     }
@@ -384,24 +371,26 @@ const uint8_t* own_block      = nullptr;
 static int32_t own_team_value = -1;
 float          own_speed      = 720.0f;
 uint32_t       own_hp         = 0;
-uint64_t       us()
+uint64_t us()
 {
-    return static_cast<uint64_t>(g_get_monotonic_time());
+    return static_cast<uint64_t>(clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)) /
+           1000ULL;
 }
 using self_t = uintptr_t (*)(uintptr_t);
 static uintptr_t call(uintptr_t fn, uintptr_t self)
 {
-    if (!fn || !base || fn < base || fn >= base + 0x2000000 || !self) return 0;
+    if (!fn || !base || fn < base || fn >= base + GUM_IMAGE_LIMIT || !self)
+        return 0;
     return ((self_t) fn)(self);
 }
-uintptr_t        snapshot[COUNT_MAX];
-uint8_t          block[COUNT_MAX][OBJ_BLOCK_SIZE];
-uint8_t          valid[COUNT_MAX];
-int              obj_count   = 0;
-uint64_t         frame_index = 0;
-int32_t          own_x       = 0;
-int32_t          own_y       = 0;
-int              ok_hp       = 0;
+uintptr_t      snapshot[COUNT_MAX];
+uint8_t        block[COUNT_MAX][OBJ_BLOCK_SIZE];
+uint8_t        valid[COUNT_MAX];
+int            obj_count   = 0;
+uint64_t       frame_index = 0;
+int32_t        own_x       = 0;
+int32_t        own_y       = 0;
+int            ok_hp       = 0;
 static uintptr_t battle_instance()
 {
     using inst_t     = uintptr_t (*)();
@@ -446,7 +435,7 @@ static void track_own_speed()
     {
         int   px = own_x - last_pos_x;
         int   py = own_y - last_pos_y;
-        float sp = static_cast<float>(game_distance(0, 0, px, py)) / dt;
+        float sp = sqrtf(static_cast<float>(px * px + py * py)) / dt;
         if (sp >= 300.0f && sp <= 6000.0f)
         {
             if (sp > own_speed)
@@ -497,7 +486,7 @@ void scan_world()
     if (!read_int(mgrPtr + static_cast<uintptr_t>(
                                LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT),
                   &count) ||
-        count <= 0 || count > OBJECT_COUNT_MAX)
+        count <= 0 || count > COUNT_MAX)
     {
         world_reset();
         return;
@@ -511,7 +500,6 @@ void scan_world()
         return;
     }
     array = (uintptr_t) value;
-    if (count > COUNT_MAX) count = COUNT_MAX;
     if (!read_bytes(
             array, snapshot, static_cast<size_t>(count) * sizeof(uintptr_t)))
     {
@@ -619,8 +607,8 @@ static void               scan_frame()
         return;
     }
     inside_hook = YES;
-    read_cache_reset();
     frame_index += 1;
+    read_cache_reset();
     workload();
     commands_flush();
     inside_hook = NO;
@@ -656,13 +644,11 @@ void setup()
 }
 int coord_ok = 0;
 int dead     = 0;
-int is_owned_team_object(uintptr_t obj)
+int is_owned_team_object(const uint8_t* obj)
 {
     int32_t team = 0;
     if (own_team_value < 0 || !obj) return 0;
-    if (!read_int(obj + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__TEAM),
-                  &team))
-        return 0;
+    memcpy(&team, obj + LOGICGAMEOBJECTCLIENT__TEAM, sizeof(team));
     return team == own_team_value ? 1 : 0;
 }
 uintptr_t client()

@@ -1,134 +1,37 @@
 #include "commands.h"
 #include <cstdlib>
 #include <cstring>
-#include <pthread.h>
 #include "offsets.h"
 #include "scan.h"
-static pthread_mutex_t command_lock = PTHREAD_MUTEX_INITIALIZER;
-namespace
-{
-struct CommandGuard
-{
-    CommandGuard()
-    {
-        pthread_mutex_lock(&command_lock);
-    }
-    ~CommandGuard()
-    {
-        pthread_mutex_unlock(&command_lock);
-    }
-};
-}
 inline constexpr int PendingCommandMax = 16;
+inline constexpr int PendingRetryMax   = 4;
 struct PendingCommand
 {
-    int type;
-    int x;
-    int y;
-    int predict;
+    int     type;
+    int     x;
+    int     y;
+    int     predict;
+    uint8_t done_input;
+    uint8_t done_predict;
+    uint8_t tries;
 };
 static PendingCommand pending_command[PendingCommandMax];
-static int            pending_count = 0;
-static int            pending_is_move(const PendingCommand& command)
-{
-    return static_cast<int>(command.type < 0 ||
-                            command.type == ClientInputMessageTypeMove);
-}
-static int pending_push(int type, int x, int y, int predict)
-{
-    if (pending_count)
-    {
-        PendingCommand& tail = pending_command[pending_count - 1];
-        if (pending_is_move(tail) && tail.type == type)
-        {
-            tail.x = x;
-            tail.y = y;
-            tail.predict =
-                static_cast<int>((tail.predict != 0) || (predict) != 0);
-            return 1;
-        }
-    }
-    if (pending_count >= PendingCommandMax)
-    {
-        return 0;
-    }
-    PendingCommand& slot = pending_command[pending_count++];
-    slot.type            = type;
-    slot.x               = x;
-    slot.y               = y;
-    slot.predict         = predict;
-    return 1;
-}
-static int   client_input_message_is_valid(void* memory, size_t size);
-static void* client_input_manager_of_battle(void* battle);
-static int   client_input_manager_queue_is_ready(void* manager);
-uintptr_t    callable_at_rva(uintptr_t rva)
-{
-    if (!base || !rva)
-    {
-        return 0;
-    }
-    if (!callable(rva))
-    {
-        return 0;
-    }
-    return base + rva;
-}
-static int client_input_function_is_callable(uintptr_t address)
-{
-    if (!address)
-    {
-        return 0;
-    }
-    if (!addr_readable(address, sizeof(uint32_t)))
-    {
-        return 0;
-    }
-    return addr_executable(address) ? 1 : 0;
-}
+static int            pending_count    = 0;
+static uintptr_t      constructor_slot = 0;
+static uintptr_t      input_slot       = 0;
+static uintptr_t      predict_slot     = 0;
 static uintptr_t client_input_resolve(uintptr_t* slot, uintptr_t rva)
 {
     if (!*slot)
     {
-        uintptr_t resolved = callable_at_rva(rva);
-        if (client_input_function_is_callable(resolved))
+        uintptr_t resolved = callable(rva);
+        if (resolved && addr_readable(resolved, sizeof(uint32_t)) &&
+            addr_executable(resolved))
         {
             *slot = resolved;
         }
     }
     return *slot;
-}
-static int client_input_message_is_valid(void* memory, size_t size)
-{
-    uintptr_t address = reinterpret_cast<uintptr_t>(memory);
-    if (!memory || !size)
-    {
-        return 0;
-    }
-    if ((address & 7) != 0)
-    {
-        return 0;
-    }
-    if (!addr_readable(address, size))
-    {
-        return 0;
-    }
-    if (!addr_writable(address, size))
-    {
-        return 0;
-    }
-    return 1;
-}
-void* allocate_client_input_message()
-{
-    void* memory = malloc(CLIENTINPUTMESSAGE__SIZE);
-    if (!client_input_message_is_valid(memory, CLIENTINPUTMESSAGE__SIZE))
-    {
-        free(memory);
-        return nullptr;
-    }
-    memset(memory, 0, CLIENTINPUTMESSAGE__SIZE);
-    return memory;
 }
 static void* client_input_manager_of_battle(void* battle)
 {
@@ -165,95 +68,88 @@ static int client_input_manager_queue_is_ready(void* manager)
     }
     return 1;
 }
-static int client_input_enqueue_locked(int type, int x, int y)
+static void* allocate_client_input_message()
 {
-    static uintptr_t constructor_slot = 0;
-    static uintptr_t input_slot       = 0;
-    int32_t          coordinate_x     = x;
-    int32_t          coordinate_y     = y;
-    int32_t          input_type       = type;
-    uintptr_t        constructor      = 0;
-    uintptr_t        input            = 0;
-    void*            battle           = nullptr;
-    void*            manager          = nullptr;
-    void*            message          = nullptr;
-    if (!coord_ok || dead)
+    void* memory = malloc(CLIENTINPUTMESSAGE__SIZE);
+    if (memory)
     {
-        return 0;
+        memset(memory, 0, CLIENTINPUTMESSAGE__SIZE);
     }
-    if (type < 0 || type >= ClientInputMessageTypeMax)
+    return memory;
+}
+static void pending_push(int type, int x, int y, int predict)
+{
+    for (int i = 0; i < pending_count; i++)
     {
-        return 0;
+        PendingCommand& cmd = pending_command[i];
+        if (cmd.type != type) continue;
+        if (cmd.x != x || cmd.y != y)
+        {
+            cmd.x            = x;
+            cmd.y            = y;
+            cmd.done_input   = 0;
+            cmd.done_predict = 0;
+            cmd.tries        = 0;
+        }
+        cmd.predict = (cmd.predict || predict) ? 1 : 0;
+        return;
     }
-    if (!scene_object)
+    PendingCommand* slot = nullptr;
+    if (pending_count >= PendingCommandMax)
     {
-        return 0;
+        for (int i = 1; i < PendingCommandMax; i++)
+        {
+            pending_command[i - 1] = pending_command[i];
+        }
+        pending_count = PendingCommandMax - 1;
+        slot          = &pending_command[pending_count];
     }
-    battle = reinterpret_cast<void*>(scene_object);
-    if (!object_plausible(battle))
+    else
     {
-        return 0;
+        slot = &pending_command[pending_count++];
     }
-    manager = client_input_manager_of_battle(battle);
-    if (!manager)
+    slot->type         = type;
+    slot->x            = x;
+    slot->y            = y;
+    slot->predict      = predict ? 1 : 0;
+    slot->done_input   = 0;
+    slot->done_predict = 0;
+    slot->tries        = 0;
+}
+static int client_input_enqueue(
+    int       type,
+    int       x,
+    int       y,
+    void*     manager,
+    int       queue_ok,
+    uintptr_t constructor,
+    uintptr_t input)
+{
+    if (!manager || !queue_ok || !constructor || !input)
     {
-        return 0;
+        return -1;
     }
-    constructor = client_input_resolve(&constructor_slot,
-                                       CLIENTINPUTMESSAGE__CONSTRUCTOR);
-    input = client_input_resolve(&input_slot, CLIENTINPUTMANAGER__ADDINPUT);
-    if (!constructor || !input)
-    {
-        return 0;
-    }
-    if (!client_input_manager_queue_is_ready(manager))
-    {
-        return 0;
-    }
-    message = allocate_client_input_message();
+    void* message = allocate_client_input_message();
     if (!message)
     {
-        return 0;
+        return -1;
     }
-    reinterpret_cast<void (*)(void*, int)>(constructor)(message, input_type);
-    if (!write_bytes(reinterpret_cast<uintptr_t>(message) +
-                         CLIENTINPUTMESSAGE__TYPE,
-                     &input_type,
-                     sizeof(input_type)) ||
-        !write_bytes(reinterpret_cast<uintptr_t>(message) +
-                         CLIENTINPUTMESSAGE__X,
-                     &coordinate_x,
-                     sizeof(coordinate_x)) ||
-        !write_bytes(reinterpret_cast<uintptr_t>(message) +
-                         CLIENTINPUTMESSAGE__Y,
-                     &coordinate_y,
-                     sizeof(coordinate_y)))
-    {
-        free(message);
-        return 0;
-    }
+    reinterpret_cast<void (*)(void*, int)>(constructor)(message, type);
+    int32_t* fields = reinterpret_cast<int32_t*>(message);
+    fields[CLIENTINPUTMESSAGE__TYPE / 4] = static_cast<int32_t>(type);
+    fields[CLIENTINPUTMESSAGE__X / 4]    = static_cast<int32_t>(x);
+    fields[CLIENTINPUTMESSAGE__Y / 4]    = static_cast<int32_t>(y);
     reinterpret_cast<void (*)(void*, void*)>(input)(manager, message);
     return 1;
 }
-static int client_prediction_locked(int x, int y)
+static int client_prediction_send(int        x,
+                                  int        y,
+                                  uintptr_t  function,
+                                  uintptr_t  controller_object)
 {
-    static uintptr_t slot              = 0;
-    uintptr_t        function          = 0;
-    uintptr_t        controller_object = 0;
-    if (!coord_ok)
+    if (!function || !controller_object)
     {
-        return 0;
-    }
-    function = client_input_resolve(
-        &slot, LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO);
-    if (!function)
-    {
-        return 0;
-    }
-    controller_object = controller();
-    if (!controller_object)
-    {
-        return 0;
+        return -1;
     }
     reinterpret_cast<void (*)(uintptr_t, int, int, int)>(function)(
         controller_object, x, y, ClientInputMessagePredictionFlag);
@@ -261,25 +157,73 @@ static int client_prediction_locked(int x, int y)
 }
 void commands_flush()
 {
-    CommandGuard guard;
+    if (!pending_count)
+    {
+        return;
+    }
+    if (!coord_ok || dead)
+    {
+        pending_count = 0;
+        return;
+    }
+    void*     battle            = reinterpret_cast<void*>(scene_object);
+    uintptr_t predict_fn        = 0;
+    uintptr_t constructor       = 0;
+    uintptr_t input             = 0;
+    void*     manager           = nullptr;
+    int       queue_ok          = 0;
+    int       kept              = 0;
+    int scene_ok = scene_object && object_plausible(battle) ? 1 : 0;
+    if (scene_ok)
+    {
+        manager     = client_input_manager_of_battle(battle);
+        queue_ok    = client_input_manager_queue_is_ready(manager);
+        constructor = client_input_resolve(&constructor_slot,
+                                           CLIENTINPUTMESSAGE__CONSTRUCTOR);
+        input = client_input_resolve(&input_slot, CLIENTINPUTMANAGER__ADDINPUT);
+    }
+    predict_fn = client_input_resolve(
+        &predict_slot, LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO);
+    uintptr_t controller_object = controller();
     for (int i = 0; i < pending_count; i++)
     {
-        const PendingCommand& command = pending_command[i];
-        if (command.type >= 0)
+        PendingCommand cmd = pending_command[i];
+        if (cmd.type >= 0 && !cmd.done_input)
         {
-            (void) client_input_enqueue_locked(
-                command.type, command.x, command.y);
+            if (client_input_enqueue(cmd.type,
+                                     cmd.x,
+                                     cmd.y,
+                                     manager,
+                                     queue_ok,
+                                     constructor,
+                                     input) > 0)
+            {
+                cmd.done_input = 1;
+            }
         }
-        if (command.predict)
+        if (cmd.predict && !cmd.done_predict)
         {
-            (void) client_prediction_locked(command.x, command.y);
+            if (client_prediction_send(
+                    cmd.x, cmd.y, predict_fn, controller_object) > 0)
+            {
+                cmd.done_predict = 1;
+            }
         }
+        if ((cmd.type < 0 || cmd.done_input) &&
+            (!cmd.predict || cmd.done_predict))
+        {
+            continue;
+        }
+        if (++cmd.tries >= PendingRetryMax)
+        {
+            continue;
+        }
+        pending_command[kept++] = cmd;
     }
-    pending_count = 0;
+    pending_count = kept;
 }
 int enqueue_move_input_with_type(int x, int y, int type)
 {
-    CommandGuard guard;
     if (type < 0 || type >= ClientInputMessageTypeMax)
     {
         return 0;
@@ -288,7 +232,8 @@ int enqueue_move_input_with_type(int x, int y, int type)
     {
         return 0;
     }
-    return pending_push(type, x, y, type == ClientInputMessageTypeMove ? 1 : 0);
+    pending_push(type, x, y, type == ClientInputMessageTypeMove ? 1 : 0);
+    return 1;
 }
 int enqueue_move_input(int x, int y)
 {
@@ -296,10 +241,10 @@ int enqueue_move_input(int x, int y)
 }
 int client_prediction_move_to(int x, int y)
 {
-    CommandGuard guard;
     if (!coord_ok)
     {
         return 0;
     }
-    return pending_push(-1, x, y, 1);
+    pending_push(-1, x, y, 1);
+    return 1;
 }
