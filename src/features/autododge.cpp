@@ -114,6 +114,44 @@ int32_t character_collision_radius(uintptr_t data)
     }
     return reinterpret_cast<int32_t (*)(uintptr_t)>(slot)(data);
 }
+static float weapons_range = 0.0f;
+static float enemy_weapon_range(uintptr_t charObj)
+{
+    using data_t    = uintptr_t (*)(uintptr_t, int32_t);
+    using proj_t    = uintptr_t (*)(uintptr_t, int32_t);
+    using range_t   = int32_t (*)(uintptr_t, int32_t, uintptr_t, uintptr_t);
+    static data_t  fn_data  = nullptr;
+    static proj_t  fn_proj  = nullptr;
+    static range_t fn_range = nullptr;
+    uintptr_t      vec, sc, sd, pd;
+    int32_t        n;
+    uint8_t        flag = 0;
+    if (!charObj) return 0.0f;
+    if (!fn_data)
+        fn_data =
+            reinterpret_cast<data_t>(callable_at_rva(LOGICSKILLCLIENT__GETDATA));
+    if (!fn_proj)
+        fn_proj = reinterpret_cast<proj_t>(
+            callable_at_rva(LOGICSKILLDATA__GETPROJECTILE));
+    if (!fn_range)
+        fn_range = reinterpret_cast<range_t>(
+            callable_at_rva(LOGICGAMEPLAYUTIL__GETEFFECTIVEWEAPONRANGE));
+    if (!fn_data || !fn_proj || !fn_range) return 0.0f;
+    if (!read_ptr(charObj + LOGICCHARACTERCLIENT__SKILLS, &vec) || !vec ||
+        !pointer_plausible(vec))
+        return 0.0f;
+    n = 0;
+    if (!read_int(charObj + LOGICCHARACTERCLIENT__SKILLCOUNT, &n) || n <= 0)
+        return 0.0f;
+    sc = 0;
+    if (!read_ptr(vec, &sc) || !sc || !pointer_plausible(sc)) return 0.0f;
+    read_bytes(charObj + LOGICCHARACTERCLIENT__SKILLFLAG, &flag, 1);
+    sd = fn_data(sc, static_cast<int32_t>(flag));
+    if (!sd || !pointer_plausible(sd)) return 0.0f;
+    pd = fn_proj(sd, 0);
+    if (!pd || !pointer_plausible(pd)) return 0.0f;
+    return static_cast<float>(fn_range(sd, 0, charObj, pd));
+}
 namespace ad
 {
 struct FrameGeom
@@ -162,6 +200,9 @@ void init_projectile_state(
     st->data           = dataPtr;
     st->x              = px;
     st->y              = py;
+    st->sx             = px;
+    st->sy             = py;
+    st->range          = weapons_range;
     st->speed          = 0.0f;
     int32_t dataRadius = projectile_radius(dataPtr);
     st->rad            = static_cast<float>(dataRadius);
@@ -170,7 +211,12 @@ void init_projectile_state(
     st->uy             = 0.0f;
 }
 static void
-character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
+character_entry(const uint8_t* obj,
+                uintptr_t      live,
+                uintptr_t      dataPtr,
+                int32_t        own_gid,
+                float          mx,
+                float          my)
 {
     int32_t hp, gid, xi, yi;
     memcpy(&hp, obj + LOGICGAMEOBJECTCLIENT__HP, sizeof(hp));
@@ -179,6 +225,11 @@ character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
     memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
     if (is_owned_team_object(reinterpret_cast<uintptr_t>(obj))) return;
+    if (dataPtr && pointer_plausible(dataPtr))
+    {
+        float wr = enemy_weapon_range(live);
+        if (wr > weapons_range) weapons_range = wr;
+    }
     if (enemy_n >= ENEMY_MAX) return;
     int k      = enemy_n++;
     enemy_x[k] = static_cast<float>(xi);
@@ -272,6 +323,14 @@ static void projectile_threat(const uint8_t* obj,
     if (arrival < 1) return;
     float tt = static_cast<float>(arrival) * TICK_MS_SEC;
     if (tt > SIM_T) return;
+    if (st->range > 0.0f)
+    {
+        float travelled = fast_len(px - st->sx, py - st->sy);
+        float remain    = st->range - travelled;
+        if (remain <= 0.0f) return;
+        float t_end = remain / st->speed;
+        if (t_end < tt) tt = t_end;
+    }
     {
         int32_t sx1    = static_cast<int>(px);
         int32_t sy1    = static_cast<int>(py);
@@ -343,7 +402,7 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         if (!obj_rva[i]) continue;
         if (char_vt && obj_rva[i] == char_vt)
         {
-            character_entry(obj, own_gid, mx, my);
+            character_entry(obj, snapshot[i], dataPtr, own_gid, mx, my);
             continue;
         }
         if (!data_is_projectile(dataPtr, obj_rva[i] + base)) continue;
@@ -712,6 +771,7 @@ void reset_autododge_state()
     char_vt    = 0;
     hitbox     = 0.0f;
     sent_frame = 0;
+    weapons_range = 0.0f;
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
         p = Proj{};

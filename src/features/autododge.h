@@ -30,6 +30,7 @@ struct Proj
     uint64_t  seen;
     uintptr_t data;
     float     x, y, ux, uy, speed, rad;
+    float     sx, sy, range;
     bool      vel;
 };
 extern Threat    threats[THREAT_MAX];

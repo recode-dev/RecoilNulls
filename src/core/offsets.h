@@ -43,4 +43,11 @@ inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN  = 0xaf6838;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE =
     0xaf53c4;
 inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTRAVELTICKS = 0xa3192c;
+inline constexpr uint64_t LOGICCHARACTERCLIENT__SKILLS          = 0xd8;
+inline constexpr uint64_t LOGICCHARACTERCLIENT__SKILLCOUNT      = 0xe4;
+inline constexpr uint64_t LOGICCHARACTERCLIENT__SKILLFLAG       = 0x32e;
+inline constexpr uint64_t LOGICSKILLCLIENT__GETDATA             = 0xa3ba10;
+inline constexpr uint64_t LOGICSKILLDATA__GETPROJECTILE         = 0x9debb8;
+inline constexpr uint64_t LOGICGAMEPLAYUTIL__GETEFFECTIVEWEAPONRANGE =
+    0xaf7b84;
 #endif
