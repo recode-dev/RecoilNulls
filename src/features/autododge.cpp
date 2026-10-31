@@ -83,7 +83,8 @@ void cache_span()
 
 constexpr int      THREAT_MAX  = 32;
 constexpr int      PROJ_SLOTS  = 48;
-constexpr uint64_t PROJ_TTL_MS = 50 * 20;
+constexpr uint64_t PROJ_TTL_MS   = 50 * 20;
+constexpr uint64_t PROJ_GONE_MS  = 150;
 
 struct Threat
 {
@@ -333,7 +334,7 @@ void projectile_threat(const uint8_t* obj,
     float limit  = learned_flight_range(dataPtr);
     if (limit > 0.0f)
     {
-        remain = limit + st->speed * 0.25f - st->flown;
+        remain = limit + st->speed * 0.05f - st->flown;
         if (remain < dist) return;
     }
     int32_t arrival = game_projectile_travel_ticks(
@@ -428,7 +429,13 @@ void evict_stale_projectiles(uint64_t now)
 {
     for (auto& proj : projs)
     {
-        if (proj.pid && now - proj.seen > PROJ_TTL_MS)
+        if (!proj.pid) continue;
+        if (proj.vel && now - proj.seen >= PROJ_GONE_MS)
+        {
+            learn_flight_range(proj.data, proj.flown);
+            proj.vel = false;
+        }
+        if (now - proj.seen > PROJ_TTL_MS)
         {
             learn_flight_range(proj.data, proj.flown);
             proj.pid = 0;
