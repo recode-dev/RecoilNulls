@@ -34,8 +34,15 @@ static int wall_subtile_of(float x, float y, int* outX, int* outY)
 }
 float wall_logic_units(int tiles)
 {
-    return static_cast<float>(game_tile_to_logic(tiles) -
-                              game_tile_to_logic(0));
+    static int   cached_tiles[4] = {-1, -1, -1, -1};
+    static float cached_units[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    int          slot = static_cast<int>(static_cast<unsigned>(tiles) & 3u);
+    if (cached_tiles[slot] == tiles) return cached_units[slot];
+    float units        = static_cast<float>(game_tile_to_logic(tiles) -
+                                     game_tile_to_logic(0));
+    cached_tiles[slot] = tiles;
+    cached_units[slot] = units;
+    return units;
 }
 void wall_cache_bind(uintptr_t tileMap)
 {
@@ -57,6 +64,7 @@ void wall_cache_bind(uintptr_t tileMap)
         wall_h    = 0;
         wall_have = 0;
     }
+    if (wall_have && wall_w > 0 && wall_h > 0 && tileMap == wall_map) return;
     if (!read_int(tileMap + static_cast<uintptr_t>(LOGICTILEMAP__WIDTH),
                   &mapW) ||
         mapW <= 0 || mapW > WALL_MAX_MAP_TILES)

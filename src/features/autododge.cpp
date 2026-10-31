@@ -165,7 +165,8 @@ void init_projectile_state(
     st->uy             = 0.0f;
 }
 static void
-character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
+character_entry(
+    const uint8_t* obj, int32_t own_gid, float mx, float my, uintptr_t dataPtr)
 {
     int32_t hp, gid, xi, yi;
     memcpy(&hp, obj + 0xc4, sizeof(hp));
@@ -174,7 +175,7 @@ character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
     memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
     float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
-    if (is_owned_by_own_team(reinterpret_cast<uintptr_t>(obj)))
+    if (is_owned_team_data(dataPtr))
     {
         if (ally_n >= ALLY_MAX) return;
         int k     = ally_n++;
@@ -259,7 +260,7 @@ static void projectile_threat(const uint8_t* obj,
         st->vel = false;
     }
     st->x = px, st->y = py;
-    if (is_owned_by_own_team(reinterpret_cast<uintptr_t>(obj)))
+    if (is_owned_team_data(dataPtr))
     {
         proj_own_n++;
         return;
@@ -312,11 +313,9 @@ struct VtCache
     int       verdict;
 };
 static VtCache vt_cache[64] = {};
-static int     data_is_projectile(uintptr_t dataPtr)
+static int     data_is_projectile(uintptr_t dataPtr, uintptr_t vt)
 {
-    uintptr_t vt = 0;
-    if (!dataPtr || !pointer_plausible(dataPtr)) return 0;
-    if (!read_ptr(dataPtr, &vt) || vt < base) return 0;
+    if (!dataPtr || !vt || vt < base) return 0;
     VtCache& entry = vt_cache[(vt >> 3) & 63];
     if (entry.vt == vt) return entry.verdict;
     int       verdict = 0;
@@ -350,12 +349,13 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         {
             obj_rva[i] = vt - base;
         }
+        if (!obj_rva[i]) continue;
         if (char_vt && obj_rva[i] == char_vt)
         {
-            character_entry(obj, own_gid, mx, my);
+            character_entry(obj, own_gid, mx, my, dataPtr);
             continue;
         }
-        if (!data_is_projectile(dataPtr)) continue;
+        if (!data_is_projectile(dataPtr, obj_rva[i] + base)) continue;
         float px = 0.0f, py = 0.0f;
         if (!read_projectile_position(obj, &px, &py)) continue;
         projectile_threat(
@@ -692,7 +692,7 @@ static void learn_character_data_vtable()
         !pointer_plausible((uintptr_t) data))
         return;
     if (!read_ptr((uintptr_t) data, &vt) || !vt) return;
-    if (data_is_projectile((uintptr_t) data)) return;
+    if (data_is_projectile((uintptr_t) data, (uintptr_t) vt)) return;
     char_vt = (uintptr_t) vt - base;
 }
 static void learn_own_hitbox()

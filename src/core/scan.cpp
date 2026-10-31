@@ -13,7 +13,7 @@
 const char*               image_name       = "Nulls Brawl";
 BOOL                      setup_done       = NO;
 __thread BOOL             inside_hook      = NO;
-inline constexpr int      PAGE_CACHE_SLOTS = 256;
+inline constexpr int      PAGE_CACHE_SLOTS = 1024;
 static __thread uintptr_t page_cache_key[PAGE_CACHE_SLOTS];
 static __thread uint8_t   page_cache_prot[PAGE_CACHE_SLOTS];
 static guint              memory_page_size()
@@ -473,12 +473,14 @@ void scan_world()
         world_reset();
         return;
     }
-    clientPtr = controller();
-    if (!clientPtr)
+    if (!read_ptr(scene_object + static_cast<uintptr_t>(LOGICBATTLEMODE__CLIENT),
+                  &value) ||
+        !value)
     {
         world_reset();
         return;
     }
+    clientPtr = reinterpret_cast<uintptr_t>(value);
     if (!read_ptr(clientPtr + static_cast<uintptr_t>(
                                   LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER),
                   &value) ||
@@ -522,7 +524,8 @@ void scan_world()
                                : 0;
     }
     {
-        uintptr_t ownFn   = callable(LOGICBATTLEMODECLIENT__GETOWNCHARACTER);
+        static uintptr_t ownFn = 0;
+        if (!ownFn) ownFn = callable(LOGICBATTLEMODECLIENT__GETOWNCHARACTER);
         uintptr_t ownByFn = ownFn ? call(ownFn, clientPtr) : 0;
         own = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
         if (own)
@@ -572,8 +575,9 @@ void scan_world()
     track_own_speed();
     if (clientPtr)
     {
-        wall_cache_bind(
-            call(callable(LOGICBATTLEMODECLIENT__GETTILEMAP), clientPtr));
+        static uintptr_t tileMapFn = 0;
+        if (!tileMapFn) tileMapFn = callable(LOGICBATTLEMODECLIENT__GETTILEMAP);
+        wall_cache_bind(tileMapFn ? call(tileMapFn, clientPtr) : 0);
     }
 }
 void workload()
@@ -638,6 +642,14 @@ int dead     = 0;
 int scene_live()
 {
     return battle_instance() != 0 ? 1 : 0;
+}
+int is_owned_team_data(uintptr_t data)
+{
+    int32_t team = 0;
+    if (own_team_value < 0 || !data) return 0;
+    if (!read_int(data + static_cast<uintptr_t>(LOGICDATA__TEAM), &team))
+        return 0;
+    return team == own_team_value ? 1 : 0;
 }
 int is_owned_by_own_team(uintptr_t obj)
 {
