@@ -324,7 +324,7 @@ void projectile_threat(const uint8_t* obj,
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
     if (vx * vx + vy * vy <= 0.0f) return;
-    if (dx * vx + dy * vy <= 0.0f) return;
+    if (dx * vx + dy * vy > 0.0f) return;
     if (dx * dx + dy * dy > zone2) return;
     if (!wall_line_of_sight_clear(px, py, mx, my)) return;
     float rad    = st->rad + hitbox;
