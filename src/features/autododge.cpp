@@ -105,9 +105,9 @@ struct Proj
 Threat    threats[THREAT_MAX];
 int       threat_n = 0;
 Proj      projs[PROJ_SLOTS];
-uintptr_t char_vt    = 0;
-float     self_speed = 1.0f;
-float     hitbox     = 0.0f;
+uintptr_t char_vt               = 0;
+float     self_speed            = 1.0f;
+float     hitbox                = 0.0f;
 uintptr_t enemy_data[ENEMY_MAX] = {0};
 int       enemy_data_n          = 0;
 
@@ -241,15 +241,15 @@ void character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
     if (is_owned_team_object(obj)) return;
     if (enemy_n >= ENEMY_MAX) return;
-    int k      = enemy_n++;
-    enemy_x[k] = static_cast<float>(xi);
-    enemy_y[k] = static_cast<float>(yi);
-    enemy_d[k] = fast_len(static_cast<float>(xi) - mx, static_cast<float>(yi) - my);
+    int k        = enemy_n++;
+    enemy_x[k]   = static_cast<float>(xi);
+    enemy_y[k]   = static_cast<float>(yi);
+    enemy_d[k]   = fast_len(static_cast<float>(xi) - mx, static_cast<float>(yi) - my);
     uintptr_t cd = 0;
     memcpy(&cd, obj + LOGICGAMEOBJECTCLIENT__GETDATA, sizeof(cd));
     if (cd && pointer_plausible(cd))
     {
-        int lim = enemy_data_n < ENEMY_MAX ? enemy_data_n : ENEMY_MAX;
+        int  lim  = enemy_data_n < ENEMY_MAX ? enemy_data_n : ENEMY_MAX;
         bool have = false;
         for (int i = 0; i < lim; i++)
         {
@@ -390,7 +390,8 @@ void projectile_threat(const uint8_t* obj,
         remain = limit + st->speed * 0.05f - st->flown;
         if (remain < dist) return;
     }
-    else if (dist > span.close) return;
+    else if (dist > span.close)
+        return;
     int32_t arrival = game_projectile_travel_ticks(
         dataPtr, static_cast<int>(remain + 0.5f), static_cast<int>(st->speed + 0.5f));
     if (arrival < 1) return;
@@ -846,13 +847,13 @@ void learn_own_hitbox()
 
 void reset_autododge_state()
 {
-    enemy_n    = 0;
-    threat_n   = 0;
-    char_vt    = 0;
-    hitbox     = 0.0f;
-    cc_data    = 0;
-    cc_r       = 0;
-    sent_frame = 0;
+    enemy_n      = 0;
+    threat_n     = 0;
+    char_vt      = 0;
+    hitbox       = 0.0f;
+    cc_data      = 0;
+    cc_r         = 0;
+    sent_frame   = 0;
     enemy_data_n = 0;
     for (uintptr_t& ed : enemy_data)
         ed = 0;

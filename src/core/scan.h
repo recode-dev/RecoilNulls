@@ -28,12 +28,12 @@ uintptr_t            callable(uintptr_t rva);
 int                  game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY);
 int                  game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1);
 int                  game_tile_to_logic(int tile);
-int  game_projectile_travel_ticks(uintptr_t projectileData, int distance, int speed);
+int       game_projectile_travel_ticks(uintptr_t projectileData, int distance, int speed);
 uintptr_t game_character_weapon_skill(uintptr_t charData);
 uintptr_t game_character_ulti_skill(uintptr_t charData);
 int       game_skill_casting_range(uintptr_t skillData);
-bool find_game_image(uintptr_t* out_base);
-void poll_for_game(int tick);
+bool      find_game_image(uintptr_t* out_base);
+void      poll_for_game(int tick);
 
 static inline bool region_flags(uintptr_t address, vm_prot_t* flags)
 {

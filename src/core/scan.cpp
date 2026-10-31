@@ -290,7 +290,7 @@ int game_projectile_travel_ticks(uintptr_t projectileData, int distance, int spe
 
 uintptr_t game_character_weapon_skill(uintptr_t charData)
 {
-    using skill_t      = uintptr_t (*)(uintptr_t);
+    using skill_t     = uintptr_t (*)(uintptr_t);
     static skill_t fn = nullptr;
     if (!fn)
     {
@@ -305,7 +305,7 @@ uintptr_t game_character_weapon_skill(uintptr_t charData)
 
 uintptr_t game_character_ulti_skill(uintptr_t charData)
 {
-    using skill_t      = uintptr_t (*)(uintptr_t);
+    using skill_t     = uintptr_t (*)(uintptr_t);
     static skill_t fn = nullptr;
     if (!fn)
     {
@@ -320,7 +320,7 @@ uintptr_t game_character_ulti_skill(uintptr_t charData)
 
 int game_skill_casting_range(uintptr_t skillData)
 {
-    using range_t      = int (*)(uintptr_t);
+    using range_t     = int (*)(uintptr_t);
     static range_t fn = nullptr;
     if (!fn)
     {
