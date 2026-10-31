@@ -117,9 +117,9 @@ int32_t character_collision_radius(uintptr_t data)
 static float weapons_range = 0.0f;
 static float enemy_weapon_range(uintptr_t charObj)
 {
-    using data_t    = uintptr_t (*)(uintptr_t, int32_t);
-    using proj_t    = uintptr_t (*)(uintptr_t, int32_t);
-    using range_t   = int32_t (*)(uintptr_t, int32_t, uintptr_t, uintptr_t);
+    using data_t  = uintptr_t (*)(uintptr_t, int32_t);
+    using proj_t  = uintptr_t (*)(uintptr_t, int32_t);
+    using range_t = int32_t (*)(uintptr_t, int32_t, uintptr_t, uintptr_t);
     static data_t  fn_data  = nullptr;
     static proj_t  fn_proj  = nullptr;
     static range_t fn_range = nullptr;
@@ -128,8 +128,8 @@ static float enemy_weapon_range(uintptr_t charObj)
     uint8_t        flag = 0;
     if (!charObj) return 0.0f;
     if (!fn_data)
-        fn_data =
-            reinterpret_cast<data_t>(callable_at_rva(LOGICSKILLCLIENT__GETDATA));
+        fn_data = reinterpret_cast<data_t>(
+            callable_at_rva(LOGICSKILLCLIENT__GETDATA));
     if (!fn_proj)
         fn_proj = reinterpret_cast<proj_t>(
             callable_at_rva(LOGICSKILLDATA__GETPROJECTILE));
@@ -210,13 +210,12 @@ void init_projectile_state(
     st->ux             = 0.0f;
     st->uy             = 0.0f;
 }
-static void
-character_entry(const uint8_t* obj,
-                uintptr_t      live,
-                uintptr_t      dataPtr,
-                int32_t        own_gid,
-                float          mx,
-                float          my)
+static void character_entry(const uint8_t* obj,
+                            uintptr_t      live,
+                            uintptr_t      dataPtr,
+                            int32_t        own_gid,
+                            float          mx,
+                            float          my)
 {
     int32_t hp, gid, xi, yi;
     memcpy(&hp, obj + LOGICGAMEOBJECTCLIENT__HP, sizeof(hp));
@@ -766,11 +765,11 @@ static void learn_own_hitbox()
 }
 void reset_autododge_state()
 {
-    enemy_n    = 0;
-    threat_n   = 0;
-    char_vt    = 0;
-    hitbox     = 0.0f;
-    sent_frame = 0;
+    enemy_n       = 0;
+    threat_n      = 0;
+    char_vt       = 0;
+    hitbox        = 0.0f;
+    sent_frame    = 0;
     weapons_range = 0.0f;
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
