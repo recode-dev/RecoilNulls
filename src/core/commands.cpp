@@ -122,13 +122,13 @@ static int client_input_message_is_valid(void* memory, size_t size)
 }
 void* allocate_client_input_message()
 {
-    void* memory = malloc(0x48);
-    if (!client_input_message_is_valid(memory, 0x48))
+    void* memory = malloc(CLIENTINPUTMESSAGE__SIZE);
+    if (!client_input_message_is_valid(memory, CLIENTINPUTMESSAGE__SIZE))
     {
         free(memory);
         return nullptr;
     }
-    memset(memory, 0, 0x48);
+    memset(memory, 0, CLIENTINPUTMESSAGE__SIZE);
     return memory;
 }
 static void* client_input_battle_instance()
@@ -167,7 +167,9 @@ static int client_input_manager_queue_is_ready(void* manager)
     {
         return 0;
     }
-    if (!read_ptr(reinterpret_cast<uintptr_t>(manager) + 0x20, &queue) ||
+    if (!read_ptr(reinterpret_cast<uintptr_t>(manager) +
+                      CLIENTINPUTMANAGER__QUEUE,
+                  &queue) ||
         !queue)
     {
         return 0;
@@ -190,7 +192,7 @@ static int client_input_enqueue_locked(int type, int x, int y)
     {
         return 0;
     }
-    if (type < 0 || type >= 0x17)
+    if (type < 0 || type >= ClientInputMessageTypeMax)
     {
         return 0;
     }
@@ -225,13 +227,16 @@ static int client_input_enqueue_locked(int type, int x, int y)
         return 0;
     }
     reinterpret_cast<void (*)(void*, int)>(constructor)(message, input_type);
-    if (!write_bytes(reinterpret_cast<uintptr_t>(message) + 0x8,
+    if (!write_bytes(reinterpret_cast<uintptr_t>(message) +
+                         CLIENTINPUTMESSAGE__TYPE,
                      &input_type,
                      sizeof(input_type)) ||
-        !write_bytes(reinterpret_cast<uintptr_t>(message) + 0xc,
+        !write_bytes(reinterpret_cast<uintptr_t>(message) +
+                         CLIENTINPUTMESSAGE__X,
                      &coordinate_x,
                      sizeof(coordinate_x)) ||
-        !write_bytes(reinterpret_cast<uintptr_t>(message) + 0x10,
+        !write_bytes(reinterpret_cast<uintptr_t>(message) +
+                         CLIENTINPUTMESSAGE__Y,
                      &coordinate_y,
                      sizeof(coordinate_y)))
     {
@@ -286,7 +291,7 @@ void commands_flush()
 int enqueue_client_input_message(int type, int x, int y)
 {
     CommandGuard guard;
-    if (type < 0 || type >= 0x17)
+    if (type < 0 || type >= ClientInputMessageTypeMax)
     {
         return 0;
     }
@@ -299,7 +304,7 @@ int enqueue_client_input_message(int type, int x, int y)
 int enqueue_move_input_with_type(int x, int y, int type)
 {
     CommandGuard guard;
-    if (type < 0 || type >= 0x17)
+    if (type < 0 || type >= ClientInputMessageTypeMax)
     {
         return 0;
     }

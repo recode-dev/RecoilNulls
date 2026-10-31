@@ -168,7 +168,7 @@ static void character_entry(
     const uint8_t* obj, int32_t own_gid, float mx, float my, uintptr_t dataPtr)
 {
     int32_t hp, gid, xi, yi;
-    memcpy(&hp, obj + 0xc4, sizeof(hp));
+    memcpy(&hp, obj + LOGICGAMEOBJECTCLIENT__HP, sizeof(hp));
     memcpy(&gid, obj + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(gid));
     memcpy(&xi, obj + LOGICGAMEOBJECTCLIENT__GETX, sizeof(xi));
     memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
