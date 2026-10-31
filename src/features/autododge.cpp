@@ -214,9 +214,10 @@ static float enemy_weapon_range(uintptr_t charObj)
         if (base_range == 0x7fffffff) base_range = 0;
         if (base_range < 0 || base_range > 4096) continue;
         int64_t subtiles = static_cast<int64_t>(base_range) * 100;
-        pd                   = 0;
-        cnt                  = 0;
-        if (read_int(sd + LOGICSKILLDATA__PROJCOUNT, &cnt) && cnt > 0 && cnt < 64)
+        pd               = 0;
+        cnt              = 0;
+        if (read_int(sd + LOGICSKILLDATA__PROJCOUNT, &cnt) && cnt > 0 &&
+            cnt < 64)
         {
             uintptr_t parr = 0;
             if (read_ptr(sd + LOGICSKILLDATA__PROJARRAY, &parr) && parr &&
@@ -256,21 +257,25 @@ static float enemy_weapon_range(uintptr_t charObj)
                     else if (!p178)
                     {
                         uintptr_t p1d0 = 0;
-                        if (read_ptr(pd + LOGICPROJECTILEDATA__BLASTSOURCE, &p1d0) &&
+                        if (read_ptr(pd + LOGICPROJECTILEDATA__BLASTSOURCE,
+                                     &p1d0) &&
                             p1d0 && pointer_plausible(p1d0) &&
                             (pd_type == 1 || pd_type == 2))
                         {
                             int32_t v = 0;
-                            if (read_int(pd + LOGICPROJECTILEDATA__BLASTRANGE, &v) &&
+                            if (read_int(pd + LOGICPROJECTILEDATA__BLASTRANGE,
+                                         &v) &&
                                 v >= 0 && v <= 4096)
                                 subtiles =
                                     static_cast<int64_t>(base_range + v) * 100;
                             uintptr_t q = 0;
-                            if (read_ptr(p1d0 + LOGICPROJECTILEDATA__SEGMENT, &q) &&
+                            if (read_ptr(p1d0 + LOGICPROJECTILEDATA__SEGMENT,
+                                         &q) &&
                                 q && pointer_plausible(q))
                             {
                                 int32_t s = 0;
-                                if (read_int(q + LOGICRANGESEG__SUBTILERANGE, &s) &&
+                                if (read_int(q + LOGICRANGESEG__SUBTILERANGE,
+                                             &s) &&
                                     s >= 0 && s <= 1000000)
                                     subtiles += s;
                             }
@@ -278,7 +283,8 @@ static float enemy_weapon_range(uintptr_t charObj)
                         else
                         {
                             int32_t s = 0;
-                            if (read_int(pd + LOGICPROJECTILEDATA__GETRADIUS, &s) &&
+                            if (read_int(pd + LOGICPROJECTILEDATA__GETRADIUS,
+                                         &s) &&
                                 s >= 0 && s <= 1000000)
                                 subtiles += s;
                         }
