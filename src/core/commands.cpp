@@ -31,7 +31,8 @@ static PendingCommand pending_command[PendingCommandMax];
 static int            pending_count = 0;
 static int            pending_is_move(const PendingCommand& command)
 {
-    return command.type < 0 || command.type == ClientInputMessageTypeMove;
+    return static_cast<int>(command.type < 0 ||
+                            command.type == ClientInputMessageTypeMove);
 }
 static int pending_push(int type, int x, int y, int predict)
 {
@@ -40,9 +41,10 @@ static int pending_push(int type, int x, int y, int predict)
         PendingCommand& tail = pending_command[pending_count - 1];
         if (pending_is_move(tail) && tail.type == type)
         {
-            tail.x       = x;
-            tail.y       = y;
-            tail.predict = tail.predict || predict;
+            tail.x = x;
+            tail.y = y;
+            tail.predict =
+                static_cast<int>((tail.predict != 0) || (predict) != 0);
             return 1;
         }
     }
