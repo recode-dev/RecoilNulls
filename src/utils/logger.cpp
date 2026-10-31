@@ -28,7 +28,8 @@ uint64_t            g_lastMs        = 0;
 uint64_t            g_lastScan      = 0;
 int                 g_rate          = 0;
 char                g_path[1024];
-const char*         document_path(void)
+
+const char* document_path(void)
 {
     static char resolved[1024];
     const char* home = getenv("HOME");
@@ -43,6 +44,7 @@ const char*         document_path(void)
     }
     return resolved;
 }
+
 void rotate_if_needed(void)
 {
     long long size  = 0;
@@ -57,6 +59,7 @@ void rotate_if_needed(void)
     snprintf(backup, sizeof(backup), "%s.1", g_path);
     rename(g_path, backup);
 }
+
 bool open_log(void)
 {
     const char* dir = document_path();
@@ -72,6 +75,7 @@ bool open_log(void)
     }
     return true;
 }
+
 void line(const char* format, ...)
 {
     va_list args;
@@ -80,17 +84,15 @@ void line(const char* format, ...)
     vfprintf(g_file, format, args);
     va_end(args);
 }
+
 void dump_header(void)
 {
     uint32_t  count = _dyld_image_count();
     uint32_t  i     = 0;
     uintptr_t found = 0;
     line("\n########## recoil header ##########\n");
-    line("base=%p setup=%d ticks=%llu rate=%d/s\n",
-         (void*) base,
-         (int) setup_done,
-         g_ticks,
-         g_rate);
+    line(
+        "base=%p setup=%d ticks=%llu rate=%d/s\n", (void*) base, (int) setup_done, g_ticks, g_rate);
     line("rva getinstance=%p getownchar=%p getteam=%p getownidx=%p\n",
          (void*) addr_getinstance,
          (void*) addr_getownchar,
@@ -137,16 +139,11 @@ void dump_header(void)
         uintptr_t imageBase = (uintptr_t) _dyld_get_image_header(i);
         if (imageBase != (uintptr_t) base) continue;
         found = imageBase;
-        line("[game] idx=%u base=%p name=%s\n",
-             i,
-             (void*) imageBase,
-             _dyld_get_image_name(i));
+        line("[game] idx=%u base=%p name=%s\n", i, (void*) imageBase, _dyld_get_image_name(i));
     }
-    if (!found)
-        line("[game] base %p not found in dyld list (count=%u)\n",
-             (void*) base,
-             count);
+    if (!found) line("[game] base %p not found in dyld list (count=%u)\n", (void*) base, count);
 }
+
 void dump_chain(void)
 {
     uintptr_t slot      = (uintptr_t) read_global_ptr(STATE_RVA);
@@ -167,28 +164,23 @@ void dump_chain(void)
     }
     read_int(slot + STATE_ENUM_OFF, &state);
     if (read_ptr(slot + SCENE_OFF, &value) && value) scene = (uintptr_t) value;
-    if (scene && read_ptr(scene + CLIENT_OFF, &value) && value)
-        clientPtr = (uintptr_t) value;
+    if (scene && read_ptr(scene + CLIENT_OFF, &value) && value) clientPtr = (uintptr_t) value;
     if (!clientPtr && addr_getinstance)
     {
         clientPtr = ((uintptr_t(*)(void)) addr_getinstance)();
     }
     if (clientPtr)
     {
-        if (read_ptr(clientPtr + MODE_MANAGER_OFF, &value) && value)
-            m28 = (uintptr_t) value;
-        if (read_ptr(clientPtr + MGR_OFF, &value) && value)
-            m58 = (uintptr_t) value;
+        if (read_ptr(clientPtr + MODE_MANAGER_OFF, &value) && value) m28 = (uintptr_t) value;
+        if (read_ptr(clientPtr + MGR_OFF, &value) && value) m58 = (uintptr_t) value;
         if (m28)
         {
-            if (read_ptr(m28 + MGR_ARRAY_OFF, &value) && value)
-                a28 = (uintptr_t) value;
+            if (read_ptr(m28 + MGR_ARRAY_OFF, &value) && value) a28 = (uintptr_t) value;
             read_int(m28 + MGR_COUNT_OFF, &c28);
         }
         if (m58)
         {
-            if (read_ptr(m58 + MGR_ARRAY_OFF, &value) && value)
-                a58 = (uintptr_t) value;
+            if (read_ptr(m58 + MGR_ARRAY_OFF, &value) && value) a58 = (uintptr_t) value;
             read_int(m58 + MGR_COUNT_OFF, &c58);
         }
     }
@@ -205,6 +197,7 @@ void dump_chain(void)
          (void*) a58,
          c58);
 }
+
 void dump_own(void)
 {
     int32_t x        = 0;
@@ -232,14 +225,9 @@ void dump_own(void)
     read_int(own_elem + OBJ_TEAM_OFF, &team);
     read_int(own_elem + OBJ_OWNERINDEX_OFF, &ownerIdx);
     okHp = read_int(own_elem + OBJ_HP_OFF, &hp);
-    line("own raw x=%d y=%d hp=%d(ok=%d) team=%d owner=%d\n",
-         x,
-         y,
-         hp,
-         okHp,
-         team,
-         ownerIdx);
+    line("own raw x=%d y=%d hp=%d(ok=%d) team=%d owner=%d\n", x, y, hp, okHp, team, ownerIdx);
 }
+
 void dump_projectiles(void)
 {
     int i = 0;
@@ -277,6 +265,7 @@ void dump_projectiles(void)
              p->angle);
     }
 }
+
 void dump_ad(void)
 {
     line("adg stage=%d haz=%d thr=%d danger=%d dir=(%.2f,%.2f) dmg=%.0f "
@@ -310,20 +299,21 @@ void dump_ad(void)
     }
     if (dbg.note[0]) line("adg note=%s\n", dbg.note);
 }
+
 void dump_roster(void)
 {
     int i = 0;
     line("roster enemy=%d mate=%d team=%d\n", enemy_n, mate_n, own_team_b);
     for (i = 0; i < enemy_n && i < 12; i++)
     {
-        line(
-            "  e%d x=%d y=%d team=%d\n", i, enemy_x[i], enemy_y[i], pl_team[i]);
+        line("  e%d x=%d y=%d team=%d\n", i, enemy_x[i], enemy_y[i], pl_team[i]);
     }
     for (i = 0; i < mate_n && i < 8; i++)
     {
         line("  m%d x=%d y=%d\n", i, mate_x[i], mate_y[i]);
     }
 }
+
 void dump_raw(void)
 {
     uintptr_t addr = 0;
@@ -353,6 +343,7 @@ void dump_raw(void)
              (int32_t) w3);
     }
 }
+
 void dump_objects(void)
 {
     uintptr_t array = manager_array_ptr;
@@ -398,6 +389,7 @@ void dump_objects(void)
              deadFlag);
     }
 }
+
 void tick(void)
 {
     uint64_t now       = 0;
@@ -424,12 +416,8 @@ void tick(void)
     {
         uintptr_t clientPtr = controller();
         probeTeam           = ((int32_t(*)(uintptr_t)) addr_getteam)(clientPtr);
-        if (addr_getownidx)
-            probeIdx = ((int32_t(*)(uintptr_t)) addr_getownidx)(clientPtr);
-        line("client probe team=%d idx=%d ctrl=%p\n",
-             probeTeam,
-             probeIdx,
-             (void*) clientPtr);
+        if (addr_getownidx) probeIdx = ((int32_t(*)(uintptr_t)) addr_getownidx)(clientPtr);
+        line("client probe team=%d idx=%d ctrl=%p\n", probeTeam, probeIdx, (void*) clientPtr);
     }
     dump_projectiles();
     dump_ad();
@@ -442,6 +430,7 @@ void tick(void)
     fflush(g_file);
     rotate_if_needed();
 }
+
 void start(void)
 {
     dispatch_queue_t queue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
@@ -450,15 +439,15 @@ void start(void)
     fflush(g_file);
     g_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
     if (!g_timer) return;
-    dispatch_source_set_timer(
-        g_timer,
-        dispatch_time(DISPATCH_TIME_NOW, (int64_t) (150 * NSEC_PER_MSEC)),
-        (uint64_t) (LOG_INTERVAL_MS * NSEC_PER_MSEC),
-        (uint64_t) (10 * NSEC_PER_MSEC));
+    dispatch_source_set_timer(g_timer,
+                              dispatch_time(DISPATCH_TIME_NOW, (int64_t) (150 * NSEC_PER_MSEC)),
+                              (uint64_t) (LOG_INTERVAL_MS * NSEC_PER_MSEC),
+                              (uint64_t) (10 * NSEC_PER_MSEC));
     dispatch_source_set_event_handler(g_timer, ^{ tick(); });
     dispatch_resume(g_timer);
 }
 }
+
 __attribute__((constructor)) static void logger_entry(void)
 {
     dispatch_async(dispatch_get_main_queue(), ^{ start(); });

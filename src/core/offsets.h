@@ -1,5 +1,6 @@
 #ifndef OFFSETS_H
 #define OFFSETS_H
+
 enum
 {
     SC_LEN_OFF                                  = 0x4ULL,
@@ -25,6 +26,7 @@ enum
 };
 
 #define CASTING_RANGE_SCALE 100.0f
+
 enum
 {
     PROJ_INDEX_MAX                 = 4,

@@ -10,7 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #if __has_include(<ptrauth.h>)
-#include <ptrauth.h>
+#    include <ptrauth.h>
 #endif
 #include "../features/autododge.h"
 #include "../utils/crypto.h"
@@ -56,11 +56,12 @@ int           sig_ticks         = 0;
 uintptr_t     sig_last          = 0;
 uint64_t      walk_tick         = 0;
 int           walk_count        = -1;
-BOOL          query_region(uintptr_t       address,
-                           vm_prot_t*      protection,
-                           vm_prot_t*      maxProtection,
-                           mach_vm_size_t* regionSize,
-                           uintptr_t*      regionStart)
+
+BOOL query_region(uintptr_t       address,
+                  vm_prot_t*      protection,
+                  vm_prot_t*      maxProtection,
+                  mach_vm_size_t* regionSize,
+                  uintptr_t*      regionStart)
 {
     vm_address_t                   regionAddress = (vm_address_t) address;
     vm_size_t                      size          = 0;
@@ -108,6 +109,7 @@ BOOL          query_region(uintptr_t       address,
     }
     return YES;
 }
+
 BOOL addr_writable(uintptr_t address, size_t length)
 {
     if (!address || !length)
@@ -146,6 +148,7 @@ BOOL addr_writable(uintptr_t address, size_t length)
     }
     return cursor >= end;
 }
+
 BOOL read_bytes(uintptr_t address, void* out, size_t length)
 {
     if (!out || !length)
@@ -163,6 +166,7 @@ BOOL read_bytes(uintptr_t address, void* out, size_t length)
     memcpy(out, (const void*) address, length);
     return YES;
 }
+
 BOOL pointer_plausible(uintptr_t value)
 {
     if (value < 0x10000ULL || value >= 0x00007fffffffffffULL)
@@ -175,10 +179,12 @@ BOOL pointer_plausible(uintptr_t value)
     }
     return YES;
 }
+
 BOOL read_byte(uintptr_t address, uint8_t* out)
 {
     return read_bytes(address, out, 1);
 }
+
 BOOL read_int(uintptr_t address, int32_t* out)
 {
     if (!out)
@@ -191,6 +197,7 @@ BOOL read_int(uintptr_t address, int32_t* out)
     }
     return read_bytes(address, out, 4);
 }
+
 BOOL read_float(uintptr_t address, float* out)
 {
     if (address & 3)
@@ -199,6 +206,7 @@ BOOL read_float(uintptr_t address, float* out)
     }
     return read_bytes(address, out, 4);
 }
+
 BOOL writable(uintptr_t address, size_t length)
 {
     uintptr_t end    = address + length;
@@ -238,6 +246,7 @@ BOOL writable(uintptr_t address, size_t length)
     }
     return cursor >= end;
 }
+
 BOOL write_bytes(uintptr_t address, const void* src, size_t length)
 {
     if (!src || !length)
@@ -255,6 +264,7 @@ BOOL write_bytes(uintptr_t address, const void* src, size_t length)
     memcpy((void*) address, src, length);
     return YES;
 }
+
 BOOL read_ptr(uintptr_t address, void** out)
 {
     if (!out)
@@ -267,6 +277,7 @@ BOOL read_ptr(uintptr_t address, void** out)
     }
     return read_bytes(address, out, sizeof(void*));
 }
+
 void* read_global_ptr(uintptr_t rva)
 {
     if (!base || !rva)
@@ -280,6 +291,7 @@ void* read_global_ptr(uintptr_t rva)
     }
     return value;
 }
+
 uintptr_t callable(uintptr_t rva)
 {
     if (!base || !rva)
@@ -293,6 +305,7 @@ uintptr_t callable(uintptr_t rva)
     }
     return address;
 }
+
 BOOL copy(uintptr_t source, void* destination, size_t length)
 {
     if (!source || !destination || !length)
@@ -306,6 +319,7 @@ BOOL copy(uintptr_t source, void* destination, size_t length)
     memcpy(destination, (const void*) source, length);
     return YES;
 }
+
 BOOL text_section(uintptr_t* address, uint64_t* size)
 {
     if (!base)
@@ -330,8 +344,7 @@ BOOL text_section(uintptr_t* address, uint64_t* size)
         {
             return NO;
         }
-        const struct load_command* command =
-            (const struct load_command*) cursor;
+        const struct load_command* command = (const struct load_command*) cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             return NO;
@@ -340,22 +353,18 @@ BOOL text_section(uintptr_t* address, uint64_t* size)
         {
             return NO;
         }
-        if (command->cmd == LC_SEGMENT_64 &&
-            command->cmdsize >= sizeof(struct segment_command_64))
+        if (command->cmd == LC_SEGMENT_64 && command->cmdsize >= sizeof(struct segment_command_64))
         {
-            const struct segment_command_64* segment =
-                (const struct segment_command_64*) command;
+            const struct segment_command_64* segment = (const struct segment_command_64*) command;
             if (strcmp(segment->segname, "__TEXT") == 0)
             {
-                uint64_t room = (uint64_t) command->cmdsize -
-                                sizeof(struct segment_command_64);
+                uint64_t room  = (uint64_t) command->cmdsize - sizeof(struct segment_command_64);
                 uint64_t count = room / sizeof(struct section_64);
                 if (count > segment->nsects)
                 {
                     count = segment->nsects;
                 }
-                const struct section_64* sections =
-                    (const struct section_64*) (segment + 1);
+                const struct section_64* sections = (const struct section_64*) (segment + 1);
                 for (uint64_t s = 0; s < count; s++)
                 {
                     if (strcmp(sections[s].sectname, "__text") != 0)
@@ -382,15 +391,18 @@ BOOL text_section(uintptr_t* address, uint64_t* size)
     }
     return NO;
 }
+
 BOOL valid_header(uintptr_t imageBase)
 {
     if (!imageBase)
     {
         return NO;
     }
+
     struct mach_header_64 header
     {
     };
+
     if (!pointer_plausible(imageBase))
     {
         return NO;
@@ -421,6 +433,7 @@ BOOL valid_header(uintptr_t imageBase)
     }
     return YES;
 }
+
 static BOOL contains_ci(const char* haystack, const char* needle)
 {
     const char* p = nullptr;
@@ -458,6 +471,7 @@ static BOOL contains_ci(const char* haystack, const char* needle)
     }
     return NO;
 }
+
 static BOOL find_game_image_dyld(uintptr_t* out_base)
 {
     uint32_t count = _dyld_image_count();
@@ -491,6 +505,7 @@ static BOOL find_game_image_dyld(uintptr_t* out_base)
     }
     return NO;
 }
+
 BOOL find_game_image(uintptr_t* out_base)
 {
     if (!out_base)
@@ -499,10 +514,12 @@ BOOL find_game_image(uintptr_t* out_base)
     }
     return find_game_image_dyld(out_base);
 }
+
 uintptr_t         owner      = 0;
 int               wired      = 0;
 dispatch_source_t scan_timer = nullptr;
-BOOL              segment_range(const char* name, uintptr_t* lo, uintptr_t* hi)
+
+BOOL segment_range(const char* name, uintptr_t* lo, uintptr_t* hi)
 {
     if (!base || !name)
     {
@@ -526,8 +543,7 @@ BOOL              segment_range(const char* name, uintptr_t* lo, uintptr_t* hi)
         {
             return NO;
         }
-        const struct load_command* command =
-            (const struct load_command*) cursor;
+        const struct load_command* command = (const struct load_command*) cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             return NO;
@@ -536,11 +552,9 @@ BOOL              segment_range(const char* name, uintptr_t* lo, uintptr_t* hi)
         {
             return NO;
         }
-        if (command->cmd == LC_SEGMENT_64 &&
-            command->cmdsize >= sizeof(struct segment_command_64))
+        if (command->cmd == LC_SEGMENT_64 && command->cmdsize >= sizeof(struct segment_command_64))
         {
-            const struct segment_command_64* segment =
-                (const struct segment_command_64*) command;
+            const struct segment_command_64* segment = (const struct segment_command_64*) command;
             if (strcmp(segment->segname, name) == 0)
             {
                 if (lo)
@@ -549,8 +563,7 @@ BOOL              segment_range(const char* name, uintptr_t* lo, uintptr_t* hi)
                 }
                 if (hi)
                 {
-                    *hi = slide + (uintptr_t) segment->vmaddr +
-                          (uintptr_t) segment->vmsize;
+                    *hi = slide + (uintptr_t) segment->vmaddr + (uintptr_t) segment->vmsize;
                 }
                 return YES;
             }
@@ -559,6 +572,7 @@ BOOL              segment_range(const char* name, uintptr_t* lo, uintptr_t* hi)
     }
     return NO;
 }
+
 void image_span_refresh()
 {
     if (!base || !addr_readable(base, sizeof(struct mach_header_64)))
@@ -578,8 +592,7 @@ void image_span_refresh()
         {
             break;
         }
-        const struct load_command* command =
-            (const struct load_command*) cursor;
+        const struct load_command* command = (const struct load_command*) cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             break;
@@ -591,6 +604,7 @@ void image_span_refresh()
         cursor += command->cmdsize;
     }
 }
+
 const char* image_segment_name(uintptr_t value)
 {
     if (!base || !value)
@@ -615,8 +629,7 @@ const char* image_segment_name(uintptr_t value)
         {
             return nullptr;
         }
-        const struct load_command* command =
-            (const struct load_command*) cursor;
+        const struct load_command* command = (const struct load_command*) cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             return nullptr;
@@ -625,16 +638,13 @@ const char* image_segment_name(uintptr_t value)
         {
             return nullptr;
         }
-        if (command->cmd == LC_SEGMENT_64 &&
-            command->cmdsize >= sizeof(struct segment_command_64))
+        if (command->cmd == LC_SEGMENT_64 && command->cmdsize >= sizeof(struct segment_command_64))
         {
-            const struct segment_command_64* segment =
-                (const struct segment_command_64*) command;
+            const struct segment_command_64* segment = (const struct segment_command_64*) command;
             if (segment->vmsize)
             {
                 uintptr_t start = slide + (uintptr_t) segment->vmaddr;
-                if (value >= start &&
-                    value < (start + (uintptr_t) segment->vmsize))
+                if (value >= start && value < (start + (uintptr_t) segment->vmsize))
                 {
                     return segment->segname;
                 }
@@ -644,6 +654,7 @@ const char* image_segment_name(uintptr_t value)
     }
     return nullptr;
 }
+
 BOOL vtable_shaped(uintptr_t value)
 {
     const char* segment = image_segment_name(value);
@@ -665,6 +676,7 @@ BOOL vtable_shaped(uintptr_t value)
     }
     return NO;
 }
+
 BOOL heap_resident(uintptr_t value)
 {
     if (!value)
@@ -673,6 +685,7 @@ BOOL heap_resident(uintptr_t value)
     }
     return image_segment_name(value) ? NO : YES;
 }
+
 BOOL instance_shaped(uintptr_t object)
 {
     void* vtable = nullptr;
@@ -702,6 +715,7 @@ BOOL instance_shaped(uintptr_t object)
     }
     return YES;
 }
+
 BOOL manager_shape(uintptr_t mgrPtr)
 {
     void*   array    = nullptr;
@@ -752,9 +766,7 @@ BOOL manager_shape(uintptr_t mgrPtr)
         }
         if (count > 1)
         {
-            if (!read_ptr((uintptr_t) array +
-                              (uintptr_t) (count - 1) * sizeof(void*),
-                          &probe))
+            if (!read_ptr((uintptr_t) array + (uintptr_t) (count - 1) * sizeof(void*), &probe))
             {
                 return NO;
             }
@@ -766,7 +778,9 @@ BOOL manager_shape(uintptr_t mgrPtr)
     }
     return YES;
 }
-int  trail_count = 0;
+
+int trail_count = 0;
+
 BOOL vtable_in_image(uintptr_t vtable)
 {
     uintptr_t lo = 0;
@@ -785,12 +799,12 @@ BOOL vtable_in_image(uintptr_t vtable)
     }
     return NO;
 }
+
 uintptr_t strip_ptr(uintptr_t value)
 {
     uintptr_t stripped = value;
 #if __has_feature(ptrauth_calls)
-    stripped =
-        (uintptr_t) ptrauth_strip((void*) value, ptrauth_key_function_pointer);
+    stripped = (uintptr_t) ptrauth_strip((void*) value, ptrauth_key_function_pointer);
 #endif
     if (stripped >= base && stripped < base + IMAGE_SPAN)
     {
@@ -806,6 +820,7 @@ uintptr_t strip_ptr(uintptr_t value)
     }
     return stripped;
 }
+
 void poll_for_game(int tick)
 {
     if (setup_done)
@@ -823,18 +838,19 @@ void poll_for_game(int tick)
         setup();
         return;
     }
-    dispatch_after(
-        dispatch_time(DISPATCH_TIME_NOW, (int64_t) (0.5 * NSEC_PER_SEC)),
-        dispatch_get_main_queue(),
-        ^{ poll_for_game(tick + 1); });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t) (0.5 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(),
+                   ^{ poll_for_game(tick + 1); });
 }
+
 uintptr_t base        = 0;
 uintptr_t manager_ptr = 0;
 uint64_t  ticks_a     = 0;
 float     own_speed   = 720.0f;
 float     own_r       = 0.0f;
 uint32_t  own_hp      = 0;
-int       collect(uintptr_t mgrPtr, obj_t* out, int capacity)
+
+int collect(uintptr_t mgrPtr, obj_t* out, int capacity)
 {
     void*    data    = nullptr;
     int32_t  count   = 0;
@@ -873,8 +889,7 @@ int       collect(uintptr_t mgrPtr, obj_t* out, int capacity)
         {
             break;
         }
-        if (!read_ptr((uintptr_t) data + (uintptr_t) i * sizeof(void*),
-                      &element))
+        if (!read_ptr((uintptr_t) data + (uintptr_t) i * sizeof(void*), &element))
         {
             continue;
         }
@@ -921,16 +936,14 @@ int       collect(uintptr_t mgrPtr, obj_t* out, int capacity)
         {
             continue;
         }
-        if (entry.x <= -1000000 || entry.x >= 1000000 || entry.y <= -1000000 ||
-            entry.y >= 1000000)
+        if (entry.x <= -1000000 || entry.x >= 1000000 || entry.y <= -1000000 || entry.y >= 1000000)
         {
             if (!COORD_SOFT)
             {
                 continue;
             }
         }
-        if ((entry.teamOld < 0 || entry.teamOld > 7) &&
-            (entry.teamNew < 0 || entry.teamNew > 7))
+        if ((entry.teamOld < 0 || entry.teamOld > 7) && (entry.teamNew < 0 || entry.teamNew > 7))
         {
             continue;
         }
@@ -938,6 +951,7 @@ int       collect(uintptr_t mgrPtr, obj_t* out, int capacity)
     }
     return usable;
 }
+
 uint64_t us()
 {
     static mach_timebase_info_data_t tb;
@@ -955,6 +969,7 @@ uint64_t us()
     }
     return (t / (uint64_t) tb.denom) * (uint64_t) tb.numer / 1000ULL;
 }
+
 BOOL start_word(uint32_t word)
 {
     if (word == 0xD503233F || word == 0xD503237F)
@@ -975,14 +990,14 @@ BOOL start_word(uint32_t word)
     }
     return NO;
 }
+
 BOOL start_boundary(const uint8_t* bytes, size_t offset)
 {
     if (offset < 4)
     {
         return NO;
     }
-    for (size_t back = 4, seen = 0; back <= offset && seen < 8;
-         back += 4, seen++)
+    for (size_t back = 4, seen = 0; back <= offset && seen < 8; back += 4, seen++)
     {
         uint32_t word = 0;
         memcpy(&word, bytes + offset - back, 4);
@@ -1002,6 +1017,7 @@ BOOL start_boundary(const uint8_t* bytes, size_t offset)
     }
     return NO;
 }
+
 void load_function_starts()
 {
     if (starts || !base)
@@ -1050,9 +1066,8 @@ void load_function_starts()
         }
         if (count >= capacity)
         {
-            size_t     grown = capacity * 2;
-            uintptr_t* larger =
-                (uintptr_t*) realloc(startList, grown * sizeof(uintptr_t));
+            size_t     grown  = capacity * 2;
+            uintptr_t* larger = (uintptr_t*) realloc(startList, grown * sizeof(uintptr_t));
             if (!larger)
             {
                 break;
@@ -1071,6 +1086,7 @@ void load_function_starts()
     starts       = startList;
     starts_count = count;
 }
+
 uintptr_t*        starts       = nullptr;
 size_t            starts_count = 0;
 uintptr_t         setpred      = 0;
@@ -1083,11 +1099,9 @@ int32_t           pub_count    = 0;
 uintptr_t         tick_object  = 0;
 uintptr_t         tick_array   = 0;
 int32_t           tick_count   = 0;
-void              publish(uintptr_t object,
-                          uintptr_t array,
-                          int32_t   count,
-                          int32_t /*unused*/,
-                          const char* /*unused*/)
+
+void publish(
+    uintptr_t object, uintptr_t array, int32_t count, int32_t /*unused*/, const char* /*unused*/)
 {
     __sync_synchronize();
     seq++;
@@ -1102,6 +1116,7 @@ void              publish(uintptr_t object,
     seq++;
     __sync_synchronize();
 }
+
 int snapshot(uintptr_t* objectOut, uintptr_t* arrayOut, int32_t* countOut)
 {
     int tries;
@@ -1139,6 +1154,7 @@ int snapshot(uintptr_t* objectOut, uintptr_t* arrayOut, int32_t* countOut)
     }
     return 0;
 }
+
 void tick_begin()
 {
     uintptr_t o = 0;
@@ -1152,15 +1168,15 @@ void tick_begin()
     tick_array  = a;
     tick_count  = c;
 }
+
 static const uint32_t slot_site_hash[34] = {
-    0x7744a9f0u, 0xd8ef9922u, 0x00000000u, 0x00000000u, 0x00000000u,
-    0x3888a7e0u, 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u,
-    0x00000000u, 0xe5674c94u, 0x00000000u, 0x6e078ab4u, 0x6e078ab4u,
-    0x00000000u, 0x4d5cf2adu, 0x04be5d31u, 0xa7ee96fau, 0xcfef7319u,
-    0x140cf28cu, 0x00000000u, 0x00000000u, 0x75481000u, 0x1a66e6cfu,
-    0x00000000u, 0x00000000u, 0x00000000u, 0xdba51345u, 0x1f08716fu,
-    0xd537a3b5u, 0x41120014u, 0x00000000u, 0x1d5fea33u,
+    0x7744a9f0u, 0xd8ef9922u, 0x00000000u, 0x00000000u, 0x00000000u, 0x3888a7e0u, 0x00000000u,
+    0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u, 0xe5674c94u, 0x00000000u, 0x6e078ab4u,
+    0x6e078ab4u, 0x00000000u, 0x4d5cf2adu, 0x04be5d31u, 0xa7ee96fau, 0xcfef7319u, 0x140cf28cu,
+    0x00000000u, 0x00000000u, 0x75481000u, 0x1a66e6cfu, 0x00000000u, 0x00000000u, 0x00000000u,
+    0xdba51345u, 0x1f08716fu, 0xd537a3b5u, 0x41120014u, 0x00000000u, 0x1d5fea33u,
 };
+
 static uint32_t site_hash(uintptr_t address)
 {
     uint8_t  bytes[16];
@@ -1177,6 +1193,7 @@ static uint32_t site_hash(uintptr_t address)
     }
     return hash;
 }
+
 void slot_hooks_install()
 {
     hook_t specs[34];
@@ -1199,9 +1216,11 @@ void slot_hooks_install()
     }
     hooks_install(base, specs, 34, (void**) slot_orig);
 }
+
 const int object_slots[3] = {2, 3, 4};
 int       pub_logs        = 0;
-void      slot_pump()
+
+void slot_pump()
 {
     int first = -1;
     for (int i = 0; i < 34; i++)
@@ -1227,23 +1246,24 @@ void      slot_pump()
     slot_adopted = object;
     {
         void* vtable = nullptr;
-        if (!(read_ptr(object, &vtable) && vtable &&
-              vtable_in_image((uintptr_t) vtable)) &&
+        if (!(read_ptr(object, &vtable) && vtable && vtable_in_image((uintptr_t) vtable)) &&
             !pointer_plausible((uintptr_t) vtable))
         {
             return;
         }
     }
 }
+
 slot_fn_t slot_orig[34] = {nullptr};
-uint64_t  slot_repl_0(void*    a0,
-                      uint64_t a1,
-                      uint64_t a2,
-                      uint64_t a3,
-                      uint64_t a4,
-                      uint64_t a5,
-                      uint64_t a6,
-                      uint64_t a7)
+
+uint64_t slot_repl_0(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7)
 {
     if (slot_orig[0])
     {
@@ -1251,6 +1271,7 @@ uint64_t  slot_repl_0(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_1(void*    a0,
                      uint64_t a1,
                      uint64_t a2,
@@ -1266,6 +1287,7 @@ uint64_t slot_repl_1(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_2(void*    a0,
                      uint64_t a1,
                      uint64_t a2,
@@ -1281,6 +1303,7 @@ uint64_t slot_repl_2(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_3(void*    a0,
                      uint64_t a1,
                      uint64_t a2,
@@ -1296,6 +1319,7 @@ uint64_t slot_repl_3(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_4(void*    a0,
                      uint64_t a1,
                      uint64_t a2,
@@ -1311,6 +1335,7 @@ uint64_t slot_repl_4(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_5(void*    a0,
                      uint64_t a1,
                      uint64_t a2,
@@ -1326,6 +1351,7 @@ uint64_t slot_repl_5(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_6(void*    a0,
                      uint64_t a1,
                      uint64_t a2,
@@ -1341,6 +1367,7 @@ uint64_t slot_repl_6(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_7(void*    a0,
                      uint64_t a1,
                      uint64_t a2,
@@ -1356,6 +1383,7 @@ uint64_t slot_repl_7(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_8(void*    a0,
                      uint64_t a1,
                      uint64_t a2,
@@ -1371,6 +1399,7 @@ uint64_t slot_repl_8(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_9(void*    a0,
                      uint64_t a1,
                      uint64_t a2,
@@ -1386,6 +1415,7 @@ uint64_t slot_repl_9(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_10(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1401,6 +1431,7 @@ uint64_t slot_repl_10(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_11(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1416,6 +1447,7 @@ uint64_t slot_repl_11(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_12(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1431,6 +1463,7 @@ uint64_t slot_repl_12(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_13(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1446,6 +1479,7 @@ uint64_t slot_repl_13(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_14(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1461,6 +1495,7 @@ uint64_t slot_repl_14(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_15(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1476,6 +1511,7 @@ uint64_t slot_repl_15(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_16(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1491,6 +1527,7 @@ uint64_t slot_repl_16(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_17(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1506,6 +1543,7 @@ uint64_t slot_repl_17(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_18(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1521,6 +1559,7 @@ uint64_t slot_repl_18(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_19(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1536,6 +1575,7 @@ uint64_t slot_repl_19(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_20(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1551,6 +1591,7 @@ uint64_t slot_repl_20(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_21(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1566,6 +1607,7 @@ uint64_t slot_repl_21(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_22(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1581,6 +1623,7 @@ uint64_t slot_repl_22(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_23(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1596,6 +1639,7 @@ uint64_t slot_repl_23(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_24(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1611,6 +1655,7 @@ uint64_t slot_repl_24(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_25(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1626,6 +1671,7 @@ uint64_t slot_repl_25(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_26(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1641,6 +1687,7 @@ uint64_t slot_repl_26(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_27(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1656,6 +1703,7 @@ uint64_t slot_repl_27(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_28(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1671,6 +1719,7 @@ uint64_t slot_repl_28(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_29(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1686,6 +1735,7 @@ uint64_t slot_repl_29(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_30(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1701,6 +1751,7 @@ uint64_t slot_repl_30(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_31(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1716,6 +1767,7 @@ uint64_t slot_repl_31(void*    a0,
     }
     return 0;
 }
+
 uint64_t slot_repl_32(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1732,6 +1784,7 @@ uint64_t slot_repl_32(void*    a0,
     }
     return r;
 }
+
 uint64_t slot_repl_33(void*    a0,
                       uint64_t a1,
                       uint64_t a2,
@@ -1748,6 +1801,7 @@ uint64_t slot_repl_33(void*    a0,
     }
     return r;
 }
+
 const hook_t slot_specs[34] = {
     {SLOT_RVA_0, (void*) slot_repl_0, 0},
     {SLOT_RVA_1, (void*) slot_repl_1, 0},
@@ -1784,6 +1838,7 @@ const hook_t slot_specs[34] = {
     {SLOT_NONE, (void*) slot_repl_32, 0},
     {RVA_BATTLESCREEN__UPDATEMOVEMENT, (void*) slot_repl_33, 0},
 };
+
 int state_tick()
 {
     uintptr_t slot        = (uintptr_t) read_global_ptr(STATE_RVA);
@@ -1841,9 +1896,8 @@ int state_tick()
     {
         return 1;
     }
-    inner = (uintptr_t) value;
-    hopOk[0] =
-        container_header(clientPtr, &hopArray[0], &hopCount[0], &hopCap[0]);
+    inner    = (uintptr_t) value;
+    hopOk[0] = container_header(clientPtr, &hopArray[0], &hopCount[0], &hopCap[0]);
     hopOk[1] = container_header(inner, &hopArray[1], &hopCount[1], &hopCap[1]);
     score[0] = hopOk[0] ? container_score(clientPtr) : -1;
     score[1] = hopOk[1] ? container_score(inner) : -1;
@@ -1908,13 +1962,13 @@ int state_tick()
             v141_array_vote_logs++;
         }
     }
-    if (players != pub_object || (uintptr_t) array != pub_array ||
-        count != pub_count)
+    if (players != pub_object || (uintptr_t) array != pub_array || count != pub_count)
     {
         publish(players, (uintptr_t) array, count, capacity, "hop-adopt");
     }
     return 1;
 }
+
 void start_timer()
 {
     if (scan_timer)
@@ -1922,18 +1976,16 @@ void start_timer()
         return;
     }
     dispatch_queue_t  queue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
-    dispatch_source_t timer =
-        dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
+    dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
     if (!timer)
     {
         return;
     }
     uint64_t interval = (uint64_t) (1.0 * NSEC_PER_SEC);
-    dispatch_source_set_timer(
-        timer,
-        dispatch_time(DISPATCH_TIME_NOW, (int64_t) interval),
-        interval,
-        (uint64_t) (0.25 * NSEC_PER_SEC));
+    dispatch_source_set_timer(timer,
+                              dispatch_time(DISPATCH_TIME_NOW, (int64_t) interval),
+                              interval,
+                              (uint64_t) (0.25 * NSEC_PER_SEC));
     dispatch_source_set_event_handler(timer, ^{
       slot_pump();
       state_tick();
@@ -1942,30 +1994,36 @@ void start_timer()
     dispatch_resume(timer);
     scan_timer = timer;
 }
+
 uint64_t ticks_b = 0;
 using fn1        = uintptr_t (*)(uintptr_t);
 using fn1i       = int32_t (*)(uintptr_t);
 using fn1f       = float (*)(uintptr_t);
+
 static uintptr_t call1(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self) return 0;
     return ((fn1) fn)(self);
 }
+
 static int32_t call1i(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self) return 0;
     return ((fn1i) fn)(self);
 }
+
 static uintptr_t call1u(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self) return 0;
     return ((uintptr_t(*)(uintptr_t)) fn)(self);
 }
+
 static uintptr_t call2u(uintptr_t fn, uintptr_t self, int32_t arg)
 {
     if (!fn || !self) return 0;
     return ((uintptr_t(*)(uintptr_t, int32_t)) fn)(self, arg);
 }
+
 static BOOL obj_ok(uintptr_t p)
 {
     uintptr_t vt = 0;
@@ -1974,18 +2032,21 @@ static BOOL obj_ok(uintptr_t p)
     uintptr_t rva = vt - base;
     return (rva >= DC_RVA_LO && rva < DC_RVA_LO + DC_RVA_SIZE) ? YES : NO;
 }
+
 float call1f(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self) return 0.0f;
     return ((fn1f) fn)(self);
 }
-uintptr_t  manager_array_ptr = 0;
-int32_t    manager_count_v   = 0;
-int32_t    own_x             = 0;
-int32_t    own_y             = 0;
-int32_t    own_index_v       = -1;
-int        own_ok_hp         = 0;
-dbg_t      dbg;
+
+uintptr_t manager_array_ptr = 0;
+int32_t   manager_count_v   = 0;
+int32_t   own_x             = 0;
+int32_t   own_y             = 0;
+int32_t   own_index_v       = -1;
+int       own_ok_hp         = 0;
+dbg_t     dbg;
+
 static int battle_state()
 {
     uintptr_t slot  = (uintptr_t) read_global_ptr(STATE_RVA);
@@ -2000,6 +2061,7 @@ static int battle_state()
     }
     return state;
 }
+
 static void world_reset()
 {
     own_elem          = 0;
@@ -2014,6 +2076,7 @@ static void world_reset()
     manager_array_ptr = 0;
     manager_count_v   = 0;
 }
+
 void scan_world()
 {
     uintptr_t clientPtr = 0;
@@ -2051,8 +2114,7 @@ void scan_world()
         if (pointer_plausible(tileMap))
         {
             wall_bind(tileMap);
-            wall_maybe_refresh(
-                (uint64_t) (CFAbsoluteTimeGetCurrent() * 1000.0));
+            wall_maybe_refresh((uint64_t) (CFAbsoluteTimeGetCurrent() * 1000.0));
         }
     }
     if (!pointer_plausible(own))
@@ -2085,14 +2147,12 @@ void scan_world()
     }
     if (own)
     {
-        if (read_int(own + (uintptr_t) OBJ_X_OFF, &x) &&
-            read_int(own + (uintptr_t) OBJ_Y_OFF, &y))
+        if (read_int(own + (uintptr_t) OBJ_X_OFF, &x) && read_int(own + (uintptr_t) OBJ_Y_OFF, &y))
         {
             own_x = x;
             own_y = y;
         }
-        if (read_int(own + (uintptr_t) OBJ_HP_OFF, &hp) && hp >= 0 &&
-            hp < 1000000)
+        if (read_int(own + (uintptr_t) OBJ_HP_OFF, &hp) && hp >= 0 && hp < 1000000)
         {
             own_ok_hp = 1;
             own_hp    = (uint32_t) hp;
@@ -2115,10 +2175,8 @@ void scan_world()
         ownData       = addr_getdata ? call1(addr_getdata, own) : 0;
         if (pointer_plausible(ownData) && read_int(ownData, &probe))
         {
-            int32_t radius =
-                addr_charradius ? call1i(addr_charradius, ownData) : 0;
-            int32_t speed =
-                addr_charspeed ? call1i(addr_charspeed, ownData) : 0;
+            int32_t radius = addr_charradius ? call1i(addr_charradius, ownData) : 0;
+            int32_t speed  = addr_charspeed ? call1i(addr_charspeed, ownData) : 0;
             if (radius >= 20 && radius <= 400) own_r = (float) radius;
             if (speed >= 300 && speed <= 3000) own_speed = (float) speed;
         }
@@ -2154,6 +2212,7 @@ void scan_world()
     dbg.stage         = 6;
     ticks_a++;
 }
+
 void run_workload()
 {
     tick_begin();
@@ -2162,6 +2221,7 @@ void run_workload()
     scan_world();
     run_autododge();
 }
+
 void run_autododge()
 {
     if (in_move)
@@ -2172,9 +2232,11 @@ void run_autododge()
     autododge();
     in_move = 0;
 }
+
 static uint64_t          work_us   = 0;
 static dispatch_source_t hot_timer = nullptr;
-static void              objc_body()
+
+static void objc_body()
 {
     uint64_t now = 0;
     if (inside_hook)
@@ -2191,6 +2253,7 @@ static void              objc_body()
     run_workload();
     inside_hook = NO;
 }
+
 static void start_hot_timer()
 {
     dispatch_queue_t  queue    = nullptr;
@@ -2207,12 +2270,12 @@ static void start_hot_timer()
         return;
     }
     interval = (uint64_t) (HOT_INTERVAL_US * NSEC_PER_USEC);
-    dispatch_source_set_timer(
-        timer, dispatch_time(DISPATCH_TIME_NOW, 0), interval, 0);
+    dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, 0), interval, 0);
     dispatch_source_set_event_handler(timer, ^{ objc_body(); });
     dispatch_resume(timer);
     hot_timer = timer;
 }
+
 void setup()
 {
     if (setup_done)
@@ -2227,11 +2290,13 @@ void setup()
     start_timer();
     start_hot_timer();
 }
+
 int       prev_state     = -1;
 int       hop_chosen     = -1;
 int       hop_sticky     = 0;
 uintptr_t scan_container = 0;
-int       element_type(uintptr_t vt, uintptr_t* wordOut)
+
+int element_type(uintptr_t vt, uintptr_t* wordOut)
 {
     void*     slotPtr = nullptr;
     uintptr_t slot    = 0;
@@ -2274,11 +2339,10 @@ int       element_type(uintptr_t vt, uintptr_t* wordOut)
         return -1;
     }
 }
+
 uintptr_t hop_scene = 0;
-int       container_header(uintptr_t  object,
-                           uintptr_t* arrayOut,
-                           int32_t*   countOut,
-                           int32_t*   capOut)
+
+int container_header(uintptr_t object, uintptr_t* arrayOut, int32_t* countOut, int32_t* capOut)
 {
     void* array = nullptr;
     if (arrayOut)
@@ -2315,6 +2379,7 @@ int       container_header(uintptr_t  object,
     }
     return 1;
 }
+
 int32_t gid(uintptr_t element, int32_t* offOut)
 {
     if (offOut)
@@ -2327,8 +2392,10 @@ int32_t gid(uintptr_t element, int32_t* offOut)
     }
     return call1i(addr_getgid, element);
 }
+
 int last_choice = -2;
 int hop_logs    = 0;
+
 int container_score(uintptr_t container)
 {
     void*   array       = nullptr;
@@ -2374,8 +2441,7 @@ int container_score(uintptr_t container)
     for (i = 0; i < count && samples < 4; i++)
     {
         void* element = nullptr;
-        if (!read_ptr((uintptr_t) array + (uintptr_t) i * 8ULL, &element) ||
-            !element)
+        if (!read_ptr((uintptr_t) array + (uintptr_t) i * 8ULL, &element) || !element)
         {
             continue;
         }
@@ -2390,18 +2456,15 @@ int container_score(uintptr_t container)
         projGid = gid((uintptr_t) element, nullptr);
         read_int((uintptr_t) element + OBJ_TEAM_OFF, &team);
         if (read_int((uintptr_t) element + OBJ_X_OFF, &px) &&
-            read_int((uintptr_t) element + OBJ_Y_OFF, &py) && px > -COORD_MAX &&
-            px < COORD_MAX && py > -COORD_MAX && py < COORD_MAX &&
-            (px != 0 || py != 0))
+            read_int((uintptr_t) element + OBJ_Y_OFF, &py) && px > -COORD_MAX && px < COORD_MAX &&
+            py > -COORD_MAX && py < COORD_MAX && (px != 0 || py != 0))
         {
             int dup = 0;
             posOk++;
             for (j = 0; j < i; j++)
             {
                 void* other = nullptr;
-                if (!read_ptr((uintptr_t) array + (uintptr_t) j * 8ULL,
-                              &other) ||
-                    !other)
+                if (!read_ptr((uintptr_t) array + (uintptr_t) j * 8ULL, &other) || !other)
                 {
                     continue;
                 }
@@ -2472,6 +2535,7 @@ int container_score(uintptr_t container)
     score += posOk * POS_BONUS + posDistinct * DIST_BONUS;
     return score;
 }
+
 void resolve_addresses()
 {
     if (!base)
@@ -2501,6 +2565,7 @@ void resolve_addresses()
         addr_battlescreen = 0;
     }
 }
+
 void locate_battle_mode()
 {
     if (mode_strong)
@@ -2527,11 +2592,13 @@ void locate_battle_mode()
         image_span_refresh();
     }
 }
+
 uint64_t probe_last_ms = 0;
 int      coord_ok      = 0;
 int      coord_usable  = 0;
 int      gidless       = 0;
-void     gidless_scan(uintptr_t mgrPtr)
+
+void gidless_scan(uintptr_t mgrPtr)
 {
     void*   data    = nullptr;
     int32_t count   = 0;
@@ -2558,8 +2625,7 @@ void     gidless_scan(uintptr_t mgrPtr)
     for (i = 0; i < count && i < 8; i++)
     {
         void* element = nullptr;
-        if (!read_ptr((uintptr_t) data + (uintptr_t) i * 8ULL, &element) ||
-            !element)
+        if (!read_ptr((uintptr_t) data + (uintptr_t) i * 8ULL, &element) || !element)
         {
             continue;
         }
@@ -2575,6 +2641,7 @@ void     gidless_scan(uintptr_t mgrPtr)
         return;
     }
 }
+
 int       dead          = 0;
 int       own_team_a    = -1;
 int       own_team_seen = 0;
@@ -2583,10 +2650,8 @@ uint8_t   proj_bytes[0x100];
 int       proj_have      = 0;
 int       proj_dumps     = 0;
 uint64_t  proj_diff_logs = 0;
-void      proj_track(uintptr_t elem,
-                     uintptr_t /*unused*/,
-                     int32_t /*unused*/,
-                     int32_t /*unused*/)
+
+void proj_track(uintptr_t elem, uintptr_t /*unused*/, int32_t /*unused*/, int32_t /*unused*/)
 {
     uint8_t now[0x100];
     int     i;
@@ -2646,6 +2711,7 @@ void      proj_track(uintptr_t elem,
     }
     memcpy(proj_bytes, now, sizeof(now));
 }
+
 uintptr_t hop(uintptr_t imageBase, int* whyOut)
 {
     void* p = nullptr;
@@ -2680,6 +2746,7 @@ uintptr_t hop(uintptr_t imageBase, int* whyOut)
     }
     return (uintptr_t) q;
 }
+
 int scene_live()
 {
     uintptr_t slot  = (uintptr_t) read_global_ptr(STATE_RVA);
@@ -2699,6 +2766,7 @@ int scene_live()
     }
     return static_cast<int>((uintptr_t) value == scene_object);
 }
+
 uintptr_t client()
 {
     void* clientPtr = nullptr;
@@ -2712,23 +2780,28 @@ uintptr_t client()
     }
     return (uintptr_t) clientPtr;
 }
+
 static int proj_read_name(uintptr_t data, char* dst, int cap);
+
 using range_entry_t = struct
 {
     char  name[64];
     float range;
 };
+
 #define RANGE_MAP_MAX 32
 #define HARVEST_MAX   32
 static range_entry_t range_map[RANGE_MAP_MAX];
 static int           range_map_n = 0;
 static uintptr_t     harvested[HARVEST_MAX];
 static int           harvested_n = 0;
-static void          range_map_reset()
+
+static void range_map_reset()
 {
     range_map_n = 0;
     harvested_n = 0;
 }
+
 static int harvested_has(uintptr_t chr)
 {
     int i = 0;
@@ -2741,6 +2814,7 @@ static int harvested_has(uintptr_t chr)
     }
     return 0;
 }
+
 static void harvested_add(uintptr_t chr)
 {
     if (harvested_n >= HARVEST_MAX)
@@ -2749,6 +2823,7 @@ static void harvested_add(uintptr_t chr)
     }
     harvested[harvested_n++] = chr;
 }
+
 static void range_note(const char* name, float units)
 {
     int i = 0;
@@ -2776,6 +2851,7 @@ static void range_note(const char* name, float units)
     range_map[range_map_n].range    = units;
     range_map_n++;
 }
+
 static float range_lookup(const char* name)
 {
     int i = 0;
@@ -2792,6 +2868,7 @@ static float range_lookup(const char* name)
     }
     return 0.0f;
 }
+
 static void harvest_skill_data(uintptr_t data)
 {
     int32_t tiles = 0;
@@ -2816,6 +2893,7 @@ static void harvest_skill_data(uintptr_t data)
         range_note(name, (float) tiles * CASTING_RANGE_SCALE);
     }
 }
+
 static void harvest_character(uintptr_t chr)
 {
     uintptr_t weapon = 0;
@@ -2830,6 +2908,7 @@ static void harvest_character(uintptr_t chr)
     }
     harvest_skill_data(weapon);
 }
+
 static uintptr_t char_by_owner(int32_t ownerIdx)
 {
     int i = 0;
@@ -2842,9 +2921,7 @@ static uintptr_t char_by_owner(int32_t ownerIdx)
         uintptr_t obj   = 0;
         int32_t   id    = 0;
         int32_t   owner = -1;
-        if (!read_ptr(manager_array_ptr + (uintptr_t) i * 8ULL,
-                      (void**) &obj) ||
-            !obj)
+        if (!read_ptr(manager_array_ptr + (uintptr_t) i * 8ULL, (void**) &obj) || !obj)
         {
             continue;
         }
@@ -2871,6 +2948,7 @@ static uintptr_t char_by_owner(int32_t ownerIdx)
     }
     return 0;
 }
+
 float range_for_proj(uintptr_t projData, int32_t ownerIdx)
 {
     char      name[64];
@@ -2894,10 +2972,12 @@ float range_for_proj(uintptr_t projData, int32_t ownerIdx)
     harvest_character(chr);
     return range_lookup(name);
 }
+
 int range_map_size()
 {
     return range_map_n;
 }
+
 float own_cast_range()
 {
     static float    cached = 0.0f;
@@ -2927,6 +3007,7 @@ float own_cast_range()
     cached = tiles > 0 ? (float) tiles * CASTING_RANGE_SCALE : 0.0f;
     return cached;
 }
+
 void state_note(int state)
 {
     if (prev_state == 5 && state != 5)
@@ -2943,11 +3024,13 @@ void state_note(int state)
     }
     prev_state = state;
 }
+
 proj_t       projs[16];
 proj_death_t proj_deaths[16];
 int          proj_death_n = 0;
 static char  proj_name_buf[16][64];
-static int   proj_read_name(uintptr_t data, char* dst, int cap)
+
+static int proj_read_name(uintptr_t data, char* dst, int cap)
 {
     void*     strp = nullptr;
     void*     farp = nullptr;
@@ -2990,10 +3073,8 @@ static int   proj_read_name(uintptr_t data, char* dst, int cap)
     dst[len] = 0;
     return 1;
 }
-int proj_scan(uintptr_t    mgrPtr,
-              int32_t      count,
-              const obj_t* rosterArr,
-              int          rosterUsable)
+
+int proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t* rosterArr, int rosterUsable)
 {
     int32_t  ownerTeam[64];
     void*    array = nullptr;
@@ -3048,8 +3129,7 @@ int proj_scan(uintptr_t    mgrPtr,
         int32_t   px      = 0;
         int32_t   py      = 0;
         int       slot    = -1;
-        if (!read_ptr((uintptr_t) array + (uintptr_t) i * 8ULL, &element) ||
-            !element)
+        if (!read_ptr((uintptr_t) array + (uintptr_t) i * 8ULL, &element) || !element)
         {
             continue;
         }
@@ -3148,15 +3228,14 @@ int proj_scan(uintptr_t    mgrPtr,
             int32_t   ownerIdx = -1;
             int       settled  = 0;
             if (rosterArr && rosterUsable > 0 &&
-                read_int((uintptr_t) element + (uintptr_t) OBJ_OWNERINDEX_OFF,
-                         &ownerIdx) &&
+                read_int((uintptr_t) element + (uintptr_t) OBJ_OWNERINDEX_OFF, &ownerIdx) &&
                 ownerIdx >= 0 && ownerIdx < 64)
             {
                 pteam   = ownerTeam[ownerIdx];
                 settled = static_cast<int>(pteam >= 0);
             }
-            if (!settled && read_int((uintptr_t) element + teamOff, &pteam) &&
-                pteam >= 0 && pteam <= 7)
+            if (!settled && read_int((uintptr_t) element + teamOff, &pteam) && pteam >= 0 &&
+                pteam <= 7)
             {
                 settled = 1;
             }
@@ -3190,9 +3269,7 @@ int proj_scan(uintptr_t    mgrPtr,
             projs[slot].spawnAreaRadius     = 0;
             projs[slot].spawnAreaActiveTime = 0;
             projs[slot].castRange           = 0;
-            if (read_ptr((uintptr_t) element + (uintptr_t) ELEM_DEF_OFF,
-                         &def) &&
-                def)
+            if (read_ptr((uintptr_t) element + (uintptr_t) ELEM_DEF_OFF, &def) && def)
             {
                 if (proj_read_name((uintptr_t) def, proj_name_buf[slot], 64))
                 {
@@ -3206,8 +3283,7 @@ int proj_scan(uintptr_t    mgrPtr,
                 }
                 {
                     uint8_t beam = 0;
-                    if (read_bytes((uintptr_t) def +
-                                       (uintptr_t) OFF_PROJECTILEDATA_ISBEAM,
+                    if (read_bytes((uintptr_t) def + (uintptr_t) OFF_PROJECTILEDATA_ISBEAM,
                                    &beam,
                                    sizeof(beam)))
                     {
@@ -3216,9 +3292,7 @@ int proj_scan(uintptr_t    mgrPtr,
                 }
                 {
                     int32_t rad = 0;
-                    if (read_int((uintptr_t) def +
-                                     (uintptr_t) OFF_PROJECTILEDATA_RADIUS,
-                                 &rad) &&
+                    if (read_int((uintptr_t) def + (uintptr_t) OFF_PROJECTILEDATA_RADIUS, &rad) &&
                         rad > 0)
                     {
                         projs[slot].radius = (float) rad;
@@ -3226,26 +3300,21 @@ int proj_scan(uintptr_t    mgrPtr,
                 }
                 {
                     void* area = nullptr;
-                    if (read_ptr((uintptr_t) def +
-                                     (uintptr_t) OFF_PROJECTILEDATA_SPAWNAREA,
+                    if (read_ptr((uintptr_t) def + (uintptr_t) OFF_PROJECTILEDATA_SPAWNAREA,
                                  &area) &&
                         area)
                     {
                         int32_t areaRadius = 0;
                         int32_t areaTime   = 0;
-                        if (read_int((uintptr_t) area +
-                                         (uintptr_t) OFF_AREAEFFECT_RADIUS,
+                        if (read_int((uintptr_t) area + (uintptr_t) OFF_AREAEFFECT_RADIUS,
                                      &areaRadius) &&
-                            areaRadius >= AREA_RADIUS_MIN &&
-                            areaRadius <= AREA_RADIUS_MAX)
+                            areaRadius >= AREA_RADIUS_MIN && areaRadius <= AREA_RADIUS_MAX)
                         {
                             projs[slot].spawnAreaRadius = areaRadius;
                         }
-                        if (read_int((uintptr_t) area +
-                                         (uintptr_t) OFF_AREAEFFECT_TIMEMS,
+                        if (read_int((uintptr_t) area + (uintptr_t) OFF_AREAEFFECT_TIMEMS,
                                      &areaTime) &&
-                            areaTime >= AREA_TIME_MIN &&
-                            areaTime <= AREA_TIME_MAX)
+                            areaTime >= AREA_TIME_MIN && areaTime <= AREA_TIME_MAX)
                         {
                             projs[slot].spawnAreaActiveTime = areaTime;
                         }
@@ -3254,9 +3323,8 @@ int proj_scan(uintptr_t    mgrPtr,
             }
             {
                 int32_t raw = 0;
-                if (read_int((uintptr_t) element + (uintptr_t) PROJ_ANGLE_OFF,
-                             &raw) &&
-                    raw > 0 && raw <= 360)
+                if (read_int((uintptr_t) element + (uintptr_t) PROJ_ANGLE_OFF, &raw) && raw > 0 &&
+                    raw <= 360)
                 {
                     projs[slot].angle = (float) raw;
                 }
@@ -3299,7 +3367,9 @@ int proj_scan(uintptr_t    mgrPtr,
     }
     return found;
 }
+
 static int ctrl_logs = 0;
+
 static int bounds_try(uintptr_t receiver, int32_t* wOut, int32_t* hOut)
 {
     uintptr_t bounds = 0;
@@ -3351,6 +3421,7 @@ static int bounds_try(uintptr_t receiver, int32_t* wOut, int32_t* hOut)
     }
     return 1;
 }
+
 int ctrl_bounds(uintptr_t imageBase, int32_t* wOut, int32_t* hOut)
 {
     if (!imageBase)
@@ -3363,6 +3434,7 @@ int ctrl_bounds(uintptr_t imageBase, int32_t* wOut, int32_t* hOut)
     }
     return bounds_try(imageBase, wOut, hOut);
 }
+
 uintptr_t controller()
 {
     uintptr_t clientPtr = client();
@@ -3378,6 +3450,7 @@ uintptr_t controller()
     }
     return clientPtr;
 }
+
 const char* header_reason(uintptr_t mgrPtr, int32_t* countOut, int32_t* capOut)
 {
     void*   array    = nullptr;
@@ -3441,17 +3514,21 @@ const char* header_reason(uintptr_t mgrPtr, int32_t* countOut, int32_t* capOut)
     }
     return nullptr;
 }
+
 uintptr_t coord_x_off()
 {
     return OBJ_X_OFF;
 }
+
 uintptr_t coord_y_off()
 {
     return OBJ_Y_OFF;
 }
+
 trail_t   trail[8];
 uintptr_t scene_object = 0;
-int       team_at(const obj_t* objects, int index)
+
+int team_at(const obj_t* objects, int index)
 {
     if (!objects || index < 0)
     {
@@ -3459,6 +3536,7 @@ int       team_at(const obj_t* objects, int index)
     }
     return objects[index].teamOld;
 }
+
 int own_side_spawn(int32_t sx, int32_t sy)
 {
     int   i       = 0;
@@ -3503,6 +3581,7 @@ int own_side_spawn(int32_t sx, int32_t sy)
     }
     return (pl_team[best] == own_team_b) ? 1 : 0;
 }
+
 uintptr_t   own_ptr        = 0;
 int         own_index      = -1;
 const char* own_from       = "none";
@@ -3523,11 +3602,8 @@ int         team_trust = 1;
 int32_t     enemy_x[12];
 int32_t     enemy_y[12];
 int         enemy_n = 0;
-void        roster(uintptr_t    ownElem,
-                   int          ownIndex,
-                   int          ownTeam,
-                   const obj_t* objects,
-                   int          usable)
+
+void roster(uintptr_t ownElem, int ownIndex, int ownTeam, const obj_t* objects, int usable)
 {
     int i       = 0;
     int ownSide = 0;
@@ -3551,10 +3627,9 @@ void        roster(uintptr_t    ownElem,
         {
             continue;
         }
-        team          = team_at(objects, i);
-        isOwn         = (ownElem && objects[i].object == ownElem)
-                            ? 1
-                            : ((!ownElem && i == ownIndex) ? 1 : 0);
+        team = team_at(objects, i);
+        isOwn =
+            (ownElem && objects[i].object == ownElem) ? 1 : ((!ownElem && i == ownIndex) ? 1 : 0);
         pl_x[pl_n]    = objects[i].x;
         pl_y[pl_n]    = objects[i].y;
         pl_team[pl_n] = team;
@@ -3673,6 +3748,7 @@ void        roster(uintptr_t    ownElem,
         }
     }
 }
+
 int       cand_frame[3];
 int       cand_changes[3];
 int       dead_slot    = -1;
@@ -3688,7 +3764,8 @@ int       own_index_3      = -1;
 uintptr_t own_elem         = 0;
 int32_t   own_gid          = 0;
 int       no_source_passes = 0;
-int       ascii_word(uintptr_t address)
+
+int ascii_word(uintptr_t address)
 {
     uint8_t bytes[8];
     int     printable = 0;
@@ -3705,6 +3782,7 @@ int       ascii_word(uintptr_t address)
     }
     return printable == 8 ? 1 : 0;
 }
+
 int word_ascii(uint64_t value)
 {
     uint8_t bytes[8];
@@ -3719,6 +3797,7 @@ int word_ascii(uint64_t value)
     }
     return printable;
 }
+
 int element_ascii(uintptr_t element)
 {
     if (ascii_word(element))

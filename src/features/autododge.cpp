@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <vector>
+
 static struct
 {
     float    AWARE            = 3200.0f;
@@ -29,15 +30,19 @@ static struct
     float    SEND_MIN_DIST    = 8.0f;
     float    MIN_POS          = 50.0f;
 } TUNE;
+
 static const float DEFAULT_PAD  = 80.0f;
 static const float DEFAULT_GROW = 0.5f;
+
 struct V2
 {
     float x, y;
+
     V2(float x_ = 0, float y_ = 0) : x(x_), y(y_)
     {
     }
 };
+
 struct Threat
 {
     float x, y;
@@ -46,6 +51,7 @@ struct Threat
     float left;
     float pathLen;
 };
+
 struct ProjectileState
 {
     float    dirX, dirY;
@@ -59,6 +65,7 @@ struct ProjectileState
     bool     isIndirect;
     bool     isBeam;
 };
+
 __thread int                          in_move     = 0;
 int32_t                               pl_mine[12] = {0};
 int                                   active      = 0;
@@ -73,7 +80,8 @@ static float                          g_lastSentX    = 1e9f;
 static float                          g_lastSentY    = 1e9f;
 static uint64_t                       g_lastSentAt   = 0;
 static float                          CHAR_SPEED     = 720.0f;
-static void                           buildRing()
+
+static void buildRing()
 {
     if ((int) g_ring.size() == TUNE.DIR_COUNT) return;
     g_ring.clear();
@@ -84,11 +92,9 @@ static void                           buildRing()
     }
     g_headingIdx = -1;
 }
-static float clearanceFor(const std::vector<Threat>& threats,
-                          float                      myX,
-                          float                      myY,
-                          float                      mvx,
-                          float                      mvy)
+
+static float
+clearanceFor(const std::vector<Threat>& threats, float myX, float myY, float mvx, float mvy)
 {
     float minClear = 1e18f;
     float horizon  = TUNE.HORIZON_S;
@@ -127,6 +133,7 @@ static float clearanceFor(const std::vector<Threat>& threats,
     }
     return minClear;
 }
+
 static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
 {
     if (!wall_ready()) return 0.0f;
@@ -143,11 +150,13 @@ static float wallAhead(float myX, float myY, V2 dir, float speed, float bodyR)
     }
     return penalty;
 }
+
 static void clearHeading()
 {
     g_headingIdx = -1;
     g_holdUntil  = 0;
 }
+
 static int32_t call1i_local(uintptr_t fn, uintptr_t self)
 {
     if (!fn || !self || !base) return 0;
@@ -158,6 +167,7 @@ static int32_t call1i_local(uintptr_t fn, uintptr_t self)
     using fn_t = int32_t (*)(uintptr_t);
     return ((fn_t) target)(self);
 }
+
 void autododge()
 {
     if (!base || !own_elem || dead)
@@ -208,33 +218,25 @@ void autododge()
             for (int i = 0; i < manager_count_v; i++)
             {
                 uintptr_t objPtr = 0;
-                if (!read_ptr(manager_array_ptr + (uintptr_t) i * 8ULL,
-                              (void**) &objPtr) ||
+                if (!read_ptr(manager_array_ptr + (uintptr_t) i * 8ULL, (void**) &objPtr) ||
                     !objPtr)
                     continue;
                 if (!pointer_plausible(objPtr)) continue;
                 uintptr_t dataPtr = 0;
-                if (!read_ptr(objPtr + ELEM_DEF_OFF, (void**) &dataPtr) ||
-                    !dataPtr)
-                    continue;
+                if (!read_ptr(objPtr + ELEM_DEF_OFF, (void**) &dataPtr) || !dataPtr) continue;
                 if (!pointer_plausible(dataPtr)) continue;
                 uintptr_t dataVtable = 0;
-                if (!read_ptr(dataPtr, (void**) &dataVtable) || !dataVtable)
-                    continue;
+                if (!read_ptr(dataPtr, (void**) &dataVtable) || !dataVtable) continue;
                 if (!pointer_plausible(dataVtable)) continue;
                 uintptr_t vtRva = dataVtable - base;
-                if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE)
-                    continue;
+                if (vtRva < DC_RVA_LO || vtRva >= DC_RVA_LO + DC_RVA_SIZE) continue;
                 int  pid    = gid(objPtr, nullptr);
-                bool isProj = (pid >= 2000000) ||
-                              (dataVtable - base == VTABLE_PROJ_DATA_RVA);
+                bool isProj = (pid >= 2000000) || (dataVtable - base == VTABLE_PROJ_DATA_RVA);
                 if (!isProj || pid == 0) continue;
                 int32_t teamId = -1;
-                if (!read_int(objPtr + 64, &teamId) || teamId == own_team_b)
-                    continue;
+                if (!read_int(objPtr + 64, &teamId) || teamId == own_team_b) continue;
                 int32_t px_i = 0, py_i = 0;
-                if (!read_int(objPtr + OBJ_X_OFF, &px_i) ||
-                    !read_int(objPtr + OBJ_Y_OFF, &py_i))
+                if (!read_int(objPtr + OBJ_X_OFF, &px_i) || !read_int(objPtr + OBJ_Y_OFF, &py_i))
                     continue;
                 float px      = (float) px_i;
                 float py      = (float) py_i;
@@ -242,9 +244,7 @@ void autododge()
                 float dy_dist = py - my;
                 if (dx_dist * dx_dist + dy_dist * dy_dist > zoneSq) continue;
                 uint32_t deadFlag = 0;
-                if (!read_int(objPtr + 208, (int32_t*) &deadFlag) ||
-                    deadFlag != 0)
-                    continue;
+                if (!read_int(objPtr + 208, (int32_t*) &deadFlag) || deadFlag != 0) continue;
                 seen[pid]              = true;
                 ProjectileState& state = g_proj_cache[pid];
                 if (state.lastSeen == 0)
@@ -268,14 +268,12 @@ void autododge()
                     }
                     if (addr_projbeam)
                     {
-                        state.isBeam =
-                            (call1i_local(addr_projbeam, dataPtr) != 0);
+                        state.isBeam = (call1i_local(addr_projbeam, dataPtr) != 0);
                     }
                     else
                     {
                         uint8_t beam = 0;
-                        if (read_byte(dataPtr + OFF_PROJECTILEDATA_ISBEAM,
-                                      &beam))
+                        if (read_byte(dataPtr + OFF_PROJECTILEDATA_ISBEAM, &beam))
                         {
                             state.isBeam = (beam != 0);
                         }
@@ -288,14 +286,12 @@ void autododge()
                     {
                         if (addr_projspeed)
                         {
-                            state.speed =
-                                (float) call1i_local(addr_projspeed, dataPtr);
+                            state.speed = (float) call1i_local(addr_projspeed, dataPtr);
                         }
                         else
                         {
                             int32_t spd = 0;
-                            if (read_int(dataPtr + PROJDATA_SPEED_OFF, &spd) &&
-                                spd > 0)
+                            if (read_int(dataPtr + PROJDATA_SPEED_OFF, &spd) && spd > 0)
                             {
                                 state.speed = (float) spd;
                             }
@@ -306,13 +302,12 @@ void autododge()
                         state.speed = 3000.0f;
                     }
                     int32_t angleDegrees = -1;
-                    if (read_int(objPtr + PROJ_ANGLE_OFF, &angleDegrees) &&
-                        angleDegrees >= 0 && angleDegrees <= 360)
+                    if (read_int(objPtr + PROJ_ANGLE_OFF, &angleDegrees) && angleDegrees >= 0 &&
+                        angleDegrees <= 360)
                     {
-                        float angle =
-                            (float) angleDegrees * ((float) M_PI / 180.0f);
-                        state.dirX = cosf(angle);
-                        state.dirY = sinf(angle);
+                        float angle = (float) angleDegrees * ((float) M_PI / 180.0f);
+                        state.dirX  = cosf(angle);
+                        state.dirY  = sinf(angle);
                     }
                 }
                 else if (now - state.sampleTime >= 20)
@@ -334,8 +329,7 @@ void autododge()
                 state.lastSeen = now;
                 if (addr_projradius)
                 {
-                    state.radius =
-                        (float) call1i_local(addr_projradius, dataPtr);
+                    state.radius = (float) call1i_local(addr_projradius, dataPtr);
                 }
                 else
                 {
@@ -350,43 +344,35 @@ void autododge()
                     }
                 }
                 if (state.radius <= 0) state.radius = 100.0f;
-                float traveled =
-                    sqrtf((px - state.spawnX) * (px - state.spawnX) +
-                          (py - state.spawnY) * (py - state.spawnY));
-                float left = 1e6f;
+                float traveled = sqrtf((px - state.spawnX) * (px - state.spawnX) +
+                                       (py - state.spawnY) * (py - state.spawnY));
+                float left     = 1e6f;
                 if (state.castRange > 0.0f)
                 {
                     dbg.ranged++;
                     left = std::max(0.0f, state.castRange - traveled);
                     if (left <= 10.0f) continue;
-                    float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) -
-                                bodyR - state.radius;
+                    float gap = sqrtf(dx_dist * dx_dist + dy_dist * dy_dist) - bodyR - state.radius;
                     if (left < 0.85f * std::max(0.0f, gap)) continue;
                 }
-                bool blob = !state.isBeam && !state.isIndirect &&
-                            state.speed > 0 && state.speed < 1600;
+                bool blob =
+                    !state.isBeam && !state.isIndirect && state.speed > 0 && state.speed < 1600;
                 Threat t{};
-                t.x   = px;
-                t.y   = py;
-                t.vx  = blob ? 0 : state.dirX * state.speed;
-                t.vy  = blob ? 0 : state.dirY * state.speed;
-                t.rad = state.radius + bodyR + DEFAULT_PAD +
-                        state.radius * DEFAULT_GROW;
-                t.pathLen = state.castRange > 0.0f
-                                ? state.castRange + state.radius
-                                : 1e6f;
+                t.x       = px;
+                t.y       = py;
+                t.vx      = blob ? 0 : state.dirX * state.speed;
+                t.vy      = blob ? 0 : state.dirY * state.speed;
+                t.rad     = state.radius + bodyR + DEFAULT_PAD + state.radius * DEFAULT_GROW;
+                t.pathLen = state.castRange > 0.0f ? state.castRange + state.radius : 1e6f;
                 t.left    = left;
                 if (!blob && !state.isIndirect && state.speed >= 1.0f)
                 {
-                    float playerAlong =
-                        (mx - px) * state.dirX + (my - py) * state.dirY;
+                    float playerAlong = (mx - px) * state.dirX + (my - py) * state.dirY;
                     if (playerAlong < -50.0f) continue;
                     float hX = px + state.dirX * std::max(playerAlong, 0.0f);
                     float hY = py + state.dirY * std::max(playerAlong, 0.0f);
-                    if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES))
-                        continue;
-                    if (state.castRange > 0.0f &&
-                        playerAlong > state.castRange + state.radius)
+                    if (!wall_los(px, py, hX, hY, WALL_BLOCKS_PROJECTILES)) continue;
+                    if (state.castRange > 0.0f && playerAlong > state.castRange + state.radius)
                         continue;
                 }
                 float ax    = px - mx;
@@ -413,8 +399,7 @@ void autododge()
         }
         for (auto it = g_proj_cache.begin(); it != g_proj_cache.end();)
         {
-            if (seen.find(it->first) == seen.end() ||
-                now - it->second.lastSeen > 450)
+            if (seen.find(it->first) == seen.end() || now - it->second.lastSeen > 450)
             {
                 it = g_proj_cache.erase(it);
             }
@@ -427,15 +412,13 @@ void autododge()
     if (threats.empty())
     {
         dbg.threats = 0;
-        if (g_headingIdx >= 0 && now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS)
-            clearHeading();
+        if (g_headingIdx >= 0 && now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS) clearHeading();
         return;
     }
     float stayClear = clearanceFor(threats, mx, my, 0, 0);
     bool  inDanger  = stayClear < TUNE.ENGAGE;
     if (inDanger) g_lastDangerTs = now;
-    if (!inDanger &&
-        (g_headingIdx < 0 || now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS))
+    if (!inDanger && (g_headingIdx < 0 || now - g_lastDangerTs > TUNE.RELEASE_GRACE_MS))
     {
         if (g_headingIdx >= 0) clearHeading();
         return;
@@ -449,11 +432,9 @@ void autododge()
     for (int i = 0; i < TUNE.DIR_COUNT; i++)
     {
         const V2& d = g_ring[i];
-        float     s =
-            clearanceFor(threats, mx, my, CHAR_SPEED * d.x, CHAR_SPEED * d.y);
+        float     s = clearanceFor(threats, mx, my, CHAR_SPEED * d.x, CHAR_SPEED * d.y);
         s -= wallAhead(mx, my, d, CHAR_SPEED, bodyR);
-        if (prevIdx >= 0)
-            s += TUNE.MOMENTUM * (d.x * prevDir.x + d.y * prevDir.y);
+        if (prevIdx >= 0) s += TUNE.MOMENTUM * (d.x * prevDir.x + d.y * prevDir.y);
         if (i == prevIdx) prevScore = s;
         if (s > bestScore)
         {
@@ -484,15 +465,14 @@ void autododge()
         if (g_headingIdx >= 0) clearHeading();
         return;
     }
-    V2 chosen    = g_ring[chosenIdx];
-    g_headingIdx = chosenIdx;
-    int32_t tx   = (int32_t) roundf(mx + chosen.x * TUNE.REACH);
-    int32_t ty   = (int32_t) roundf(my + chosen.y * TUNE.REACH);
-    float   ddx  = (float) tx - g_lastSentX;
-    float   ddy  = (float) ty - g_lastSentY;
-    bool    moved =
-        (ddx * ddx + ddy * ddy > TUNE.SEND_MIN_DIST * TUNE.SEND_MIN_DIST);
-    bool stale = (now - g_lastSentAt > TUNE.SEND_MIN_MS);
+    V2 chosen     = g_ring[chosenIdx];
+    g_headingIdx  = chosenIdx;
+    int32_t tx    = (int32_t) roundf(mx + chosen.x * TUNE.REACH);
+    int32_t ty    = (int32_t) roundf(my + chosen.y * TUNE.REACH);
+    float   ddx   = (float) tx - g_lastSentX;
+    float   ddy   = (float) ty - g_lastSentY;
+    bool    moved = (ddx * ddx + ddy * ddy > TUNE.SEND_MIN_DIST * TUNE.SEND_MIN_DIST);
+    bool    stale = (now - g_lastSentAt > TUNE.SEND_MIN_MS);
     if (moved || stale)
     {
         g_lastSentX  = (float) tx;
@@ -512,12 +492,9 @@ void autododge()
     dbg.ty      = (float) ty;
     dbg.hazards = (int) threats.size();
     dbg.threats = hits;
-    snprintf(dbg.note,
-             sizeof(dbg.note),
-             "CLR:%.0f SCR:%.0f",
-             stayClear,
-             chosenScore);
+    snprintf(dbg.note, sizeof(dbg.note), "CLR:%.0f SCR:%.0f", stayClear, chosenScore);
 }
+
 void autododge_reset()
 {
     g_proj_cache.clear();

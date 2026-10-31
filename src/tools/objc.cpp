@@ -3,10 +3,11 @@
 #include <stddef.h>
 #include <stdlib.h>
 #if __has_include(<ptrauth.h>)
-#include <ptrauth.h>
+#    include <ptrauth.h>
 #endif
 #define OBJC_HOOK_MAX   32
 #define OBJC_WANTED_MAX 4
+
 typedef struct
 {
     Class       cls;
@@ -21,16 +22,19 @@ typedef struct
     int         used;
     objc_body_t body;
 } objc_hook_t;
+
 static objc_hook_t g_objc_hooks[OBJC_HOOK_MAX];
-static uintptr_t   objc_strip_imp(IMP imp)
+
+static uintptr_t objc_strip_imp(IMP imp)
 {
 #if defined(__has_feature)
-#if __has_feature(ptrauth_calls)
+#    if __has_feature(ptrauth_calls)
     return (uintptr_t) ptrauth_strip((void*) imp, ptrauth_key_function_pointer);
-#endif
+#    endif
 #endif
     return (uintptr_t) imp;
 }
+
 static const char* objc_skip_compound(const char* p)
 {
     char open  = *p;
@@ -55,6 +59,7 @@ static const char* objc_skip_compound(const char* p)
     }
     return p;
 }
+
 static int objc_arg_types(const char* types, char* out, size_t capacity)
 {
     if (!types || !out || capacity < 8) return -1;
@@ -66,8 +71,7 @@ static int objc_arg_types(const char* types, char* out, size_t capacity)
             p++;
         if (!*p) break;
         char c = *p;
-        if (c == 'r' || c == 'n' || c == 'N' || c == 'o' || c == 'O' ||
-            c == 'R' || c == 'V')
+        if (c == 'r' || c == 'n' || c == 'N' || c == 'o' || c == 'O' || c == 'R' || c == 'V')
         {
             p++;
             continue;
@@ -91,6 +95,7 @@ static int objc_arg_types(const char* types, char* out, size_t capacity)
     out[used] = 0;
     return (int) used;
 }
+
 static int objc_class_owns(Class cls, SEL sel)
 {
     if (!cls || !sel) return 0;
@@ -109,6 +114,7 @@ static int objc_class_owns(Class cls, SEL sel)
     free(list);
     return found;
 }
+
 static Class objc_owner(Class cls, SEL sel)
 {
     if (!cls || !sel) return Nil;
@@ -118,6 +124,7 @@ static Class objc_owner(Class cls, SEL sel)
     }
     return Nil;
 }
+
 static objc_hook_t* objc_find(id self, SEL _cmd)
 {
     Class start = object_getClass(self);
@@ -138,6 +145,7 @@ static objc_hook_t* objc_find(id self, SEL _cmd)
     if (bySelectorCount == 1) return bySelector;
     return NULL;
 }
+
 static int objc_targets(id self, objc_hook_t* hook)
 {
     if (!hook || hook->wantedCount <= 0) return 0;
@@ -154,6 +162,7 @@ static int objc_targets(id self, objc_hook_t* hook)
     }
     return 0;
 }
+
 static void objc_rep_a(id self, SEL _cmd)
 {
     objc_hook_t* hook = objc_find(self, _cmd);
@@ -164,6 +173,7 @@ static void objc_rep_a(id self, SEL _cmd)
         reinterpret_cast<void (*)(id, SEL)>(hook->original)(self, _cmd);
     }
 }
+
 static void objc_rep_b(id self, SEL _cmd, id a1)
 {
     objc_hook_t* hook = objc_find(self, _cmd);
@@ -172,28 +182,26 @@ static void objc_rep_b(id self, SEL _cmd, id a1)
         reinterpret_cast<void (*)(id, SEL, id)>(hook->original)(self, _cmd, a1);
     }
 }
+
 static void objc_rep1b(id self, SEL _cmd, BOOL a1)
 {
     objc_hook_t* hook = objc_find(self, _cmd);
     if (hook && hook->original)
     {
-        reinterpret_cast<void (*)(id, SEL, BOOL)>(hook->original)(
-            self, _cmd, a1);
+        reinterpret_cast<void (*)(id, SEL, BOOL)>(hook->original)(self, _cmd, a1);
     }
 }
+
 static void objc_rep_c(id self, SEL _cmd, id a1, id a2)
 {
     objc_hook_t* hook = objc_find(self, _cmd);
     if (hook && hook->original)
     {
-        reinterpret_cast<void (*)(id, SEL, id, id)>(hook->original)(
-            self, _cmd, a1, a2);
+        reinterpret_cast<void (*)(id, SEL, id, id)>(hook->original)(self, _cmd, a1, a2);
     }
 }
-int objc_arm(uintptr_t   imageBase,
-             const char* clsName,
-             const char* selName,
-             objc_body_t body)
+
+int objc_arm(uintptr_t imageBase, const char* clsName, const char* selName, objc_body_t body)
 {
     if (!imageBase || !clsName || !selName || !body) return 0;
     Class wanted = objc_getClass(clsName);
@@ -236,8 +244,7 @@ int objc_arm(uintptr_t   imageBase,
     for (int i = 0; i < OBJC_HOOK_MAX; i++)
     {
         if (!g_objc_hooks[i].used) continue;
-        if (g_objc_hooks[i].cls != ownerClass || g_objc_hooks[i].sel != sel)
-            continue;
+        if (g_objc_hooks[i].cls != ownerClass || g_objc_hooks[i].sel != sel) continue;
         return 0;
     }
     for (int i = 0; i < OBJC_HOOK_MAX; i++)

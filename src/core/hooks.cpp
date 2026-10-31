@@ -8,10 +8,7 @@ extern "C"
 #include <mach-o/dyld.h>
 }
 
-int hooks_install(uintptr_t     imageBase,
-                  const hook_t* hooks,
-                  int           count,
-                  void**        originals)
+int hooks_install(uintptr_t imageBase, const hook_t* hooks, int count, void** originals)
 {
     int i = 0;
     (void) imageBase;

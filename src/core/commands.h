@@ -1,6 +1,7 @@
 #ifndef CORE_COMMANDS_H
 #define CORE_COMMANDS_H
 #include <stdint.h>
+
 enum
 {
     MSG_SIZE        = 0x48,
@@ -11,6 +12,7 @@ enum
     PRED_FLAG       = 1,
     MOVE_ON         = 1
 };
+
 uintptr_t entry_callable(uintptr_t rva);
 void*     msg_alloc();
 void*     manager();

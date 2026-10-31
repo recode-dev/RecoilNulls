@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #if __has_include(<ptrauth.h>)
-#include <ptrauth.h>
+#    include <ptrauth.h>
 #endif
 #include "./core/commands.h"
 #include "./core/scan.h"
@@ -22,6 +22,7 @@
 #include "./utils/crypto.h"
 #include "./utils/walls.h"
 #include "objc.h"
+
 __attribute__((constructor)) void start(void)
 {
     dispatch_async(dispatch_get_main_queue(), ^{ poll_for_game(0); });

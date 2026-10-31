@@ -3,23 +3,25 @@
 #include "./offsets.h"
 #include <stdint.h>
 #ifndef NSEC_PER_SEC
-#define NSEC_PER_SEC 1000000000ull
+#    define NSEC_PER_SEC 1000000000ull
 #endif
 #ifndef NSEC_PER_MSEC
-#define NSEC_PER_MSEC 1000000ull
+#    define NSEC_PER_MSEC 1000000ull
 #endif
 #ifndef NSEC_PER_USEC
-#define NSEC_PER_USEC 1000ull
+#    define NSEC_PER_USEC 1000ull
 #endif
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
 #include <string.h>
+
 using objhit_t = struct
 {
     int32_t gid;
     int32_t team;
     int     dead;
 };
+
 using slot_fn_t = uint64_t (*)(void*    a0,
                                uint64_t a1,
                                uint64_t a2,
@@ -28,10 +30,12 @@ using slot_fn_t = uint64_t (*)(void*    a0,
                                uint64_t a5,
                                uint64_t a6,
                                uint64_t a7);
-using trail_t   = struct
+
+using trail_t = struct
 {
     int32_t count;
 };
+
 using obj_t = struct
 {
     uintptr_t object;
@@ -45,6 +49,7 @@ using obj_t = struct
     uint8_t   dead;
     uint8_t   activeFlag;
 };
+
 #include <CoreFoundation/CFDate.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
@@ -99,30 +104,31 @@ BOOL                     query_region(uintptr_t       address,
                                       mach_vm_size_t* regionSize,
                                       uintptr_t*      regionStart);
 BOOL                     addr_writable(uintptr_t address, size_t length);
-BOOL        read_bytes(uintptr_t address, void* out, size_t length);
-BOOL        pointer_plausible(uintptr_t value);
-BOOL        read_byte(uintptr_t address, uint8_t* out);
-BOOL        read_int(uintptr_t address, int32_t* out);
-BOOL        read_float(uintptr_t address, float* out);
-BOOL        writable(uintptr_t address, size_t length);
-BOOL        write_bytes(uintptr_t address, const void* src, size_t length);
-BOOL        read_ptr(uintptr_t address, void** out);
-void*       read_global_ptr(uintptr_t rva);
-uintptr_t   callable(uintptr_t rva);
-BOOL        copy(uintptr_t source, void* destination, size_t length);
-BOOL        text_section(uintptr_t* address, uint64_t* size);
-BOOL        valid_header(uintptr_t imageBase);
-BOOL        find_game_image(uintptr_t* out_base);
-BOOL        segment_range(const char* name, uintptr_t* lo, uintptr_t* hi);
-void        image_span_refresh();
-const char* image_segment_name(uintptr_t value);
-BOOL        vtable_shaped(uintptr_t value);
-BOOL        heap_resident(uintptr_t value);
-BOOL        instance_shaped(uintptr_t object);
-BOOL        manager_shape(uintptr_t manager);
-BOOL        vtable_in_image(uintptr_t vtable);
-uintptr_t   strip_ptr(uintptr_t value);
-void        poll_for_game(int tick);
+BOOL                     read_bytes(uintptr_t address, void* out, size_t length);
+BOOL                     pointer_plausible(uintptr_t value);
+BOOL                     read_byte(uintptr_t address, uint8_t* out);
+BOOL                     read_int(uintptr_t address, int32_t* out);
+BOOL                     read_float(uintptr_t address, float* out);
+BOOL                     writable(uintptr_t address, size_t length);
+BOOL                     write_bytes(uintptr_t address, const void* src, size_t length);
+BOOL                     read_ptr(uintptr_t address, void** out);
+void*                    read_global_ptr(uintptr_t rva);
+uintptr_t                callable(uintptr_t rva);
+BOOL                     copy(uintptr_t source, void* destination, size_t length);
+BOOL                     text_section(uintptr_t* address, uint64_t* size);
+BOOL                     valid_header(uintptr_t imageBase);
+BOOL                     find_game_image(uintptr_t* out_base);
+BOOL                     segment_range(const char* name, uintptr_t* lo, uintptr_t* hi);
+void                     image_span_refresh();
+const char*              image_segment_name(uintptr_t value);
+BOOL                     vtable_shaped(uintptr_t value);
+BOOL                     heap_resident(uintptr_t value);
+BOOL                     instance_shaped(uintptr_t object);
+BOOL                     manager_shape(uintptr_t manager);
+BOOL                     vtable_in_image(uintptr_t vtable);
+uintptr_t                strip_ptr(uintptr_t value);
+void                     poll_for_game(int tick);
+
 static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
 {
     vm_prot_t protection = 0;
@@ -140,6 +146,7 @@ static inline BOOL region_flags(uintptr_t address, vm_prot_t* flags)
     }
     return YES;
 }
+
 static inline BOOL addr_readable(uintptr_t address, size_t length)
 {
     if (!address || !length)
@@ -158,9 +165,9 @@ static inline BOOL addr_readable(uintptr_t address, size_t length)
         vm_address_t                   region = (vm_address_t) cursor;
         vm_size_t                      size   = 0;
         vm_region_basic_info_data_64_t info;
-        mach_msg_type_number_t infoCount  = VM_REGION_BASIC_INFO_COUNT_64;
-        mach_port_t            objectName = MACH_PORT_NULL;
-        kern_return_t          kr         = vm_region_64(mach_task_self(),
+        mach_msg_type_number_t         infoCount  = VM_REGION_BASIC_INFO_COUNT_64;
+        mach_port_t                    objectName = MACH_PORT_NULL;
+        kern_return_t                  kr         = vm_region_64(mach_task_self(),
                                         &region,
                                         &size,
                                         VM_REGION_BASIC_INFO_64,
@@ -189,6 +196,7 @@ static inline BOOL addr_readable(uintptr_t address, size_t length)
     }
     return cursor >= end;
 }
+
 static inline BOOL addr_executable(uintptr_t address)
 {
     vm_prot_t flags = 0;
@@ -198,14 +206,14 @@ static inline BOOL addr_executable(uintptr_t address)
     }
     return (flags & VM_PROT_EXECUTE) ? YES : NO;
 }
+
 static inline uintptr_t image_slide(uintptr_t imageBase)
 {
     if (!imageBase)
     {
         return 0;
     }
-    const struct mach_header_64* header =
-        (const struct mach_header_64*) imageBase;
+    const struct mach_header_64* header = (const struct mach_header_64*) imageBase;
     if (!addr_readable(imageBase, sizeof(struct mach_header_64)))
     {
         return 0;
@@ -230,8 +238,7 @@ static inline uintptr_t image_slide(uintptr_t imageBase)
         {
             return 0;
         }
-        const struct load_command* command =
-            (const struct load_command*) cursor;
+        const struct load_command* command = (const struct load_command*) cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             return 0;
@@ -246,8 +253,7 @@ static inline uintptr_t image_slide(uintptr_t imageBase)
             {
                 return 0;
             }
-            const struct segment_command_64* segment =
-                (const struct segment_command_64*) command;
+            const struct segment_command_64* segment = (const struct segment_command_64*) command;
             if (strcmp(segment->segname, "__TEXT") == 0)
             {
                 return imageBase - (uintptr_t) segment->vmaddr;
@@ -257,6 +263,7 @@ static inline uintptr_t image_slide(uintptr_t imageBase)
     }
     return 0;
 }
+
 static inline BOOL image_segment_contains(uintptr_t  imageBase,
                                           uintptr_t  address,
                                           BOOL       requireExec,
@@ -268,8 +275,7 @@ static inline BOOL image_segment_contains(uintptr_t  imageBase,
     {
         return NO;
     }
-    const struct mach_header_64* header =
-        (const struct mach_header_64*) imageBase;
+    const struct mach_header_64* header = (const struct mach_header_64*) imageBase;
     if (!addr_readable(imageBase, sizeof(struct mach_header_64)))
     {
         return NO;
@@ -295,8 +301,7 @@ static inline BOOL image_segment_contains(uintptr_t  imageBase,
         {
             return NO;
         }
-        const struct load_command* command =
-            (const struct load_command*) cursor;
+        const struct load_command* command = (const struct load_command*) cursor;
         if (command->cmdsize < sizeof(struct load_command))
         {
             return NO;
@@ -311,14 +316,12 @@ static inline BOOL image_segment_contains(uintptr_t  imageBase,
             {
                 return NO;
             }
-            const struct segment_command_64* segment =
-                (const struct segment_command_64*) command;
-            uintptr_t start = (uintptr_t) segment->vmaddr + slide;
-            uintptr_t end   = start + (uintptr_t) segment->vmsize;
+            const struct segment_command_64* segment = (const struct segment_command_64*) command;
+            uintptr_t                        start   = (uintptr_t) segment->vmaddr + slide;
+            uintptr_t                        end     = start + (uintptr_t) segment->vmsize;
             if (address >= start && address < end)
             {
-                BOOL executable =
-                    (segment->initprot & VM_PROT_EXECUTE) ? YES : NO;
+                BOOL executable = (segment->initprot & VM_PROT_EXECUTE) ? YES : NO;
                 if (requireExec && !executable)
                 {
                     return NO;
@@ -342,6 +345,7 @@ static inline BOOL image_segment_contains(uintptr_t  imageBase,
     }
     return NO;
 }
+
 static inline BOOL image_text_contains(uintptr_t imageBase, uintptr_t address)
 {
     uintptr_t start = 0;
@@ -353,6 +357,7 @@ static inline BOOL image_text_contains(uintptr_t imageBase, uintptr_t address)
     }
     return (prot & VM_PROT_EXECUTE) ? YES : NO;
 }
+
 static inline BOOL object_plausible(void* object)
 {
     if (!object)
@@ -396,6 +401,7 @@ static inline BOOL object_plausible(void* object)
     }
     return addr_executable(firstEntry);
 }
+
 extern uintptr_t manager_ptr;
 extern uintptr_t manager_array_ptr;
 extern int32_t   manager_count_v;
@@ -407,6 +413,7 @@ extern int32_t   own_x;
 extern int32_t   own_y;
 extern int32_t   own_index_v;
 extern int       own_ok_hp;
+
 using dbg_t = struct
 {
     int   stage;
@@ -434,6 +441,7 @@ using dbg_t = struct
     float thrad[6];
     char  note[64];
 };
+
 extern dbg_t   dbg;
 extern int     logs_a;
 extern int     seeded;
@@ -470,287 +478,283 @@ extern uintptr_t          tick_array;
 extern int32_t            tick_count;
 extern uintptr_t          tick_object;
 extern const int          object_slots[3];
-void                      publish(uintptr_t   object,
-                                  uintptr_t   array,
-                                  int32_t     count,
-                                  int32_t     cap,
-                                  const char* why);
-void                      slot_hooks_install();
-void                      slot_pump();
-uint64_t                  slot_repl_0(void*    a0,
-                                      uint64_t a1,
-                                      uint64_t a2,
-                                      uint64_t a3,
-                                      uint64_t a4,
-                                      uint64_t a5,
-                                      uint64_t a6,
-                                      uint64_t a7);
-uint64_t                  slot_repl_1(void*    a0,
-                                      uint64_t a1,
-                                      uint64_t a2,
-                                      uint64_t a3,
-                                      uint64_t a4,
-                                      uint64_t a5,
-                                      uint64_t a6,
-                                      uint64_t a7);
-uint64_t                  slot_repl_10(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_11(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_12(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_13(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_14(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_15(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_16(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_17(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_18(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_19(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_2(void*    a0,
-                                      uint64_t a1,
-                                      uint64_t a2,
-                                      uint64_t a3,
-                                      uint64_t a4,
-                                      uint64_t a5,
-                                      uint64_t a6,
-                                      uint64_t a7);
-uint64_t                  slot_repl_20(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_21(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_22(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_23(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_24(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_25(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_26(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_27(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_28(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_29(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_3(void*    a0,
-                                      uint64_t a1,
-                                      uint64_t a2,
-                                      uint64_t a3,
-                                      uint64_t a4,
-                                      uint64_t a5,
-                                      uint64_t a6,
-                                      uint64_t a7);
-uint64_t                  slot_repl_30(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_31(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_32(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_33(void*    a0,
-                                       uint64_t a1,
-                                       uint64_t a2,
-                                       uint64_t a3,
-                                       uint64_t a4,
-                                       uint64_t a5,
-                                       uint64_t a6,
-                                       uint64_t a7);
-uint64_t                  slot_repl_4(void*    a0,
-                                      uint64_t a1,
-                                      uint64_t a2,
-                                      uint64_t a3,
-                                      uint64_t a4,
-                                      uint64_t a5,
-                                      uint64_t a6,
-                                      uint64_t a7);
-uint64_t                  slot_repl_5(void*    a0,
-                                      uint64_t a1,
-                                      uint64_t a2,
-                                      uint64_t a3,
-                                      uint64_t a4,
-                                      uint64_t a5,
-                                      uint64_t a6,
-                                      uint64_t a7);
-uint64_t                  slot_repl_6(void*    a0,
-                                      uint64_t a1,
-                                      uint64_t a2,
-                                      uint64_t a3,
-                                      uint64_t a4,
-                                      uint64_t a5,
-                                      uint64_t a6,
-                                      uint64_t a7);
-uint64_t                  slot_repl_7(void*    a0,
-                                      uint64_t a1,
-                                      uint64_t a2,
-                                      uint64_t a3,
-                                      uint64_t a4,
-                                      uint64_t a5,
-                                      uint64_t a6,
-                                      uint64_t a7);
-uint64_t                  slot_repl_8(void*    a0,
-                                      uint64_t a1,
-                                      uint64_t a2,
-                                      uint64_t a3,
-                                      uint64_t a4,
-                                      uint64_t a5,
-                                      uint64_t a6,
-                                      uint64_t a7);
-uint64_t                  slot_repl_9(void*    a0,
-                                      uint64_t a1,
-                                      uint64_t a2,
-                                      uint64_t a3,
-                                      uint64_t a4,
-                                      uint64_t a5,
-                                      uint64_t a6,
-                                      uint64_t a7);
-int  snapshot(uintptr_t* objectOut, uintptr_t* arrayOut, int32_t* countOut);
-void tick_begin();
+void     publish(uintptr_t object, uintptr_t array, int32_t count, int32_t cap, const char* why);
+void     slot_hooks_install();
+void     slot_pump();
+uint64_t slot_repl_0(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7);
+uint64_t slot_repl_1(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7);
+uint64_t slot_repl_10(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_11(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_12(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_13(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_14(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_15(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_16(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_17(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_18(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_19(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_2(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7);
+uint64_t slot_repl_20(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_21(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_22(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_23(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_24(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_25(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_26(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_27(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_28(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_29(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_3(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7);
+uint64_t slot_repl_30(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_31(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_32(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_33(void*    a0,
+                      uint64_t a1,
+                      uint64_t a2,
+                      uint64_t a3,
+                      uint64_t a4,
+                      uint64_t a5,
+                      uint64_t a6,
+                      uint64_t a7);
+uint64_t slot_repl_4(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7);
+uint64_t slot_repl_5(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7);
+uint64_t slot_repl_6(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7);
+uint64_t slot_repl_7(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7);
+uint64_t slot_repl_8(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7);
+uint64_t slot_repl_9(void*    a0,
+                     uint64_t a1,
+                     uint64_t a2,
+                     uint64_t a3,
+                     uint64_t a4,
+                     uint64_t a5,
+                     uint64_t a6,
+                     uint64_t a7);
+int      snapshot(uintptr_t* objectOut, uintptr_t* arrayOut, int32_t* countOut);
+void     tick_begin();
 extern uintptr_t slot_object[34];
 extern uintptr_t slot_arg[34];
 extern uint64_t  slot_hits[34];
@@ -796,6 +800,7 @@ extern uint64_t  proj_diff_logs;
 extern uintptr_t own_elem;
 extern int32_t   own_gid;
 extern int       no_source_passes;
+
 using proj_death_t = struct
 {
     const char* name;
@@ -805,6 +810,7 @@ using proj_death_t = struct
     int32_t     x;
     int32_t     y;
 };
+
 using hazard_t = struct
 {
     float       x;
@@ -812,8 +818,10 @@ using hazard_t = struct
     float       radius;
     const char* name;
 };
+
 #define WORK_GAP_US     200
 #define HOT_INTERVAL_US 2000
+
 using proj_t = struct
 {
     uintptr_t   elem;
@@ -844,42 +852,37 @@ using proj_t = struct
     int32_t     spawnAreaActiveTime;
     int32_t     castRange;
 };
+
 extern proj_t       projs[16];
 extern proj_death_t proj_deaths[16];
 extern int          proj_death_n;
 int                 element_type(uintptr_t vt, uintptr_t* wordOut);
-int                 container_header(uintptr_t  object,
-                                     uintptr_t* arrayOut,
-                                     int32_t*   countOut,
-                                     int32_t*   capOut);
-int32_t             gid(uintptr_t element, int32_t* offOut);
-int                 container_score(uintptr_t container);
-void                resolve_addresses();
-void                locate_battle_mode();
-void                gidless_scan(uintptr_t mgrPtr);
-void proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
-uintptr_t   hop(uintptr_t base, int* whyOut);
-uintptr_t   client();
-void        state_note(int state);
-int         proj_scan(uintptr_t    mgrPtr,
-                      int32_t      count,
-                      const obj_t* rosterArr,
-                      int          rosterUsable);
-uintptr_t   controller();
-const char* header_reason(uintptr_t mgrPtr, int32_t* countOut, int32_t* capOut);
-uintptr_t   coord_x_off();
-uintptr_t   coord_y_off();
-int         ctrl_bounds(uintptr_t base, int32_t* wOut, int32_t* hOut);
-extern int  cand_changes[3];
-extern int  cand_frame[3];
-extern int  dead_slot;
-extern int  dead_value;
-extern int  enemy_n;
-extern int32_t     enemy_x[12];
-extern int32_t     enemy_y[12];
-extern int         mate_n;
-extern int32_t     mate_x[8];
-extern int32_t     mate_y[8];
+int     container_header(uintptr_t object, uintptr_t* arrayOut, int32_t* countOut, int32_t* capOut);
+int32_t gid(uintptr_t element, int32_t* offOut);
+int     container_score(uintptr_t container);
+void    resolve_addresses();
+void    locate_battle_mode();
+void    gidless_scan(uintptr_t mgrPtr);
+void    proj_track(uintptr_t elem, uintptr_t classRva, int32_t gid, int32_t team);
+uintptr_t      hop(uintptr_t base, int* whyOut);
+uintptr_t      client();
+void           state_note(int state);
+int            proj_scan(uintptr_t mgrPtr, int32_t count, const obj_t* rosterArr, int rosterUsable);
+uintptr_t      controller();
+const char*    header_reason(uintptr_t mgrPtr, int32_t* countOut, int32_t* capOut);
+uintptr_t      coord_x_off();
+uintptr_t      coord_y_off();
+int            ctrl_bounds(uintptr_t base, int32_t* wOut, int32_t* hOut);
+extern int     cand_changes[3];
+extern int     cand_frame[3];
+extern int     dead_slot;
+extern int     dead_value;
+extern int     enemy_n;
+extern int32_t enemy_x[12];
+extern int32_t enemy_y[12];
+extern int     mate_n;
+extern int32_t mate_x[8];
+extern int32_t mate_y[8];
 extern const char* own_from;
 extern int         own_index;
 extern uintptr_t   own_ptr;
@@ -896,12 +899,8 @@ extern int         respawn_tick;
 extern int         state_code;
 extern int         team_trust;
 int                own_side_spawn(int32_t sx, int32_t sy);
-void               roster(uintptr_t    ownElem,
-                          int          ownIndex,
-                          int          ownTeam,
-                          const obj_t* objects,
-                          int          usable);
-int                team_at(const obj_t* objects, int index);
+void roster(uintptr_t ownElem, int ownIndex, int ownTeam, const obj_t* objects, int usable);
+int  team_at(const obj_t* objects, int index);
 #define CLUSTER               10000.0f
 #define GIDLESS               1
 #define POS_BONUS             8

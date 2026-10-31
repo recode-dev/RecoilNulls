@@ -3,11 +3,10 @@
 #include "offsets.h"
 #include "scan.h"
 #include <malloc/malloc.h>
-#if CI_HASH_INNER_MASK_RVA && CI_HASH_OUTER_MASK_RVA && BM_HASH_ENABLED_OFF && \
-    BM_HASH_KEY_OFF
-#define CI_SIGNING_ON 1
+#if CI_HASH_INNER_MASK_RVA && CI_HASH_OUTER_MASK_RVA && BM_HASH_ENABLED_OFF && BM_HASH_KEY_OFF
+#    define CI_SIGNING_ON 1
 #else
-#define CI_SIGNING_ON 0
+#    define CI_SIGNING_ON 0
 #endif
 static uint32_t ci_table[CI_TABLE_TYPES];
 static uint32_t ci_fallback = 0;
@@ -15,7 +14,8 @@ static uint8_t  ci_inner[0x10];
 static uint8_t  ci_outer[0x10];
 static int      ci_ready = 0;
 static int      msg_ok(void* ptr, size_t size);
-int             ci_load_constants(void)
+
+int ci_load_constants(void)
 {
     int i = 0;
     if (ci_ready)
@@ -28,15 +28,13 @@ int             ci_load_constants(void)
     }
     for (i = 0; i < (int) CI_TABLE_TYPES; i++)
     {
-        if (!read_bytes(base + CI_TYPE_TABLE_RVA + (uintptr_t) i * 4ULL,
-                        &ci_table[i],
-                        sizeof(uint32_t)))
+        if (!read_bytes(
+                base + CI_TYPE_TABLE_RVA + (uintptr_t) i * 4ULL, &ci_table[i], sizeof(uint32_t)))
         {
             return 0;
         }
     }
-    if (!read_bytes(
-            base + CI_TYPE_FALLBACK_RVA, &ci_fallback, sizeof(uint32_t)))
+    if (!read_bytes(base + CI_TYPE_FALLBACK_RVA, &ci_fallback, sizeof(uint32_t)))
     {
         return 0;
     }
@@ -51,6 +49,7 @@ int             ci_load_constants(void)
     ci_ready = 1;
     return 1;
 }
+
 uint32_t ci_sign(void* ci, void* battle)
 {
 #if CI_SIGNING_ON
@@ -82,8 +81,7 @@ uint32_t ci_sign(void* ci, void* battle)
     {
         return 0;
     }
-    token =
-        ci_compute_token(key, cmd, ci_table, ci_fallback, ci_inner, ci_outer);
+    token = ci_compute_token(key, cmd, ci_table, ci_fallback, ci_inner, ci_outer);
     if (!write_bytes((uintptr_t) ci + CI_TOKEN_OFF, &token, sizeof(token)))
     {
         return 0;
@@ -95,10 +93,12 @@ uint32_t ci_sign(void* ci, void* battle)
     return 0;
 #endif
 }
+
 int enqueue_type(int x, int y, int type)
 {
     return enqueue_skill(x, y, type, nullptr);
 }
+
 static uintptr_t callable_cached(uintptr_t* cache, uintptr_t rva)
 {
     if (!*cache)
@@ -107,6 +107,7 @@ static uintptr_t callable_cached(uintptr_t* cache, uintptr_t rva)
     }
     return *cache;
 }
+
 static int ptr_is_heap(const void* p)
 {
     if (!p || ((uintptr_t) p & 7ULL))
@@ -115,6 +116,7 @@ static int ptr_is_heap(const void* p)
     }
     return malloc_zone_from_ptr((void*) p) != NULL;
 }
+
 int enqueue_skill(int x, int y, int type, void* skillData)
 {
     uintptr_t ctorFn   = 0;
@@ -134,13 +136,12 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     static uintptr_t c_battle = 0;
     ctorFn                    = callable_cached(&c_ctor, MSGCTOR_RVA);
     inputFn                   = callable_cached(&c_input, ADDINPUT_RVA);
-    battleFn = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
+    battleFn                  = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
     if (!inputFn || !ctorFn || !battleFn)
     {
         return 0;
     }
-    if (!addr_readable(ctorFn, 4) || !addr_readable(inputFn, 4) ||
-        !addr_readable(battleFn, 4))
+    if (!addr_readable(ctorFn, 4) || !addr_readable(inputFn, 4) || !addr_readable(battleFn, 4))
     {
         return 0;
     }
@@ -156,8 +157,7 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     }
     {
         void* mgrInner = nullptr;
-        if (!read_ptr((uintptr_t) mgr + CI_MGR_QUEUE_OFF, &mgrInner) ||
-            !mgrInner)
+        if (!read_ptr((uintptr_t) mgr + CI_MGR_QUEUE_OFF, &mgrInner) || !mgrInner)
         {
             return 0;
         }
@@ -178,9 +178,8 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     write_bytes((uintptr_t) msg + Y_OFF, &vy, sizeof(vy));
     if (skillData && ptr_is_heap(skillData))
     {
-        write_bytes((uintptr_t) msg + (uintptr_t) OFF_CLIENTINPUT_SKILLDATA,
-                    &skillData,
-                    sizeof(skillData));
+        write_bytes(
+            (uintptr_t) msg + (uintptr_t) OFF_CLIENTINPUT_SKILLDATA, &skillData, sizeof(skillData));
     }
     ci_sign(msg, battle);
     if (type == (int) TYPE_MOVE)
@@ -190,10 +189,12 @@ int enqueue_skill(int x, int y, int type, void* skillData)
     ((void (*)(void*, void*)) inputFn)(mgr, msg);
     return 1;
 }
+
 int enqueue(int x, int y)
 {
     return enqueue_type(x, y, (int) TYPE_MOVE);
 }
+
 uintptr_t entry_callable(uintptr_t rva)
 {
     if (!base || !rva)
@@ -206,6 +207,7 @@ uintptr_t entry_callable(uintptr_t rva)
     }
     return base + rva;
 }
+
 static int msg_ok(void* ptr, size_t size)
 {
     if (!ptr)
@@ -226,6 +228,7 @@ static int msg_ok(void* ptr, size_t size)
     }
     return 1;
 }
+
 void* msg_alloc(void)
 {
     uintptr_t stub = entry_callable(ALLOC_RVA);
@@ -258,6 +261,7 @@ void* msg_alloc(void)
     }
     return nullptr;
 }
+
 void* manager(void)
 {
     if (!scene_object || !scene_live())
@@ -265,9 +269,9 @@ void* manager(void)
         return nullptr;
     }
     static uintptr_t c_battle = 0;
-    uintptr_t battleFn = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
-    void*     battle   = nullptr;
-    void*     mgr      = nullptr;
+    uintptr_t        battleFn = callable_cached(&c_battle, RVA_BATTLEMODE_GETINSTANCE);
+    void*            battle   = nullptr;
+    void*            mgr      = nullptr;
     if (!battleFn)
     {
         return nullptr;
@@ -283,6 +287,7 @@ void* manager(void)
     }
     return mgr;
 }
+
 int pred_set(int x, int y)
 {
     uintptr_t setFn = 0;
@@ -303,6 +308,7 @@ int pred_set(int x, int y)
     ((void (*)(uintptr_t, int, int, int)) setFn)(ctrl, x, y, PRED_FLAG);
     return 1;
 }
+
 int move_to(int32_t x, int32_t y, float ox, float oy)
 {
     uintptr_t fn   = 0;
