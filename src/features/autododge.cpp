@@ -164,8 +164,7 @@ void init_projectile_state(
     st->ux             = 0.0f;
     st->uy             = 0.0f;
 }
-static void
-character_entry(
+static void character_entry(
     const uint8_t* obj, int32_t own_gid, float mx, float my, uintptr_t dataPtr)
 {
     int32_t hp, gid, xi, yi;

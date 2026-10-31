@@ -38,8 +38,8 @@ float wall_logic_units(int tiles)
     static float cached_units[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     int          slot = static_cast<int>(static_cast<unsigned>(tiles) & 3u);
     if (cached_tiles[slot] == tiles) return cached_units[slot];
-    float units        = static_cast<float>(game_tile_to_logic(tiles) -
-                                     game_tile_to_logic(0));
+    float units =
+        static_cast<float>(game_tile_to_logic(tiles) - game_tile_to_logic(0));
     cached_tiles[slot] = tiles;
     cached_units[slot] = units;
     return units;

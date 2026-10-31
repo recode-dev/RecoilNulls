@@ -473,7 +473,8 @@ void scan_world()
         world_reset();
         return;
     }
-    if (!read_ptr(scene_object + static_cast<uintptr_t>(LOGICBATTLEMODE__CLIENT),
+    if (!read_ptr(scene_object +
+                      static_cast<uintptr_t>(LOGICBATTLEMODE__CLIENT),
                   &value) ||
         !value)
     {
