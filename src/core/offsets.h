@@ -5,7 +5,11 @@
 inline constexpr uint64_t LOGICVECTOR2__GETLENGTH                  = 0xbd0740;
 inline constexpr uint64_t LOGICVECTOR2__NORMALIZE                  = 0xbd0794;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__OWNTEAM           = 0xe4;
-inline constexpr uint64_t LOGICDATA__TEAM                          = 0x40;
+// team/playerIndex live on the per-instance LogicGameObjectClient itself
+// (GameObject::isOwnedByOwnTeam: ldr x8,[x19,#0x10]; ldr w8,[x8,#0x40]; cmp;
+// v69 twin 0x4b5be0: ldp w1,w2,[x8,#0x3c] — NOT on its LogicData at +0x10)
+inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__TEAM              = 0x40;
+inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__PLAYERINDEX       = 0x3c;
 inline constexpr uint64_t LOGICBATTLEMODE__CLIENT                  = 0x28;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__INPUTMANAGER      = 0x58;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28;

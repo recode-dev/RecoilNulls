@@ -533,14 +533,20 @@ void scan_world()
         own = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
         if (own)
         {
-            uintptr_t ownData = 0;
-            int32_t   team    = 0;
-            if (read_ptr(own + static_cast<uintptr_t>(
-                                   LOGICGAMEOBJECTCLIENT__GETDATA),
-                         &ownData) &&
-                ownData &&
-                read_int(ownData + static_cast<uintptr_t>(LOGICDATA__TEAM),
+            int32_t team = 0;
+            /* team is a field of the per-instance client object (+0x40),
+             * mirroring GameObject::isOwnedByOwnTeam; fall back to the
+             * BattleModeClient cached own-team (+0xe4) */
+            if (read_int(own + static_cast<uintptr_t>(
+                                   LOGICGAMEOBJECTCLIENT__TEAM),
                          &team))
+            {
+                own_team_value = team;
+            }
+            else if (clientPtr &&
+                     read_int(clientPtr + static_cast<uintptr_t>(
+                                              LOGICBATTLEMODECLIENT__OWNTEAM),
+                              &team))
             {
                 own_team_value = team;
             }
@@ -659,28 +665,24 @@ void setup()
 }
 int coord_ok = 0;
 int dead     = 0;
-int is_owned_team_data(uintptr_t data)
+/* team lives on the per-instance LogicGameObjectClient (+0x40), NOT on its
+ * shared LogicData: GameObject::isOwnedByOwnTeam reads ldr x8,[x19,#0x10]
+ * (wrapper -> client) then ldr w8,[x8,#0x40]; v69 twin 0x4b5be0 loads the
+ * pair via ldp w1,w2,[x8,#0x3c] (playerIndex, team). LogicData objects are
+ * global config and carry no team — reading data+0x40 yields garbage and
+ * classified every projectile as enemy. */
+int is_owned_team_object(uintptr_t obj)
 {
     int32_t team = 0;
-    if (own_team_value < 0 || !data) return 0;
-    if (!read_int(data + static_cast<uintptr_t>(LOGICDATA__TEAM), &team))
+    if (own_team_value < 0 || !obj) return 0;
+    if (!read_int(obj + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__TEAM),
+                  &team))
         return 0;
     return team == own_team_value ? 1 : 0;
 }
 int is_owned_by_own_team(uintptr_t obj)
 {
-    uintptr_t data = 0;
-    int32_t   team = 0;
-    if (own_team_value < 0) return 0;
-    if (!read_ptr(obj + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETDATA),
-                  &data) ||
-        !data)
-    {
-        return 0;
-    }
-    if (!read_int(data + static_cast<uintptr_t>(LOGICDATA__TEAM), &team))
-        return 0;
-    return team == own_team_value ? 1 : 0;
+    return is_owned_team_object(obj);
 }
 uintptr_t client()
 {

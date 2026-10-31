@@ -177,7 +177,7 @@ void init_projectile_state(
     st->uy             = 0.0f;
 }
 static void character_entry(
-    const uint8_t* obj, int32_t own_gid, float mx, float my, uintptr_t dataPtr)
+    const uint8_t* obj, int32_t own_gid, float mx, float my)
 {
     int32_t hp, gid, xi, yi;
     memcpy(&hp, obj + LOGICGAMEOBJECTCLIENT__HP, sizeof(hp));
@@ -186,7 +186,9 @@ static void character_entry(
     memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
     float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
-    if (is_owned_team_data(dataPtr))
+    /* obj is the 0xe0-byte snapshot copy of the client object — +0x40 (team)
+     * is inside it */
+    if (is_owned_team_object(reinterpret_cast<uintptr_t>(obj)))
     {
         if (ally_n >= ALLY_MAX) return;
         int k     = ally_n++;
@@ -271,7 +273,7 @@ static void projectile_threat(const uint8_t* obj,
         st->vel = false;
     }
     st->x = px, st->y = py;
-    if (is_owned_team_data(dataPtr))
+    if (is_owned_team_object(objPtr))
     {
         proj_own_n++;
         return;
@@ -365,7 +367,7 @@ void collect_logic_objects(uint64_t now, int32_t own_gid, float mx, float my)
         if (!obj_rva[i]) continue;
         if (char_vt && obj_rva[i] == char_vt)
         {
-            character_entry(obj, own_gid, mx, my, dataPtr);
+            character_entry(obj, own_gid, mx, my);
             continue;
         }
         if (!data_is_projectile(dataPtr, obj_rva[i] + base)) continue;
