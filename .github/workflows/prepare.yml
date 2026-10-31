@@ -10,7 +10,6 @@ permissions:
   actions: write
 
 env:
-  FRIDA_VERSION: 17.24.3
   CLANG_TIDY_CONFIG: |
     Checks: >
       -*,
@@ -124,6 +123,11 @@ jobs:
       - name: Gum
         run: |
           set -euo pipefail
+          ver="$(grep -m1 'FRIDA_VERSION:' .github/workflows/build.yml 2>/dev/null | awk '{print $2}' || true)"
+          if [ -z "$ver" ]; then
+            ver="17.24.3"
+          fi
+          echo "frida-gum devkit: $ver"
           dir="vendor/frida-gum"
           if [ -f "$dir/frida-gum.h" ] || [ -f "$dir/include/frida-gum.h" ]; then
             echo "using committed devkit"
@@ -131,7 +135,7 @@ jobs:
           fi
           mkdir -p "$dir"
           curl -fsSL -o /tmp/gum.tar.xz \
-            "https://github.com/frida/frida/releases/download/${FRIDA_VERSION}/frida-gum-devkit-${FRIDA_VERSION}-ios-arm64.tar.xz"
+            "https://github.com/frida/frida/releases/download/${ver}/frida-gum-devkit-${ver}-ios-arm64.tar.xz"
           tar -xJf /tmp/gum.tar.xz -C "$dir"
 
       - name: Theos
