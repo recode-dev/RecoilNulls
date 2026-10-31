@@ -121,7 +121,7 @@ struct ProjRange
     float     range;
 };
 static ProjRange proj_ranges[48] = {};
-static void record_proj_range(uintptr_t pd, float range)
+static void      record_proj_range(uintptr_t pd, float range)
 {
     if (!pd || range <= 0.0f) return;
     for (ProjRange& r : proj_ranges)
@@ -233,14 +233,14 @@ Proj* find_projectile_entry(int32_t pid)
 void init_projectile_state(
     Proj* st, int32_t pid, uintptr_t dataPtr, float px, float py, uint64_t now)
 {
-    st->pid            = pid;
-    st->seen           = now;
-    st->data           = dataPtr;
-    st->x              = px;
-    st->y              = py;
-    st->sx             = px;
-    st->sy             = py;
-    st->range          = lookup_proj_range(dataPtr);
+    st->pid   = pid;
+    st->seen  = now;
+    st->data  = dataPtr;
+    st->x     = px;
+    st->y     = py;
+    st->sx    = px;
+    st->sy    = py;
+    st->range = lookup_proj_range(dataPtr);
     if (st->range <= 0.0f) st->range = weapons_range;
     st->speed          = 0.0f;
     int32_t dataRadius = projectile_radius(dataPtr);
@@ -820,7 +820,8 @@ void reset_autododge_state()
     hitbox        = 0.0f;
     sent_frame    = 0;
     weapons_range = 0.0f;
-    for (ProjRange& r : proj_ranges) r = ProjRange{};
+    for (ProjRange& r : proj_ranges)
+        r = ProjRange{};
     commit_x = 0.0f, commit_y = 0.0f;
     for (Proj& p : projs)
         p = Proj{};
