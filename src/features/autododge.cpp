@@ -81,10 +81,10 @@ void cache_span()
     span.far      = span.tile * 16.0f;
 }
 
-constexpr int      THREAT_MAX  = 32;
-constexpr int      PROJ_SLOTS  = 48;
-constexpr uint64_t PROJ_TTL_MS   = 50 * 20;
-constexpr uint64_t PROJ_GONE_MS  = 150;
+constexpr int      THREAT_MAX   = 32;
+constexpr int      PROJ_SLOTS   = 48;
+constexpr uint64_t PROJ_TTL_MS  = 50 * 20;
+constexpr uint64_t PROJ_GONE_MS = 150;
 
 struct Threat
 {
