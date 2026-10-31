@@ -49,22 +49,22 @@ int   proj_own_n         = 0;
 int   proj_enemy_n       = 0;
 namespace
 {
-constexpr int      SIM_STEPS        = 32;
-constexpr int      MOVE_DELAY_TICKS = 2;
-constexpr int      HOLD_TICKS       = 3;
-constexpr float    SWITCH_GAIN      = 1.4f;
-constexpr float    SWITCH_ALIGN     = 0.9f;
-constexpr float    TARGET_LERP      = 0.5f;
-constexpr float    WEIGHT_STEP      = 4096.0f;
-constexpr float    WEIGHT_POS       = 900.0f;
-constexpr float    WEIGHT_AWAY      = 0.06f;
-constexpr float    WEIGHT_AXIS      = 2600.0f;
-constexpr float    AXIS_INTO        = 0.35f;
-constexpr float    WEIGHT_APPROACH  = 2000.0f;
-constexpr float    COMMIT_BONUS     = 3.0f;
-constexpr float    WEIGHT_EDGE      = 1600.0f;
-constexpr float    TICK_MS_SEC      = static_cast<float>(ad::TICK_MS) * 0.001f;
-constexpr float    SIM_T = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
+constexpr int   SIM_STEPS        = 32;
+constexpr int   MOVE_DELAY_TICKS = 2;
+constexpr int   HOLD_TICKS       = 3;
+constexpr float SWITCH_GAIN      = 1.4f;
+constexpr float SWITCH_ALIGN     = 0.9f;
+constexpr float TARGET_LERP      = 0.5f;
+constexpr float WEIGHT_STEP      = 4096.0f;
+constexpr float WEIGHT_POS       = 900.0f;
+constexpr float WEIGHT_AWAY      = 0.06f;
+constexpr float WEIGHT_AXIS      = 2600.0f;
+constexpr float AXIS_INTO        = 0.35f;
+constexpr float WEIGHT_APPROACH  = 2000.0f;
+constexpr float COMMIT_BONUS     = 3.0f;
+constexpr float WEIGHT_EDGE      = 1600.0f;
+constexpr float TICK_MS_SEC      = static_cast<float>(ad::TICK_MS) * 0.001f;
+constexpr float SIM_T            = static_cast<float>(SIM_STEPS) * TICK_MS_SEC;
 struct Span
 {
     float tile, reach, edge, pad, close, approach, far;

@@ -397,11 +397,11 @@ static uintptr_t call(uintptr_t fn, uintptr_t self)
 uintptr_t        snapshot[COUNT_MAX];
 uint8_t          block[COUNT_MAX][OBJ_BLOCK_SIZE];
 uint8_t          valid[COUNT_MAX];
-int              obj_count = 0;
+int              obj_count   = 0;
 uint64_t         frame_index = 0;
-int32_t          own_x     = 0;
-int32_t          own_y     = 0;
-int              ok_hp     = 0;
+int32_t          own_x       = 0;
+int32_t          own_y       = 0;
+int              ok_hp       = 0;
 static uintptr_t battle_instance()
 {
     using inst_t     = uintptr_t (*)();
