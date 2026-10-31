@@ -145,23 +145,27 @@ static float lookup_proj_range(uintptr_t pd)
         if (r.pd == pd) return r.range;
     return 0.0f;
 }
+static int32_t cached_casting_range_key = -1;
+static bool    seg_has_children(uintptr_t seg)
+{
+    uintptr_t child = 0;
+    if (read_ptr(seg + LOGICRANGESEG__CHILDSTART, &child) && child) return true;
+    child = 0;
+    return read_ptr(seg + LOGICRANGESEG__CHILDEND, &child) && child != 0;
+}
 static float enemy_weapon_range(uintptr_t charObj)
 {
-    using proj_t  = uintptr_t (*)(uintptr_t, int32_t);
-    using range_t = int32_t (*)(uintptr_t, int32_t, uintptr_t, uintptr_t);
-    static proj_t  fn_proj  = nullptr;
-    static range_t fn_range = nullptr;
-    uintptr_t      vec, slot, sd, vt, f0, pd;
-    int32_t        n;
-    float          best = 0.0f;
+    uintptr_t vec, slot, sd, vt, f0, stats, inner, table, row, arr, pd;
+    int32_t   n, idx, base_range, cnt;
+    float     best = 0.0f;
     if (!charObj) return 0.0f;
-    if (!fn_proj)
-        fn_proj = reinterpret_cast<proj_t>(
-            callable_at_rva(LOGICSKILLDATA__GETPROJECTILE));
-    if (!fn_range)
-        fn_range = reinterpret_cast<range_t>(
-            callable_at_rva(LOGICGAMEPLAYUTIL__GETEFFECTIVEWEAPONRANGE));
-    if (!fn_proj || !fn_range) return 0.0f;
+    int32_t key = cached_casting_range_key;
+    if (key < 0)
+    {
+        if (!read_int(base + LOGICSTATSKEY__CASTINGRANGE, &key) || key < 0)
+            return 0.0f;
+        cached_casting_range_key = key;
+    }
     if (!read_ptr(charObj + LOGICCHARACTERCLIENT__SKILLS, &vec) || !vec ||
         !pointer_plausible(vec))
         return 0.0f;
@@ -181,11 +185,123 @@ static float enemy_weapon_range(uintptr_t charObj)
         if (!read_ptr(sd, &vt) || !pointer_plausible(vt)) continue;
         f0 = 0;
         if (!read_ptr(vt, &f0) || !addr_executable(f0)) continue;
-        pd = fn_proj(sd, 0);
-        if (!pd || !pointer_plausible(pd)) continue;
-        float wr = static_cast<float>(fn_range(sd, 0, charObj, pd));
+        stats = 0;
+        if (!read_ptr(sd + LOGICSKILLDATA__STATS, &stats) || !stats ||
+            !pointer_plausible(stats))
+            continue;
+        inner = 0;
+        if (!read_ptr(stats, &inner) || !inner || !pointer_plausible(inner))
+            continue;
+        idx = 0;
+        if (!read_int(stats + LOGICSKILLSTATS__ENTRYINDEX, &idx) || idx < 0 ||
+            idx > 0xffff)
+            continue;
+        table = 0;
+        if (!read_ptr(inner + LOGICSKILLSTATS__TABLE, &table) || !table ||
+            !pointer_plausible(table))
+            continue;
+        row = 0;
+        if (!read_ptr(table + static_cast<uintptr_t>(key) * 8, &row) || !row ||
+            !pointer_plausible(row))
+            continue;
+        arr = 0;
+        if (!read_ptr(row + LOGICSTATTABLE__ROWARRAY, &arr) || !arr ||
+            !pointer_plausible(arr))
+            continue;
+        base_range = 0;
+        if (!read_int(arr + static_cast<uintptr_t>(idx) * 4, &base_range))
+            continue;
+        if (base_range == 0x7fffffff) base_range = 0;
+        if (base_range < 0 || base_range > 4096) continue;
+        int64_t subtiles = static_cast<int64_t>(base_range) * 100;
+        pd                   = 0;
+        cnt                  = 0;
+        if (read_int(sd + LOGICSKILLDATA__PROJCOUNT, &cnt) && cnt > 0 && cnt < 64)
+        {
+            uintptr_t parr = 0;
+            if (read_ptr(sd + LOGICSKILLDATA__PROJARRAY, &parr) && parr &&
+                pointer_plausible(parr))
+                read_ptr(parr, &pd);
+        }
+        if (pd && pointer_plausible(pd))
+        {
+            uintptr_t pvt = 0;
+            if (read_ptr(pd, &pvt) && pointer_plausible(pvt))
+            {
+                uintptr_t pf0 = 0;
+                if (read_ptr(pvt, &pf0) && addr_executable(pf0))
+                {
+                    int32_t   pd_type = 0;
+                    uintptr_t p178 = 0, p180 = 0;
+                    read_int(pd + LOGICPROJECTILEDATA__TYPE, &pd_type);
+                    read_ptr(pd + LOGICPROJECTILEDATA__SEGMENT, &p178);
+                    read_ptr(pd + LOGICPROJECTILEDATA__SEGMENTALT, &p180);
+                    if (p178 && !pointer_plausible(p178)) p178 = 0;
+                    if (p180 && !pointer_plausible(p180)) p180 = 0;
+                    int32_t e = 0;
+                    if (p178 && seg_has_children(p178))
+                    {
+                        if (read_int(p178 + LOGICRANGESEG__TILERANGE, &e) &&
+                            e >= 0 && e <= 4096)
+                            subtiles =
+                                static_cast<int64_t>(base_range + e) * 100;
+                    }
+                    else if (p178 && p180 && seg_has_children(p180))
+                    {
+                        if (read_int(p180 + LOGICRANGESEG__TILERANGE, &e) &&
+                            e >= 0 && e <= 4096)
+                            subtiles =
+                                static_cast<int64_t>(base_range + e) * 100;
+                    }
+                    else if (!p178)
+                    {
+                        uintptr_t p1d0 = 0;
+                        if (read_ptr(pd + LOGICPROJECTILEDATA__BLASTSOURCE, &p1d0) &&
+                            p1d0 && pointer_plausible(p1d0) &&
+                            (pd_type == 1 || pd_type == 2))
+                        {
+                            int32_t v = 0;
+                            if (read_int(pd + LOGICPROJECTILEDATA__BLASTRANGE, &v) &&
+                                v >= 0 && v <= 4096)
+                                subtiles =
+                                    static_cast<int64_t>(base_range + v) * 100;
+                            uintptr_t q = 0;
+                            if (read_ptr(p1d0 + LOGICPROJECTILEDATA__SEGMENT, &q) &&
+                                q && pointer_plausible(q))
+                            {
+                                int32_t s = 0;
+                                if (read_int(q + LOGICRANGESEG__SUBTILERANGE, &s) &&
+                                    s >= 0 && s <= 1000000)
+                                    subtiles += s;
+                            }
+                        }
+                        else
+                        {
+                            int32_t s = 0;
+                            if (read_int(pd + LOGICPROJECTILEDATA__GETRADIUS, &s) &&
+                                s >= 0 && s <= 1000000)
+                                subtiles += s;
+                        }
+                    }
+                    else
+                    {
+                        int32_t a = 0, b = 0;
+                        if (read_int(p178 + LOGICRANGESEG__SUBTILERANGE, &a) &&
+                            (a < 0 || a > 1000000))
+                            a = 0;
+                        if (p180 &&
+                            read_int(p180 + LOGICRANGESEG__SUBTILERANGE, &b) &&
+                            (b < 0 || b > 1000000))
+                            b = 0;
+                        if (b > a) a = b;
+                        subtiles += a;
+                    }
+                }
+            }
+        }
+        float wr = static_cast<float>(subtiles);
         if (wr <= 0.0f) continue;
-        record_proj_range(pd, wr);
+        if (pd && pointer_plausible(pd)) record_proj_range(pd, wr);
         if (wr > best) best = wr;
     }
     return best;
