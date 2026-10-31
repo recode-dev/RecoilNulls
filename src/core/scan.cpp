@@ -563,7 +563,8 @@ void scan_world()
         own_y    = y;
         coord_ok = 1;
     }
-    if (read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__HP), &hp) &&
+    if (read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__HP),
+                 &hp) &&
         hp >= 0 && hp < 1000000)
     {
         ok_hp  = 1;
