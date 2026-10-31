@@ -186,8 +186,6 @@ character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
     memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
     float ex = static_cast<float>(xi) - mx, ey = static_cast<float>(yi) - my;
-    /* obj is the 0xe0-byte snapshot copy of the client object — +0x40 (team)
-     * is inside it */
     if (is_owned_team_object(reinterpret_cast<uintptr_t>(obj)))
     {
         if (ally_n >= ALLY_MAX) return;

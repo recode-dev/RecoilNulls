@@ -534,9 +534,6 @@ void scan_world()
         if (own)
         {
             int32_t team = 0;
-            /* team is a field of the per-instance client object (+0x40),
-             * mirroring GameObject::isOwnedByOwnTeam; fall back to the
-             * BattleModeClient cached own-team (+0xe4) */
             if (read_int(
                     own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__TEAM),
                     &team))
@@ -665,12 +662,6 @@ void setup()
 }
 int coord_ok = 0;
 int dead     = 0;
-/* team lives on the per-instance LogicGameObjectClient (+0x40), NOT on its
- * shared LogicData: GameObject::isOwnedByOwnTeam reads ldr x8,[x19,#0x10]
- * (wrapper -> client) then ldr w8,[x8,#0x40]; v69 twin 0x4b5be0 loads the
- * pair via ldp w1,w2,[x8,#0x3c] (playerIndex, team). LogicData objects are
- * global config and carry no team — reading data+0x40 yields garbage and
- * classified every projectile as enemy. */
 int is_owned_team_object(uintptr_t obj)
 {
     int32_t team = 0;
