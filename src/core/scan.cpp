@@ -220,7 +220,8 @@ static uintptr_t path_finder(uintptr_t tileMap)
 }
 int game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1)
 {
-    using clear_t = uint32_t (*)(void*, int, int, int, int, int, int, int, int, int);
+    using clear_t =
+        uint32_t (*)(void*, int, int, int, int, int, int, int, int, int);
     static clear_t fn = nullptr;
     if (!fn)
     {

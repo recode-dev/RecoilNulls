@@ -183,8 +183,8 @@ character_entry(const uint8_t* obj, int32_t own_gid, float mx, float my)
     int k      = enemy_n++;
     enemy_x[k] = static_cast<float>(xi);
     enemy_y[k] = static_cast<float>(yi);
-    enemy_d[k] = fast_len(static_cast<float>(xi) - mx,
-                          static_cast<float>(yi) - my);
+    enemy_d[k] =
+        fast_len(static_cast<float>(xi) - mx, static_cast<float>(yi) - my);
 }
 static float world_extent_x = 0.0f;
 static float world_extent_y = 0.0f;
@@ -237,9 +237,9 @@ static void projectile_threat(const uint8_t* obj,
         init_projectile_state(st, key, dataPtr, px, py, now);
         if (st->pid != key) return;
     }
-    st->seen = now;
-    float step_x = px - st->x, step_y = py - st->y;
-    float step   = fast_len(step_x, step_y);
+    st->seen       = now;
+    float   step_x = px - st->x, step_y = py - st->y;
+    float   step      = fast_len(step_x, step_y);
     int32_t dataSpeed = projectile_speed(st->data);
     if (dataSpeed > 50 && dataSpeed < 20000)
     {
