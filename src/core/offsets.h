@@ -38,4 +38,7 @@ inline constexpr uint64_t LOGICTILEMAP__TILETOLOGIC                        = 0x9
 inline constexpr uint64_t LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR           = 0x943b34;
 inline constexpr uint64_t LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE   = 0xaf53c4;
 inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTRAVELTICKS            = 0xa3192c;
+inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTARGETX                = 0x1ec;
+inline constexpr uint64_t LOGICPROJECTILECLIENT__GETTARGETY                = 0x1f0;
+inline constexpr uint64_t LOGICPROJECTILECLIENT__PREEXPLOSIONTICKS         = 0x1f4;
 #endif

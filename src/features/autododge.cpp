@@ -248,11 +248,22 @@ void projectile_threat(const uint8_t* obj,
     {
         init_projectile_state(st, key, dataPtr, px, py, now);
     }
-    st->seen       = now;
+    st->seen = now;
+    int32_t tx = 0, ty = 0, eta = 0;
+    memcpy(&tx, obj + LOGICPROJECTILECLIENT__GETTARGETX, sizeof(tx));
+    memcpy(&ty, obj + LOGICPROJECTILECLIENT__GETTARGETY, sizeof(ty));
+    memcpy(&eta, obj + LOGICPROJECTILECLIENT__PREEXPLOSIONTICKS, sizeof(eta));
+    bool targeted = eta > 0 && tx > 0 && ty > 0 &&
+                    static_cast<float>(tx) < world_extent_x + 300.0f &&
+                    static_cast<float>(ty) < world_extent_y + 300.0f;
     float   step_x = px - st->x, step_y = py - st->y;
     float   step      = fast_len(step_x, step_y);
     int32_t dataSpeed = projectile_speed(dataPtr);
-    if (dataSpeed > 50 && dataSpeed < 20000)
+    if (targeted)
+    {
+        st->vel = false;
+    }
+    else if (dataSpeed > 50 && dataSpeed < 20000)
     {
         if (step > 0.5f)
         {
@@ -268,6 +279,25 @@ void projectile_threat(const uint8_t* obj,
     }
     st->x = px, st->y = py;
     if (is_owned_team_object(obj)) return;
+    if (targeted)
+    {
+        float lx = static_cast<float>(tx), ly = static_cast<float>(ty);
+        float dx = lx - mx, dy = ly - my;
+        if (dx * dx + dy * dy > zone2) return;
+        if (static_cast<float>(eta) * TICK_MS_SEC > SIM_T) return;
+        float rad = st->rad + hitbox;
+        for (int k = 0; k < threat_n; k++)
+        {
+            if (threats[k].vx == 0.0f && threats[k].vy == 0.0f &&
+                fabsf(threats[k].x - lx) < 1.0f && fabsf(threats[k].y - ly) < 1.0f)
+                return;
+        }
+        if (threat_n >= THREAT_MAX) return;
+        Threat& t = threats[threat_n++];
+        t.x = lx, t.y = ly, t.vx = 0.0f, t.vy = 0.0f, t.pid = key;
+        t.rad = rad;
+        return;
+    }
     float dx = px - mx, dy = py - my;
     if (!st->vel) return;
     float vx = st->ux * st->speed, vy = st->uy * st->speed;
