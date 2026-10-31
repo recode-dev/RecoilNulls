@@ -2,11 +2,11 @@
 #define OFFSETS_H
 #include <cstddef>
 #include <cstdint>
-inline constexpr uint64_t LOGICVECTOR2__GETLENGTH        = 0xbd0740;
-inline constexpr uint64_t LOGICVECTOR2__NORMALIZE        = 0xbd0794;
-inline constexpr uint64_t LOGICBATTLEMODECLIENT__OWNTEAM = 0xe4;
-inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__TEAM    = 0x40;
-inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__PLAYERINDEX = 0x3c;
+inline constexpr uint64_t LOGICVECTOR2__GETLENGTH                  = 0xbd0740;
+inline constexpr uint64_t LOGICVECTOR2__NORMALIZE                  = 0xbd0794;
+inline constexpr uint64_t LOGICBATTLEMODECLIENT__OWNTEAM           = 0xe4;
+inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__TEAM              = 0x40;
+inline constexpr uint64_t LOGICGAMEOBJECTCLIENT__PLAYERINDEX       = 0x3c;
 inline constexpr uint64_t LOGICBATTLEMODE__CLIENT                  = 0x28;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__INPUTMANAGER      = 0x58;
 inline constexpr uint64_t LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER = 0x28;
