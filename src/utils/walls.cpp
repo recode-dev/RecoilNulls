@@ -1,5 +1,6 @@
 #include "walls.h"
 #include <cmath>
+#include <cstdint>
 #include "../core/offsets.h"
 #include "../core/scan.h"
 static uintptr_t wall_map          = 0;
@@ -7,7 +8,6 @@ static int       wall_w            = 0;
 static int       wall_h            = 0;
 static int       wall_subtile_span = 0;
 static int       wall_have         = 0;
-static float     wall_unit         = 0.0f;
 
 namespace
 {
@@ -50,41 +50,16 @@ int tile_blocked_cached(int32_t x, int32_t y)
 }
 }
 
-static int wall_measure_tile_span()
+static void wall_measure_tile_span()
 {
     int span = game_tile_to_logic(1) - game_tile_to_logic(0);
-    if (span <= 0) return 0;
-    wall_unit = static_cast<float>(span);
-    if (span % WALL_SUBTILES_PER_TILE) return 0;
+    if (span <= 0 || span % WALL_SUBTILES_PER_TILE) __builtin_trap();
     wall_subtile_span = span / WALL_SUBTILES_PER_TILE;
-    return 1;
 }
 
-static int wall_subtile_of(float x, float y, int* outX, int* outY)
+int32_t wall_logic_units(int tiles)
 {
-    int subX = 0;
-    int subY = 0;
-    if (!wall_have || wall_subtile_span <= 0) return 0;
-    subX = static_cast<int>(x) / wall_subtile_span;
-    subY = static_cast<int>(y) / wall_subtile_span;
-    if (subX < 0 || subY < 0) return 0;
-    if (subX >= wall_w * WALL_SUBTILES_PER_TILE || subY >= wall_h * WALL_SUBTILES_PER_TILE)
-    {
-        return 0;
-    }
-    if (outX) *outX = subX;
-    if (outY) *outY = subY;
-    return 1;
-}
-
-float wall_logic_units(int tiles)
-{
-    if (!wall_unit)
-    {
-        int span  = game_tile_to_logic(1) - game_tile_to_logic(0);
-        wall_unit = span > 0 ? static_cast<float>(span) : 0.0f;
-    }
-    return wall_unit * static_cast<float>(tiles);
+    return game_tile_to_logic(tiles) - game_tile_to_logic(0);
 }
 
 void wall_cache_bind(uintptr_t tileMap)
@@ -110,16 +85,19 @@ void wall_cache_bind(uintptr_t tileMap)
     if (!read_int(tileMap + static_cast<uintptr_t>(LOGICTILEMAP__WIDTH), &mapW) || mapW <= 0 ||
         mapW > WALL_MAX_MAP_TILES)
     {
+        if (wall_have) __builtin_trap();
         return;
     }
     if (!read_int(tileMap + static_cast<uintptr_t>(LOGICTILEMAP__HEIGHT), &mapH) || mapH <= 0 ||
         mapH > WALL_MAX_MAP_TILES)
     {
+        if (wall_have) __builtin_trap();
         return;
     }
-    wall_w    = mapW;
-    wall_h    = mapH;
-    wall_have = wall_measure_tile_span();
+    wall_w = mapW;
+    wall_h = mapH;
+    wall_measure_tile_span();
+    wall_have = 1;
 }
 
 int wall_cache_width()
@@ -132,33 +110,40 @@ int wall_cache_height()
     return wall_h;
 }
 
-int wall_cell_blocked_at(float x, float y)
+int wall_cell_blocked_at(int32_t x, int32_t y)
 {
-    int subX = 0;
-    int subY = 0;
-    if (!wall_subtile_of(x, y, &subX, &subY)) return 0;
+    int32_t subX = 0;
+    int32_t subY = 0;
+    if (!wall_have) __builtin_trap();
+    subX = x / wall_subtile_span;
+    subY = y / wall_subtile_span;
+    if (subX < 0 || subY < 0) return 0;
+    if (subX >= wall_w * WALL_SUBTILES_PER_TILE || subY >= wall_h * WALL_SUBTILES_PER_TILE)
+    {
+        return 0;
+    }
     return tile_blocked_cached(subX, subY);
 }
 
-int wall_cell_blocked_wide(float x, float y, float r)
+int wall_cell_blocked_wide(int32_t x, int32_t y, int32_t r)
 {
-    int lowX  = 0;
-    int lowY  = 0;
-    int highX = 0;
-    int highY = 0;
-    if (r <= 0.0f) return wall_cell_blocked_at(x, y);
-    if (!wall_have || wall_subtile_span <= 0) return 0;
-    lowX  = static_cast<int>(x - r) / wall_subtile_span;
-    lowY  = static_cast<int>(y - r) / wall_subtile_span;
-    highX = static_cast<int>(x + r) / wall_subtile_span;
-    highY = static_cast<int>(y + r) / wall_subtile_span;
+    int32_t lowX  = 0;
+    int32_t lowY  = 0;
+    int32_t highX = 0;
+    int32_t highY = 0;
+    if (r <= 0) return wall_cell_blocked_at(x, y);
+    if (!wall_have) __builtin_trap();
+    lowX  = (x - r) / wall_subtile_span;
+    lowY  = (y - r) / wall_subtile_span;
+    highX = (x + r) / wall_subtile_span;
+    highY = (y + r) / wall_subtile_span;
     if (lowX < 0) lowX = 0;
     if (lowY < 0) lowY = 0;
     if (highX >= wall_w * WALL_SUBTILES_PER_TILE) highX = wall_w * WALL_SUBTILES_PER_TILE - 1;
     if (highY >= wall_h * WALL_SUBTILES_PER_TILE) highY = wall_h * WALL_SUBTILES_PER_TILE - 1;
-    for (int sy = lowY; sy <= highY; sy++)
+    for (int32_t sy = lowY; sy <= highY; sy++)
     {
-        for (int sx = lowX; sx <= highX; sx++)
+        for (int32_t sx = lowX; sx <= highX; sx++)
         {
             if (tile_blocked_cached(sx, sy)) return 1;
         }
@@ -166,17 +151,20 @@ int wall_cell_blocked_wide(float x, float y, float r)
     return 0;
 }
 
-float wall_clear_run(float x, float y, float dx, float dy, float max_run, float radius)
+int32_t
+wall_clear_run(int32_t x, int32_t y, int32_t dx, int32_t dy, int32_t max_run, int32_t radius)
 {
-    if (max_run <= 0.0f) return 0.0f;
-    if (!wall_have || wall_subtile_span <= 0) return max_run;
-    const float step = wall_unit / static_cast<float>(WALL_SUBTILES_PER_TILE);
-    float       run  = 0.0f;
-    float       d    = 0.0f;
+    if (max_run <= 0) return 0;
+    if (!wall_have || wall_subtile_span <= 0) __builtin_trap();
+    const int32_t step = wall_subtile_span;
+    int32_t       run  = 0;
+    int32_t       d    = 0;
     while (d <= max_run)
     {
-        const float t = d > max_run ? max_run : d;
-        if (wall_cell_blocked_wide(x + dx * t, y + dy * t, radius)) break;
+        const int32_t t      = d > max_run ? max_run : d;
+        int32_t       vec[2] = {dx, dy};
+        game_vec2_normalize(vec, t);
+        if (wall_cell_blocked_wide(x + vec[0], y + vec[1], radius)) break;
         run = t;
         if (t >= max_run) break;
         d += step;
@@ -186,7 +174,7 @@ float wall_clear_run(float x, float y, float dx, float dy, float max_run, float 
 
 int32_t axis(float v, int tiles)
 {
-    float limit = wall_logic_units(tiles) - 1.0f;
+    float limit = static_cast<float>(wall_logic_units(tiles) - 1);
     if (v < 0.0f) return 0;
     if (v > limit) return static_cast<int32_t>(limit);
     return static_cast<int32_t>(roundf(v));

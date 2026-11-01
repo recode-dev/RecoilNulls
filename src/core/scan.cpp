@@ -1,7 +1,6 @@
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
 #include <cstdint>
-#include <cmath>
 #include <cstring>
 #include "../features/autododge.h"
 #include "../utils/walls.h"
@@ -24,6 +23,9 @@ static uintptr_t fn_tile_map        = 0;
 static uintptr_t fn_tile_passable   = 0;
 static uintptr_t fn_tile_to_logic   = 0;
 static uintptr_t fn_segment_circle  = 0;
+static uintptr_t fn_vec2_length     = 0;
+static uintptr_t fn_vec2_normalize  = 0;
+static uintptr_t fn_pt_distance     = 0;
 
 static guint memory_page_size()
 {
@@ -98,20 +100,7 @@ bool read_bytes(uintptr_t address, void* out, size_t length)
 
 void read_cache_reset()
 {
-    page_cache_epoch = frame_index ? frame_index : 1;
-}
-
-bool pointer_plausible(uintptr_t value)
-{
-    if (value < 0x100000000ULL || value >= 0x00007fffffffffffULL)
-    {
-        return false;
-    }
-    if (value & 7)
-    {
-        return false;
-    }
-    return true;
+    page_cache_epoch = frame_index;
 }
 
 bool read_int(uintptr_t address, int32_t* out)
@@ -125,16 +114,6 @@ bool read_int(uintptr_t address, int32_t* out)
         return false;
     }
     return read_bytes(address, out, 4);
-}
-
-bool memory_protection_flags(uintptr_t address, vm_prot_t* flags)
-{
-    if (!address || !flags || !gum_live)
-    {
-        return false;
-    }
-    *flags = static_cast<vm_prot_t>(page_protection(address));
-    return *flags != 0;
 }
 
 bool read_ptr(uintptr_t address, uintptr_t* out)
@@ -176,6 +155,23 @@ int game_segment_hits_circle(int x1, int y1, int x2, int y2, int cx, int cy, int
 {
     using hit_t = int (*)(int, int, int, int, int, int, int, int*);
     return reinterpret_cast<hit_t>(fn_segment_circle)(x1, y1, x2, y2, cx, cy, radius, out);
+}
+
+int32_t game_vec2_length(int32_t x, int32_t y)
+{
+    int32_t v[2] = {x, y};
+    return reinterpret_cast<int32_t (*)(int32_t*)>(fn_vec2_length)(v);
+}
+
+void game_vec2_normalize(int32_t* v, int32_t scale)
+{
+    reinterpret_cast<void (*)(int32_t*, int32_t)>(fn_vec2_normalize)(v, scale);
+}
+
+int32_t game_distance(int32_t x1, int32_t y1, int32_t x2, int32_t y2)
+{
+    return reinterpret_cast<int32_t (*)(int32_t, int32_t, int32_t, int32_t)>(fn_pt_distance)(
+        x1, y1, x2, y2);
 }
 
 uintptr_t callable(uintptr_t rva)
@@ -288,7 +284,6 @@ int       obj_count   = 0;
 uint64_t  frame_index = 0;
 int32_t   own_x       = 0;
 int32_t   own_y       = 0;
-int       ok_hp       = 0;
 
 static uintptr_t battle_instance()
 {
@@ -301,7 +296,6 @@ static void world_reset()
     own_x          = 0;
     own_y          = 0;
     own_hp         = 0;
-    ok_hp          = 0;
     dead           = 1;
     coord_ok       = 0;
     obj_count      = 0;
@@ -338,11 +332,10 @@ void scan_world()
     client_cached = clientPtr;
     {
         int32_t team = 0;
-        if (read_int(clientPtr + static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__OWNTEAM), &team) &&
-            team >= 0)
-        {
-            own_team_value = team;
-        }
+        if (!read_int(clientPtr + static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__OWNTEAM), &team))
+            __builtin_trap();
+        if (team < 0) __builtin_trap();
+        own_team_value = team;
     }
     if (!read_ptr(clientPtr + static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER),
                   &value) ||
@@ -352,13 +345,14 @@ void scan_world()
         return;
     }
     mgrPtr = (uintptr_t) value;
-    if (!read_int(mgrPtr + static_cast<uintptr_t>(LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT),
-                  &count) ||
-        count <= 0 || count > COUNT_MAX)
+    if (!read_int(mgrPtr + static_cast<uintptr_t>(LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT), &count))
+        __builtin_trap();
+    if (count <= 0)
     {
         world_reset();
         return;
     }
+    if (count > COUNT_MAX) __builtin_trap();
     if (!read_ptr(mgrPtr + static_cast<uintptr_t>(LOGICGAMEOBJECTMANAGER__GAMEOBJECTS), &value) ||
         !value)
     {
@@ -371,14 +365,10 @@ void scan_world()
         world_reset();
         return;
     }
-    {
-        uintptr_t ownByFn = call(fn_own_character, clientPtr);
-        own               = (ownByFn && pointer_plausible(ownByFn)) ? ownByFn : 0;
-    }
+    own = call(fn_own_character, clientPtr);
     if (!own)
     {
         elem      = 0;
-        ok_hp     = 0;
         own_hp    = 0;
         obj_count = 0;
         dead      = 1;
@@ -391,36 +381,30 @@ void scan_world()
     for (int i = 0; i < count; i++)
     {
         uintptr_t objPtr = snapshot[i];
-        valid[i] =
-            (objPtr && pointer_plausible(objPtr) && read_bytes(objPtr, block[i], OBJ_BLOCK_SIZE))
-                ? 1
-                : 0;
-        if (valid[i] && objPtr == own)
+        if (!objPtr)
+        {
+            valid[i] = 0;
+            continue;
+        }
+        if (!read_bytes(objPtr, block[i], OBJ_BLOCK_SIZE)) __builtin_trap();
+        valid[i] = 1;
+        if (objPtr == own)
         {
             own_block = block[i];
         }
     }
     {
         int32_t xy[2] = {0, 0};
-        if (read_bytes(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETX), xy, sizeof(xy)))
-        {
-            own_x    = xy[0];
-            own_y    = xy[1];
-            coord_ok = 1;
-        }
+        if (!read_bytes(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETX), xy, sizeof(xy)))
+            __builtin_trap();
+        own_x    = xy[0];
+        own_y    = xy[1];
+        coord_ok = 1;
     }
-    if (read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__HP), &hp) && hp >= 0 &&
-        hp < 1000000)
-    {
-        ok_hp  = 1;
-        own_hp = static_cast<uint32_t>(hp);
-    }
-    else
-    {
-        ok_hp  = 0;
-        own_hp = 0;
-    }
-    dead = (ok_hp && own_hp == 0) ? 1 : 0;
+    if (!read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__HP), &hp)) __builtin_trap();
+    if (hp < 0) __builtin_trap();
+    own_hp = static_cast<uint32_t>(hp);
+    dead   = own_hp == 0 ? 1 : 0;
     wall_cache_bind(call(fn_tile_map, clientPtr));
 }
 
@@ -468,8 +452,12 @@ static void resolve_game_fns()
     fn_tile_passable   = callable(LOGICTILEMAP__ISPASSABLEPATHFINDER);
     fn_tile_to_logic   = callable(LOGICTILEMAP__TILETOLOGIC);
     fn_segment_circle  = callable(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE);
+    fn_vec2_length     = callable(LOGICVECTOR2__GETLENGTH);
+    fn_vec2_normalize  = callable(LOGICVECTOR2__NORMALIZE);
+    fn_pt_distance     = callable(LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN);
     if (!fn_battle_instance || !fn_own_character || !fn_tile_map || !fn_tile_passable ||
-        !fn_tile_to_logic || !fn_segment_circle)
+        !fn_tile_to_logic || !fn_segment_circle || !fn_vec2_length || !fn_vec2_normalize ||
+        !fn_pt_distance)
     {
         __builtin_trap();
     }
@@ -494,7 +482,7 @@ int is_owned_team_object(uintptr_t data)
 {
     if (own_team_value < 0 || !data) return 0;
     int32_t team = 0;
-    if (!read_int(data + static_cast<uintptr_t>(LOGICDATA__TEAM), &team)) return 0;
+    if (!read_int(data + static_cast<uintptr_t>(LOGICDATA__TEAM), &team)) __builtin_trap();
     return team == own_team_value;
 }
 

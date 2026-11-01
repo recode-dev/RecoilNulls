@@ -36,15 +36,15 @@ static void* client_input_manager(void* battle)
     void* manager = nullptr;
     if (!read_ptr(reinterpret_cast<uintptr_t>(battle) + LOGICBATTLEMODECLIENT__INPUTMANAGER,
                   &manager) ||
-        !manager || !pointer_plausible(reinterpret_cast<uintptr_t>(manager)))
+        !manager)
     {
-        return nullptr;
+        __builtin_trap();
     }
     void* queue = nullptr;
     if (!read_ptr(reinterpret_cast<uintptr_t>(manager) + CLIENTINPUTMANAGER__QUEUE, &queue) ||
         !queue)
     {
-        return nullptr;
+        __builtin_trap();
     }
     return manager;
 }
@@ -86,7 +86,7 @@ static void client_input_enqueue(int type, int x, int y, void* manager)
     void* message = malloc(CLIENTINPUTMESSAGE__SIZE);
     if (!message)
     {
-        return;
+        __builtin_trap();
     }
     memset(message, 0, CLIENTINPUTMESSAGE__SIZE);
     reinterpret_cast<void (*)(void*, int)>(client_input_constructor)(message, type);
@@ -109,17 +109,11 @@ void commands_flush()
         return;
     }
     void* battle = reinterpret_cast<void*>(scene_object);
-    if (!object_plausible(battle))
+    if (!battle)
     {
-        pending_count = 0;
-        return;
+        __builtin_trap();
     }
-    void* manager = client_input_manager(battle);
-    if (!manager)
-    {
-        pending_count = 0;
-        return;
-    }
+    void*     manager    = client_input_manager(battle);
     uintptr_t controller = client();
     for (int i = 0; i < pending_count; i++)
     {
