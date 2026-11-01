@@ -47,13 +47,15 @@ constexpr int TRACK_MAX = 32;
 
 struct ProjTrack
 {
-    int32_t pid;
-    float   x, y;
-    float   ax, ay;
-    float   lx, ly;
-    float   ux, uy;
-    uint8_t has_dir;
-    uint8_t seen;
+    int32_t   pid;
+    uintptr_t data;
+    float     x, y;
+    float     ax, ay;
+    float     lx, ly;
+    float     ux, uy;
+    uint8_t   has_dir;
+    uint8_t   seen;
+    uint8_t   seen_now;
 };
 
 ProjTrack proj_track[TRACK_MAX] = {};
@@ -174,7 +176,7 @@ void learn_flight_range(uintptr_t data, float range)
 void learn_skill_range(uintptr_t sd)
 {
     if (!sd || !pointer_plausible(sd)) return;
-    constexpr float CASTING_RANGE_CELL = 100.0f;
+    constexpr float CASTING_RANGE_CELL = 3.0f;
     uintptr_t       row                = 0;
     if (!read_ptr(sd + LOGICSKILLDATA__ROWREF, &row) || !pointer_plausible(row)) return;
     uintptr_t table = 0;
@@ -195,7 +197,7 @@ void learn_skill_range(uintptr_t sd)
     int32_t tiles = 0;
     if (!read_int(values + static_cast<uintptr_t>(row_index) * 4, &tiles)) return;
     if (tiles == 0x7fffffff) tiles = 0;
-    if (tiles < 1 || tiles > 700) return;
+    if (tiles < 1 || tiles > 3000) return;
     float   range = static_cast<float>(tiles) * CASTING_RANGE_CELL;
     int32_t count = 0;
     if (!read_int(sd + LOGICSKILLDATA__PROJECTILECOUNT, &count) || count < 1) return;
@@ -217,6 +219,26 @@ void learn_character_ranges(uintptr_t charData)
     uintptr_t skill = 0;
     if (read_ptr(charData + LOGICCHARACTERDATA__WEAPONSKILL, &skill)) learn_skill_range(skill);
     if (read_ptr(charData + LOGICCHARACTERDATA__ULTISKILL, &skill)) learn_skill_range(skill);
+}
+
+void begin_projectile_frame()
+{
+    for (int i = 0; i < TRACK_MAX; i++) proj_track[i].seen_now = 0;
+}
+
+void sweep_dead_projectiles()
+{
+    for (int i = 0; i < TRACK_MAX; i++)
+    {
+        ProjTrack& s = proj_track[i];
+        if (!s.pid || s.seen_now) continue;
+        float flown = fast_len(s.lx - s.x, s.ly - s.y);
+        learn_flight_range(s.data, flown);
+        s.pid     = 0;
+        s.data    = 0;
+        s.seen    = 0;
+        s.has_dir = 0;
+    }
 }
 
 bool read_projectile_position(const uint8_t* obj, float* px, float* py)
@@ -282,7 +304,9 @@ void projectile_threat(
         slot->uy      = 0.0f;
         slot->has_dir = 0;
         slot->seen    = 0;
+        slot->data    = dataPtr;
     }
+    slot->seen_now = 1;
     float step_x = px - slot->lx;
     float step_y = py - slot->ly;
     float step   = fast_len(step_x, step_y);
@@ -336,11 +360,14 @@ void projectile_threat(
     }
     else if (slot->has_dir)
     {
-        if (learned <= 0.0f) return;
         ux = slot->ux, uy = slot->uy;
-        float remain = learned + info.radius - flown;
-        if (remain <= 0.0f) return;
-        seg = remain < sp * SIM_T ? remain : sp * SIM_T;
+        seg = sp * SIM_T;
+        if (learned > 0.0f)
+        {
+            float remain = learned + info.radius - flown;
+            if (remain <= 0.0f) return;
+            if (remain < seg) seg = remain;
+        }
     }
     else
     {
@@ -535,7 +562,9 @@ void update_autododge()
     cache_span();
     cache_frame_geom();
     float mx = static_cast<float>(own_x), my = static_cast<float>(own_y);
+    begin_projectile_frame();
     collect_logic_objects(own_gid, mx, my);
+    sweep_dead_projectiles();
     if (!threat_n)
     {
         reset_dodge_state();
