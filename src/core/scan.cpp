@@ -22,7 +22,6 @@ static uintptr_t fn_battle_instance = 0;
 static uintptr_t fn_own_character   = 0;
 static uintptr_t fn_tile_map        = 0;
 static uintptr_t fn_tile_passable   = 0;
-static uintptr_t fn_path_clear      = 0;
 static uintptr_t fn_tile_to_logic   = 0;
 static uintptr_t fn_segment_circle  = 0;
 
@@ -83,16 +82,6 @@ static bool range_allows(uintptr_t address, size_t length, GumPageProtection req
     return true;
 }
 
-bool addr_writable(uintptr_t address, size_t length)
-{
-    return range_allows(address, length, GUM_PAGE_WRITE);
-}
-
-void read_cache_reset()
-{
-    page_cache_epoch = frame_index ? frame_index : 1;
-}
-
 bool read_bytes(uintptr_t address, void* out, size_t length)
 {
     if (!out || !length || !address || length > 0x10000)
@@ -105,6 +94,11 @@ bool read_bytes(uintptr_t address, void* out, size_t length)
     }
     __builtin_memcpy(out, reinterpret_cast<const void*>(address), length);
     return true;
+}
+
+void read_cache_reset()
+{
+    page_cache_epoch = frame_index ? frame_index : 1;
 }
 
 bool pointer_plausible(uintptr_t value)
@@ -143,28 +137,6 @@ bool memory_protection_flags(uintptr_t address, vm_prot_t* flags)
     return *flags != 0;
 }
 
-bool write_bytes(uintptr_t address, const void* src, size_t length)
-{
-    if (!src || !length)
-    {
-        return false;
-    }
-    if (!address)
-    {
-        return false;
-    }
-    if (!gum_live)
-    {
-        return false;
-    }
-    if (!addr_writable(address, length))
-    {
-        return false;
-    }
-    __builtin_memcpy(reinterpret_cast<void*>(address), src, length);
-    return true;
-}
-
 bool read_ptr(uintptr_t address, uintptr_t* out)
 {
     if (!out || (address & 7))
@@ -192,37 +164,6 @@ int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
     using pass_t = uint8_t (*)(void*, int, int, int, int, int);
     return reinterpret_cast<pass_t>(fn_tile_passable)(
         reinterpret_cast<void*>(tileMap), 1, cellX, cellY, 0, 0);
-}
-
-static uintptr_t path_finder(uintptr_t tileMap)
-{
-    static uintptr_t cached_map = 0;
-    static uintptr_t cached_pf  = 0;
-    if (tileMap == cached_map) return cached_pf;
-    if (!tileMap) return 0;
-    void* pf   = nullptr;
-    void* back = nullptr;
-    if (!read_ptr(tileMap + LOGICTILEMAP__PATHFINDER, &pf) || !pf)
-    {
-        return 0;
-    }
-    if (!read_ptr(reinterpret_cast<uintptr_t>(pf) + LOGICPATHFINDER__TILEMAP, &back) ||
-        back != reinterpret_cast<void*>(tileMap))
-    {
-        return 0;
-    }
-    cached_map = tileMap;
-    cached_pf  = reinterpret_cast<uintptr_t>(pf);
-    return cached_pf;
-}
-
-int game_path_clear(uintptr_t tileMap, int x0, int y0, int x1, int y1)
-{
-    using clear_t = uint32_t (*)(void*, int, int, int, int, int, int, int, int, int);
-    uintptr_t pf  = path_finder(tileMap);
-    if (!pf) return 0;
-    return static_cast<int>(reinterpret_cast<clear_t>(fn_path_clear)(
-        reinterpret_cast<void*>(pf), 1, x0, y0, x1, y1, 0, 1, 0, 0));
 }
 
 int game_tile_to_logic(int tile)
@@ -328,7 +269,6 @@ void poll_for_game(int tick)
 
 uintptr_t        base           = 0;
 static uintptr_t client_cached  = 0;
-static uintptr_t gom_ptr        = 0;
 const uint8_t*   own_block      = nullptr;
 static int32_t   own_team_value = -1;
 uint32_t         own_hp         = 0;
@@ -367,7 +307,6 @@ static void world_reset()
     obj_count      = 0;
     scene_object   = 0;
     client_cached  = 0;
-    gom_ptr        = 0;
     own_block      = nullptr;
     own_team_value = -1;
     wall_cache_bind(0);
@@ -412,8 +351,7 @@ void scan_world()
         world_reset();
         return;
     }
-    mgrPtr  = (uintptr_t) value;
-    gom_ptr = mgrPtr;
+    mgrPtr = (uintptr_t) value;
     if (!read_int(mgrPtr + static_cast<uintptr_t>(LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT),
                   &count) ||
         count <= 0 || count > COUNT_MAX)
@@ -528,11 +466,10 @@ static void resolve_game_fns()
     fn_own_character   = callable(LOGICBATTLEMODECLIENT__GETOWNCHARACTER);
     fn_tile_map        = callable(LOGICBATTLEMODECLIENT__GETTILEMAP);
     fn_tile_passable   = callable(LOGICTILEMAP__ISPASSABLEPATHFINDER);
-    fn_path_clear      = callable(LOGICPATHFINDER__ISCLEARPATH);
     fn_tile_to_logic   = callable(LOGICTILEMAP__TILETOLOGIC);
     fn_segment_circle  = callable(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE);
     if (!fn_battle_instance || !fn_own_character || !fn_tile_map || !fn_tile_passable ||
-        !fn_path_clear || !fn_tile_to_logic || !fn_segment_circle)
+        !fn_tile_to_logic || !fn_segment_circle)
     {
         __builtin_trap();
     }
@@ -553,36 +490,12 @@ void setup()
 int coord_ok = 0;
 int dead     = 0;
 
-int is_owned_team_object(const uint8_t* obj)
+int is_owned_team_object(uintptr_t data)
 {
-    if (own_team_value < 0 || !obj) return 0;
-    int32_t team  = 0;
-    int32_t owner = 0;
-    memcpy(&owner, obj + LOGICGAMEOBJECTCLIENT__OWNERINDEX, sizeof(owner));
-    if (owner >= 0 && gom_ptr)
-    {
-        int32_t   count = 0;
-        uintptr_t array = 0;
-        if (read_int(gom_ptr + static_cast<uintptr_t>(LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT),
-                     &count) &&
-            read_ptr(gom_ptr + static_cast<uintptr_t>(LOGICGAMEOBJECTMANAGER__GAMEOBJECTS),
-                     &array) &&
-            array && owner < count)
-        {
-            uintptr_t ownerObj = 0;
-            if (read_ptr(array + static_cast<uintptr_t>(owner) * 8, &ownerObj) && ownerObj)
-            {
-                if (read_int(ownerObj + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__TEAM),
-                             &team) &&
-                    team != -1)
-                {
-                    return team == own_team_value ? 1 : 0;
-                }
-            }
-        }
-    }
-    memcpy(&team, obj + LOGICGAMEOBJECTCLIENT__TEAMFALLBACK, sizeof(team));
-    return team == own_team_value ? 1 : 0;
+    if (own_team_value < 0 || !data) return 0;
+    int32_t team = 0;
+    if (!read_int(data + static_cast<uintptr_t>(LOGICDATA__TEAM), &team)) return 0;
+    return team == own_team_value;
 }
 
 uintptr_t client()

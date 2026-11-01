@@ -301,11 +301,6 @@ jobs:
           BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-            echo "Protected branch $BRANCH: skip push"
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -u

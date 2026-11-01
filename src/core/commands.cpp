@@ -137,23 +137,14 @@ void commands_flush()
     pending_count = 0;
 }
 
-int enqueue_move_input_with_type(int x, int y, int type)
+int enqueue_move_input(int x, int y)
 {
-    if (type < 0 || type >= ClientInputMessageTypeMax)
-    {
-        return 0;
-    }
     if (!coord_ok || dead)
     {
         return 0;
     }
-    pending_push(type, x, y, type == ClientInputMessageTypeMove ? 1 : 0);
+    pending_push(ClientInputMessageTypeMove, x, y, 1);
     return 1;
-}
-
-int enqueue_move_input(int x, int y)
-{
-    return enqueue_move_input_with_type(x, y, ClientInputMessageTypeMove);
 }
 
 int client_prediction_move_to(int x, int y)

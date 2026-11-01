@@ -23,34 +23,6 @@ struct TileMemo
 };
 
 static TileMemo tile_memo[TILE_MEMO_SLOTS];
-constexpr int   PATH_MEMO_SLOTS = 256;
-
-struct PathMemo
-{
-    int32_t x0;
-    int32_t y0;
-    int32_t x1;
-    int32_t y1;
-    uint8_t clear;
-    uint8_t pad;
-    int32_t stamp;
-};
-
-static PathMemo path_memo[PATH_MEMO_SLOTS];
-constexpr int   LOS_MEMO_SLOTS = 128;
-
-struct LosMemo
-{
-    int32_t ax;
-    int32_t ay;
-    int32_t bx;
-    int32_t by;
-    uint8_t clear;
-    uint8_t pad;
-    int32_t stamp;
-};
-
-static LosMemo los_memo[LOS_MEMO_SLOTS];
 
 uint32_t memo_mix(uint32_t a, uint32_t b)
 {
@@ -75,49 +47,6 @@ int tile_blocked_cached(int32_t x, int32_t y)
     e.blocked   = static_cast<uint8_t>(blocked);
     e.stamp     = stamp;
     return blocked;
-}
-
-int path_clear_cached(int32_t x0, int32_t y0, int32_t x1, int32_t y1)
-{
-    int32_t   stamp = static_cast<int32_t>(frame_index);
-    PathMemo& e     = path_memo[(memo_mix(static_cast<uint32_t>(x0), static_cast<uint32_t>(y0)) ^
-                                 memo_mix(static_cast<uint32_t>(x1), static_cast<uint32_t>(y1))) &
-                                (PATH_MEMO_SLOTS - 1)];
-    if (e.stamp == stamp && e.x0 == x0 && e.y0 == y0 && e.x1 == x1 && e.y1 == y1)
-    {
-        return e.clear;
-    }
-    int clear = game_path_clear(wall_map, x0, y0, x1, y1) ? 1 : 0;
-    e.x0      = x0;
-    e.y0      = y0;
-    e.x1      = x1;
-    e.y1      = y1;
-    e.clear   = static_cast<uint8_t>(clear);
-    e.stamp   = stamp;
-    return clear;
-}
-
-int los_clear_cached(int32_t ax, int32_t ay, int32_t bx, int32_t by)
-{
-    using los_t            = int (*)(uintptr_t, int, int, int, int, int, int, int, int);
-    static uintptr_t slot  = 0;
-    int32_t          stamp = static_cast<int32_t>(frame_index);
-    LosMemo&         e = los_memo[(memo_mix(static_cast<uint32_t>(ax), static_cast<uint32_t>(ay)) ^
-                                   memo_mix(static_cast<uint32_t>(bx), static_cast<uint32_t>(by))) &
-                                  (LOS_MEMO_SLOTS - 1)];
-    if (e.stamp == stamp && e.ax == ax && e.ay == ay && e.bx == bx && e.by == by)
-    {
-        return e.clear;
-    }
-    if (!slot) slot = callable(LOGICTILEMAP__ISPLAYERLINEOFSIGHTCLEAR);
-    int clear = reinterpret_cast<los_t>(slot)(wall_map, ax, ay, bx, by, 0, 0, 0, 0) & 1;
-    e.ax      = ax;
-    e.ay      = ay;
-    e.bx      = bx;
-    e.by      = by;
-    e.clear   = static_cast<uint8_t>(clear);
-    e.stamp   = stamp;
-    return clear;
 }
 }
 
@@ -237,56 +166,22 @@ int wall_cell_blocked_wide(float x, float y, float r)
     return 0;
 }
 
-int wall_line_of_sight_clear(float ax, float ay, float bx, float by)
+float wall_clear_run(float x, float y, float dx, float dy, float max_run, float radius)
 {
-    return los_clear_cached(static_cast<int32_t>(ax),
-                            static_cast<int32_t>(ay),
-                            static_cast<int32_t>(bx),
-                            static_cast<int32_t>(by));
-}
-
-static int wall_grid_x(float x)
-{
-    int limit = wall_w * WALL_SUBTILES_PER_TILE - 1;
-    int cell  = static_cast<int>(x) / wall_subtile_span;
-    if (cell < 0) return 0;
-    if (cell > limit) return limit;
-    return cell;
-}
-
-static int wall_grid_y(float y)
-{
-    int limit = wall_h * WALL_SUBTILES_PER_TILE - 1;
-    int cell  = static_cast<int>(y) / wall_subtile_span;
-    if (cell < 0) return 0;
-    if (cell > limit) return limit;
-    return cell;
-}
-
-int wall_segment_clear(float ax, float ay, float bx, float by, float radius)
-{
-    if (!wall_have || wall_subtile_span <= 0) return 1;
-    float len = sqrtf((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
-    float nx = 0.0f, ny = 0.0f;
-    if (len > 0.5f && radius > 0.0f)
+    if (max_run <= 0.0f) return 0.0f;
+    if (!wall_have || wall_subtile_span <= 0) return max_run;
+    const float step = wall_unit / static_cast<float>(WALL_SUBTILES_PER_TILE);
+    float       run  = 0.0f;
+    float       d    = 0.0f;
+    while (d <= max_run)
     {
-        nx = -(by - ay) / len * radius;
-        ny = (bx - ax) / len * radius;
+        const float t = d > max_run ? max_run : d;
+        if (wall_cell_blocked_wide(x + dx * t, y + dy * t, radius)) break;
+        run = t;
+        if (t >= max_run) break;
+        d += step;
     }
-    const float lanes[3] = {0.0f, 1.0f, -1.0f};
-    for (float lane : lanes)
-    {
-        float ox = nx * lane, oy = ny * lane;
-        if (!path_clear_cached(wall_grid_x(ax + ox),
-                               wall_grid_y(ay + oy),
-                               wall_grid_x(bx + ox),
-                               wall_grid_y(by + oy)))
-        {
-            return 0;
-        }
-        if (radius <= 0.0f) break;
-    }
-    return 1;
+    return run;
 }
 
 int32_t axis(float v, int tiles)
@@ -295,22 +190,4 @@ int32_t axis(float v, int tiles)
     if (v < 0.0f) return 0;
     if (v > limit) return static_cast<int32_t>(limit);
     return static_cast<int32_t>(roundf(v));
-}
-
-float wall_pull(float mx, float my, float dx, float dy, float radius)
-{
-    constexpr int WALL_PROBES = 3;
-    float         reach       = radius * 6.0f;
-    int           blocked     = 0;
-    for (int i = 1; i <= WALL_PROBES; i++)
-    {
-        float d = reach * 0.5f * static_cast<float>(i) / static_cast<float>(WALL_PROBES);
-        blocked += wall_cell_blocked_wide(mx + dx * d, my + dy * d, radius) ? 1 : 0;
-    }
-    float pin_x = static_cast<float>(axis(mx + dx * reach, wall_cache_width())) - mx;
-    float pin_y = static_cast<float>(axis(my + dy * reach, wall_cache_height())) - my;
-    int   ix    = static_cast<int>(pin_x + (pin_x < 0.0f ? -0.5f : 0.5f));
-    int   iy    = static_cast<int>(pin_y + (pin_y < 0.0f ? -0.5f : 0.5f));
-    float room  = sqrtf(static_cast<float>(ix * ix + iy * iy)) / reach;
-    return static_cast<float>(blocked) / static_cast<float>(WALL_PROBES) + (1.0f - room);
 }
