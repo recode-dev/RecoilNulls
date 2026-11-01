@@ -223,14 +223,14 @@ void learn_character_ranges(uintptr_t charData)
 
 void begin_projectile_frame()
 {
-    for (int i = 0; i < TRACK_MAX; i++) proj_track[i].seen_now = 0;
+    for (auto& i : proj_track)
+        i.seen_now = 0;
 }
 
 void sweep_dead_projectiles()
 {
-    for (int i = 0; i < TRACK_MAX; i++)
+    for (auto& s : proj_track)
     {
-        ProjTrack& s = proj_track[i];
         if (!s.pid || s.seen_now) continue;
         float flown = fast_len(s.lx - s.x, s.ly - s.y);
         learn_flight_range(s.data, flown);
@@ -307,9 +307,9 @@ void projectile_threat(
         slot->data    = dataPtr;
     }
     slot->seen_now = 1;
-    float step_x = px - slot->lx;
-    float step_y = py - slot->ly;
-    float step   = fast_len(step_x, step_y);
+    float step_x   = px - slot->lx;
+    float step_y   = py - slot->ly;
+    float step     = fast_len(step_x, step_y);
     if (slot->seen && step < 2.0f) return;
     slot->lx   = px;
     slot->ly   = py;
