@@ -336,14 +336,11 @@ void projectile_threat(
     }
     else if (slot->has_dir)
     {
+        if (learned <= 0.0f) return;
         ux = slot->ux, uy = slot->uy;
-        seg = sp * SIM_T;
-        if (learned > 0.0f)
-        {
-            float remain = learned + info.radius - flown;
-            if (remain <= 0.0f) return;
-            if (remain < seg) seg = remain;
-        }
+        float remain = learned + info.radius - flown;
+        if (remain <= 0.0f) return;
+        seg = remain < sp * SIM_T ? remain : sp * SIM_T;
     }
     else
     {
