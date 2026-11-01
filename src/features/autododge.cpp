@@ -344,28 +344,47 @@ void projectile_threat(
     slot->seen_now = 1;
     slot->lx       = px;
     slot->ly       = py;
-    if (spawn)
+    if (!slot->active)
     {
         float   dx = 0.0f, dy = 0.0f, seg = 0.0f;
         int32_t tx = 0, ty = 0;
         memcpy(&tx, obj + LOGICPROJECTILECLIENT__TARGETX, sizeof(tx));
         memcpy(&ty, obj + LOGICPROJECTILECLIENT__TARGETY, sizeof(ty));
+        int have = 0;
         if (tx != 0 || ty != 0)
         {
-            dx           = static_cast<float>(tx) - px;
-            dy           = static_cast<float>(ty) - py;
-            float travel = fast_len(dx, dy);
-            if (travel < 1.0f) return;
-            float inv = 1.0f / travel;
-            dx *= inv;
-            dy *= inv;
-            seg = travel;
+            float ddx    = static_cast<float>(tx) - px;
+            float ddy    = static_cast<float>(ty) - py;
+            float travel = fast_len(ddx, ddy);
+            if (travel >= 1.0f)
+            {
+                float inv = 1.0f / travel;
+                dx        = ddx * inv;
+                dy        = ddy * inv;
+                seg       = travel;
+                have      = 1;
+            }
         }
-        else
+        if (!have && spawn && shooter_direction(px, py, dx, dy))
         {
-            if (!shooter_direction(px, py, dx, dy)) return;
-            seg = sp * SIM_T;
+            seg  = sp * SIM_T;
+            have = 1;
         }
+        if (!have && !spawn)
+        {
+            float ddx   = px - slot->x;
+            float ddy   = py - slot->y;
+            float flown = fast_len(ddx, ddy);
+            if (flown >= 1.0f)
+            {
+                float inv = 1.0f / flown;
+                dx        = ddx * inv;
+                dy        = ddy * inv;
+                seg       = sp * SIM_T;
+                have      = 1;
+            }
+        }
+        if (!have) return;
         slot->ux      = dx;
         slot->uy      = dy;
         slot->seg0    = seg;
@@ -397,7 +416,6 @@ void projectile_threat(
     }
     else
     {
-        if (!slot->active) return;
         float flown   = fast_len(px - slot->x, py - slot->y);
         float seg     = slot->seg0 - flown;
         float learned = learned_flight_range(dataPtr);
