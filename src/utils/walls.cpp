@@ -36,7 +36,7 @@ int tile_blocked_cached(int32_t x, int32_t y)
 {
     int32_t   stamp = static_cast<int32_t>(frame_index);
     TileMemo& e     = tile_memo[memo_mix(static_cast<uint32_t>(x), static_cast<uint32_t>(y)) &
-                                (TILE_MEMO_SLOTS - 1)];
+                            (TILE_MEMO_SLOTS - 1)];
     if (e.stamp == stamp && e.x == x && e.y == y)
     {
         return e.blocked;
