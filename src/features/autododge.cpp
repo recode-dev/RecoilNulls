@@ -14,7 +14,6 @@ float fast_len(float x, float y)
 }
 
 constexpr float TARGET_LERP = 0.5f;
-constexpr float SIM_T       = 1.6f;
 
 struct Span
 {
@@ -51,18 +50,15 @@ struct ProjTrack
     int32_t   pid;
     uintptr_t data;
     float     x, y;
-    float     ax, ay;
     float     lx, ly;
     float     ux, uy;
-    uint8_t   has_dir;
-    uint8_t   seen;
+    float     seg0;
+    uint8_t   active;
     uint8_t   seen_now;
 };
 
 ProjTrack proj_track[TRACK_MAX] = {};
 int       track_next            = 0;
-
-constexpr float DIR_MIN_STEP = 4.0f;
 
 struct Threat
 {
@@ -226,10 +222,9 @@ void sweep_dead_projectiles()
         if (!s.pid || s.seen_now) continue;
         float flown = fast_len(s.lx - s.x, s.ly - s.y);
         learn_flight_range(s.data, flown);
-        s.pid     = 0;
-        s.data    = 0;
-        s.seen    = 0;
-        s.has_dir = 0;
+        s.pid    = 0;
+        s.data   = 0;
+        s.active = 0;
     }
 }
 
@@ -281,115 +276,92 @@ void projectile_threat(
             break;
         }
     }
+    int spawn = 0;
     if (!slot)
     {
-        slot = &proj_track[track_next % TRACK_MAX];
+        spawn = 1;
+        slot  = &proj_track[track_next % TRACK_MAX];
         track_next++;
-        slot->pid     = pid;
-        slot->x       = px;
-        slot->y       = py;
-        slot->ax      = px;
-        slot->ay      = py;
-        slot->lx      = px;
-        slot->ly      = py;
-        slot->ux      = 0.0f;
-        slot->uy      = 0.0f;
-        slot->has_dir = 0;
-        slot->seen    = 0;
-        slot->data    = dataPtr;
+        slot->pid    = pid;
+        slot->data   = dataPtr;
+        slot->x      = px;
+        slot->y      = py;
+        slot->lx     = px;
+        slot->ly     = py;
+        slot->ux     = 0.0f;
+        slot->uy     = 0.0f;
+        slot->seg0   = 0.0f;
+        slot->active = 0;
     }
     slot->seen_now = 1;
-    float step_x   = px - slot->lx;
-    float step_y   = py - slot->ly;
-    float step     = fast_len(step_x, step_y);
-    if (slot->seen && step < 2.0f) return;
-    slot->lx   = px;
-    slot->ly   = py;
-    slot->seen = 1;
-    if (step >= DIR_MIN_STEP)
+    slot->lx       = px;
+    slot->ly       = py;
+    if (spawn)
     {
-        float inv     = 1.0f / step;
-        slot->ux      = step_x * inv;
-        slot->uy      = step_y * inv;
-        slot->ax      = px;
-        slot->ay      = py;
-        slot->has_dir = 1;
-    }
-    int32_t tx = 0, ty = 0;
-    memcpy(&tx, obj + LOGICPROJECTILECLIENT__TARGETX, sizeof(tx));
-    memcpy(&ty, obj + LOGICPROJECTILECLIENT__TARGETY, sizeof(ty));
-    if (slot->has_dir && (tx != 0 || ty != 0))
-    {
-        float ddx = static_cast<float>(tx) - px, ddy = static_cast<float>(ty) - py;
-        float dl = fast_len(ddx, ddy);
-        if (dl >= 1.0f)
-        {
-            float align = (ddx / dl) * slot->ux + (ddy / dl) * slot->uy;
-            if (align < 0.6f)
-            {
-                tx = 0;
-                ty = 0;
-            }
-        }
-    }
-    float ux = 0.0f, uy = 0.0f, seg = 0.0f;
-    float flown   = fast_len(px - slot->x, py - slot->y);
-    float learned = learned_flight_range(dataPtr);
-    if (tx != 0 || ty != 0)
-    {
-        float dx = static_cast<float>(tx) - px, dy = static_cast<float>(ty) - py;
+        int32_t tx = 0, ty = 0;
+        memcpy(&tx, obj + LOGICPROJECTILECLIENT__TARGETX, sizeof(tx));
+        memcpy(&ty, obj + LOGICPROJECTILECLIENT__TARGETY, sizeof(ty));
+        if (tx == 0 && ty == 0) return;
+        float dx     = static_cast<float>(tx) - px;
+        float dy     = static_cast<float>(ty) - py;
         float travel = fast_len(dx, dy);
         if (travel < 1.0f) return;
-        float inv = 1.0f / travel;
-        ux = dx * inv, uy = dy * inv;
+        float inv     = 1.0f / travel;
+        slot->ux      = dx * inv;
+        slot->uy      = dy * inv;
+        slot->seg0    = travel;
+        float seg     = travel;
+        float learned = learned_flight_range(dataPtr);
         if (learned > 0.0f)
         {
-            float remain = learned + info.radius - flown;
-            if (remain <= 0.0f) return;
-            if (travel > remain) travel = remain;
+            float remain = learned + info.radius;
+            if (travel > remain) seg = remain;
         }
-        seg = travel;
-    }
-    else if (slot->has_dir)
-    {
-        ux = slot->ux, uy = slot->uy;
-        if (learned > 0.0f)
+        float rx = px - mx, ry = py - my;
+        if (rx * rx + ry * ry > zone2) return;
+        if ((mx - px) * slot->ux + (my - py) * slot->uy < 0.0f) return;
+        if (!info.ignores_walls)
         {
-            float remain = learned + info.radius - flown;
-            if (remain <= 0.0f) return;
-            seg = remain;
+            float capped = wall_clear_run(px, py, slot->ux, slot->uy, seg, 0.0f);
+            if (capped < seg) seg = capped;
         }
-        else
-        {
-            seg = sp * SIM_T;
-        }
+        if (seg <= 0.0f) return;
+        float   rad  = info.radius + hitbox;
+        int32_t sx1  = static_cast<int>(px);
+        int32_t sy1  = static_cast<int>(py);
+        int32_t sx2  = static_cast<int>(px + slot->ux * seg);
+        int32_t sy2  = static_cast<int>(py + slot->uy * seg);
+        int32_t scx  = static_cast<int>(mx);
+        int32_t scy  = static_cast<int>(my);
+        int32_t srad = static_cast<int>(rad + 0.5f);
+        if (!game_segment_hits_circle(sx1, sy1, sx2, sy2, scx, scy, srad, nullptr)) return;
+        slot->active = 1;
     }
     else
     {
-        return;
+        if (!slot->active) return;
+        float flown   = fast_len(px - slot->x, py - slot->y);
+        float seg     = slot->seg0 - flown;
+        float learned = learned_flight_range(dataPtr);
+        if (learned > 0.0f)
+        {
+            float remain = learned + info.radius - flown;
+            if (remain < seg) seg = remain;
+        }
+        float rad   = info.radius + hitbox;
+        float reach = seg + rad;
+        float rdx   = px - mx;
+        float rdy   = py - my;
+        if (seg <= 0.0f || rdx * rdx + rdy * rdy > reach * reach)
+        {
+            slot->active = 0;
+            return;
+        }
     }
-    float rx = px - mx, ry = py - my;
-    if (rx * rx + ry * ry > zone2) return;
-    if ((mx - px) * ux + (my - py) * uy < 0.0f) return;
-    if (!info.ignores_walls)
-    {
-        float capped = wall_clear_run(px, py, ux, uy, seg, 0.0f);
-        if (capped < seg) seg = capped;
-    }
-    if (seg <= 0.0f) return;
-    float   rad  = info.radius + hitbox;
-    int32_t sx1  = static_cast<int>(px);
-    int32_t sy1  = static_cast<int>(py);
-    int32_t sx2  = static_cast<int>(px + ux * seg);
-    int32_t sy2  = static_cast<int>(py + uy * seg);
-    int32_t scx  = static_cast<int>(mx);
-    int32_t scy  = static_cast<int>(my);
-    int32_t srad = static_cast<int>(rad + 0.5f);
-    if (!game_segment_hits_circle(sx1, sy1, sx2, sy2, scx, scy, srad, nullptr)) return;
     if (threat_n >= THREAT_MAX) return;
     Threat& t = threats[threat_n++];
-    t.x = px, t.y = py, t.vx = ux * sp, t.vy = uy * sp, t.pid = pid;
-    t.rad = rad;
+    t.x = px, t.y = py, t.vx = slot->ux * sp, t.vy = slot->uy * sp, t.pid = pid;
+    t.rad = info.radius + hitbox;
 }
 
 void collect_logic_objects(int32_t own_gid, float mx, float my)
