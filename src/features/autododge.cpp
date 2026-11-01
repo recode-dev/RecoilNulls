@@ -27,7 +27,9 @@ void cache_span()
 {
     span.tile = wall_logic_units(1);
     span.pad  = span.tile * 0.2f;
-    span.far  = span.tile * 16.0f;
+    float wu  = wall_logic_units(wall_cache_width());
+    float hu  = wall_logic_units(wall_cache_height());
+    span.far  = sqrtf(wu * wu + hu * hu);
 }
 
 constexpr int THREAT_MAX = 32;
@@ -60,7 +62,7 @@ struct ProjTrack
 ProjTrack proj_track[TRACK_MAX] = {};
 int       track_next            = 0;
 
-constexpr float DIR_MIN_STEP = 12.0f;
+constexpr float DIR_MIN_STEP = 4.0f;
 
 struct Threat
 {
@@ -346,17 +348,20 @@ void projectile_threat(
             if (remain <= 0.0f) return;
             if (travel > remain) travel = remain;
         }
-        seg = travel < sp * SIM_T ? travel : sp * SIM_T;
+        seg = travel;
     }
     else if (slot->has_dir)
     {
         ux = slot->ux, uy = slot->uy;
-        seg = sp * SIM_T;
         if (learned > 0.0f)
         {
             float remain = learned + info.radius - flown;
             if (remain <= 0.0f) return;
-            if (remain < seg) seg = remain;
+            seg = remain;
+        }
+        else
+        {
+            seg = sp * SIM_T;
         }
     }
     else
