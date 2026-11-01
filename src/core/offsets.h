@@ -47,6 +47,5 @@ inline constexpr uint64_t LOGICCSVROW__ROWINDEX                             = 0x
 inline constexpr uint64_t LOGICCSVTABLE__COLUMNS                            = 0x38;
 inline constexpr uint64_t LOGICCSVCOLUMN__VALUES                            = 0x18;
 inline constexpr uint64_t LOGICCSVTABLE__CASTINGRANGECOLGLOBAL              = 0x10cd090;
-inline constexpr uint64_t LOGICSKILLDATA__PROJECTILEARRAY                   = 0x58;
-inline constexpr uint64_t LOGICSKILLDATA__PROJECTILECOUNT                   = 0x64;
+inline constexpr uint64_t LOGICSKILLDATA__PROJECTILE                        = 0x58;
 #endif

@@ -18,17 +18,16 @@ constexpr float SIM_T       = 1.6f;
 
 struct Span
 {
-    float tile, pad, far, margin;
+    float tile, pad, far;
 };
 
-Span span = {0.0f, 0.0f, 0.0f, 0.0f};
+Span span = {0.0f, 0.0f, 0.0f};
 
 void cache_span()
 {
-    span.tile   = wall_logic_units(1);
-    span.pad    = span.tile * 0.2f;
-    span.far    = span.tile * 16.0f;
-    span.margin = span.tile * 0.05f;
+    span.tile = wall_logic_units(1);
+    span.pad  = span.tile * 0.2f;
+    span.far  = span.tile * 16.0f;
 }
 
 constexpr int THREAT_MAX = 32;
@@ -176,7 +175,7 @@ void learn_flight_range(uintptr_t data, float range)
 void learn_skill_range(uintptr_t sd)
 {
     if (!sd || !pointer_plausible(sd)) return;
-    constexpr float CASTING_RANGE_CELL = 3.0f;
+    constexpr float CASTING_RANGE_CELL = 100.0f;
     uintptr_t       row                = 0;
     if (!read_ptr(sd + LOGICSKILLDATA__ROWREF, &row) || !pointer_plausible(row)) return;
     uintptr_t table = 0;
@@ -198,19 +197,10 @@ void learn_skill_range(uintptr_t sd)
     if (!read_int(values + static_cast<uintptr_t>(row_index) * 4, &tiles)) return;
     if (tiles == 0x7fffffff) tiles = 0;
     if (tiles < 1 || tiles > 3000) return;
-    float   range = static_cast<float>(tiles) * CASTING_RANGE_CELL;
-    int32_t count = 0;
-    if (!read_int(sd + LOGICSKILLDATA__PROJECTILECOUNT, &count) || count < 1) return;
-    if (count > 8) count = 8;
-    uintptr_t array = 0;
-    if (!read_ptr(sd + LOGICSKILLDATA__PROJECTILEARRAY, &array) || !pointer_plausible(array))
-        return;
-    for (int32_t i = 0; i < count; i++)
-    {
-        uintptr_t proj = 0;
-        if (!read_ptr(array + static_cast<uintptr_t>(i) * 8, &proj)) continue;
-        if (proj && pointer_plausible(proj)) learn_flight_range(proj, range);
-    }
+    float     range = static_cast<float>(tiles) * CASTING_RANGE_CELL;
+    uintptr_t proj  = 0;
+    if (!read_ptr(sd + LOGICSKILLDATA__PROJECTILE, &proj) || !pointer_plausible(proj)) return;
+    learn_flight_range(proj, range);
 }
 
 void learn_character_ranges(uintptr_t charData)
@@ -382,7 +372,7 @@ void projectile_threat(
         if (capped < seg) seg = capped;
     }
     if (seg <= 0.0f) return;
-    float   rad  = info.radius + hitbox + span.margin;
+    float   rad  = info.radius + hitbox;
     int32_t sx1  = static_cast<int>(px);
     int32_t sy1  = static_cast<int>(py);
     int32_t sx2  = static_cast<int>(px + ux * seg);
