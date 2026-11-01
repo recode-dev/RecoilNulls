@@ -1,0 +1,9 @@
+.theos/
+packages/
+out/
+.DS_Store
+*.dylib
+.build-tools/
+vendor/
+dumps/
+inbox/
