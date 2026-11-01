@@ -41,6 +41,7 @@ inline constexpr uint64_t LOGICPROJECTILECLIENT__TARGETX                    = 0x
 inline constexpr uint64_t LOGICPROJECTILECLIENT__TARGETY                    = 0x5c;
 inline constexpr uint64_t LOGICCHARACTERDATA__WEAPONSKILL                   = 0x1b0;
 inline constexpr uint64_t LOGICCHARACTERDATA__ULTISKILL                     = 0x1b8;
+inline constexpr uint64_t LOGICCHARACTERCLIENT__ATTACKANGLE                 = 0xb4;
 inline constexpr uint64_t LOGICSKILLDATA__ROWREF                            = 0x8;
 inline constexpr uint64_t LOGICCSVROW__TABLE                                = 0x0;
 inline constexpr uint64_t LOGICCSVROW__ROWINDEX                             = 0x8;

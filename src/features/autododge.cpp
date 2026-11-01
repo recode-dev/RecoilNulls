@@ -14,6 +14,8 @@ float fast_len(float x, float y)
 }
 
 constexpr float TARGET_LERP = 0.5f;
+constexpr float SIM_T       = 1.6f;
+constexpr float DEG2RAD     = 0.01745329252f;
 
 struct Span
 {
@@ -59,6 +61,17 @@ struct ProjTrack
 
 ProjTrack proj_track[TRACK_MAX] = {};
 int       track_next            = 0;
+
+constexpr int SHOOTER_MAX = 16;
+
+struct Shooter
+{
+    float   x, y;
+    int32_t angle;
+};
+
+Shooter shooters[SHOOTER_MAX] = {};
+int     shooter_n             = 0;
 
 struct Threat
 {
@@ -209,8 +222,32 @@ void learn_character_ranges(uintptr_t charData)
     if (read_ptr(charData + LOGICCHARACTERDATA__ULTISKILL, &skill)) learn_skill_range(skill);
 }
 
+bool shooter_direction(float px, float py, float& ux, float& uy)
+{
+    float   best2 = 160000.0f;
+    int32_t angle = -1;
+    for (int i = 0; i < shooter_n; i++)
+    {
+        if (shooters[i].angle < 0 || shooters[i].angle > 511) continue;
+        float dx = shooters[i].x - px;
+        float dy = shooters[i].y - py;
+        float d2 = dx * dx + dy * dy;
+        if (d2 < best2)
+        {
+            best2 = d2;
+            angle = shooters[i].angle;
+        }
+    }
+    if (angle < 0) return false;
+    float rad = static_cast<float>(angle) * DEG2RAD;
+    ux        = cosf(rad);
+    uy        = sinf(rad);
+    return true;
+}
+
 void begin_projectile_frame()
 {
+    shooter_n = 0;
     for (auto& i : proj_track)
         i.seen_now = 0;
 }
@@ -254,6 +291,17 @@ void character_entry(const uint8_t* obj, uintptr_t dataPtr, int32_t own_gid)
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
     if (is_owned_team_object(dataPtr)) return;
     learn_character_ranges(dataPtr);
+    if (shooter_n < SHOOTER_MAX)
+    {
+        int32_t xi = 0, yi = 0, angle = 0;
+        memcpy(&xi, obj + LOGICGAMEOBJECTCLIENT__GETX, sizeof(xi));
+        memcpy(&yi, obj + LOGICGAMEOBJECTCLIENT__GETY, sizeof(yi));
+        memcpy(&angle, obj + LOGICCHARACTERCLIENT__ATTACKANGLE, sizeof(angle));
+        Shooter& s = shooters[shooter_n++];
+        s.x        = static_cast<float>(xi);
+        s.y        = static_cast<float>(yi);
+        s.angle    = angle;
+    }
 }
 
 void projectile_threat(
@@ -298,24 +346,34 @@ void projectile_threat(
     slot->ly       = py;
     if (spawn)
     {
+        float   dx = 0.0f, dy = 0.0f, seg = 0.0f;
         int32_t tx = 0, ty = 0;
         memcpy(&tx, obj + LOGICPROJECTILECLIENT__TARGETX, sizeof(tx));
         memcpy(&ty, obj + LOGICPROJECTILECLIENT__TARGETY, sizeof(ty));
-        if (tx == 0 && ty == 0) return;
-        float dx     = static_cast<float>(tx) - px;
-        float dy     = static_cast<float>(ty) - py;
-        float travel = fast_len(dx, dy);
-        if (travel < 1.0f) return;
-        float inv     = 1.0f / travel;
-        slot->ux      = dx * inv;
-        slot->uy      = dy * inv;
-        slot->seg0    = travel;
-        float seg     = travel;
+        if (tx != 0 || ty != 0)
+        {
+            dx           = static_cast<float>(tx) - px;
+            dy           = static_cast<float>(ty) - py;
+            float travel = fast_len(dx, dy);
+            if (travel < 1.0f) return;
+            float inv = 1.0f / travel;
+            dx *= inv;
+            dy *= inv;
+            seg = travel;
+        }
+        else
+        {
+            if (!shooter_direction(px, py, dx, dy)) return;
+            seg = sp * SIM_T;
+        }
+        slot->ux      = dx;
+        slot->uy      = dy;
+        slot->seg0    = seg;
         float learned = learned_flight_range(dataPtr);
         if (learned > 0.0f)
         {
             float remain = learned + info.radius;
-            if (travel > remain) seg = remain;
+            if (seg > remain) seg = remain;
         }
         float rx = px - mx, ry = py - my;
         if (rx * rx + ry * ry > zone2) return;
@@ -377,11 +435,19 @@ void collect_logic_objects(int32_t own_gid, float mx, float my)
         if (!dataPtr || !pointer_plausible(dataPtr)) continue;
         uintptr_t vt = 0;
         if (!read_ptr(dataPtr, &vt) || vt < base) continue;
-        if (vt != base + static_cast<uintptr_t>(LOGICPROJECTILEDATA__VTABLE))
-        {
-            character_entry(obj, dataPtr, own_gid);
-            continue;
-        }
+        if (vt == base + static_cast<uintptr_t>(LOGICPROJECTILEDATA__VTABLE)) continue;
+        character_entry(obj, dataPtr, own_gid);
+    }
+    for (int i = 0; i < obj_count; i++)
+    {
+        if (!valid[i]) continue;
+        const uint8_t* obj     = block[i];
+        uintptr_t      dataPtr = 0;
+        memcpy(&dataPtr, obj + LOGICGAMEOBJECTCLIENT__GETDATA, sizeof(dataPtr));
+        if (!dataPtr || !pointer_plausible(dataPtr)) continue;
+        uintptr_t vt = 0;
+        if (!read_ptr(dataPtr, &vt) || vt < base) continue;
+        if (vt != base + static_cast<uintptr_t>(LOGICPROJECTILEDATA__VTABLE)) continue;
         float px = 0.0f, py = 0.0f;
         if (!read_projectile_position(obj, &px, &py)) continue;
         projectile_threat(obj, dataPtr, mx, my, zone2, px, py);
@@ -499,6 +565,7 @@ void reset_autododge_state()
     threat_n = 0;
     memset(range_memo, 0, sizeof(range_memo));
     track_next = 0;
+    shooter_n  = 0;
     hitbox     = 0.0f;
     cc_data    = 0;
     cc_r       = 0;
