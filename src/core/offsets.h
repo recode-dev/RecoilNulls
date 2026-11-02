@@ -41,7 +41,6 @@ inline constexpr uint64_t LOGICMATH__NORMALIZEANGLE180                      = 0x
 inline constexpr uint64_t LOGICMATH__GETROTATEDX                            = 0x7b3a40;
 inline constexpr uint64_t LOGICMATH__GETROTATEDY                            = 0x7b3a94;
 inline constexpr uint64_t CLIENTINPUT__CONSTRUCTOR                          = 0xa95798;
-inline constexpr uint64_t CLIENTINPUT__TYPE                                 = 0x8;
 inline constexpr uint64_t CLIENTINPUT__X                                    = 0xc;
 inline constexpr uint64_t CLIENTINPUT__Y                                    = 0x10;
 inline constexpr uint64_t CLIENTINPUT__SIZE                                 = 0x48;

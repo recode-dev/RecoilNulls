@@ -17,19 +17,22 @@ static __thread uint64_t  page_cache_stamp[PAGE_CACHE_SLOTS];
 static uint64_t           page_cache_epoch = 0;
 inline constexpr guint    GUM_IMAGE_LIMIT  = 0x2000000;
 
-static uintptr_t fn_battle_instance = 0;
-static uintptr_t fn_own_character   = 0;
-static uintptr_t fn_tile_map        = 0;
-static uintptr_t fn_tile_to_logic   = 0;
-static uintptr_t fn_segment_circle  = 0;
-static uintptr_t fn_vec2_length     = 0;
-static uintptr_t fn_vec2_normalize  = 0;
-static uintptr_t fn_pt_distance     = 0;
-static uintptr_t fn_get_angle       = 0;
-static uintptr_t fn_norm_angle      = 0;
-static uintptr_t fn_rot_x           = 0;
-static uintptr_t fn_rot_y           = 0;
-static uintptr_t fn_first_collision = 0;
+static int gum_live = 0;
+
+static uintptr_t fn_battle_instance  = 0;
+static uintptr_t fn_own_character    = 0;
+static uintptr_t fn_tile_map         = 0;
+static uintptr_t fn_tile_to_logic    = 0;
+static uintptr_t fn_segment_circle   = 0;
+static uintptr_t fn_vec2_length      = 0;
+static uintptr_t fn_vec2_normalize   = 0;
+static uintptr_t fn_pt_distance      = 0;
+static uintptr_t fn_get_angle        = 0;
+static uintptr_t fn_norm_angle       = 0;
+static uintptr_t fn_rot_x            = 0;
+static uintptr_t fn_rot_y            = 0;
+static uintptr_t fn_collision_radius = 0;
+static uintptr_t fn_first_collision  = 0;
 
 static guint memory_page_size()
 {
@@ -171,6 +174,11 @@ int32_t game_distance(int32_t x1, int32_t y1, int32_t x2, int32_t y2)
         x1, y1, x2, y2);
 }
 
+int32_t game_collision_radius(uintptr_t data)
+{
+    return reinterpret_cast<int32_t (*)(uintptr_t)>(fn_collision_radius)(data);
+}
+
 int game_get_angle(int32_t dx, int32_t dy)
 {
     return reinterpret_cast<int (*)(int32_t, int32_t)>(fn_get_angle)(dx, dy);
@@ -212,8 +220,6 @@ uintptr_t callable(uintptr_t rva)
     }
     return address;
 }
-
-int gum_live = 0;
 
 static bool module_base_by_name(const char* name, uintptr_t* out_base)
 {
@@ -266,13 +272,9 @@ bool find_game_image(uintptr_t* out_base)
     return true;
 }
 
-void poll_for_game(int tick)
+void poll_for_game()
 {
     if (setup_done)
-    {
-        return;
-    }
-    if (tick > 1200)
     {
         return;
     }
@@ -285,14 +287,12 @@ void poll_for_game(int tick)
     }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(0.5 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(),
-                   ^{ poll_for_game(tick + 1); });
+                   ^{ poll_for_game(); });
 }
 
 uintptr_t        base           = 0;
 static uintptr_t client_cached  = 0;
-const uint8_t*   own_block      = nullptr;
 static int32_t   own_team_value = -1;
-uint32_t         own_hp         = 0;
 
 using self_t = uintptr_t (*)(uintptr_t);
 
@@ -320,13 +320,11 @@ static void world_reset()
     elem           = 0;
     own_x          = 0;
     own_y          = 0;
-    own_hp         = 0;
     dead           = 1;
     coord_ok       = 0;
     obj_count      = 0;
     scene_object   = 0;
     client_cached  = 0;
-    own_block      = nullptr;
     own_team_value = -1;
     wall_cache_bind(0);
     reset_autododge_state();
@@ -399,14 +397,12 @@ void scan_world()
     if (!own)
     {
         elem      = 0;
-        own_hp    = 0;
         obj_count = 0;
         dead      = 1;
         coord_ok  = 0;
         return;
     }
     elem      = own;
-    own_block = nullptr;
     obj_count = count;
     for (int i = 0; i < count; i++)
     {
@@ -422,10 +418,6 @@ void scan_world()
             return;
         }
         valid[i] = 1;
-        if (objPtr == own)
-        {
-            own_block = block[i];
-        }
     }
     {
         int32_t xy[2] = {0, 0};
@@ -443,8 +435,7 @@ void scan_world()
         world_reset();
         return;
     }
-    own_hp = static_cast<uint32_t>(hp);
-    dead   = own_hp == 0 ? 1 : 0;
+    dead = hp == 0 ? 1 : 0;
     wall_cache_bind(call(fn_tile_map, clientPtr));
 }
 
@@ -454,7 +445,7 @@ void workload()
     update_autododge();
 }
 
-static constexpr uint64_t TICK_US = 50000;
+static constexpr uint64_t TICK_US = 16000;
 
 static void scan_frame()
 {
@@ -476,7 +467,7 @@ static void start_scan_timer()
         dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
     if (!scan_timer)
     {
-        return;
+        __builtin_trap();
     }
     dispatch_source_set_timer(
         scan_timer, dispatch_time(DISPATCH_TIME_NOW, 0), TICK_US * NSEC_PER_USEC, 0);
@@ -486,22 +477,24 @@ static void start_scan_timer()
 
 static bool resolve_game_fns()
 {
-    fn_battle_instance = callable(BATTLEMODE__GETINSTANCE);
-    fn_own_character   = callable(LOGICBATTLEMODECLIENT__GETOWNCHARACTER);
-    fn_tile_map        = callable(LOGICBATTLEMODECLIENT__GETTILEMAP);
-    fn_tile_to_logic   = callable(LOGICTILEMAP__TILETOLOGIC);
-    fn_segment_circle  = callable(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE);
-    fn_vec2_length     = callable(LOGICVECTOR2__GETLENGTH);
-    fn_vec2_normalize  = callable(LOGICVECTOR2__NORMALIZE);
-    fn_pt_distance     = callable(LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN);
-    fn_get_angle       = callable(LOGICMATH__GETANGLE);
-    fn_norm_angle      = callable(LOGICMATH__NORMALIZEANGLE180);
-    fn_rot_x           = callable(LOGICMATH__GETROTATEDX);
-    fn_rot_y           = callable(LOGICMATH__GETROTATEDY);
-    fn_first_collision = callable(LOGICGAMEPLAYUTIL__GETCLOSESTPATHFINDERCOLLISION);
+    fn_battle_instance  = callable(BATTLEMODE__GETINSTANCE);
+    fn_own_character    = callable(LOGICBATTLEMODECLIENT__GETOWNCHARACTER);
+    fn_tile_map         = callable(LOGICBATTLEMODECLIENT__GETTILEMAP);
+    fn_tile_to_logic    = callable(LOGICTILEMAP__TILETOLOGIC);
+    fn_segment_circle   = callable(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE);
+    fn_vec2_length      = callable(LOGICVECTOR2__GETLENGTH);
+    fn_vec2_normalize   = callable(LOGICVECTOR2__NORMALIZE);
+    fn_pt_distance      = callable(LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN);
+    fn_get_angle        = callable(LOGICMATH__GETANGLE);
+    fn_norm_angle       = callable(LOGICMATH__NORMALIZEANGLE180);
+    fn_rot_x            = callable(LOGICMATH__GETROTATEDX);
+    fn_rot_y            = callable(LOGICMATH__GETROTATEDY);
+    fn_collision_radius = callable(LOGICCHARACTERDATA__GETCOLLISIONRADIUS);
+    fn_first_collision  = callable(LOGICGAMEPLAYUTIL__GETCLOSESTPATHFINDERCOLLISION);
     return fn_battle_instance && fn_own_character && fn_tile_map && fn_tile_to_logic &&
            fn_segment_circle && fn_vec2_length && fn_vec2_normalize && fn_pt_distance &&
-           fn_get_angle && fn_norm_angle && fn_rot_x && fn_rot_y && fn_first_collision;
+           fn_get_angle && fn_norm_angle && fn_rot_x && fn_rot_y && fn_collision_radius &&
+           fn_first_collision;
 }
 
 void setup()
@@ -512,7 +505,7 @@ void setup()
     }
     if (!resolve_game_fns())
     {
-        return;
+        __builtin_trap();
     }
     client_input_resolve_all();
     start_scan_timer();

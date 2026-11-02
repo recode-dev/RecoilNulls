@@ -24,6 +24,10 @@ void client_input_resolve_all()
     client_input_constructor = callable(CLIENTINPUT__CONSTRUCTOR);
     client_input_add         = callable(CLIENTINPUTMANAGER__ADDINPUT);
     client_input_predict     = callable(LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO);
+    if (!client_input_constructor || !client_input_add || !client_input_predict)
+    {
+        __builtin_trap();
+    }
 }
 
 static void* client_input_manager(void* battle)
@@ -79,14 +83,10 @@ static void pending_push(int type, int x, int y, int predict)
 
 static void client_input_enqueue(int type, int x, int y, void* manager)
 {
-    if (!client_input_constructor || !client_input_add)
-    {
-        return;
-    }
     void* input = malloc(CLIENTINPUT__SIZE);
     if (!input)
     {
-        return;
+        __builtin_trap();
     }
     reinterpret_cast<void (*)(void*, int)>(client_input_constructor)(input, type);
     int32_t* fields            = reinterpret_cast<int32_t*>(input);
@@ -109,10 +109,9 @@ void commands_flush()
     void*     battle     = reinterpret_cast<void*>(scene_object);
     void*     manager    = client_input_manager(battle);
     uintptr_t controller = client();
-    if (!manager)
+    if (!manager || !controller)
     {
-        pending_count = 0;
-        return;
+        __builtin_trap();
     }
     for (int i = 0; i < pending_count; i++)
     {

@@ -10,7 +10,8 @@ static int       wall_have = 0;
 
 int32_t wall_logic_units(int tiles)
 {
-    return game_tile_to_logic(tiles) - game_tile_to_logic(0);
+    static int32_t unit = game_tile_to_logic(1) - game_tile_to_logic(0);
+    return unit * tiles;
 }
 
 void wall_cache_bind(uintptr_t tileMap)
@@ -77,7 +78,10 @@ int32_t wall_free_run(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int size)
     int32_t   run    = 0;
     int32_t   reach  = 0;
     uintptr_t pf     = wall_pathfinder();
-    if (!pf) return 0;
+    if (!pf)
+    {
+        __builtin_trap();
+    }
     if (!game_first_collision(size, x1, y1, x2, y2, pf, out))
     {
         return game_vec2_length(x2 - x1, y2 - y1);

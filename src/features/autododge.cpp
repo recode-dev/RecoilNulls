@@ -12,6 +12,8 @@ constexpr float TARGET_LERP   = 0.5f;
 constexpr int   STEER_SCALE   = 4096;
 constexpr float STEER_SCALE_F = 4096.0f;
 
+constexpr uint64_t INPUT_SEND_EVERY = 3;
+
 struct Span
 {
     int32_t tile;
@@ -91,6 +93,7 @@ struct ProjMemo
     uintptr_t data;
     int32_t   speed;
     int32_t   radius;
+    int8_t    team;
     uint8_t   ignores_walls;
 };
 
@@ -118,6 +121,7 @@ bool proj_info(uintptr_t data, ProjMemo* out)
     entry.data          = data;
     entry.speed         = speed;
     entry.radius        = radius;
+    entry.team          = static_cast<int8_t>(owned_team_of(data));
     entry.ignores_walls = (pass || pierce || butter) ? 1 : 0;
     *out                = entry;
     return true;
@@ -125,18 +129,12 @@ bool proj_info(uintptr_t data, ProjMemo* out)
 
 uintptr_t cc_data = 0;
 int32_t   cc_r    = 0;
-uintptr_t cc_fn   = 0;
 
 int32_t character_collision_radius(uintptr_t data)
 {
     if (data == cc_data) return cc_r;
-    if (!cc_fn)
-    {
-        cc_fn = callable(LOGICCHARACTERDATA__GETCOLLISIONRADIUS);
-        if (!cc_fn) return 0;
-    }
     cc_data = data;
-    cc_r    = reinterpret_cast<int32_t (*)(uintptr_t)>(cc_fn)(data);
+    cc_r    = game_collision_radius(data);
     return cc_r;
 }
 
@@ -211,15 +209,20 @@ bool read_projectile_position(const uint8_t* obj, int32_t* px, int32_t* py)
     return true;
 }
 
-void projectile_threat(
-    const uint8_t* obj, uintptr_t dataPtr, int32_t mx, int32_t my, int32_t px, int32_t py)
+void projectile_threat(const uint8_t* obj,
+                       uintptr_t      live,
+                       uintptr_t      dataPtr,
+                       int32_t        mx,
+                       int32_t        my,
+                       int32_t        px,
+                       int32_t        py)
 {
     int32_t pid = 0;
     memcpy(&pid, obj + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(pid));
     if (pid <= 0) return;
-    if (owned_team_of(dataPtr) != 0) return;
     ProjMemo info;
     if (!proj_info(dataPtr, &info)) return;
+    if (info.team != 0) return;
     int32_t sp = info.speed;
     if (sp <= 0) return;
     ProjTrack* slot  = nullptr;
@@ -254,8 +257,11 @@ void projectile_threat(
     {
         int32_t tx = 0;
         int32_t ty = 0;
-        memcpy(&tx, obj + LOGICPROJECTILECLIENT__TARGETX, sizeof(tx));
-        memcpy(&ty, obj + LOGICPROJECTILECLIENT__TARGETY, sizeof(ty));
+        if (!read_int(live + LOGICPROJECTILECLIENT__TARGETX, &tx) ||
+            !read_int(live + LOGICPROJECTILECLIENT__TARGETY, &ty))
+        {
+            return;
+        }
         int32_t ddx = tx - px;
         int32_t ddy = ty - py;
         int32_t seg = game_vec2_length(ddx, ddy);
@@ -273,11 +279,6 @@ void projectile_threat(
         int32_t a_me  = game_get_angle(mx - px, my - py);
         int32_t diff  = game_normalize_angle_180(a_me - a_dir);
         if (diff > 90 || diff < -90) return;
-        if (!info.ignores_walls)
-        {
-            int32_t capped = wall_free_run(px, py, px + ddx, py + ddy, body_subtiles(info.radius));
-            if (capped < seg) seg = capped;
-        }
         if (seg <= 0) return;
         int32_t rad    = info.radius + hitbox;
         int32_t vec[2] = {ddx, ddy};
@@ -285,6 +286,20 @@ void projectile_threat(
         int32_t x2 = px + vec[0];
         int32_t y2 = py + vec[1];
         if (!game_segment_hits_circle(px, py, x2, y2, mx, my, rad, nullptr)) return;
+        if (!info.ignores_walls)
+        {
+            int32_t capped = wall_free_run(px, py, px + ddx, py + ddy, body_subtiles(info.radius));
+            if (capped < seg)
+            {
+                seg = capped;
+                if (seg <= 0) return;
+                int32_t wall_vec[2] = {ddx, ddy};
+                game_vec2_normalize(wall_vec, seg);
+                if (!game_segment_hits_circle(
+                        px, py, px + wall_vec[0], py + wall_vec[1], mx, my, rad, nullptr))
+                    return;
+            }
+        }
         slot->active = 1;
     }
     else
@@ -331,7 +346,7 @@ void collect_logic_objects(int32_t mx, int32_t my)
         if (vt != base + static_cast<uintptr_t>(LOGICPROJECTILEDATA__VTABLE)) continue;
         int32_t px = 0, py = 0;
         if (!read_projectile_position(obj, &px, &py)) continue;
-        projectile_threat(obj, dataPtr, mx, my, px, py);
+        projectile_threat(obj, snapshot[i], dataPtr, mx, my, px, py);
     }
 }
 
@@ -504,7 +519,7 @@ void update_autododge()
         client_prediction_move_to(tx, ty);
         last_tx = tx, last_ty = ty;
     }
-    if (sent_frame != frame_index)
+    if (sent_frame != frame_index && frame_index % INPUT_SEND_EVERY == 0)
     {
         sent_frame = frame_index;
         enqueue_move_input(tx, ty);
