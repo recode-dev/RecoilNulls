@@ -26,6 +26,9 @@ static uintptr_t fn_segment_circle  = 0;
 static uintptr_t fn_vec2_length     = 0;
 static uintptr_t fn_vec2_normalize  = 0;
 static uintptr_t fn_pt_distance     = 0;
+static uintptr_t fn_get_angle       = 0;
+static uintptr_t fn_norm_angle      = 0;
+static uintptr_t fn_first_collision = 0;
 
 static guint memory_page_size()
 {
@@ -172,6 +175,24 @@ int32_t game_distance(int32_t x1, int32_t y1, int32_t x2, int32_t y2)
 {
     return reinterpret_cast<int32_t (*)(int32_t, int32_t, int32_t, int32_t)>(fn_pt_distance)(
         x1, y1, x2, y2);
+}
+
+int game_get_angle(int32_t dx, int32_t dy)
+{
+    return reinterpret_cast<int (*)(int32_t, int32_t)>(fn_get_angle)(dx, dy);
+}
+
+int game_normalize_angle_180(int angle)
+{
+    return reinterpret_cast<int (*)(int)>(fn_norm_angle)(angle);
+}
+
+int game_first_collision(
+    int size, int x1, int y1, int x2, int y2, uintptr_t pathfinder, int32_t* out)
+{
+    using collide_t = int (*)(int, int, int, int, int, void*, int32_t*, int, int);
+    return reinterpret_cast<collide_t>(fn_first_collision)(
+        size, x1, y1, x2, y2, reinterpret_cast<void*>(pathfinder), out, 0, 0);
 }
 
 uintptr_t callable(uintptr_t rva)
@@ -332,9 +353,12 @@ void scan_world()
     client_cached = clientPtr;
     {
         int32_t team = 0;
-        if (!read_int(clientPtr + static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__OWNTEAM), &team))
-            __builtin_trap();
-        if (team < 0) __builtin_trap();
+        if (!read_int(clientPtr + static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__OWNTEAM), &team) ||
+            team < 0)
+        {
+            world_reset();
+            return;
+        }
         own_team_value = team;
     }
     if (!read_ptr(clientPtr + static_cast<uintptr_t>(LOGICBATTLEMODECLIENT__GAMEOBJECTMANAGER),
@@ -346,13 +370,15 @@ void scan_world()
     }
     mgrPtr = (uintptr_t) value;
     if (!read_int(mgrPtr + static_cast<uintptr_t>(LOGICGAMEOBJECTMANAGER__GAMEOBJECTCOUNT), &count))
-        __builtin_trap();
-    if (count <= 0)
     {
         world_reset();
         return;
     }
-    if (count > COUNT_MAX) __builtin_trap();
+    if (count <= 0 || count > COUNT_MAX)
+    {
+        world_reset();
+        return;
+    }
     if (!read_ptr(mgrPtr + static_cast<uintptr_t>(LOGICGAMEOBJECTMANAGER__GAMEOBJECTS), &value) ||
         !value)
     {
@@ -386,7 +412,11 @@ void scan_world()
             valid[i] = 0;
             continue;
         }
-        if (!read_bytes(objPtr, block[i], OBJ_BLOCK_SIZE)) __builtin_trap();
+        if (!read_bytes(objPtr, block[i], OBJ_BLOCK_SIZE))
+        {
+            world_reset();
+            return;
+        }
         valid[i] = 1;
         if (objPtr == own)
         {
@@ -396,13 +426,19 @@ void scan_world()
     {
         int32_t xy[2] = {0, 0};
         if (!read_bytes(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__GETX), xy, sizeof(xy)))
-            __builtin_trap();
+        {
+            world_reset();
+            return;
+        }
         own_x    = xy[0];
         own_y    = xy[1];
         coord_ok = 1;
     }
-    if (!read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__HP), &hp)) __builtin_trap();
-    if (hp < 0) __builtin_trap();
+    if (!read_int(own + static_cast<uintptr_t>(LOGICGAMEOBJECTCLIENT__HP), &hp) || hp < 0)
+    {
+        world_reset();
+        return;
+    }
     own_hp = static_cast<uint32_t>(hp);
     dead   = own_hp == 0 ? 1 : 0;
     wall_cache_bind(call(fn_tile_map, clientPtr));
@@ -444,7 +480,7 @@ static void start_scan_timer()
     dispatch_resume(scan_timer);
 }
 
-static void resolve_game_fns()
+static bool resolve_game_fns()
 {
     fn_battle_instance = callable(BATTLEMODE__GETINSTANCE);
     fn_own_character   = callable(LOGICBATTLEMODECLIENT__GETOWNCHARACTER);
@@ -455,12 +491,12 @@ static void resolve_game_fns()
     fn_vec2_length     = callable(LOGICVECTOR2__GETLENGTH);
     fn_vec2_normalize  = callable(LOGICVECTOR2__NORMALIZE);
     fn_pt_distance     = callable(LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN);
-    if (!fn_battle_instance || !fn_own_character || !fn_tile_map || !fn_tile_passable ||
-        !fn_tile_to_logic || !fn_segment_circle || !fn_vec2_length || !fn_vec2_normalize ||
-        !fn_pt_distance)
-    {
-        __builtin_trap();
-    }
+    fn_get_angle       = callable(LOGICMATH__GETANGLE);
+    fn_norm_angle      = callable(LOGICMATH__NORMALIZEANGLE180);
+    fn_first_collision = callable(LOGICGAMEPLAYUTIL__GETCLOSESTPATHFINDERCOLLISION);
+    return fn_battle_instance && fn_own_character && fn_tile_map && fn_tile_passable &&
+           fn_tile_to_logic && fn_segment_circle && fn_vec2_length && fn_vec2_normalize &&
+           fn_pt_distance && fn_get_angle && fn_norm_angle && fn_first_collision;
 }
 
 void setup()
@@ -469,7 +505,10 @@ void setup()
     {
         return;
     }
-    resolve_game_fns();
+    if (!resolve_game_fns())
+    {
+        return;
+    }
     client_input_resolve_all();
     start_scan_timer();
     setup_done = true;
@@ -478,12 +517,12 @@ void setup()
 int coord_ok = 0;
 int dead     = 0;
 
-int is_owned_team_object(uintptr_t data)
+int owned_team_of(uintptr_t data)
 {
-    if (own_team_value < 0 || !data) return 0;
+    if (own_team_value < 0 || !data) return -1;
     int32_t team = 0;
-    if (!read_int(data + static_cast<uintptr_t>(LOGICDATA__TEAM), &team)) __builtin_trap();
-    return team == own_team_value;
+    if (!read_int(data + static_cast<uintptr_t>(LOGICDATA__TEAM), &team)) return -1;
+    return team == own_team_value ? 1 : 0;
 }
 
 uintptr_t client()

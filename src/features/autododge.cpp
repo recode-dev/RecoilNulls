@@ -8,10 +8,12 @@
 
 namespace
 {
-constexpr float TARGET_LERP = 0.5f;
-constexpr int   SIM_T_NUM   = 16;
-constexpr int   SIM_T_DEN   = 10;
-constexpr int   RANGE_UNIT  = 100;
+constexpr float TARGET_LERP   = 0.5f;
+constexpr int   SIM_T_NUM     = 16;
+constexpr int   SIM_T_DEN     = 10;
+constexpr int   RANGE_UNIT    = 100;
+constexpr int   STEER_SCALE   = 4096;
+constexpr float STEER_SCALE_F = 4096.0f;
 
 struct Span
 {
@@ -80,6 +82,11 @@ void cache_frame_geom()
     frame_geom.em = static_cast<float>(hitbox + span.pad);
 }
 
+int body_subtiles(int32_t radius)
+{
+    return radius > WALL_BODY_SUBTILE_UNITS ? 2 : 1;
+}
+
 constexpr int PROJ_MEMO_SLOTS = 64;
 
 struct ProjMemo
@@ -92,26 +99,31 @@ struct ProjMemo
 
 ProjMemo proj_memo[PROJ_MEMO_SLOTS] = {};
 
-const ProjMemo& proj_info(uintptr_t data)
+bool proj_info(uintptr_t data, ProjMemo* out)
 {
     ProjMemo& entry = proj_memo[(data >> 4) & (PROJ_MEMO_SLOTS - 1)];
-    if (entry.data == data) return entry;
+    if (entry.data == data)
+    {
+        *out = entry;
+        return true;
+    }
     int32_t speed  = 0;
     int32_t radius = 0;
     uint8_t pass   = 0;
     uint8_t pierce = 0;
     uint8_t butter = 0;
-    if (!read_int(data + LOGICPROJECTILEDATA__GETSPEED, &speed)) __builtin_trap();
-    if (!read_int(data + LOGICPROJECTILEDATA__GETRADIUS, &radius)) __builtin_trap();
-    if (!read_bytes(data + LOGICPROJECTILEDATA__PASSESENVIRONMENT, &pass, 1)) __builtin_trap();
-    if (!read_bytes(data + LOGICPROJECTILEDATA__PIERCESENVIRONMENT, &pierce, 1)) __builtin_trap();
+    if (!read_int(data + LOGICPROJECTILEDATA__GETSPEED, &speed)) return false;
+    if (!read_int(data + LOGICPROJECTILEDATA__GETRADIUS, &radius)) return false;
+    if (!read_bytes(data + LOGICPROJECTILEDATA__PASSESENVIRONMENT, &pass, 1)) return false;
+    if (!read_bytes(data + LOGICPROJECTILEDATA__PIERCESENVIRONMENT, &pierce, 1)) return false;
     if (!read_bytes(data + LOGICPROJECTILEDATA__PIERCESENVIRONMENTLIKEBUTTER, &butter, 1))
-        __builtin_trap();
+        return false;
     entry.data          = data;
     entry.speed         = speed;
     entry.radius        = radius;
     entry.ignores_walls = (pass || pierce || butter) ? 1 : 0;
-    return entry;
+    *out                = entry;
+    return true;
 }
 
 uintptr_t cc_data = 0;
@@ -124,7 +136,7 @@ int32_t character_collision_radius(uintptr_t data)
     if (!cc_fn)
     {
         cc_fn = callable(LOGICCHARACTERDATA__GETCOLLISIONRADIUS);
-        if (!cc_fn) __builtin_trap();
+        if (!cc_fn) return 0;
     }
     cc_data = data;
     cc_r    = reinterpret_cast<int32_t (*)(uintptr_t)>(cc_fn)(data);
@@ -169,45 +181,45 @@ void learn_flight_range(uintptr_t data, int32_t range)
 
 void learn_skill_range(uintptr_t sd)
 {
-    if (!sd) __builtin_trap();
+    if (!sd) return;
     uintptr_t row = 0;
-    if (!read_ptr(sd + LOGICSKILLDATA__ROWREF, &row)) __builtin_trap();
+    if (!read_ptr(sd + LOGICSKILLDATA__ROWREF, &row)) return;
     if (!row) return;
     uintptr_t table = 0;
-    if (!read_ptr(row + LOGICCSVROW__TABLE, &table)) __builtin_trap();
+    if (!read_ptr(row + LOGICCSVROW__TABLE, &table)) return;
     if (!table) return;
     int32_t col = 0;
-    if (!read_int(base + LOGICCSVTABLE__CASTINGRANGECOLGLOBAL, &col)) __builtin_trap();
-    if (col < 0 || col > 0xfff) __builtin_trap();
+    if (!read_int(base + LOGICCSVTABLE__CASTINGRANGECOLGLOBAL, &col)) return;
+    if (col < 0 || col > 0xfff) return;
     uintptr_t columns = 0;
-    if (!read_ptr(table + LOGICCSVTABLE__COLUMNS, &columns)) __builtin_trap();
+    if (!read_ptr(table + LOGICCSVTABLE__COLUMNS, &columns)) return;
     if (!columns) return;
     int32_t row_index = 0;
-    if (!read_int(row + LOGICCSVROW__ROWINDEX, &row_index)) __builtin_trap();
-    if (row_index < 0 || row_index > 0xfffff) __builtin_trap();
+    if (!read_int(row + LOGICCSVROW__ROWINDEX, &row_index)) return;
+    if (row_index < 0 || row_index > 0xfffff) return;
     uintptr_t column = 0;
-    if (!read_ptr(columns + static_cast<uintptr_t>(col) * 8, &column)) __builtin_trap();
+    if (!read_ptr(columns + static_cast<uintptr_t>(col) * 8, &column)) return;
     if (!column) return;
     uintptr_t values = 0;
-    if (!read_ptr(column + LOGICCSVCOLUMN__VALUES, &values)) __builtin_trap();
+    if (!read_ptr(column + LOGICCSVCOLUMN__VALUES, &values)) return;
     if (!values) return;
     int32_t tiles = 0;
-    if (!read_int(values + static_cast<uintptr_t>(row_index) * 4, &tiles)) __builtin_trap();
+    if (!read_int(values + static_cast<uintptr_t>(row_index) * 4, &tiles)) return;
     if (tiles == 0x7fffffff) return;
-    if (tiles < 1 || tiles > 120) __builtin_trap();
+    if (tiles < 1 || tiles > WALL_MAX_MAP_TILES) return;
     uintptr_t proj = 0;
-    if (!read_ptr(sd + LOGICSKILLDATA__PROJECTILE, &proj)) __builtin_trap();
+    if (!read_ptr(sd + LOGICSKILLDATA__PROJECTILE, &proj)) return;
     if (!proj) return;
     learn_flight_range(proj, tiles * RANGE_UNIT);
 }
 
 void learn_character_ranges(uintptr_t charData)
 {
-    if (!charData) __builtin_trap();
+    if (!charData) return;
     uintptr_t skill = 0;
-    if (!read_ptr(charData + LOGICCHARACTERDATA__WEAPONSKILL, &skill)) __builtin_trap();
+    if (!read_ptr(charData + LOGICCHARACTERDATA__WEAPONSKILL, &skill)) return;
     if (skill) learn_skill_range(skill);
-    if (!read_ptr(charData + LOGICCHARACTERDATA__ULTISKILL, &skill)) __builtin_trap();
+    if (!read_ptr(charData + LOGICCHARACTERDATA__ULTISKILL, &skill)) return;
     if (skill) learn_skill_range(skill);
 }
 
@@ -252,7 +264,7 @@ void character_entry(const uint8_t* obj, uintptr_t dataPtr, int32_t own_gid)
     memcpy(&hp, obj + LOGICGAMEOBJECTCLIENT__HP, sizeof(hp));
     memcpy(&gid, obj + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(gid));
     if (hp <= 0 || gid <= 0 || gid == own_gid) return;
-    if (is_owned_team_object(dataPtr)) return;
+    if (owned_team_of(dataPtr) != 0) return;
     learn_character_ranges(dataPtr);
 }
 
@@ -261,11 +273,12 @@ void projectile_threat(
 {
     int32_t pid = 0;
     memcpy(&pid, obj + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(pid));
-    if (pid <= 0) __builtin_trap();
-    if (is_owned_team_object(dataPtr)) return;
-    const ProjMemo& info = proj_info(dataPtr);
-    int32_t         sp   = info.speed;
-    if (sp < 0) __builtin_trap();
+    if (pid <= 0) return;
+    if (owned_team_of(dataPtr) != 0) return;
+    ProjMemo info;
+    if (!proj_info(dataPtr, &info)) return;
+    int32_t sp = info.speed;
+    if (sp < 0) return;
     if (sp == 0) return;
     ProjTrack* slot  = nullptr;
     int        limit = track_next < TRACK_MAX ? track_next : TRACK_MAX;
@@ -340,11 +353,13 @@ void projectile_threat(
             int32_t remain = learned + info.radius;
             if (seg > remain) seg = remain;
         }
-        int64_t dot = static_cast<int64_t>(mx - px) * dx + static_cast<int64_t>(my - py) * dy;
-        if (dot < 0) return;
+        int32_t a_dir = game_get_angle(dx, dy);
+        int32_t a_me  = game_get_angle(mx - px, my - py);
+        int32_t diff  = game_normalize_angle_180(a_me - a_dir);
+        if (diff > 90 || diff < -90) return;
         if (!info.ignores_walls)
         {
-            int32_t capped = wall_clear_run(px, py, dx, dy, seg, 0);
+            int32_t capped = wall_free_run(px, py, px + dx, py + dy, body_subtiles(info.radius));
             if (capped < seg) seg = capped;
         }
         if (seg <= 0) return;
@@ -394,10 +409,10 @@ void collect_logic_objects(int32_t own_gid, int32_t mx, int32_t my)
         const uint8_t* obj     = block[i];
         uintptr_t      dataPtr = 0;
         memcpy(&dataPtr, obj + LOGICGAMEOBJECTCLIENT__GETDATA, sizeof(dataPtr));
-        if (!dataPtr) __builtin_trap();
+        if (!dataPtr) continue;
         uintptr_t vt = 0;
-        if (!read_ptr(dataPtr, &vt)) __builtin_trap();
-        if (vt < base) __builtin_trap();
+        if (!read_ptr(dataPtr, &vt)) continue;
+        if (vt < base) continue;
         if (vt == base + static_cast<uintptr_t>(LOGICPROJECTILEDATA__VTABLE)) continue;
         character_entry(obj, dataPtr, own_gid);
     }
@@ -407,10 +422,10 @@ void collect_logic_objects(int32_t own_gid, int32_t mx, int32_t my)
         const uint8_t* obj     = block[i];
         uintptr_t      dataPtr = 0;
         memcpy(&dataPtr, obj + LOGICGAMEOBJECTCLIENT__GETDATA, sizeof(dataPtr));
-        if (!dataPtr) __builtin_trap();
+        if (!dataPtr) continue;
         uintptr_t vt = 0;
-        if (!read_ptr(dataPtr, &vt)) __builtin_trap();
-        if (vt < base) __builtin_trap();
+        if (!read_ptr(dataPtr, &vt)) continue;
+        if (vt < base) continue;
         if (vt != base + static_cast<uintptr_t>(LOGICPROJECTILEDATA__VTABLE)) continue;
         int32_t px = 0, py = 0;
         if (!read_projectile_position(obj, &px, &py)) continue;
@@ -425,25 +440,11 @@ int      last_valid = 0;
 
 float compute_free_run(float mx, float my, float dx, float dy)
 {
-    float run = static_cast<float>(span.tile);
-    float em  = frame_geom.em;
-    float w   = frame_geom.w;
-    float h   = frame_geom.h;
-    if (dx > 1e-6f)
-        run = fminf(run, (w - em - mx) / dx);
-    else if (dx < -1e-6f)
-        run = fminf(run, (em - mx) / dx);
-    if (dy > 1e-6f)
-        run = fminf(run, (h - em - my) / dy);
-    else if (dy < -1e-6f)
-        run = fminf(run, (em - my) / dy);
-    if (run <= 0.0f) return 0.0f;
-    return wall_clear_run(static_cast<int32_t>(mx),
-                          static_cast<int32_t>(my),
-                          static_cast<int32_t>(dx * 4096.0f),
-                          static_cast<int32_t>(dy * 4096.0f),
-                          static_cast<int32_t>(run),
-                          hitbox);
+    int32_t sx = static_cast<int32_t>(mx);
+    int32_t sy = static_cast<int32_t>(my);
+    int32_t ex = sx + static_cast<int32_t>(dx * static_cast<float>(span.tile));
+    int32_t ey = sy + static_cast<int32_t>(dy * static_cast<float>(span.tile));
+    return static_cast<float>(wall_free_run(sx, sy, ex, ey, body_subtiles(hitbox)));
 }
 
 void choose_dodge_direction(int32_t mx, int32_t my, float& out_x, float& out_y)
@@ -454,61 +455,50 @@ void choose_dodge_direction(int32_t mx, int32_t my, float& out_x, float& out_y)
         const Threat& t   = threats[i];
         int32_t       rxi = mx - t.x;
         int32_t       ryi = my - t.y;
-        float         rx  = static_cast<float>(rxi);
-        float         ry  = static_cast<float>(ryi);
         float         d   = static_cast<float>(game_vec2_length(rxi, ryi));
-        if (d < 1.0f)
-        {
-            rx = 1.0f;
-            ry = 0.0f;
-            d  = 1.0f;
-        }
+        if (d < 1.0f) d = 1.0f;
         float w  = 1.0f / (d + static_cast<float>(t.rad) + 1.0f);
         float vl = static_cast<float>(game_vec2_length(t.vx, t.vy));
         if (vl > 1.0f)
         {
-            float   ux   = static_cast<float>(t.vx) / vl;
-            float   uy   = static_cast<float>(t.vy) / vl;
-            int64_t side = static_cast<int64_t>(t.vx) * ryi - static_cast<int64_t>(t.vy) * rxi;
-            float   s    = side >= 0 ? 1.0f : -1.0f;
-            sx += (-uy * s - ux * 0.35f) * w;
-            sy += (ux * s - uy * 0.35f) * w;
+            int32_t u[2] = {t.vx, t.vy};
+            game_vec2_normalize(u, STEER_SCALE);
+            float   ux = static_cast<float>(u[0]) / STEER_SCALE_F;
+            float   uy = static_cast<float>(u[1]) / STEER_SCALE_F;
+            int32_t side =
+                game_normalize_angle_180(game_get_angle(rxi, ryi) - game_get_angle(t.vx, t.vy)) >= 0
+                    ? 1
+                    : -1;
+            sx += (-uy * side - ux * 0.35f) * w;
+            sy += (ux * side - uy * 0.35f) * w;
         }
         else
         {
-            sx += (rx / d) * w;
-            sy += (ry / d) * w;
+            int32_t r[2] = {rxi, ryi};
+            if (d <= 1.0f && rxi == 0 && ryi == 0)
+            {
+                r[0] = STEER_SCALE;
+                r[1] = 0;
+            }
+            else
+            {
+                game_vec2_normalize(r, STEER_SCALE);
+            }
+            sx += (static_cast<float>(r[0]) / STEER_SCALE_F) * w;
+            sy += (static_cast<float>(r[1]) / STEER_SCALE_F) * w;
         }
     }
-    float len = sqrtf(sx * sx + sy * sy);
-    if (len < 1e-6f)
+    if (sx * sx + sy * sy < 1e-12f)
     {
         out_x = 0.0f;
         out_y = 0.0f;
         return;
     }
-    float dx = sx / len;
-    float dy = sy / len;
-    if (compute_free_run(static_cast<float>(mx), static_cast<float>(my), dx, dy) <
-        static_cast<float>(hitbox) * 2.0f)
-    {
-        float lx    = -dy;
-        float ly    = dx;
-        float left  = compute_free_run(static_cast<float>(mx), static_cast<float>(my), lx, ly);
-        float right = compute_free_run(static_cast<float>(mx), static_cast<float>(my), -lx, -ly);
-        if (left >= right)
-        {
-            dx = lx;
-            dy = ly;
-        }
-        else
-        {
-            dx = -lx;
-            dy = -ly;
-        }
-    }
-    out_x = dx;
-    out_y = dy;
+    int32_t v[2] = {static_cast<int32_t>(sx * STEER_SCALE_F),
+                    static_cast<int32_t>(sy * STEER_SCALE_F)};
+    game_vec2_normalize(v, STEER_SCALE);
+    out_x = static_cast<float>(v[0]) / STEER_SCALE_F;
+    out_y = static_cast<float>(v[1]) / STEER_SCALE_F;
 }
 
 void reset_dodge_state()
@@ -519,13 +509,14 @@ void reset_dodge_state()
     last_valid = 0;
 }
 
-void learn_own_hitbox()
+bool learn_own_hitbox()
 {
     void* data = nullptr;
-    if (!read_ptr(elem + LOGICGAMEOBJECTCLIENT__GETDATA, &data)) __builtin_trap();
+    if (!read_ptr(elem + LOGICGAMEOBJECTCLIENT__GETDATA, &data)) return false;
     int32_t r = character_collision_radius(reinterpret_cast<uintptr_t>(data));
-    if (r <= 0) __builtin_trap();
+    if (r <= 0) return false;
     hitbox = r;
+    return true;
 }
 }
 
@@ -550,8 +541,16 @@ void update_autododge()
         reset_dodge_state();
         return;
     }
-    learn_own_hitbox();
-    if (wall_cache_width() <= 0 || wall_cache_height() <= 0) __builtin_trap();
+    if (!learn_own_hitbox())
+    {
+        reset_dodge_state();
+        return;
+    }
+    if (wall_cache_width() <= 0 || wall_cache_height() <= 0)
+    {
+        reset_dodge_state();
+        return;
+    }
     int32_t own_gid = 0;
     if (own_block)
     {

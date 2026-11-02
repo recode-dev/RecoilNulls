@@ -26,8 +26,12 @@ int game_segment_hits_circle(int x1, int y1, int x2, int y2, int cx, int cy, int
 int32_t game_vec2_length(int32_t x, int32_t y);
 void    game_vec2_normalize(int32_t* v, int32_t scale);
 int32_t game_distance(int32_t x1, int32_t y1, int32_t x2, int32_t y2);
-bool    find_game_image(uintptr_t* out_base);
-void    poll_for_game(int tick);
+int     game_get_angle(int32_t dx, int32_t dy);
+int     game_normalize_angle_180(int angle);
+int     game_first_collision(
+        int size, int x1, int y1, int x2, int y2, uintptr_t pathfinder, int32_t* out);
+bool find_game_image(uintptr_t* out_base);
+void poll_for_game(int tick);
 
 extern int gum_live;
 
@@ -45,7 +49,7 @@ void                  scan_world();
 void                  workload();
 void                  setup();
 extern uintptr_t      scene_object;
-int                   is_owned_team_object(uintptr_t data);
+int                   owned_team_of(uintptr_t data);
 extern int            coord_ok;
 extern int            dead;
 extern uintptr_t      elem;

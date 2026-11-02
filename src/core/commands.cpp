@@ -25,26 +25,23 @@ void client_input_resolve_all()
     client_input_constructor = callable(CLIENTINPUTMESSAGE__CONSTRUCTOR);
     client_input_add         = callable(CLIENTINPUTMANAGER__ADDINPUT);
     client_input_predict     = callable(LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO);
-    if (!client_input_constructor || !client_input_add || !client_input_predict)
-    {
-        __builtin_trap();
-    }
 }
 
 static void* client_input_manager(void* battle)
 {
     void* manager = nullptr;
+    void* queue   = nullptr;
+    if (!battle) return nullptr;
     if (!read_ptr(reinterpret_cast<uintptr_t>(battle) + LOGICBATTLEMODECLIENT__INPUTMANAGER,
                   &manager) ||
         !manager)
     {
-        __builtin_trap();
+        return nullptr;
     }
-    void* queue = nullptr;
     if (!read_ptr(reinterpret_cast<uintptr_t>(manager) + CLIENTINPUTMANAGER__QUEUE, &queue) ||
         !queue)
     {
-        __builtin_trap();
+        return nullptr;
     }
     return manager;
 }
@@ -83,10 +80,14 @@ static void pending_push(int type, int x, int y, int predict)
 
 static void client_input_enqueue(int type, int x, int y, void* manager)
 {
+    if (!client_input_constructor || !client_input_add)
+    {
+        return;
+    }
     void* message = malloc(CLIENTINPUTMESSAGE__SIZE);
     if (!message)
     {
-        __builtin_trap();
+        return;
     }
     memset(message, 0, CLIENTINPUTMESSAGE__SIZE);
     reinterpret_cast<void (*)(void*, int)>(client_input_constructor)(message, type);
@@ -108,13 +109,14 @@ void commands_flush()
         pending_count = 0;
         return;
     }
-    void* battle = reinterpret_cast<void*>(scene_object);
-    if (!battle)
-    {
-        __builtin_trap();
-    }
+    void*     battle     = reinterpret_cast<void*>(scene_object);
     void*     manager    = client_input_manager(battle);
     uintptr_t controller = client();
+    if (!manager)
+    {
+        pending_count = 0;
+        return;
+    }
     for (int i = 0; i < pending_count; i++)
     {
         PendingCommand& command = pending_command[i];
