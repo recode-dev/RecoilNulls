@@ -1,7 +1,6 @@
 #ifndef UTILS_WALLS_H
 #define UTILS_WALLS_H
 #include <cstdint>
-inline constexpr int WALL_SUBTILES_PER_TILE  = 3;
 inline constexpr int WALL_MAX_MAP_TILES      = 120;
 inline constexpr int WALL_BODY_SUBTILE_UNITS = 199;
 int32_t              wall_logic_units(int tiles);

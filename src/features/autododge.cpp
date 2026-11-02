@@ -9,9 +9,6 @@
 namespace
 {
 constexpr float TARGET_LERP   = 0.5f;
-constexpr int   SIM_T_NUM     = 16;
-constexpr int   SIM_T_DEN     = 10;
-constexpr int   RANGE_UNIT    = 100;
 constexpr int   STEER_SCALE   = 4096;
 constexpr float STEER_SCALE_F = 4096.0f;
 
@@ -179,50 +176,6 @@ void learn_flight_range(uintptr_t data, int32_t range)
     }
 }
 
-void learn_skill_range(uintptr_t sd)
-{
-    if (!sd) return;
-    uintptr_t row = 0;
-    if (!read_ptr(sd + LOGICSKILLDATA__ROWREF, &row)) return;
-    if (!row) return;
-    uintptr_t table = 0;
-    if (!read_ptr(row + LOGICCSVROW__TABLE, &table)) return;
-    if (!table) return;
-    int32_t col = 0;
-    if (!read_int(base + LOGICCSVTABLE__CASTINGRANGECOLGLOBAL, &col)) return;
-    if (col < 0 || col > 0xfff) return;
-    uintptr_t columns = 0;
-    if (!read_ptr(table + LOGICCSVTABLE__COLUMNS, &columns)) return;
-    if (!columns) return;
-    int32_t row_index = 0;
-    if (!read_int(row + LOGICCSVROW__ROWINDEX, &row_index)) return;
-    if (row_index < 0 || row_index > 0xfffff) return;
-    uintptr_t column = 0;
-    if (!read_ptr(columns + static_cast<uintptr_t>(col) * 8, &column)) return;
-    if (!column) return;
-    uintptr_t values = 0;
-    if (!read_ptr(column + LOGICCSVCOLUMN__VALUES, &values)) return;
-    if (!values) return;
-    int32_t tiles = 0;
-    if (!read_int(values + static_cast<uintptr_t>(row_index) * 4, &tiles)) return;
-    if (tiles == 0x7fffffff) return;
-    if (tiles < 1 || tiles > WALL_MAX_MAP_TILES) return;
-    uintptr_t proj = 0;
-    if (!read_ptr(sd + LOGICSKILLDATA__PROJECTILE, &proj)) return;
-    if (!proj) return;
-    learn_flight_range(proj, tiles * RANGE_UNIT);
-}
-
-void learn_character_ranges(uintptr_t charData)
-{
-    if (!charData) return;
-    uintptr_t skill = 0;
-    if (!read_ptr(charData + LOGICCHARACTERDATA__WEAPONSKILL, &skill)) return;
-    if (skill) learn_skill_range(skill);
-    if (!read_ptr(charData + LOGICCHARACTERDATA__ULTISKILL, &skill)) return;
-    if (skill) learn_skill_range(skill);
-}
-
 void begin_projectile_frame()
 {
     for (auto& i : proj_track)
@@ -258,16 +211,6 @@ bool read_projectile_position(const uint8_t* obj, int32_t* px, int32_t* py)
     return true;
 }
 
-void character_entry(const uint8_t* obj, uintptr_t dataPtr, int32_t own_gid)
-{
-    int32_t hp = 0, gid = 0;
-    memcpy(&hp, obj + LOGICGAMEOBJECTCLIENT__HP, sizeof(hp));
-    memcpy(&gid, obj + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(gid));
-    if (hp <= 0 || gid <= 0 || gid == own_gid) return;
-    if (owned_team_of(dataPtr) != 0) return;
-    learn_character_ranges(dataPtr);
-}
-
 void projectile_threat(
     const uint8_t* obj, uintptr_t dataPtr, int32_t mx, int32_t my, int32_t px, int32_t py)
 {
@@ -278,8 +221,7 @@ void projectile_threat(
     ProjMemo info;
     if (!proj_info(dataPtr, &info)) return;
     int32_t sp = info.speed;
-    if (sp < 0) return;
-    if (sp == 0) return;
+    if (sp <= 0) return;
     ProjTrack* slot  = nullptr;
     int        limit = track_next < TRACK_MAX ? track_next : TRACK_MAX;
     for (int i = 0; i < limit; i++)
@@ -290,11 +232,9 @@ void projectile_threat(
             break;
         }
     }
-    int spawn = 0;
     if (!slot)
     {
-        spawn = 1;
-        slot  = &proj_track[track_next % TRACK_MAX];
+        slot = &proj_track[track_next % TRACK_MAX];
         track_next++;
         slot->pid    = pid;
         slot->data   = dataPtr;
@@ -312,40 +252,16 @@ void projectile_threat(
     slot->ly       = py;
     if (!slot->active)
     {
-        int32_t dx = 0, dy = 0, seg = 0;
-        int32_t tx = 0, ty = 0;
+        int32_t tx = 0;
+        int32_t ty = 0;
         memcpy(&tx, obj + LOGICPROJECTILECLIENT__TARGETX, sizeof(tx));
         memcpy(&ty, obj + LOGICPROJECTILECLIENT__TARGETY, sizeof(ty));
-        int have = 0;
-        if (tx != 0 || ty != 0)
-        {
-            int32_t ddx    = tx - px;
-            int32_t ddy    = ty - py;
-            int32_t travel = game_vec2_length(ddx, ddy);
-            if (travel >= 1)
-            {
-                dx   = ddx;
-                dy   = ddy;
-                seg  = travel;
-                have = 1;
-            }
-        }
-        if (!have && !spawn)
-        {
-            int32_t ddx   = px - slot->x;
-            int32_t ddy   = py - slot->y;
-            int32_t flown = game_vec2_length(ddx, ddy);
-            if (flown >= 1)
-            {
-                dx   = ddx;
-                dy   = ddy;
-                seg  = sp * SIM_T_NUM / SIM_T_DEN;
-                have = 1;
-            }
-        }
-        if (!have) return;
-        slot->dx        = dx;
-        slot->dy        = dy;
+        int32_t ddx = tx - px;
+        int32_t ddy = ty - py;
+        int32_t seg = game_vec2_length(ddx, ddy);
+        if (seg < 1) return;
+        slot->dx        = ddx;
+        slot->dy        = ddy;
         slot->seg0      = seg;
         int32_t learned = learned_flight_range(dataPtr);
         if (learned > 0)
@@ -353,18 +269,18 @@ void projectile_threat(
             int32_t remain = learned + info.radius;
             if (seg > remain) seg = remain;
         }
-        int32_t a_dir = game_get_angle(dx, dy);
+        int32_t a_dir = game_get_angle(ddx, ddy);
         int32_t a_me  = game_get_angle(mx - px, my - py);
         int32_t diff  = game_normalize_angle_180(a_me - a_dir);
         if (diff > 90 || diff < -90) return;
         if (!info.ignores_walls)
         {
-            int32_t capped = wall_free_run(px, py, px + dx, py + dy, body_subtiles(info.radius));
+            int32_t capped = wall_free_run(px, py, px + ddx, py + ddy, body_subtiles(info.radius));
             if (capped < seg) seg = capped;
         }
         if (seg <= 0) return;
         int32_t rad    = info.radius + hitbox;
-        int32_t vec[2] = {dx, dy};
+        int32_t vec[2] = {ddx, ddy};
         game_vec2_normalize(vec, seg);
         int32_t x2 = px + vec[0];
         int32_t y2 = py + vec[1];
@@ -401,7 +317,7 @@ void projectile_threat(
     t.rad = info.radius + hitbox;
 }
 
-void collect_logic_objects(int32_t own_gid, int32_t mx, int32_t my)
+void collect_logic_objects(int32_t mx, int32_t my)
 {
     for (int i = 0; i < obj_count; i++)
     {
@@ -412,20 +328,6 @@ void collect_logic_objects(int32_t own_gid, int32_t mx, int32_t my)
         if (!dataPtr) continue;
         uintptr_t vt = 0;
         if (!read_ptr(dataPtr, &vt)) continue;
-        if (vt < base) continue;
-        if (vt == base + static_cast<uintptr_t>(LOGICPROJECTILEDATA__VTABLE)) continue;
-        character_entry(obj, dataPtr, own_gid);
-    }
-    for (int i = 0; i < obj_count; i++)
-    {
-        if (!valid[i]) continue;
-        const uint8_t* obj     = block[i];
-        uintptr_t      dataPtr = 0;
-        memcpy(&dataPtr, obj + LOGICGAMEOBJECTCLIENT__GETDATA, sizeof(dataPtr));
-        if (!dataPtr) continue;
-        uintptr_t vt = 0;
-        if (!read_ptr(dataPtr, &vt)) continue;
-        if (vt < base) continue;
         if (vt != base + static_cast<uintptr_t>(LOGICPROJECTILEDATA__VTABLE)) continue;
         int32_t px = 0, py = 0;
         if (!read_projectile_position(obj, &px, &py)) continue;
@@ -555,16 +457,11 @@ void update_autododge()
         reset_dodge_state();
         return;
     }
-    int32_t own_gid = 0;
-    if (own_block)
-    {
-        memcpy(&own_gid, own_block + LOGICGAMEOBJECTCLIENT__GETGLOBALID, sizeof(own_gid));
-    }
     cache_span();
     cache_frame_geom();
     int32_t mx = own_x, my = own_y;
     begin_projectile_frame();
-    collect_logic_objects(own_gid, mx, my);
+    collect_logic_objects(mx, my);
     sweep_dead_projectiles();
     if (!threat_n)
     {

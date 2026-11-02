@@ -1,6 +1,5 @@
 #include "commands.h"
 #include <cstdlib>
-#include <cstring>
 #include "offsets.h"
 #include "scan.h"
 inline constexpr int PendingCommandMax = 16;
@@ -22,7 +21,7 @@ static uintptr_t client_input_predict     = 0;
 
 void client_input_resolve_all()
 {
-    client_input_constructor = callable(CLIENTINPUTMESSAGE__CONSTRUCTOR);
+    client_input_constructor = callable(CLIENTINPUT__CONSTRUCTOR);
     client_input_add         = callable(CLIENTINPUTMANAGER__ADDINPUT);
     client_input_predict     = callable(LOGICBATTLEMODECLIENT__SETCLIENTPREDICTIONMOVETO);
 }
@@ -84,18 +83,16 @@ static void client_input_enqueue(int type, int x, int y, void* manager)
     {
         return;
     }
-    void* message = malloc(CLIENTINPUTMESSAGE__SIZE);
-    if (!message)
+    void* input = malloc(CLIENTINPUT__SIZE);
+    if (!input)
     {
         return;
     }
-    memset(message, 0, CLIENTINPUTMESSAGE__SIZE);
-    reinterpret_cast<void (*)(void*, int)>(client_input_constructor)(message, type);
-    int32_t* fields                      = reinterpret_cast<int32_t*>(message);
-    fields[CLIENTINPUTMESSAGE__TYPE / 4] = static_cast<int32_t>(type);
-    fields[CLIENTINPUTMESSAGE__X / 4]    = static_cast<int32_t>(x);
-    fields[CLIENTINPUTMESSAGE__Y / 4]    = static_cast<int32_t>(y);
-    reinterpret_cast<void (*)(void*, void*)>(client_input_add)(manager, message);
+    reinterpret_cast<void (*)(void*, int)>(client_input_constructor)(input, type);
+    int32_t* fields            = reinterpret_cast<int32_t*>(input);
+    fields[CLIENTINPUT__X / 4] = static_cast<int32_t>(x);
+    fields[CLIENTINPUT__Y / 4] = static_cast<int32_t>(y);
+    reinterpret_cast<void (*)(void*, void*)>(client_input_add)(manager, input);
 }
 
 void commands_flush()

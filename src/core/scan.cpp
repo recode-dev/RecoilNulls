@@ -20,7 +20,6 @@ inline constexpr guint    GUM_IMAGE_LIMIT  = 0x2000000;
 static uintptr_t fn_battle_instance = 0;
 static uintptr_t fn_own_character   = 0;
 static uintptr_t fn_tile_map        = 0;
-static uintptr_t fn_tile_passable   = 0;
 static uintptr_t fn_tile_to_logic   = 0;
 static uintptr_t fn_segment_circle  = 0;
 static uintptr_t fn_vec2_length     = 0;
@@ -141,13 +140,6 @@ bool read_ptr(uintptr_t address, void** out)
         return false;
     }
     return read_bytes(address, out, sizeof(void*));
-}
-
-int game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY)
-{
-    using pass_t = uint8_t (*)(void*, int, int, int, int, int);
-    return reinterpret_cast<pass_t>(fn_tile_passable)(
-        reinterpret_cast<void*>(tileMap), 1, cellX, cellY, 0, 0);
 }
 
 int game_tile_to_logic(int tile)
@@ -497,7 +489,6 @@ static bool resolve_game_fns()
     fn_battle_instance = callable(BATTLEMODE__GETINSTANCE);
     fn_own_character   = callable(LOGICBATTLEMODECLIENT__GETOWNCHARACTER);
     fn_tile_map        = callable(LOGICBATTLEMODECLIENT__GETTILEMAP);
-    fn_tile_passable   = callable(LOGICTILEMAP__ISPASSABLEPATHFINDER);
     fn_tile_to_logic   = callable(LOGICTILEMAP__TILETOLOGIC);
     fn_segment_circle  = callable(LOGICGAMEPLAYUTIL__LINESEGMENTINTERSECTSCIRCLE);
     fn_vec2_length     = callable(LOGICVECTOR2__GETLENGTH);
@@ -508,10 +499,9 @@ static bool resolve_game_fns()
     fn_rot_x           = callable(LOGICMATH__GETROTATEDX);
     fn_rot_y           = callable(LOGICMATH__GETROTATEDY);
     fn_first_collision = callable(LOGICGAMEPLAYUTIL__GETCLOSESTPATHFINDERCOLLISION);
-    return fn_battle_instance && fn_own_character && fn_tile_map && fn_tile_passable &&
-           fn_tile_to_logic && fn_segment_circle && fn_vec2_length && fn_vec2_normalize &&
-           fn_pt_distance && fn_get_angle && fn_norm_angle && fn_rot_x && fn_rot_y &&
-           fn_first_collision;
+    return fn_battle_instance && fn_own_character && fn_tile_map && fn_tile_to_logic &&
+           fn_segment_circle && fn_vec2_length && fn_vec2_normalize && fn_pt_distance &&
+           fn_get_angle && fn_norm_angle && fn_rot_x && fn_rot_y && fn_first_collision;
 }
 
 void setup()

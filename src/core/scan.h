@@ -20,7 +20,6 @@ bool               read_int(uintptr_t address, int32_t* out);
 bool               read_ptr(uintptr_t address, void** out);
 bool               read_ptr(uintptr_t address, uintptr_t* out);
 uintptr_t          callable(uintptr_t rva);
-int                game_tile_is_passable(uintptr_t tileMap, int cellX, int cellY);
 int                game_tile_to_logic(int tile);
 int game_segment_hits_circle(int x1, int y1, int x2, int y2, int cx, int cy, int radius, int* out);
 int32_t game_vec2_length(int32_t x, int32_t y);
@@ -31,7 +30,7 @@ int     game_normalize_angle_180(int angle);
 int     game_rotated_x(int32_t x, int32_t y, int32_t angle);
 int     game_rotated_y(int32_t x, int32_t y, int32_t angle);
 int     game_first_collision(
-        int size, int x1, int y1, int x2, int y2, uintptr_t pathfinder, int32_t* out);
+    int size, int x1, int y1, int x2, int y2, uintptr_t pathfinder, int32_t* out);
 bool find_game_image(uintptr_t* out_base);
 void poll_for_game(int tick);
 

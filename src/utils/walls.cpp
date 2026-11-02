@@ -32,7 +32,7 @@ void wall_cache_bind(uintptr_t tileMap)
         wall_h    = 0;
         wall_have = 0;
     }
-    if (wall_have && wall_w > 0 && wall_h > 0 && tileMap == wall_map) return;
+    if (wall_have && wall_w > 0 && wall_h > 0) return;
     if (!read_int(tileMap + static_cast<uintptr_t>(LOGICTILEMAP__WIDTH), &mapW) || mapW <= 0 ||
         mapW > WALL_MAX_MAP_TILES)
     {
