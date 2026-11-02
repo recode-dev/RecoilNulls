@@ -28,6 +28,8 @@ static uintptr_t fn_vec2_normalize  = 0;
 static uintptr_t fn_pt_distance     = 0;
 static uintptr_t fn_get_angle       = 0;
 static uintptr_t fn_norm_angle      = 0;
+static uintptr_t fn_rot_x           = 0;
+static uintptr_t fn_rot_y           = 0;
 static uintptr_t fn_first_collision = 0;
 
 static guint memory_page_size()
@@ -185,6 +187,16 @@ int game_get_angle(int32_t dx, int32_t dy)
 int game_normalize_angle_180(int angle)
 {
     return reinterpret_cast<int (*)(int)>(fn_norm_angle)(angle);
+}
+
+int game_rotated_x(int32_t x, int32_t y, int32_t angle)
+{
+    return reinterpret_cast<int (*)(int32_t, int32_t, int32_t)>(fn_rot_x)(x, y, angle);
+}
+
+int game_rotated_y(int32_t x, int32_t y, int32_t angle)
+{
+    return reinterpret_cast<int (*)(int32_t, int32_t, int32_t)>(fn_rot_y)(x, y, angle);
 }
 
 int game_first_collision(
@@ -493,10 +505,13 @@ static bool resolve_game_fns()
     fn_pt_distance     = callable(LOGICGAMEPLAYUTIL__GETDISTANCEBETWEEN);
     fn_get_angle       = callable(LOGICMATH__GETANGLE);
     fn_norm_angle      = callable(LOGICMATH__NORMALIZEANGLE180);
+    fn_rot_x           = callable(LOGICMATH__GETROTATEDX);
+    fn_rot_y           = callable(LOGICMATH__GETROTATEDY);
     fn_first_collision = callable(LOGICGAMEPLAYUTIL__GETCLOSESTPATHFINDERCOLLISION);
     return fn_battle_instance && fn_own_character && fn_tile_map && fn_tile_passable &&
            fn_tile_to_logic && fn_segment_circle && fn_vec2_length && fn_vec2_normalize &&
-           fn_pt_distance && fn_get_angle && fn_norm_angle && fn_first_collision;
+           fn_pt_distance && fn_get_angle && fn_norm_angle && fn_rot_x && fn_rot_y &&
+           fn_first_collision;
 }
 
 void setup()

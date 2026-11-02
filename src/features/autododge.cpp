@@ -469,8 +469,12 @@ void choose_dodge_direction(int32_t mx, int32_t my, float& out_x, float& out_y)
                 game_normalize_angle_180(game_get_angle(rxi, ryi) - game_get_angle(t.vx, t.vy)) >= 0
                     ? 1
                     : -1;
-            sx += (-uy * side - ux * 0.35f) * w;
-            sy += (ux * side - uy * 0.35f) * w;
+            int32_t rx = game_rotated_x(u[0], u[1], side * 90);
+            int32_t ry = game_rotated_y(u[0], u[1], side * 90);
+            float   gx = static_cast<float>(rx) / STEER_SCALE_F;
+            float   gy = static_cast<float>(ry) / STEER_SCALE_F;
+            sx += (gx - ux * 0.35f) * w;
+            sy += (gy - uy * 0.35f) * w;
         }
         else
         {
@@ -488,14 +492,14 @@ void choose_dodge_direction(int32_t mx, int32_t my, float& out_x, float& out_y)
             sy += (static_cast<float>(r[1]) / STEER_SCALE_F) * w;
         }
     }
-    if (sx * sx + sy * sy < 1e-12f)
+    int32_t v[2] = {static_cast<int32_t>(sx * STEER_SCALE_F),
+                    static_cast<int32_t>(sy * STEER_SCALE_F)};
+    if (game_vec2_length(v[0], v[1]) == 0)
     {
         out_x = 0.0f;
         out_y = 0.0f;
         return;
     }
-    int32_t v[2] = {static_cast<int32_t>(sx * STEER_SCALE_F),
-                    static_cast<int32_t>(sy * STEER_SCALE_F)};
     game_vec2_normalize(v, STEER_SCALE);
     out_x = static_cast<float>(v[0]) / STEER_SCALE_F;
     out_y = static_cast<float>(v[1]) / STEER_SCALE_F;
